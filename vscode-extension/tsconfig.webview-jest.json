@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["webview-src/*"],
+      "@compat/*": ["src/webview/compat/*"],
+      "@contracts/*": ["src/webview/contracts/*"]
+    },
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node",
+      "jest",
+      "vscode"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "src/test/**/*",
+    "webview-src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "webview-dist",
+    "dist"
+  ]
+}

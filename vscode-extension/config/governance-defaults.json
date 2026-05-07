@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "description": "Default governance rules for PBIR Design Analyzer. Organizations can override these via Configuration Panel UI (stored in VS Code globalState).",
+  "rules": {
+    "maxVisualsPerPage": {
+      "name": "Max Visuals Per Page",
+      "value": 15,
+      "description": "Maximum number of visuals allowed on a single page/state",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "maxBookmarksPerPage": {
+      "name": "Max Bookmarks Per Page",
+      "value": 10,
+      "description": "Maximum number of bookmark states allowed per page",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "maxLayoutStatesPerPage": {
+      "name": "Max Layout States Per Page",
+      "value": 8,
+      "description": "Maximum number of distinct visual layout states (via bookmarks) allowed per page",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "maxHiddenVisuals": {
+      "name": "Max Hidden Visuals",
+      "value": 10,
+      "description": "Maximum number of hidden visuals allowed (inactive visuals hidden by bookmarks)",
+      "severity": "info",
+      "adminOnly": true
+    },
+    "minWhiteSpaceRatio": {
+      "name": "Minimum White Space Ratio",
+      "value": 0.15,
+      "description": "Minimum ratio of white space to total page area (0.0 = 0%, 1.0 = 100%)",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "allowPieCharts": {
+      "name": "Allow Pie Charts",
+      "value": true,
+      "description": "Whether pie charts are allowed in reports",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "allowCustomVisuals": {
+      "name": "Allow Custom Visuals",
+      "value": true,
+      "description": "Whether custom visuals (third-party) are allowed in reports",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "requirePageTitle": {
+      "name": "Require Page Title",
+      "value": true,
+      "description": "Whether page titles are required on all report pages",
+      "severity": "error",
+      "adminOnly": true
+    },
+    "requireFilterPanel": {
+      "name": "Require Filter Panel",
+      "value": false,
+      "description": "Whether a filter panel is required on all report pages",
+      "severity": "warning",
+      "adminOnly": true
+    },
+    "themeStandard": {
+      "name": "Standard Theme",
+      "value": "default",
+      "description": "The approved standard theme for reports (e.g. 'default', 'executive', 'contrast')",
+      "severity": "warning",
+      "adminOnly": true
+    }
+  }
+}

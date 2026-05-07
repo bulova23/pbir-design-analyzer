@@ -1,0 +1,124 @@
+import * as vscode from 'vscode';
+import { detectWorkspacePbirProjectPath } from './analyzer/project/discovery';
+import { registerCommands } from './commands/register';
+import { pbirTreeProvider } from './commands/pbirCommands';
+import { initializeDesignAnalyzerConfig } from './analyzer/config/store';
+import { createTmdlLanguageClient, stopTmdlLanguageClient } from './languageServer/tmdlLanguageClient';
+import { LSPModelService, LSPState } from './services/lsp/LSPModelService';
+import { LanguageClient } from 'vscode-languageclient/node';
+
+let lspModelService: LSPModelService | undefined;
+let daemonStatusBar: vscode.StatusBarItem | undefined;
+let tmdlLanguageClient: LanguageClient | undefined;
+let extensionOutput: vscode.OutputChannel | undefined;
+
+export async function activate(context: vscode.ExtensionContext) {
+  extensionOutput = vscode.window.createOutputChannel('PBIR Design Analyzer');
+  context.subscriptions.push(extensionOutput);
+  extensionOutput.appendLine('PBIR Design Analyzer is activating...');
+  extensionOutput.appendLine(`Extension id: ${context.extension.id}`);
+  extensionOutput.appendLine(`Extension path: ${context.extensionPath}`);
+
+  await initializeDesignAnalyzerConfig(context);
+
+  daemonStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  daemonStatusBar.text = '$(sync~spin) PBIR Design Analyzer: Starting backend';
+  daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is starting';
+  daemonStatusBar.show();
+  context.subscriptions.push(daemonStatusBar);
+
+  registerCommands(context, () => lspModelService);
+  await autoLoadPbipProject(extensionOutput);
+
+  tmdlLanguageClient = createTmdlLanguageClient(context);
+  if (!tmdlLanguageClient) {
+    const errorMessage = 'Failed to create the analyzer backend client. Packaged PBIR backend binary not found.';
+    extensionOutput.appendLine(errorMessage);
+    vscode.window.showErrorMessage(errorMessage);
+    daemonStatusBar.text = '$(error) PBIR Design Analyzer: Backend missing';
+    daemonStatusBar.tooltip = 'PBIR Design Analyzer backend binary is missing';
+    extensionOutput.appendLine('[Extension] Continuing in local-only mode');
+    extensionOutput.appendLine('PBIR Design Analyzer activated');
+    return;
+  }
+
+  try {
+    extensionOutput.appendLine('[Extension] Starting analyzer backend client...');
+    await tmdlLanguageClient.start();
+    context.subscriptions.push(tmdlLanguageClient);
+
+    lspModelService = LSPModelService.getInstance();
+    lspModelService.onStateChange((state: LSPState) => {
+      if (!daemonStatusBar) {
+        return;
+      }
+
+      switch (state) {
+        case LSPState.STARTING:
+          daemonStatusBar.text = '$(sync~spin) PBIR Design Analyzer: Starting backend';
+          daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is starting';
+          break;
+        case LSPState.READY:
+          daemonStatusBar.text = '$(check) PBIR Design Analyzer: Ready';
+          daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is ready';
+          break;
+        case LSPState.ERROR:
+          daemonStatusBar.text = '$(error) PBIR Design Analyzer: Backend error';
+          daemonStatusBar.tooltip = 'PBIR Design Analyzer backend failed';
+          break;
+        case LSPState.UNINITIALIZED:
+          daemonStatusBar.text = '$(warning) PBIR Design Analyzer: Backend stopped';
+          daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is not initialized';
+          break;
+      }
+    });
+
+    await lspModelService.initialize(tmdlLanguageClient);
+    pbirTreeProvider?.setLSPModelService(lspModelService);
+    pbirTreeProvider?.refresh();
+    extensionOutput.appendLine('[Extension] Analyzer backend initialized successfully');
+  } catch (error) {
+    extensionOutput.appendLine(`[Extension] Failed to initialize analyzer backend: ${error}`);
+    vscode.window.showWarningMessage(
+      'PBIR analyzer backend failed to start. Report analysis commands will be unavailable.',
+    );
+    if (daemonStatusBar) {
+      daemonStatusBar.text = '$(error) PBIR Design Analyzer: Backend error';
+      daemonStatusBar.tooltip = 'PBIR Design Analyzer backend failed to initialize';
+    }
+    pbirTreeProvider?.setLSPModelService(undefined);
+    pbirTreeProvider?.refresh();
+  }
+
+  extensionOutput.appendLine('PBIR Design Analyzer activated');
+}
+
+async function autoLoadPbipProject(outputChannel: vscode.OutputChannel | undefined): Promise<void> {
+  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+    outputChannel?.appendLine('[Extension] No workspace folder open, skipping PBIP auto-open');
+    return;
+  }
+
+  const projectPath = await detectWorkspacePbirProjectPath();
+  if (!projectPath) {
+    outputChannel?.appendLine('[Extension] No PBIP/PBIR project found in the active workspace');
+    return;
+  }
+
+  pbirTreeProvider?.setProjectPath(projectPath);
+  outputChannel?.appendLine(`[Extension] Auto-opened PBIR project: ${projectPath}`);
+}
+
+export async function deactivate() {
+  if (extensionOutput) {
+    extensionOutput.appendLine('PBIR Design Analyzer deactivating');
+  }
+
+  if (lspModelService) {
+    await lspModelService.shutdown();
+  }
+
+  if (tmdlLanguageClient) {
+    await stopTmdlLanguageClient(tmdlLanguageClient);
+  }
+}

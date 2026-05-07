@@ -1,0 +1,333 @@
+:root {
+  color-scheme: light dark;
+  --panel-border: color-mix(in srgb, var(--vscode-editorGroup-border) 85%, transparent);
+  --panel-muted: var(--vscode-descriptionForeground);
+  --panel-surface: color-mix(in srgb, var(--vscode-editor-background) 88%, var(--vscode-editorWidget-background) 12%);
+  --panel-surface-strong: color-mix(in srgb, var(--vscode-sideBar-background) 74%, var(--vscode-editorWidget-background) 26%);
+  --panel-accent: var(--vscode-textLink-foreground);
+  --panel-success: #2e8b57;
+  --panel-danger: #c94b64;
+  --panel-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--panel-accent) 14%, transparent) 0, transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vscode-editor-background) 94%, black 6%) 0%, var(--vscode-editor-background) 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a {
+  color: var(--panel-accent);
+}
+
+.page-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+
+.hero-card,
+.section-card,
+.status-banner {
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  background: var(--panel-surface);
+  box-shadow: var(--panel-shadow);
+}
+
+.hero-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--panel-accent) 18%, transparent) 0%, transparent 55%),
+    var(--panel-surface-strong);
+}
+
+.hero-copy h1,
+.section-header h2,
+.framework-card h3,
+.governance-card h3 {
+  margin: 0;
+}
+
+.eyebrow,
+.section-kicker,
+.governance-meta,
+.hero-text,
+.section-caption,
+.framework-description {
+  color: var(--panel-muted);
+}
+
+.eyebrow,
+.section-kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero-text {
+  margin: 12px 0 0;
+  max-width: 56rem;
+  line-height: 1.6;
+}
+
+.weight-pill {
+  min-width: 164px;
+  align-self: flex-start;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in srgb, var(--vscode-editor-background) 65%, transparent);
+}
+
+.weight-pill-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.weight-pill strong {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.weight-pill-valid {
+  color: var(--panel-success);
+}
+
+.weight-pill-invalid {
+  color: var(--panel-danger);
+}
+
+.status-banner {
+  margin-top: 18px;
+  padding: 14px 16px;
+}
+
+.status-banner-success {
+  border-color: color-mix(in srgb, var(--panel-success) 45%, var(--panel-border));
+  color: var(--panel-success);
+}
+
+.status-banner-error {
+  border-color: color-mix(in srgb, var(--panel-danger) 45%, var(--panel-border));
+  color: var(--panel-danger);
+}
+
+.section-card {
+  margin-top: 18px;
+  padding: 22px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-caption {
+  margin: 0;
+  max-width: 28rem;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.caption-valid {
+  color: var(--panel-success);
+}
+
+.caption-invalid {
+  color: var(--panel-danger);
+}
+
+.framework-grid,
+.governance-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.framework-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.framework-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.framework-card,
+.governance-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+}
+
+.framework-card-enabled {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-accent) 7%, transparent) 0%, transparent 28%),
+    color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+}
+
+.framework-card-disabled {
+  opacity: 0.92;
+}
+
+.framework-header,
+.governance-header,
+.action-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.framework-header {
+  align-items: flex-start;
+}
+
+.framework-description {
+  margin: 12px 0 0;
+  line-height: 1.55;
+}
+
+.framework-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.weight-control {
+  display: grid;
+  gap: 6px;
+}
+
+.weight-control input,
+.governance-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+}
+
+.weight-control input {
+  max-width: 108px;
+}
+
+.framework-link {
+  align-self: center;
+}
+
+.optional-badge {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.toggle-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--panel-muted);
+}
+
+.governance-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.governance-meta {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.primary-button,
+.secondary-button {
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 11px 16px;
+  cursor: pointer;
+}
+
+.primary-button {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.secondary-button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.action-row {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.loading-card {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    padding: 20px 16px 32px;
+  }
+
+  .hero-card,
+  .section-header,
+  .framework-controls,
+  .action-row {
+    flex-direction: column;
+  }
+
+  .section-caption {
+    text-align: left;
+  }
+
+  .weight-pill {
+    min-width: 0;
+    width: 100%;
+  }
+}

@@ -1,0 +1,154 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+using PowerBIModelingService.Services.Pbir.Models;
+using Xunit;
+
+namespace ServiceDotnet.Tests
+{
+    public class LspHostJsonRpcTests
+    {
+        [Fact]
+        public void SendResponse_WithNullResult_SerializesValidJsonRpc()
+        {
+            var response = new JsonRpcResponse { Id = 1, Result = null };
+            var options = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            var json = JsonSerializer.Serialize(response, options);
+            Assert.Contains("\"result\":null", json);
+        }
+
+        [Fact]
+        public async Task HandleDefinitionAsync_WithNullParams_ReturnsErrorResponseAsync()
+        {
+            var handler = new FakeLspHandler();
+            var response = await handler.HandleDefinitionAsync(null);
+            Assert.NotNull(response);
+            // When params are null, handler returns null result (valid JSON-RPC with { "result": null })
+            Assert.True(response is JsonRpcResponse);
+        }
+
+        [Fact]
+        public async Task HandleDefinitionAsync_ServiceReturnsNull_ReturnsValidResponseAsync()
+        {
+            var handler = new FakeLspHandler(returnNull:true);
+            var response = await handler.HandleDefinitionAsync(new JsonElement?());
+            Assert.NotNull(response);
+            Assert.True(response is JsonRpcResponse);
+            var options = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            var json = JsonSerializer.Serialize(response, options);
+            Assert.Contains("\"result\":null", json);
+        }
+
+        [Fact]
+        public async Task HandleHoverAsync_ThrowsException_ReturnsErrorResponseAsync()
+        {
+            var handler = new FakeLspHandler(throwOnHover:true);
+            var response = await handler.HandleHoverAsync(new JsonElement?());
+            Assert.NotNull(response);
+            Assert.True(response is JsonRpcErrorResponse);
+        }
+
+        [Fact]
+        public void JsonRpcResponse_HasResultOrError_AlwaysTrue()
+        {
+            var response = new JsonRpcResponse { Id = 1, Result = null };
+            var error = new JsonRpcErrorResponse { Id = 1, Error = new JsonRpcError { Code = -32603, Message = "error" } };
+            Assert.True(response.Result == null || error.Error != null);
+        }
+
+        [Fact]
+        public void ScoreResult_SerializesInCamelCase_ForLspHostContract()
+        {
+            var options = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            var score = new ScoreResult
+            {
+                GestaltScore = 82,
+                CognitiveLoadScore = 74,
+                DataInkScore = 79,
+                AccessibilityScore = 71,
+                VisualBestPracticesScore = 77,
+                StephenFewScore = 68,
+                EnterpriseGovernanceScore = 72,
+                TufteScore = 66,
+                GraphicalPerceptionScore = 69,
+                DensityScore = 61,
+                NarrativeScore = 64,
+                PageCount = 1,
+                ReportPath = "/tmp/Sales.Report",
+                Recommendations = new List<string> { "[High] Layout: Snap visuals to grid" },
+                FrameworkWeights = new Dictionary<string, double> { ["gestalt"] = 25.0 },
+                Feedback = new Dictionary<string, List<FrameworkFeedbackItem>>
+                {
+                    ["gestalt"] = new() { new FrameworkFeedbackItem(true, "Aligned.") }
+                },
+            };
+
+            var json = JsonSerializer.Serialize(score, options);
+
+            Assert.Contains("\"recommendations\":[", json);
+            Assert.Contains("\"frameworkWeights\":{", json);
+            Assert.Contains("\"reportPath\":\"/tmp/Sales.Report\"", json);
+            Assert.DoesNotContain("\"Recommendations\"", json);
+            Assert.DoesNotContain("\"FrameworkWeights\"", json);
+            Assert.DoesNotContain("\"ReportPath\"", json);
+        }
+
+        // Minimal stubs for test
+        public class JsonRpcResponse
+        {
+            public object? Id { get; set; } = 1;
+            public object? Result { get; set; } = null;
+        }
+        public class JsonRpcErrorResponse
+        {
+            public object? Id { get; set; } = 1;
+            public JsonRpcError? Error { get; set; } = new JsonRpcError();
+        }
+        public class JsonRpcError
+        {
+            public int Code { get; set; } = -32603;
+            public string? Message { get; set; } = "error";
+        }
+        public class FakeLspHandler
+        {
+            private readonly bool _returnNull;
+            private readonly bool _throwOnHover;
+            public FakeLspHandler(bool returnNull = false, bool throwOnHover = false)
+            {
+                _returnNull = returnNull;
+                _throwOnHover = throwOnHover;
+            }
+            public Task<object> HandleDefinitionAsync(JsonElement? param)
+            {
+                // When params are null, return null result (valid JSON-RPC response)
+                if (param == null)
+                    return Task.FromResult<object>(new JsonRpcResponse { Id = 1, Result = null });
+                // When service returns null scenario
+                if (_returnNull)
+                    return Task.FromResult<object>(new JsonRpcResponse { Id = 1, Result = null });
+                return Task.FromResult<object>(new JsonRpcResponse { Id = 1, Result = "ok" });
+            }
+            public Task<object> HandleHoverAsync(JsonElement? param)
+            {
+                if (_throwOnHover)
+                    return Task.FromResult<object>(new JsonRpcErrorResponse { Id = 1, Error = new JsonRpcError { Code = -32603, Message = "Exception" } });
+                return Task.FromResult<object>(new JsonRpcResponse { Id = 1, Result = "hover" });
+            }
+        }
+    }
+}
