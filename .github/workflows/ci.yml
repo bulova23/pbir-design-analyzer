@@ -39,3 +39,11 @@ jobs:
       - name: Package VSIX
         working-directory: vscode-extension
         run: npm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pbir-design-analyzer-vsix
+          path: vscode-extension/*.vsix
+          if-no-files-found: error
+          retention-days: 14

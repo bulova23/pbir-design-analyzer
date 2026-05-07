@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing git tag to release, for example v0.1.10'
+        required: true
+        type: string
+      prerelease:
+        description: 'Publish as a pre-release'
+        required: false
+        default: false
+        type: boolean
+      publish_marketplace:
+        description: 'Publish the packaged VSIX to the VS Code Marketplace'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+      IS_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease || 'false' }}
+      PUBLISH_MARKETPLACE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publish_marketplace || 'true' }}
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Validate release tag matches extension version
+        shell: bash
+        run: |
+          TAG_VERSION="${RELEASE_TAG#v}"
+          PACKAGE_VERSION="$(node -p "require('./vscode-extension/package.json').version")"
+          if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+            echo "Release tag $RELEASE_TAG does not match package.json version $PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Run backend tests
+        run: dotnet test service-dotnet/tests/Tests.csproj -c Release
+
+      - name: Run extension tests
+        working-directory: vscode-extension
+        run: npm test
+
+      - name: Package VSIX
+        working-directory: vscode-extension
+        run: npm run package
+
+      - name: Resolve VSIX path
+        id: vsix
+        shell: bash
+        run: |
+          TAG_VERSION="${RELEASE_TAG#v}"
+          VSIX_PATH="$GITHUB_WORKSPACE/vscode-extension/pbir-design-analyzer-$TAG_VERSION.vsix"
+          if [[ ! -f "$VSIX_PATH" ]]; then
+            echo "VSIX not found"
+            exit 1
+          fi
+          echo "path=$VSIX_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pbir-design-analyzer-${{ env.RELEASE_TAG }}
+          path: ${{ steps.vsix.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${{ steps.vsix.outputs.path }}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${{ steps.vsix.outputs.path }}" \
+              --title "$RELEASE_TAG" \
+              --generate-notes \
+              $PRERELEASE_FLAG
+          fi
+
+      - name: Publish to VS Code Marketplace
+        if: env.PUBLISH_MARKETPLACE == 'true'
+        working-directory: vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        shell: bash
+        run: |
+          if [[ -z "$VSCE_PAT" ]]; then
+            echo "VSCE_PAT is not configured. Add it as a repository secret before enabling Marketplace publishing."
+            exit 1
+          fi
+
+          npx @vscode/vsce publish --packagePath "${{ steps.vsix.outputs.path }}" --skip-duplicate

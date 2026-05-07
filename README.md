@@ -57,3 +57,4 @@ dotnet test service-dotnet/tests/Tests.csproj
 - [PBIR Analyzer V1 Spec](docs/PBIR_ANALYZER_V1_SPEC.md)
 - [PBIR Analyzer V1 Testing](docs/PBIR_ANALYZER_V1_TESTING.md)
 - [PBIR Troubleshooting](docs/PBIR_TROUBLESHOOTING.md)
+- [Release Guide](docs/RELEASING.md)
