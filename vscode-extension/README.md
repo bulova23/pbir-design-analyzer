@@ -1,5 +1,7 @@
 # PBIR Design Analyzer
 
+![PBIR Design Analyzer logo](resources/icon.png)
+
 PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI PBIP/PBIR report projects before they are shared, governed, or published. It analyzes report pages, visuals, navigation, hidden states, theming, and design consistency so authors can improve report quality with a repeatable workflow.
 
 ## What It Analyzes
@@ -41,6 +43,10 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 4. Adjust principle weights and governance settings if your team uses a custom review standard.
 5. Re-score and run governance checks before publish or handoff.
 
+## Detailed Usage Guide
+
+For full setup, workflow, scoring interpretation, and design principle details, see [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md).
+
 ## Requirements
 
 - VS Code 1.93+
@@ -50,3 +56,10 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 ## Scope
 
 This package is intentionally narrow. It is built for local PBIR design analysis and governance workflows, not general Fabric authoring, TMDL editing, or live service management.
+
+## Feedback And Issues
+
+Submit bugs, feature requests, support questions, and documentation fixes in the GitHub repo:
+
+- [Issue forms and request tracking](https://github.com/bulova23/pbir-design-analyzer/issues/new/choose)
+- [Project repository](https://github.com/bulova23/pbir-design-analyzer)

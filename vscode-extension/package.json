@@ -1,7 +1,7 @@
 {
   "name": "pbir-design-analyzer",
   "displayName": "PBIR Design Analyzer",
-  "description": "Analyze layout, navigation, accessibility, storytelling, and governance for local Power BI PBIP/PBIR reports in VS Code.",
+  "description": "Analyze layout, navigation, accessibility, storytelling, and governance for local Power BI PBIP/PBIR reports in VS Code. Docs and issues: https://github.com/bulova23/pbir-design-analyzer",
   "version": "0.1.10",
   "publisher": "bcrowell",
   "icon": "resources/icon.png",
