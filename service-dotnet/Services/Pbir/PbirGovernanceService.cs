@@ -158,7 +158,7 @@ public sealed class PbirGovernanceService
                 var approvedList = string.Join(", ", policy.ApprovedThemes.Select(t => $"'{t}'"));
                 reasons.Add(
                     $"Theme '{normalised}' is not on the approved list. " +
-                    $"Approved themes: {approvedList}. Use 'PBIR: Import Theme' to apply an approved theme.");
+                    $"Approved themes: {approvedList}. Update the report theme to match an approved option before publishing.");
             }
         }
 

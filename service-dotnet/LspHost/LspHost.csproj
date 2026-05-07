@@ -15,7 +15,7 @@
     <Compile Include="../Services/PbirProjectService.cs" Link="Imported/Services/PbirProjectService.cs" />
     <Compile Include="../Services/PbirTreeBuilder.cs" Link="Imported/Services/PbirTreeBuilder.cs" />
     <Compile Include="../Services/Pbir/**/*.cs"
-             Exclude="../Services/Pbir/PbirCreationService.cs;../Services/Pbir/PbirThemeService.cs;../Services/Pbir/PbirLayoutPatternLibrary.cs;../Services/Pbir/Models/ThemeDefinition.cs;../Services/Pbir/Models/WizardState.cs;../Services/Pbir/Models/LayoutPattern.cs;../Services/Pbir/Models/ReportIntent.cs;../Services/Pbir/Models/ReportPage.cs"
+             Exclude="../Services/Pbir/PbirCreationService.cs;../Services/Pbir/PbirLayoutPatternLibrary.cs;../Services/Pbir/Models/WizardState.cs;../Services/Pbir/Models/LayoutPattern.cs;../Services/Pbir/Models/ReportIntent.cs;../Services/Pbir/Models/ReportPage.cs"
              LinkBase="Imported/Services/Pbir" />
   </ItemGroup>
 

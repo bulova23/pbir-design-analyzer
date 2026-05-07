@@ -930,12 +930,12 @@ public sealed class PbirScoringService
             recs.Add($"[High] Accessibility: {failing.Count} theme colour(s) fail WCAG 2.1 AA " +
                      $"contrast against white: {string.Join(", ", failing.Take(3))}" +
                      (failing.Count > 3 ? $" (+{failing.Count - 3} more)" : "") +
-                     ". Use 'PBIR: Import Theme' to replace them.");
+                     ". Update the report theme colours to replace them.");
             feedback.Add(ScoredFeedback(
                 false,
                 $"WCAG 2.1 AA: {failing.Count} colour(s) fail contrast ratio ≥4.5:1 against white: " +
                 $"{string.Join(", ", failing.Take(3))}{(failing.Count > 3 ? $" and {failing.Count - 3} more" : "")}. " +
-                "Import an accessible theme to fix.",
+                "Update the report theme with accessible colours to fix.",
                 (double)passing / themeColors.Count * 100.0,
                 100.0));
         }

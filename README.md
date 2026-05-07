@@ -6,7 +6,7 @@ This repository contains only the public PBIR analyzer product surface:
 
 - the VS Code extension in `vscode-extension/`
 - the packaged .NET backend host in `service-dotnet/LspHost/`
-- the PBIR scoring, governance, refactor, and theme-import services in `service-dotnet/Services/Pbir/`
+- the PBIR scoring, governance, and analyzer support services in `service-dotnet/Services/Pbir/`
 - PBIR-focused tests and public docs
 
 ## Product Scope
@@ -18,7 +18,6 @@ Included:
 - score a full report or a single page
 - tune analyzer scoring and governance settings
 - run governance checks against enterprise thresholds and rules
-- maintain public backend support for PBIR theme import and validation
 
 Not included in this public repo:
 
@@ -28,6 +27,7 @@ Not included in this public repo:
 - translation management
 - monitoring dashboards
 - PBIR report creation
+- automated theme import or report-theme application workflows
 
 ## Build
 
