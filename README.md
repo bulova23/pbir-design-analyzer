@@ -58,3 +58,7 @@ dotnet test service-dotnet/tests/Tests.csproj
 - [PBIR Analyzer V1 Testing](docs/PBIR_ANALYZER_V1_TESTING.md)
 - [PBIR Troubleshooting](docs/PBIR_TROUBLESHOOTING.md)
 - [Release Guide](docs/RELEASING.md)
+
+## Feedback
+
+Public bugs, feature requests, support questions, and documentation fixes should be submitted through the repository issue forms. See [CONTRIBUTING.md](CONTRIBUTING.md) for the intake and tracking workflow.

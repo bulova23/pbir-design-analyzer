@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting Guide
+    url: https://github.com/bulova23/pbir-design-analyzer/blob/main/docs/PBIR_TROUBLESHOOTING.md
+    about: Check known setup and runtime issues before opening a new report.
+  - name: Release Guide
+    url: https://github.com/bulova23/pbir-design-analyzer/blob/main/docs/RELEASING.md
+    about: Review release and packaging guidance if you are publishing or testing a VSIX.

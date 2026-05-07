@@ -1,0 +1,34 @@
+name: Documentation improvement
+description: Report missing, unclear, or incorrect documentation.
+title: "[Docs]: "
+labels:
+  - documentation
+  - status: triage
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Documentation location
+      description: Link the file, section, or page that needs work.
+      placeholder: README.md, docs/PBIR_TROUBLESHOOTING.md, or Marketplace listing
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or missing?
+      placeholder: The release guide explains tagging, but it does not call out the required Marketplace secret.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      placeholder: Add a one-time setup checklist near the top of the guide.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checklist
+      options:
+        - label: I searched for an existing docs issue first.
+          required: true

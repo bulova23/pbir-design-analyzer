@@ -1,0 +1,70 @@
+name: Feature request
+description: Propose a new feature or enhancement for PBIR Design Analyzer.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - status: triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for new analyzer capabilities, UX improvements, automation ideas, or governance/scoring enhancements.
+  - type: input
+    id: summary
+    attributes:
+      label: Feature summary
+      placeholder: Add report-level export of scoring results to JSON
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Project detection / explorer
+        - Score report
+        - Governance
+        - Configuration panel
+        - Marketplace / packaging
+        - Backend / service
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Explain the current limitation or workflow pain.
+      placeholder: Today users can review results interactively, but teams cannot archive score output for pull request review.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the feature you want, not just the end result.
+      placeholder: Add a command that exports the latest score payload to a JSON file next to the PBIR report.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include workarounds or different approaches you evaluated.
+      placeholder: We can manually copy results from the score panel today, but that does not scale for CI review.
+  - type: textarea
+    id: adoption
+    attributes:
+      label: Who benefits and how often?
+      description: Explain the expected usage frequency or audience impact.
+      placeholder: BI developers and governance reviewers would use this on every release candidate.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checklist
+      options:
+        - label: I searched existing issues and did not find the same request.
+          required: true
+        - label: This request is specific to PBIR Design Analyzer, not general Power BI authoring.
+          required: true

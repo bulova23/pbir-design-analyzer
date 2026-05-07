@@ -1,0 +1,103 @@
+name: Bug report
+description: Report something that is broken or behaving incorrectly in PBIR Design Analyzer.
+title: "[Bug]: "
+labels:
+  - bug
+  - status: triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include enough detail to reproduce the problem and attach logs or screenshots when possible.
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: For example `0.1.10`
+      placeholder: 0.1.10
+    validations:
+      required: true
+  - type: dropdown
+    id: install-source
+    attributes:
+      label: Install source
+      description: How did you install the extension?
+      options:
+        - VS Code Marketplace
+        - GitHub Release VSIX
+        - Local VSIX build
+        - Development checkout
+    validations:
+      required: true
+  - type: input
+    id: vscode-version
+    attributes:
+      label: VS Code version
+      placeholder: 1.99.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Power BI Desktop version if relevant, and whether this is PBIP or direct `.Report` usage.
+      placeholder: macOS 14.5, Power BI Desktop May 2026, PBIP workspace
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Project detection / explorer
+        - Score report
+        - Governance
+        - Configuration panel
+        - VSIX install / activation
+        - Backend / service
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly and include any error text.
+      placeholder: Scoring a report fails after selecting a PBIP project and opening the score panel.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: The score panel should open and display the report results.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the shortest reliable path to reproduce the issue.
+      placeholder: |
+        1. Open a PBIP workspace
+        2. Select the report in PBIR Design Analyzer
+        3. Run Score Report
+        4. Observe the failure
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Logs, screenshots, or sample details
+      description: Paste relevant log output or describe attached screenshots or sample reports. Remove any sensitive customer data first.
+      placeholder: Paste output from the VS Code developer console or attach screenshots here.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checklist
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I can reproduce this on the current published extension version.
+          required: true

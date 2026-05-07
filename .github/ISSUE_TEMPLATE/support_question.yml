@@ -1,0 +1,51 @@
+name: Support question
+description: Ask for help using, configuring, or troubleshooting PBIR Design Analyzer.
+title: "[Question]: "
+labels:
+  - question
+  - status: triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for setup help, configuration questions, or unclear analyzer behavior that may not be a bug.
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      placeholder: 0.1.10
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      placeholder: I want to apply enterprise governance checks to a PBIP report before publishing.
+    validations:
+      required: true
+  - type: textarea
+    id: blocker
+    attributes:
+      label: Where are you blocked?
+      description: Include commands used, UI steps taken, or confusing output.
+      placeholder: The governance check runs, but I am not sure how approved themes are evaluated.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you already tried?
+      placeholder: I reviewed the README, troubleshooting guide, and governance settings in the config panel.
+  - type: textarea
+    id: context
+    attributes:
+      label: Environment or report context
+      description: OS, VS Code version, and any report details that matter for the question.
+      placeholder: Windows 11, VS Code 1.99, PBIP workspace with one report and several pages.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checklist
+      options:
+        - label: I reviewed the README and troubleshooting guide first.
+          required: true
