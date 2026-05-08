@@ -1,6 +1,4 @@
-# PBIR Design Analyzer
-
-![PBIR Design Analyzer logo](resources/icon.png)
+# <img src="resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
 
 PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI PBIP/PBIR report projects before they are shared, governed, or published. It analyzes report pages, visuals, navigation, hidden states, theming, and design consistency so authors can improve report quality with a repeatable workflow.
 
