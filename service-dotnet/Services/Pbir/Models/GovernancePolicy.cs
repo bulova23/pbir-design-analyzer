@@ -58,20 +58,42 @@ public class JsonElementConverter : System.Text.Json.Serialization.JsonConverter
 }
 
 /// <summary>
-/// Represents the enterprise governance policy loaded from VS Code workspace settings
-/// at key <c>powerbi-modeling.governance</c> or from the extension's governance-defaults.json.
-/// The extension never writes this file — it is authored by Power BI champions/admins.
+/// Represents the enterprise governance policy loaded from VS Code workspace settings.
+/// Corporate governance is opt-in and remains disabled until a workspace policy is
+/// explicitly configured and enabled by a Power BI champion or admin.
 /// </summary>
 public sealed class GovernancePolicy
 {
-    /// <summary>The VS Code settings.json key used to read this policy.</summary>
+    /// <summary>The legacy nested VS Code settings key used to read this policy.</summary>
     public const string SettingsKey = "powerbi-modeling.governance";
+
+    /// <summary>The flat VS Code settings key that enables governance enforcement.</summary>
+    public const string EnabledSettingsKey = "powerbi-modeling.governance.enabled";
+
+    /// <summary>The flat VS Code settings key for the minimum composite score threshold.</summary>
+    public const string MinimumCompositeScoreSettingsKey = "powerbi-modeling.governance.minimumCompositeScore";
+
+    /// <summary>The flat VS Code settings key for approved theme identifiers.</summary>
+    public const string ApprovedThemeIdsSettingsKey = "powerbi-modeling.governance.approvedThemeIds";
+
+    /// <summary>The flat VS Code settings key for optional governance notes.</summary>
+    public const string NotesSettingsKey = "powerbi-modeling.governance.notes";
+
+    /// <summary>The flat VS Code settings key for advanced governance rules.</summary>
+    public const string RulesSettingsKey = "powerbi-modeling.governance.rules";
 
     /// <summary>
     /// Gets or sets whether governance enforcement is active.
     /// When <c>false</c>, all checks pass automatically. Default: <c>false</c>.
     /// </summary>
     public bool Enabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether any workspace governance policy
+    /// was explicitly configured. This distinguishes "not configured" from
+    /// "configured but disabled".
+    /// </summary>
+    public bool IsConfigured { get; set; }
 
     /// <summary>
     /// Gets or sets the minimum composite score required for a report to pass governance

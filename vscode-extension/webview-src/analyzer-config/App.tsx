@@ -242,8 +242,8 @@ export default function App(): JSX.Element {
           <p className="eyebrow">PBIR Design Analyzer</p>
           <h1>Design Analyzer Configuration</h1>
           <p className="hero-text">
-            Tune which frameworks affect report scoring, then shape governance checks with
-            rule-level thresholds.
+            Tune which frameworks affect report scoring, then adjust local Enterprise
+            Governance scoring defaults. Workspace publish governance is configured separately.
           </p>
         </div>
         <div className={`weight-pill ${weightSummary.isValid ? 'weight-pill-valid' : 'weight-pill-invalid'}`}>
@@ -452,16 +452,21 @@ export default function App(): JSX.Element {
             <div className="section-header">
               <div>
                 <p className="section-kicker">Governance</p>
-                <h2>Publishing Rules</h2>
+                <h2>Analyzer Governance Defaults</h2>
               </div>
               <button
                 className="secondary-button"
                 onClick={() => vscodeApiRef.current?.postMessage({ type: 'openGovernanceJson' })}
                 type="button"
               >
-                Open JSON
+                Open Defaults JSON
               </button>
             </div>
+
+            <p className="section-caption">
+              These values affect the optional Enterprise Governance scoring framework in your
+              saved analyzer profile. They do not enable or control workspace publish blocking.
+            </p>
 
             <div className="governance-grid">
               {config.governance.map((rule) => (

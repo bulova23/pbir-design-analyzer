@@ -7,7 +7,6 @@ namespace PowerBIModelingService.Services.Pbir;
 /// <summary>
 /// Reads workspace governance policy from <c>.vscode/settings.json</c> and evaluates
 /// PBIR reports against it before publishing.
-/// Also loads dynamic rules from governance-defaults.json for extensibility.
 /// </summary>
 public sealed class PbirGovernanceService
 {
@@ -21,9 +20,9 @@ public sealed class PbirGovernanceService
     // ── Policy reading ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Reads the governance policy from <c>{workspaceRoot}/.vscode/settings.json</c>
-    /// and augments it with dynamic rules from governance-defaults.json.
-    /// Returns a disabled policy if the file or key is absent.
+    /// Reads the governance policy from <c>{workspaceRoot}/.vscode/settings.json</c>.
+    /// Supports the current flat VS Code settings keys and the older nested object format
+    /// for backward compatibility. Returns a disabled policy if nothing is configured.
     /// </summary>
     /// <param name="workspaceRoot">Absolute path to the VS Code workspace root.</param>
     public GovernancePolicy ReadPolicy(string workspaceRoot)
@@ -34,8 +33,8 @@ public sealed class PbirGovernanceService
         var settingsPath = Path.Combine(workspaceRoot, ".vscode", "settings.json");
         if (!File.Exists(settingsPath))
         {
-            _logger.LogDebug("[Governance] settings.json not found at {Path} — using default (disabled) policy.", settingsPath);
-            return DisabledPolicyWithDefaults();
+            _logger.LogDebug("[Governance] settings.json not found at {Path} — governance not configured.", settingsPath);
+            return DisabledPolicy();
         }
 
         try
@@ -43,74 +42,26 @@ public sealed class PbirGovernanceService
             var json = File.ReadAllText(settingsPath);
             using var doc = JsonDocument.Parse(json);
 
-            if (!doc.RootElement.TryGetProperty(GovernancePolicy.SettingsKey, out var govElement))
+            if (TryReadFlatPolicy(doc.RootElement, out var flatPolicy))
             {
-                _logger.LogDebug("[Governance] Key '{Key}' not found in settings.json — governance disabled.", GovernancePolicy.SettingsKey);
-                return DisabledPolicyWithDefaults();
+                LogLoadedPolicy(flatPolicy, "flat");
+                return flatPolicy;
             }
 
-            var policy = new GovernancePolicy();
-
-            if (govElement.TryGetProperty("enabled", out var enabled) && enabled.ValueKind == JsonValueKind.True)
-                policy.Enabled = true;
-            else if (govElement.TryGetProperty("enabled", out enabled) && enabled.ValueKind == JsonValueKind.False)
-                policy.Enabled = false;
-
-            if (govElement.TryGetProperty("minimumCompositeScore", out var minScore) &&
-                minScore.TryGetDouble(out var threshold))
+            if (TryReadLegacyPolicy(doc.RootElement, out var legacyPolicy))
             {
-                policy.MinScoreThreshold = Math.Clamp(threshold, 0, 100);
-
-                if (policy.MinScoreThreshold > 95)
-                {
-                    _logger.LogWarning(
-                        "[Governance] minimumCompositeScore is set to {Score}, which exceeds 95. " +
-                        "No built-in scoring pattern guarantees this threshold. " +
-                        "Reports may be permanently blocked from publishing.", policy.MinScoreThreshold);
-                }
+                _logger.LogInformation("[Governance] Loaded legacy nested governance settings from '{Key}'. Prefer flat VS Code settings keys going forward.", GovernancePolicy.SettingsKey);
+                LogLoadedPolicy(legacyPolicy, "legacy");
+                return legacyPolicy;
             }
 
-            if (govElement.TryGetProperty("approvedThemeIds", out var themes) &&
-                themes.ValueKind == JsonValueKind.Array)
-            {
-                policy.ApprovedThemes = themes.EnumerateArray()
-                    .Where(e => e.ValueKind == JsonValueKind.String)
-                    .Select(e => e.GetString()!)
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .ToList();
-            }
-
-            if (govElement.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.String)
-                policy.Notes = notes.GetString();
-
-            // Load dynamic rules from settings if present
-            if (govElement.TryGetProperty("rules", out var rulesElement) &&
-                rulesElement.ValueKind == JsonValueKind.Object)
-            {
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var rulesJson = rulesElement.GetRawText();
-                var parsedRules = JsonSerializer.Deserialize<Dictionary<string, GovernanceRule>>(rulesJson, options);
-                if (parsedRules != null)
-                {
-                    policy.DynamicRules = parsedRules;
-                }
-            }
-            else
-            {
-                // No rules in settings, load defaults
-                LoadDefaultRules(policy);
-            }
-
-            _logger.LogInformation(
-                "[Governance] Policy loaded — Enabled={Enabled}, MinScore={Min}, ApprovedThemes={Count}, DynamicRules={RuleCount}",
-                policy.Enabled, policy.MinScoreThreshold, policy.ApprovedThemes.Count, policy.DynamicRules.Count);
-
-            return policy;
+            _logger.LogDebug("[Governance] No governance settings found in {Path} — governance not configured.", settingsPath);
+            return DisabledPolicy();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "[Governance] Failed to read settings.json at {Path}", settingsPath);
-            return DisabledPolicyWithDefaults();
+            return DisabledPolicy();
         }
     }
 
@@ -126,13 +77,22 @@ public sealed class PbirGovernanceService
     {
         if (!policy.Enabled)
         {
-            _logger.LogDebug("[Governance] Policy is disabled — report passes automatically.");
+            var policyState = policy.IsConfigured ? "disabled" : "notConfigured";
+            var statusMessage = policy.IsConfigured
+                ? "Workspace governance is configured but disabled. Publish blocking is off."
+                : "No workspace governance policy is enabled. Publish blocking is off until a workspace policy is explicitly enabled.";
+
+            _logger.LogDebug("[Governance] Policy is {State} — report is not blocked.", policyState);
             return new GovernanceCheckResult
             {
+                PolicyState       = policyState,
+                PolicyConfigured  = policy.IsConfigured,
+                PolicyEnabled     = false,
+                StatusMessage     = statusMessage,
                 Blocked           = false,
                 EvaluatedScore    = score.CompositeScore,
-                RequiredThreshold = policy.MinScoreThreshold,
-                EvaluatedThemeId  = themeId,
+                RequiredThreshold = policy.IsConfigured ? policy.MinScoreThreshold : 0,
+                EvaluatedThemeId  = string.IsNullOrWhiteSpace(themeId) ? null : themeId,
             };
         }
 
@@ -150,15 +110,24 @@ public sealed class PbirGovernanceService
         if (policy.ApprovedThemes.Count > 0)
         {
             var normalised = (themeId ?? string.Empty).Trim();
-            var approved = policy.ApprovedThemes
-                .Any(t => string.Equals(t, normalised, StringComparison.OrdinalIgnoreCase));
-
-            if (!approved)
+            if (string.IsNullOrWhiteSpace(normalised))
             {
-                var approvedList = string.Join(", ", policy.ApprovedThemes.Select(t => $"'{t}'"));
                 reasons.Add(
-                    $"Theme '{normalised}' is not on the approved list. " +
-                    $"Approved themes: {approvedList}. Update the report theme to match an approved option before publishing.");
+                    "Theme validation is enabled, but no theme name was supplied. " +
+                    "Re-run the governance check and enter the report theme name.");
+            }
+            else
+            {
+                var approved = policy.ApprovedThemes
+                    .Any(t => string.Equals(t, normalised, StringComparison.OrdinalIgnoreCase));
+
+                if (!approved)
+                {
+                    var approvedList = string.Join(", ", policy.ApprovedThemes.Select(t => $"'{t}'"));
+                    reasons.Add(
+                        $"Theme '{normalised}' is not on the approved list. " +
+                        $"Approved themes: {approvedList}. Update the report theme to match an approved option before publishing.");
+                }
             }
         }
 
@@ -173,86 +142,168 @@ public sealed class PbirGovernanceService
 
         return new GovernanceCheckResult
         {
+            PolicyState       = "enabled",
+            PolicyConfigured  = true,
+            PolicyEnabled     = true,
+            StatusMessage     = blocked
+                ? "Workspace governance policy blocked publishing."
+                : "Workspace governance policy passed.",
             Blocked           = blocked,
             Reasons           = reasons,
             EvaluatedScore    = score.CompositeScore,
             RequiredThreshold = policy.MinScoreThreshold,
-            EvaluatedThemeId  = themeId,
+            EvaluatedThemeId  = string.IsNullOrWhiteSpace(themeId) ? null : themeId,
             PolicyNotes       = blocked ? policy.Notes : null,
         };
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static GovernancePolicy DisabledPolicy() => new() { Enabled = false };
+    private static GovernancePolicy DisabledPolicy() => new()
+    {
+        Enabled = false,
+        IsConfigured = false,
+    };
 
     /// <summary>
-    /// Returns a disabled policy with default dynamic rules loaded.
+    /// Tries to read governance from flat VS Code settings keys such as
+    /// <c>powerbi-modeling.governance.enabled</c>.
     /// </summary>
-    private static GovernancePolicy DisabledPolicyWithDefaults()
+    private static bool TryReadFlatPolicy(JsonElement root, out GovernancePolicy policy)
     {
-        var policy = DisabledPolicy();
-        LoadDefaultRules(policy);
-        return policy;
+        policy = DisabledPolicy();
+
+        var found = false;
+        policy = new GovernancePolicy();
+
+        if (root.TryGetProperty(GovernancePolicy.EnabledSettingsKey, out var enabled))
+        {
+            found = true;
+            if (enabled.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                policy.Enabled = enabled.GetBoolean();
+        }
+
+        if (root.TryGetProperty(GovernancePolicy.MinimumCompositeScoreSettingsKey, out var minScore) &&
+            minScore.TryGetDouble(out var threshold))
+        {
+            found = true;
+            policy.MinScoreThreshold = Math.Clamp(threshold, 0, 100);
+        }
+
+        if (root.TryGetProperty(GovernancePolicy.ApprovedThemeIdsSettingsKey, out var themes) &&
+            themes.ValueKind == JsonValueKind.Array)
+        {
+            found = true;
+            policy.ApprovedThemes = ReadThemes(themes);
+        }
+
+        if (root.TryGetProperty(GovernancePolicy.NotesSettingsKey, out var notes) &&
+            notes.ValueKind == JsonValueKind.String)
+        {
+            found = true;
+            policy.Notes = notes.GetString();
+        }
+
+        if (root.TryGetProperty(GovernancePolicy.RulesSettingsKey, out var rulesElement) &&
+            rulesElement.ValueKind == JsonValueKind.Object)
+        {
+            found = true;
+            policy.DynamicRules = ReadRules(rulesElement);
+        }
+
+        if (!found)
+        {
+            policy = DisabledPolicy();
+            return false;
+        }
+
+        policy.IsConfigured = true;
+        return true;
     }
 
     /// <summary>
-    /// Loads default governance rules from the embedded defaults.
-    /// This is called when no rules are found in settings.json.
+    /// Tries to read governance from the older nested settings object
+    /// at key <c>powerbi-modeling.governance</c>.
     /// </summary>
-    private static void LoadDefaultRules(GovernancePolicy policy)
+    private static bool TryReadLegacyPolicy(JsonElement root, out GovernancePolicy policy)
     {
-        if (policy.DynamicRules.Count > 0)
-            return; // Already loaded
-
-        // Provide sensible defaults for common governance rules
-        policy.DynamicRules = new Dictionary<string, GovernanceRule>
+        policy = DisabledPolicy();
+        if (!root.TryGetProperty(GovernancePolicy.SettingsKey, out var govElement) ||
+            govElement.ValueKind != JsonValueKind.Object)
         {
-            {
-                "maxVisualsPerPage",
-                new GovernanceRule
-                {
-                    Name = "Max Visuals Per Page",
-                    Value = 15,
-                    Description = "Maximum number of visuals allowed on a single page/state",
-                    Severity = "warning",
-                    AdminOnly = true
-                }
-            },
-            {
-                "maxBookmarksPerPage",
-                new GovernanceRule
-                {
-                    Name = "Max Bookmarks Per Page",
-                    Value = 10,
-                    Description = "Maximum number of bookmark states allowed per page",
-                    Severity = "warning",
-                    AdminOnly = true
-                }
-            },
-            {
-                "requirePageTitle",
-                new GovernanceRule
-                {
-                    Name = "Require Page Title",
-                    Value = true,
-                    Description = "Whether page titles are required on all report pages",
-                    Severity = "error",
-                    AdminOnly = true
-                }
-            },
-            {
-                "allowPieCharts",
-                new GovernanceRule
-                {
-                    Name = "Allow Pie Charts",
-                    Value = true,
-                    Description = "Whether pie charts are allowed in reports",
-                    Severity = "warning",
-                    AdminOnly = true
-                }
-            },
+            return false;
+        }
+
+        policy = new GovernancePolicy
+        {
+            IsConfigured = true,
         };
+
+        PopulatePolicyFromElement(policy, govElement);
+        return true;
+    }
+
+    private static void PopulatePolicyFromElement(GovernancePolicy policy, JsonElement govElement)
+    {
+        if (govElement.TryGetProperty("enabled", out var enabled) &&
+            enabled.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            policy.Enabled = enabled.GetBoolean();
+        }
+
+        if (govElement.TryGetProperty("minimumCompositeScore", out var minScore) &&
+            minScore.TryGetDouble(out var threshold))
+        {
+            policy.MinScoreThreshold = Math.Clamp(threshold, 0, 100);
+        }
+
+        if (govElement.TryGetProperty("approvedThemeIds", out var themes) &&
+            themes.ValueKind == JsonValueKind.Array)
+        {
+            policy.ApprovedThemes = ReadThemes(themes);
+        }
+
+        if (govElement.TryGetProperty("notes", out var notes) &&
+            notes.ValueKind == JsonValueKind.String)
+        {
+            policy.Notes = notes.GetString();
+        }
+
+        if (govElement.TryGetProperty("rules", out var rulesElement) &&
+            rulesElement.ValueKind == JsonValueKind.Object)
+        {
+            policy.DynamicRules = ReadRules(rulesElement);
+        }
+    }
+
+    private static List<string> ReadThemes(JsonElement themes) =>
+        themes.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.String)
+            .Select(e => e.GetString()!)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+    private static Dictionary<string, GovernanceRule> ReadRules(JsonElement rulesElement)
+    {
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var rulesJson = rulesElement.GetRawText();
+        return JsonSerializer.Deserialize<Dictionary<string, GovernanceRule>>(rulesJson, options)
+            ?? new Dictionary<string, GovernanceRule>();
+    }
+
+    private void LogLoadedPolicy(GovernancePolicy policy, string format)
+    {
+        if (policy.MinScoreThreshold > 95)
+        {
+            _logger.LogWarning(
+                "[Governance] minimumCompositeScore is set to {Score}, which exceeds 95. " +
+                "No built-in scoring pattern guarantees this threshold. " +
+                "Reports may be permanently blocked from publishing.", policy.MinScoreThreshold);
+        }
+
+        _logger.LogInformation(
+            "[Governance] Policy loaded from {Format} settings — Configured={Configured}, Enabled={Enabled}, MinScore={Min}, ApprovedThemes={Count}, DynamicRules={RuleCount}",
+            format, policy.IsConfigured, policy.Enabled, policy.MinScoreThreshold, policy.ApprovedThemes.Count, policy.DynamicRules.Count);
     }
 
     /// <summary>

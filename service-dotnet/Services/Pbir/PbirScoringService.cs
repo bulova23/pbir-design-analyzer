@@ -1872,13 +1872,13 @@ public sealed class PbirScoringService
 
     private static Dictionary<string, double> GetDefaultFrameworkWeights() => new(StringComparer.OrdinalIgnoreCase)
     {
-        ["gestalt"] = 25,
+        ["gestalt"] = 30,
         ["cognitiveLoad"] = 20,
         ["dataInk"] = 15,
         ["graphicalPerception"] = 0,
         ["accessibility"] = 15,
-        ["visualBestPractices"] = 15,
-        ["governance"] = 10,
+        ["visualBestPractices"] = 20,
+        ["governance"] = 0,
         ["stephenFew"] = 0,
         ["tufte"] = 0,
         ["density"] = 0,

@@ -19,6 +19,11 @@ export let pbirTreeProvider: PbirTreeProvider | undefined;
 
 type PbirCommandTarget = string | PbirTreeItem | undefined;
 
+type WorkspaceGovernanceSettings = {
+    enabled: boolean;
+    approvedThemeIds: string[];
+};
+
 type PbirTreeItemLike = {
     kind?: unknown;
     label?: unknown;
@@ -91,6 +96,20 @@ function resolveCommandTarget(
             ? resolveReportPathFromNodePath(target.jsonFilePath)
             : undefined,
         pageName: resolvedPageName,
+    };
+}
+
+function readWorkspaceGovernanceSettings(): WorkspaceGovernanceSettings {
+    const config = vscode.workspace.getConfiguration('powerbi-modeling');
+    const enabled = config.get<boolean>('governance.enabled', false) === true;
+    const approvedThemeIdsRaw = config.get<unknown>('governance.approvedThemeIds', []);
+    const approvedThemeIds = Array.isArray(approvedThemeIdsRaw)
+        ? approvedThemeIdsRaw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        : [];
+
+    return {
+        enabled,
+        approvedThemeIds,
     };
 }
 
@@ -241,13 +260,32 @@ export function registerPbirCommands(
                 return;
             }
 
-            const themeId = await vscode.window.showInputBox({
-                prompt: 'Enter the theme name to validate (leave blank to skip theme check)',
-                placeHolder: 'CorporateBlue',
-                ignoreFocusOut: true,
-            }) ?? '';
+            const workspaceGovernance = readWorkspaceGovernanceSettings();
+            let themeId = '';
+
+            if (workspaceGovernance.enabled && workspaceGovernance.approvedThemeIds.length > 0) {
+                const input = await vscode.window.showInputBox({
+                    prompt: 'Enter the report theme name required by the workspace governance policy',
+                    placeHolder: workspaceGovernance.approvedThemeIds[0] ?? 'CorporateBlue',
+                    ignoreFocusOut: true,
+                    validateInput: (value) =>
+                        value.trim().length > 0
+                            ? undefined
+                            : 'Theme name is required when approved themes are configured.',
+                });
+
+                if (typeof input === 'undefined') {
+                    return;
+                }
+
+                themeId = input.trim();
+            }
 
             type GovernanceResult = {
+                policyState?: string;
+                policyConfigured?: boolean;
+                policyEnabled?: boolean;
+                statusMessage?: string;
                 blocked: boolean;
                 reasons?: string[];
                 evaluatedScore?: number;
@@ -271,7 +309,12 @@ export function registerPbirCommands(
                 const result = response.data;
                 if (!result) return;
 
-                if (result.blocked) {
+                if (result.policyState === 'notConfigured' || result.policyState === 'disabled') {
+                    vscode.window.showInformationMessage(
+                        result.statusMessage ??
+                        'Workspace governance is not active. Publish blocking is off until a workspace policy is enabled.'
+                    );
+                } else if (result.blocked) {
                     const reasons = result.reasons?.join('\n• ') ?? 'No details.';
                     const notes   = result.policyNotes ? `\n\nPolicy notes: ${result.policyNotes}` : '';
                     const viewScoreAction = 'View Score';
@@ -286,6 +329,7 @@ export function registerPbirCommands(
                     }
                 } else {
                     vscode.window.showInformationMessage(
+                        result.statusMessage ??
                         `✅ Governance check passed (score ${result.evaluatedScore?.toFixed(1)} ≥ ${result.requiredThreshold?.toFixed(1)}).`
                     );
                 }

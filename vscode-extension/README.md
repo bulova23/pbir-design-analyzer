@@ -1,6 +1,14 @@
-# <img src="resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
-
 PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI PBIP/PBIR report projects before they are shared, governed, or published. It analyzes report pages, visuals, navigation, hidden states, theming, and design consistency so authors can improve report quality with a repeatable workflow.
+
+Documentation: [How To Use PBIR Design Analyzer](https://github.com/bulova23/pbir-design-analyzer/blob/main/docs/HOW_TO_USE.md)
+
+## Quick Start
+
+1. Open a local PBIP project or Report folder.
+2. Run **PBIR Design Analyzer: Score Report**.
+3. Review the Overall score, page tabs, and expanded framework cards.
+4. Open **Configure Scoring** if you want to tune framework weights or navigation treatment.
+5. Use **Check Governance** only when your workspace has shared governance enabled.
 
 ## What It Analyzes
 
@@ -9,7 +17,7 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 - chart selection, labeling, decorative ink, and visual consistency
 - contrast and readability signals that affect accessibility coverage
 - storytelling flow from headline metrics through trends, comparisons, and drill paths
-- enterprise governance checks that reflect team or corporate design policy
+- optional enterprise governance scoring plus opt-in workspace governance checks
 
 ## Design Principles In The Configuration Panel
 
@@ -19,7 +27,7 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 - Graphical Perception. Evaluates whether chart encodings match how accurately people compare quantitative values.
 - Accessibility (WCAG). Checks contrast, readability, and reporting choices that improve accessibility coverage.
 - Visual Best Practices. Applies dashboard design guidance around chart choice, labeling, and consistency.
-- Enterprise Governance. Scores reports against team or enterprise design standards and publishing policy. This is the principle intended for corporate-dictated rules such as approved themes, maximum visuals or bookmarks, required page titles, filter panel expectations, pie chart policy, custom visual policy, and similar internal standards.
+- Enterprise Governance. An optional scoring framework for team or enterprise design standards. Workspace publish governance is configured separately and is disabled by default until explicitly enabled.
 - Stephen Few Principles. Applies Stephen Few dashboard heuristics such as KPI prominence and one-screen density.
 - Tufte Minimalism. Emphasizes clarity, precision, and minimal chart junk in report presentation.
 - Dashboard Density. Evaluates balance between information richness and crowding on each report page.
@@ -31,7 +39,7 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 - Refresh icon - Refresh Reports. Re-scan report metadata after file edits or Power BI Desktop saves.
 - Chart icon - Score Report. Run the design analysis for the selected report or page and open the PBIR Optimization Report.
 - Gear icon - Configure Scoring. Enable or disable principles, rebalance weights, tune navigation scoring, and review governance defaults.
-- Shield icon - Check Governance. Evaluate the current report against minimum score thresholds, approved theme expectations, and enterprise rules.
+- Shield icon - Check Governance. Evaluate the current report against workspace governance only when a shared governance policy is enabled.
 
 ## Typical Workflow
 
@@ -43,7 +51,7 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 
 ## Detailed Usage Guide
 
-For full setup, workflow, scoring interpretation, and design principle details, see [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md).
+For full setup, workflow, scoring interpretation, and design principle details, see [How To Use PBIR Design Analyzer](https://github.com/bulova23/pbir-design-analyzer/blob/main/docs/HOW_TO_USE.md).
 
 ## Requirements
 

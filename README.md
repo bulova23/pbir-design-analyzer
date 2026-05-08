@@ -17,7 +17,7 @@ Included:
 - inspect the PBIR tree for reports, pages, visuals, and theme references
 - score a full report or a single page
 - tune analyzer scoring and governance settings
-- run governance checks against enterprise thresholds and rules
+- run governance checks against enterprise thresholds and rules when workspace governance is explicitly enabled
 
 Not included in this public repo:
 

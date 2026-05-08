@@ -6,6 +6,27 @@ namespace PowerBIModelingService.Services.Pbir.Models;
 public sealed class GovernanceCheckResult
 {
     /// <summary>
+    /// Gets or sets the governance activation state:
+    /// <c>notConfigured</c>, <c>disabled</c>, or <c>enabled</c>.
+    /// </summary>
+    public string PolicyState { get; set; } = "notConfigured";
+
+    /// <summary>
+    /// Gets or sets whether a workspace governance policy was explicitly configured.
+    /// </summary>
+    public bool PolicyConfigured { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether governance enforcement was active for this evaluation.
+    /// </summary>
+    public bool PolicyEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a user-facing summary of the governance evaluation mode or result.
+    /// </summary>
+    public string? StatusMessage { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the report is blocked from publishing.
     /// <c>true</c> if one or more governance rules failed; <c>false</c> if the report passes.
     /// </summary>
