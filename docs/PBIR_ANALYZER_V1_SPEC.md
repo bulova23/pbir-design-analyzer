@@ -449,7 +449,7 @@ The following conditions define v1 readiness:
 - single-page scoring works
 - analyzer config save, load, and reset work
 - React score and config panels render without falling back to legacy inline HTML
-- refactor command runs and reports results
+- governance check runs and reports results
 - governance check runs and reports pass or fail with reasons
 - bookmark and custom visual presence do not break scoring
 - navigation elements are treated as reduced-weight functional ink rather than full-weight data visuals

@@ -150,9 +150,13 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
         let backendError: string | undefined;
         if (this._bridge?.isInitialized()) {
             try {
-                const response = await this._bridge.getPbirTree(this._projectPath);
+                const response = await this._bridge.getPbirTree(this._projectPath) as {
+                    success?: boolean;
+                    data?: PbirReportNode;
+                    error?: string;
+                };
                 if (response?.success && response.data) {
-                    return [this._createReportItem(response.data as PbirReportNode)];
+                    return [this._createReportItem(response.data)];
                 }
 
                 backendError = response?.error ?? 'PBIR report not found';

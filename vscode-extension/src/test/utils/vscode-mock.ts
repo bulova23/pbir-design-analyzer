@@ -46,7 +46,7 @@ export const resetVscodeMocks = () => {
     (vscode.workspace.getConfiguration as jest.Mock).mockClear();
     // Reset the default mock implementation
     (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
-      get: jest.fn((key: string, defaultValue: any) => defaultValue),
+      get: jest.fn((_key: string, defaultValue: unknown) => defaultValue),
       has: jest.fn(() => false),
       inspect: jest.fn(),
       update: jest.fn().mockResolvedValue(undefined),
@@ -70,5 +70,4 @@ export const resetVscodeMocks = () => {
     });
   }
 };
-
 

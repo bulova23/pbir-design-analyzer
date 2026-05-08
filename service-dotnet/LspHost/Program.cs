@@ -56,13 +56,10 @@ public static class Program
         var scoringService = new PbirScoringService(
             projectService,
             loggerFactory.CreateLogger<PbirScoringService>());
-        var refactorEngine = new PbirRefactorEngine(
-            projectService,
-            loggerFactory.CreateLogger<PbirRefactorEngine>());
         var governanceService = new PbirGovernanceService(
             loggerFactory.CreateLogger<PbirGovernanceService>());
 
-        return new AnalyzerServices(projectService, treeBuilder, scoringService, refactorEngine, governanceService);
+        return new AnalyzerServices(projectService, treeBuilder, scoringService, governanceService);
     }
 }
 
@@ -70,7 +67,6 @@ internal sealed record AnalyzerServices(
     PbirProjectService ProjectService,
     PbirTreeBuilder TreeBuilder,
     PbirScoringService ScoringService,
-    PbirRefactorEngine RefactorEngine,
     PbirGovernanceService GovernanceService);
 
 internal sealed class SimpleJsonRpcServer
@@ -200,7 +196,7 @@ internal sealed class SimpleJsonRpcServer
                 await WriteResultAsync(request.Id, new
                 {
                     capabilities = new { },
-                    serverInfo = new { name = "PBIR Design Analyzer Backend", version = "0.1.9" },
+                    serverInfo = new { name = "PBIR Design Analyzer Backend", version = "0.1.11" },
                 }).ConfigureAwait(false);
                 return;
 
@@ -237,10 +233,6 @@ internal sealed class SimpleJsonRpcServer
 
             case "model/pbir/scoreReport":
                 await WriteResultAsync(request.Id, await HandleScoreReportAsync(request.Params).ConfigureAwait(false)).ConfigureAwait(false);
-                return;
-
-            case "model/pbir/refactor":
-                await WriteResultAsync(request.Id, await HandleRefactorAsync(request.Params).ConfigureAwait(false)).ConfigureAwait(false);
                 return;
 
             case "model/pbir/governanceCheck":
@@ -291,28 +283,6 @@ internal sealed class SimpleJsonRpcServer
             .ConfigureAwait(false);
 
         return Success(score);
-    }
-
-    private async Task<object> HandleRefactorAsync(JsonElement? @params)
-    {
-        var reportPath = ReadString(@params, "reportPath");
-        if (string.IsNullOrWhiteSpace(reportPath))
-        {
-            return Failure("Parameter 'reportPath' is required.");
-        }
-
-        var operations = ReadStringArray(@params, "operations");
-        if (operations.Count == 0)
-        {
-            return Failure("At least one refactor operation must be provided.");
-        }
-
-        var pageName = ReadString(@params, "pageName");
-        var result = await _services.RefactorEngine
-            .RefactorAsync(reportPath, operations, pageName)
-            .ConfigureAwait(false);
-
-        return Success(result);
     }
 
     private async Task<object> HandleGovernanceCheckAsync(JsonElement? @params)

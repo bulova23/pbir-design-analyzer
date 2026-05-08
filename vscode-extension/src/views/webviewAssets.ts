@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../utils/logger';
 
 interface WebviewAssetsOptions {
   webview: vscode.Webview;
@@ -36,8 +35,8 @@ function loadManifest(manifestPath: string): Record<string, ViteManifestEntry> |
   try {
     const raw = fs.readFileSync(manifestPath, 'utf8');
     return JSON.parse(raw) as Record<string, ViteManifestEntry>;
-  } catch (error: any) {
-    logger.warn('Failed to parse Vite manifest', error);
+  } catch (error) {
+    console.warn('Failed to parse Vite manifest', error);
     return undefined;
   }
 }
@@ -117,7 +116,7 @@ export function resolveWebviewAssets(options: WebviewAssetsOptions): WebviewAsse
 
   const devServer = options.devServerUrl || process.env.VITE_DEV_SERVER_URL;
   if (!devServer) {
-    logger.warn(`Webview assets not found at ${scriptPath} and no dev server is configured.`);
+    console.warn(`Webview assets not found at ${scriptPath} and no dev server is configured.`);
     return {
       scriptUri: '',
       styleUris: [],

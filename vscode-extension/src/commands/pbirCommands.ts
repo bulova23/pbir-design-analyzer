@@ -6,19 +6,11 @@ import { PbirTreeItem, PbirTreeProvider } from '../providers/PbirTreeProvider';
 import { PbirScorePanel } from '../views/PbirScorePanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
 
-interface RefactorResultData {
-    appliedOperations: string[];
-    warnings: string[];
-    reportPath?: string;
-    isClean: boolean;
-}
-
 // PBIR command IDs — must match CommandDispatcher registrations
 export const PBIR_COMMANDS = {
     getTree: 'pbir.getTree',
     refreshTree: 'pbir.refreshTree',
     scoreReport: 'pbir.scoreReport',
-    refactor: 'pbir.refactor',
     governanceCheck: 'pbir.governanceCheck',
 } as const;
 
@@ -55,7 +47,7 @@ function resolveReportPathFromNodePath(nodePath: string | undefined): string | u
         return undefined;
     }
 
-    while (true) {
+    for (;;) {
         if (fs.existsSync(path.join(currentPath, 'definition.pbir'))) {
             return currentPath;
         }
@@ -179,7 +171,7 @@ export function registerPbirCommands(
                         if (rootItems && rootItems.length > 0) {
                             reportPath = resolveCommandTarget(rootItems[0]).reportPath;
                         }
-                    } catch (err) {
+                    } catch {
                         // Silently fail and fall back to file picker.
                     }
                 }
@@ -223,98 +215,10 @@ export function registerPbirCommands(
                     outputChannel.appendLine(
                         `Stack: ${error instanceof Error ? error.stack ?? 'No stack trace' : 'No stack trace'}`,
                     );
-                } catch (e) {
+                } catch {
                     // Silently ignore if output channel creation fails
                 }
             }
-        })
-    );
-
-    // pbir.refactor — QuickPick operations then call LSP (T027)
-    context.subscriptions.push(
-        vscode.commands.registerCommand(PBIR_COMMANDS.refactor, async (target?: PbirCommandTarget) => {
-            const bridge = getBridge();
-            let reportPath = resolveCommandTarget(target).reportPath;
-
-            if (!reportPath) {
-                const input = await vscode.window.showInputBox({
-                    prompt: 'Enter path to the PBIP project root or .Report folder',
-                    placeHolder: '/path/to/my-project.pbip',
-                });
-                reportPath = input;
-            }
-
-            if (!reportPath) {
-                return;
-            }
-
-            const operationItems: vscode.QuickPickItem[] = [
-                { label: 'snapToGrid',          description: 'Snap all visuals to the 12-column grid', picked: true },
-                { label: 'normalizeFonts',       description: 'Set font sizes per visual hierarchy (KPI→32, chart→16, text→12)', picked: true },
-                { label: 'reduceColorVariance',  description: 'Reduce theme data colours to ≤5 most distinct', picked: false },
-                { label: 'flagPieCharts',        description: 'Flag pie/donut chart visuals as warnings', picked: true },
-            ];
-
-            const selected = await vscode.window.showQuickPick(operationItems, {
-                canPickMany: true,
-                placeHolder: 'Select refactoring operations to apply',
-                title: 'PBIR: Internal Refactor',
-            });
-
-            if (!selected || selected.length === 0) {
-                return;
-            }
-
-            const operations = selected.map(item => item.label);
-
-            if (!bridge) {
-                vscode.window.showErrorMessage('PBIR: LSP server not available.');
-                return;
-            }
-
-            await vscode.window.withProgress(
-                { location: vscode.ProgressLocation.Notification, title: 'PBIR: Running internal refactor…', cancellable: false },
-                async () => {
-                    try {
-                        const response = await bridge.executeRequest('model/pbir/refactor', {
-                            reportPath,
-                            operations,
-                        }) as { success: boolean; error?: string; data?: RefactorResultData };
-
-                        if (!response?.success) {
-                            vscode.window.showErrorMessage(
-                                `PBIR Refactor failed: ${response?.error ?? 'unknown error'}`
-                            );
-                            return;
-                        }
-
-                        const data = response.data;
-                        const appliedCount = data?.appliedOperations?.length ?? 0;
-                        const warnCount    = data?.warnings?.length ?? 0;
-
-                        const summary = appliedCount > 0
-                            ? data!.appliedOperations.join('\n')
-                            : 'No changes were necessary.';
-
-                        if (warnCount > 0) {
-                            vscode.window.showWarningMessage(
-                                `PBIR Refactor: ${appliedCount} operation(s) applied, ${warnCount} warning(s).\n${summary}`
-                            );
-                        } else {
-                            vscode.window.showInformationMessage(
-                                `PBIR Refactor complete: ${appliedCount} operation(s) applied.\n${summary}`
-                            );
-                        }
-
-                        // Refresh tree after structural changes.
-                        pbirTreeProvider?.refresh();
-                    } catch (err) {
-                        vscode.window.showErrorMessage(
-                            `PBIR Refactor error: ${err instanceof Error ? err.message : String(err)}`
-                        );
-                    }
-                }
-            );
         })
     );
 

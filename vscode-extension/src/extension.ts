@@ -3,13 +3,13 @@ import { detectWorkspacePbirProjectPath } from './analyzer/project/discovery';
 import { registerCommands } from './commands/register';
 import { pbirTreeProvider } from './commands/pbirCommands';
 import { initializeDesignAnalyzerConfig } from './analyzer/config/store';
-import { createTmdlLanguageClient, stopTmdlLanguageClient } from './languageServer/tmdlLanguageClient';
+import { createAnalyzerBackendClient, stopAnalyzerBackendClient } from './languageServer/analyzerBackendClient';
 import { LSPModelService, LSPState } from './services/lsp/LSPModelService';
 import { LanguageClient } from 'vscode-languageclient/node';
 
 let lspModelService: LSPModelService | undefined;
 let daemonStatusBar: vscode.StatusBarItem | undefined;
-let tmdlLanguageClient: LanguageClient | undefined;
+let backendClient: LanguageClient | undefined;
 let extensionOutput: vscode.OutputChannel | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -30,8 +30,8 @@ export async function activate(context: vscode.ExtensionContext) {
   registerCommands(context, () => lspModelService);
   await autoLoadPbipProject(extensionOutput);
 
-  tmdlLanguageClient = createTmdlLanguageClient(context);
-  if (!tmdlLanguageClient) {
+  backendClient = createAnalyzerBackendClient(context);
+  if (!backendClient) {
     const errorMessage = 'Failed to create the analyzer backend client. Packaged PBIR backend binary not found.';
     extensionOutput.appendLine(errorMessage);
     vscode.window.showErrorMessage(errorMessage);
@@ -44,8 +44,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   try {
     extensionOutput.appendLine('[Extension] Starting analyzer backend client...');
-    await tmdlLanguageClient.start();
-    context.subscriptions.push(tmdlLanguageClient);
+    await backendClient.start();
+    context.subscriptions.push(backendClient);
 
     lspModelService = LSPModelService.getInstance();
     lspModelService.onStateChange((state: LSPState) => {
@@ -73,7 +73,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     });
 
-    await lspModelService.initialize(tmdlLanguageClient);
+    await lspModelService.initialize(backendClient);
     pbirTreeProvider?.setLSPModelService(lspModelService);
     pbirTreeProvider?.refresh();
     extensionOutput.appendLine('[Extension] Analyzer backend initialized successfully');
@@ -118,7 +118,7 @@ export async function deactivate() {
     await lspModelService.shutdown();
   }
 
-  if (tmdlLanguageClient) {
-    await stopTmdlLanguageClient(tmdlLanguageClient);
+  if (backendClient) {
+    await stopAnalyzerBackendClient(backendClient);
   }
 }
