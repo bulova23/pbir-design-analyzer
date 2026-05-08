@@ -58,7 +58,12 @@ dotnet test service-dotnet/tests/Tests.csproj
 - [PBIR Analyzer V1 Spec](docs/PBIR_ANALYZER_V1_SPEC.md)
 - [PBIR Analyzer V1 Testing](docs/PBIR_ANALYZER_V1_TESTING.md)
 - [PBIR Troubleshooting](docs/PBIR_TROUBLESHOOTING.md)
+- [Changelog](docs/CHANGELOG.md)
 - [Release Guide](docs/RELEASING.md)
+
+## License
+
+This project is distributed under the MIT License. See [LICENSE](LICENSE) for the full text.
 
 ## Feedback
 
