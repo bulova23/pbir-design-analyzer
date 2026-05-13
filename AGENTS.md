@@ -1,0 +1,27 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+`vscode-extension/` contains the shipped VS Code extension. Put extension runtime code in `src/`, React webviews in `webview-src/`, static assets in `resources/`, and Jest mocks in `tests/__mocks__/`. `service-dotnet/` contains the .NET 8 backend: `LspHost/` is the packaged entrypoint, `Services/Pbir/` holds scoring, governance, and tree logic, and `tests/` holds xUnit coverage. Long-form specs, release notes, and troubleshooting live in `docs/`.
+
+## Build, Test, and Development Commands
+From `vscode-extension/`:
+
+- `npm ci` installs Node dependencies.
+- `npm run build` publishes the backend into `backend/lsp`, compiles TypeScript, bundles the extension, and builds both webviews.
+- `npm run lint` runs ESLint on `src/**/*.ts`.
+- `npm test` runs the extension Jest suite and the webview Jest suite.
+- `npm run package` creates `pbir-design-analyzer-<version>.vsix`.
+
+From the repo root:
+
+- `dotnet test service-dotnet/tests/Tests.csproj -c Release` runs backend xUnit tests.
+- `PBIR_REAL_FIXTURE_PATH=/path/to/Sales\\ \\&\\ Production.pbip dotnet test service-dotnet/tests/Tests.csproj --filter Category=PBITesting` runs opt-in fixture coverage.
+
+## Coding Style & Naming Conventions
+Follow the existing file style: TypeScript and JSON use 2-space indentation, single quotes, and `camelCase` symbols; React components use `PascalCase`; test files use `*.test.ts` or `*.test.tsx`. C# uses 4-space indentation, file-scoped namespaces, `PascalCase` public members, and `_camelCase` private readonly fields. There is no Prettier config here, so rely on the current formatting and `npm run lint`.
+
+## Testing Guidelines
+Extension tests use Jest with `ts-jest`; backend tests use xUnit. Add or update tests with every behavior change in commands, scoring, governance, tree discovery, or webview UI. CI does not enforce a numeric coverage threshold, but changed code should ship with targeted coverage and, for UI-facing changes, a quick local smoke check in VS Code.
+
+## Commit & Pull Request Guidelines
+Recent history follows Conventional Commit style with optional scopes, for example `feat(governance): ...` or `docs: ...`. Keep commits focused and imperative. PRs should use the template in `.github/PULL_REQUEST_TEMPLATE.md`: include a short summary, link the issue with `Fixes #...`, list validation performed, and add screenshots or doc updates when behavior or UI changes.
