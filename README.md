@@ -56,6 +56,7 @@ dotnet test service-dotnet/tests/Tests.csproj
 
 - [How To Use PBIR Design Analyzer](docs/HOW_TO_USE.md)
 - [PBIR Analyzer V1 Spec](docs/PBIR_ANALYZER_V1_SPEC.md)
+- [Reddit-Informed Design Feedback Backlog](docs/REDDIT_DESIGN_FEEDBACK_BACKLOG.md)
 - [PBIR Analyzer V1 Testing](docs/PBIR_ANALYZER_V1_TESTING.md)
 - [PBIR Troubleshooting](docs/PBIR_TROUBLESHOOTING.md)
 - [Changelog](docs/CHANGELOG.md)
