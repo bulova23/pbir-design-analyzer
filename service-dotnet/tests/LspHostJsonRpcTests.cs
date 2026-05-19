@@ -92,9 +92,33 @@ namespace ServiceDotnet.Tests
                 ReportPath = "/tmp/Sales.Report",
                 Recommendations = new List<string> { "[High] Layout: Snap visuals to grid" },
                 FrameworkWeights = new Dictionary<string, double> { ["gestalt"] = 25.0 },
+                VisualMetadata = new PageVisualMetadataSummary
+                {
+                    PageName = "Overview",
+                    VisiblePageTitle = "Sales Overview",
+                    VisualCount = 1,
+                    VisibleTitleVisualCount = 1,
+                    TextVisualCount = 0,
+                    SlicerCount = 0,
+                    LegendVisualCount = 1,
+                    AxisLabelVisualCount = 1,
+                    DataLabelVisualCount = 0,
+                    FormattedVisualCount = 1,
+                    Visuals = new List<VisualMetadataItem>
+                    {
+                        new()
+                        {
+                            VisualId = "v1",
+                            VisualType = "barChart",
+                            HasVisibleTitleIntent = true,
+                            Width = 320,
+                            Height = 180,
+                        },
+                    },
+                },
                 Feedback = new Dictionary<string, List<FrameworkFeedbackItem>>
                 {
-                    ["gestalt"] = new() { new FrameworkFeedbackItem(true, "Aligned.") }
+                    ["gestalt"] = new() { new FrameworkFeedbackItem(true, "Aligned.", FindingType: FindingTypes.StrongHeuristic) }
                 },
             };
 
@@ -103,9 +127,14 @@ namespace ServiceDotnet.Tests
             Assert.Contains("\"recommendations\":[", json);
             Assert.Contains("\"frameworkWeights\":{", json);
             Assert.Contains("\"reportPath\":\"/tmp/Sales.Report\"", json);
+            Assert.Contains("\"visualMetadata\":{", json);
+            Assert.Contains("\"visiblePageTitle\":\"Sales Overview\"", json);
+            Assert.Contains("\"findingType\":\"strongHeuristic\"", json);
             Assert.DoesNotContain("\"Recommendations\"", json);
             Assert.DoesNotContain("\"FrameworkWeights\"", json);
             Assert.DoesNotContain("\"ReportPath\"", json);
+            Assert.DoesNotContain("\"VisualMetadata\"", json);
+            Assert.DoesNotContain("\"FindingType\"", json);
         }
 
         // Minimal stubs for test

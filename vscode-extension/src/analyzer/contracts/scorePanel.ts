@@ -1,8 +1,11 @@
 import type { DesignAnalyzerConfig } from '../config/types';
 
+export type FindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
+
 export interface FrameworkFeedbackItem {
   ok: boolean;
   text: string;
+  findingType: FindingType;
   affectedVisuals?: AffectedVisualReference[];
   earnedPoints?: number;
   possiblePoints?: number;
@@ -12,6 +15,52 @@ export interface AffectedVisualReference {
   pageName: string;
   visualId: string;
   visualType: string;
+}
+
+export interface VisualMetadataItem {
+  visualId: string;
+  visualType: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isHidden: boolean;
+  isNavigationElement: boolean;
+  isDecorative: boolean;
+  isSlicer: boolean;
+  visibleTitleText?: string;
+  visibleSubtitleText?: string;
+  textBoxText?: string;
+  bestVisibleText?: string;
+  hasVisibleTitleIntent: boolean;
+  hasLegend?: boolean;
+  hasAxisLabels?: boolean;
+  hasDataLabels?: boolean;
+  categoryHints: string[];
+  valueHints: string[];
+  seriesHints: string[];
+  measureHints: string[];
+  backgroundFillColor?: string;
+  fontColor?: string;
+  hasBorder?: boolean;
+  cornerRadius?: number;
+  hasShadow?: boolean;
+}
+
+export interface PageVisualMetadataSummary {
+  pageName: string;
+  visiblePageTitle?: string;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  visualCount: number;
+  visibleTitleVisualCount: number;
+  textVisualCount: number;
+  slicerCount: number;
+  legendVisualCount: number;
+  axisLabelVisualCount: number;
+  dataLabelVisualCount: number;
+  formattedVisualCount: number;
+  visuals: VisualMetadataItem[];
 }
 
 export interface PageScore {
@@ -35,6 +84,7 @@ export interface PageScore {
   recommendations: string[];
   scoringError?: string;
   frameworkWeights?: Record<string, number>;
+  visualMetadata?: PageVisualMetadataSummary;
 }
 
 export interface ScoreResult {
@@ -65,6 +115,7 @@ export interface ScoreResult {
   themeScore?: number;
   governanceScore?: number;
   frameworkWeights?: Record<string, number>;
+  visualMetadata?: PageVisualMetadataSummary;
 }
 
 export interface ScoreRequestPayload {

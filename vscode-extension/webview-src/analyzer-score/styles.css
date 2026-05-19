@@ -9,6 +9,12 @@
   --score-good: #2f9e62;
   --score-warn: #d17a00;
   --score-bad: #c94b64;
+  --finding-objective: color-mix(in srgb, var(--vscode-textLink-foreground) 82%, var(--vscode-foreground));
+  --finding-objective-bg: color-mix(in srgb, var(--finding-objective) 14%, transparent);
+  --finding-heuristic: color-mix(in srgb, var(--score-accent) 88%, var(--vscode-foreground));
+  --finding-heuristic-bg: color-mix(in srgb, var(--score-accent) 12%, transparent);
+  --finding-style: color-mix(in srgb, var(--vscode-descriptionForeground) 88%, var(--vscode-foreground));
+  --finding-style-bg: color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent);
   --score-shadow: 0 16px 34px rgba(0, 0, 0, 0.12);
 }
 
@@ -322,6 +328,14 @@ button {
   font-weight: 700;
 }
 
+.criterion-title-row,
+.feedback-copy-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .criterion-state {
   margin: 4px 0 0;
   color: var(--score-muted);
@@ -359,6 +373,34 @@ button {
 .feedback-copy {
   flex: 1;
   min-width: 0;
+}
+
+.finding-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.finding-badge-objective {
+  color: var(--finding-objective);
+  background: var(--finding-objective-bg);
+}
+
+.finding-badge-heuristic {
+  color: var(--finding-heuristic);
+  background: var(--finding-heuristic-bg);
+}
+
+.finding-badge-style {
+  color: var(--finding-style);
+  background: var(--finding-style-bg);
 }
 
 .feedback-notes {
@@ -448,6 +490,108 @@ button {
   margin-bottom: 12px;
 }
 
+.metadata-overview-grid,
+.metadata-stat-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.metadata-overview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.metadata-overview-card,
+.metadata-stat-card,
+.metadata-visual-card {
+  border: 1px solid var(--score-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 92%, transparent);
+}
+
+.metadata-overview-card,
+.metadata-stat-card {
+  padding: 14px;
+}
+
+.metadata-overview-head,
+.metadata-visual-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.metadata-overview-page,
+.metadata-visual-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.metadata-overview-title,
+.metadata-overview-copy,
+.metadata-visual-meta,
+.metadata-visual-copy {
+  margin: 8px 0 0;
+  color: var(--score-muted);
+  line-height: 1.5;
+}
+
+.metadata-overview-title {
+  color: var(--vscode-foreground);
+}
+
+.metadata-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: 12px;
+}
+
+.metadata-stat-card {
+  display: grid;
+  gap: 4px;
+}
+
+.metadata-stat-card strong {
+  font-size: 22px;
+}
+
+.metadata-stat-card span {
+  color: var(--score-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.metadata-visual-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.metadata-visual-card {
+  padding: 14px;
+}
+
+.metadata-reveal-button {
+  flex-shrink: 0;
+}
+
+.metadata-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.metadata-tag {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--score-accent) 36%, var(--score-border));
+  background: color-mix(in srgb, var(--score-accent-soft) 45%, transparent);
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
 .recommendation-item {
   border-left: 3px solid var(--score-border);
   border-radius: 8px;
@@ -514,6 +658,8 @@ button {
   .hero-card,
   .summary-card,
   .criterion-head,
+  .metadata-overview-head,
+  .metadata-visual-head,
   .framework-heading,
   .framework-meter {
     flex-direction: column;

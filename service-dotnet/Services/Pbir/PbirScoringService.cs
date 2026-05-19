@@ -187,7 +187,7 @@ public sealed class PbirScoringService
             var noVizFeedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
             foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
             {
-                noVizFeedback[key] = [new(false, noVisualsMsg)];
+                noVizFeedback[key] = [FeedbackItem(false, noVisualsMsg, FindingTypes.Objective)];
             }
 
 #pragma warning disable CS0618
@@ -210,6 +210,7 @@ public sealed class PbirScoringService
                 DataVisualCount = pageComposition.DataVisualCount,
                 NavigationVisualCount = pageComposition.NavigationVisualCount,
                 HiddenVisualCount = pageComposition.HiddenVisualCount,
+                VisualMetadata = BuildPageVisualMetadataSummary(page),
             };
 #pragma warning restore CS0618
         }
@@ -224,8 +225,8 @@ public sealed class PbirScoringService
         var (fewScore, fewFeedback)                  = ComputeStephenFewScore(pageList);
         var (tufteScore, tufteFeedback)              = ComputeTufteScore(pageList);
         var (graphicalScore, graphicalFeedback)      = ComputeGraphicalPerceptionScore(pageList);
-        var (densityScore, densityFeedback)          = ComputeDashboardDensityScore(pageList, navigationScoring);
-        var (narrativeScore, narrativeFeedback)      = ComputeNarrativeDesignScore(pageList);
+        var (densityScore, densityFeedback)          = ComputeDashboardDensityScore(pageList, recommendations, navigationScoring);
+        var (narrativeScore, narrativeFeedback)      = ComputeNarrativeDesignScore(pageList, recommendations);
 
         _logger.LogDebug(
             "[Scoring] Page '{Page}' sub-scores — Gestalt={G:F1} CogLoad={C:F1} DataInk={D:F1} A11y={A:F1} VBP={V:F1} Few={F:F1} Tufte={T:F1}",
@@ -272,6 +273,7 @@ public sealed class PbirScoringService
             DataVisualCount = pageComposition.DataVisualCount,
             NavigationVisualCount = pageComposition.NavigationVisualCount,
             HiddenVisualCount = pageComposition.HiddenVisualCount,
+            VisualMetadata = BuildPageVisualMetadataSummary(page),
         };
 #pragma warning restore CS0618
 
@@ -366,7 +368,7 @@ public sealed class PbirScoringService
             var noVizFeedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
             foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
             {
-                noVizFeedback[key] = [new(false, noVisualsMsg)];
+                noVizFeedback[key] = [FeedbackItem(false, noVisualsMsg, FindingTypes.Objective)];
             }
 
 #pragma warning disable CS0618
@@ -390,6 +392,7 @@ public sealed class PbirScoringService
                 DataVisualCount = reportComposition.DataVisualCount,
                 NavigationVisualCount = reportComposition.NavigationVisualCount,
                 HiddenVisualCount = reportComposition.HiddenVisualCount,
+                VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
             };
 #pragma warning restore CS0618
         }
@@ -404,8 +407,8 @@ public sealed class PbirScoringService
         var (fewScore, fewFeedback)                  = ComputeStephenFewScore(pages);
         var (tufteScore, tufteFeedback)              = ComputeTufteScore(pages);
         var (graphicalScore, graphicalFeedback)      = ComputeGraphicalPerceptionScore(pages);
-        var (densityScore, densityFeedback)          = ComputeDashboardDensityScore(pages, navigationScoring);
-        var (narrativeScore, narrativeFeedback)      = ComputeNarrativeDesignScore(pages);
+        var (densityScore, densityFeedback)          = ComputeDashboardDensityScore(pages, recommendations, navigationScoring);
+        var (narrativeScore, narrativeFeedback)      = ComputeNarrativeDesignScore(pages, recommendations);
 
         _logger.LogDebug(
             "[Scoring] sub-scores — Gestalt={G:F1} CogLoad={C:F1} DataInk={D:F1} A11y={A:F1} VBP={V:F1} Few={F:F1} Tufte={T:F1}",
@@ -453,6 +456,7 @@ public sealed class PbirScoringService
             DataVisualCount = reportComposition.DataVisualCount,
             NavigationVisualCount = reportComposition.NavigationVisualCount,
             HiddenVisualCount = reportComposition.HiddenVisualCount,
+            VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
         };
 #pragma warning restore CS0618
 
@@ -484,28 +488,30 @@ public sealed class PbirScoringService
                         NarrativeScore = 0,
                         Feedback = new()
                         {
-                            ["gestalt"] = [new(false, "No data visuals on this page.")],
-                            ["cognitiveLoad"] = [new(false, "No data visuals on this page.")],
-                            ["dataInk"] = [new(false, "No data visuals on this page.")],
-                            ["accessibility"] = [new(false, "No data visuals on this page.")],
-                            ["visualBestPractices"] = [new(false, "No data visuals on this page.")],
-                            ["governance"] = [new(false, "No data visuals on this page.")],
-                            ["stephenFew"] = [new(false, "No data visuals on this page.")],
-                            ["tufte"] = [new(false, "No data visuals on this page.")],
-                            ["graphicalPerception"] = [new(false, "No data visuals on this page.")],
-                            ["density"] = [new(false, "No data visuals on this page.")],
-                            ["narrative"] = [new(false, "No data visuals on this page.")],
+                            ["gestalt"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["cognitiveLoad"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["dataInk"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["accessibility"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["visualBestPractices"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["governance"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["stephenFew"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["tufte"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["graphicalPerception"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["density"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["narrative"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
                         },
                         Recommendations = [],
                         FrameworkWeights = frameworkWeights,
                         DataVisualCount = pageComposition.DataVisualCount,
                         NavigationVisualCount = pageComposition.NavigationVisualCount,
                         HiddenVisualCount = pageComposition.HiddenVisualCount,
+                        VisualMetadata = BuildPageVisualMetadataSummary(page),
                     });
                     continue;
                 }
 
                 // Score this page
+                var pagePageRecommendations = new List<string>();
                 var (pGestalt, pGestaltFeedback)          = ComputeGestaltScore(pageList);
                 var (pCogLoad, pCogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, new(), navigationScoring);
                 var (pDataInk, pDataInkFeedback)          = ComputeDataInkScore(pageList, new(), navigationScoring);
@@ -515,10 +521,8 @@ public sealed class PbirScoringService
                 var (pFew, pFewFeedback)                  = ComputeStephenFewScore(pageList);
                 var (pTufte, pTufteFeedback)              = ComputeTufteScore(pageList);
                 var (pGraphical, pGraphicalFeedback)      = ComputeGraphicalPerceptionScore(pageList);
-                var (pDensity, pDensityFeedback)          = ComputeDashboardDensityScore(pageList, navigationScoring);
-                var (pNarrative, pNarrativeFeedback)      = ComputeNarrativeDesignScore(pageList);
-
-                var pagePageRecommendations = new List<string>();
+                var (pDensity, pDensityFeedback)          = ComputeDashboardDensityScore(pageList, pagePageRecommendations, navigationScoring);
+                var (pNarrative, pNarrativeFeedback)      = ComputeNarrativeDesignScore(pageList, pagePageRecommendations);
                 result.PageScores!.Add(new PageScore
                 {
                     PageName = page.DisplayName,
@@ -552,6 +556,7 @@ public sealed class PbirScoringService
                     DataVisualCount = pageComposition.DataVisualCount,
                     NavigationVisualCount = pageComposition.NavigationVisualCount,
                     HiddenVisualCount = pageComposition.HiddenVisualCount,
+                    VisualMetadata = BuildPageVisualMetadataSummary(page),
                 });
 
                 _logger.LogDebug(
@@ -587,6 +592,20 @@ public sealed class PbirScoringService
     {
         var feedback   = new List<FrameworkFeedbackItem>();
         var allVisuals = pages.SelectMany(p => p.Visuals).ToList();
+        var kpiConsistencyIssues = CollectLayoutIssues(pages, AnalyzeTopBandKpiConsistency);
+        var spacingRhythmIssues = CollectLayoutIssues(pages, AnalyzeSpacingRhythm);
+        PageLayoutIssue? worstKpiConsistencyIssue = kpiConsistencyIssues.Count > 0
+            ? kpiConsistencyIssues
+                .OrderByDescending(issue => issue.Visuals.Count)
+                .ThenByDescending(issue => issue.Penalty)
+                .First()
+            : null;
+        PageLayoutIssue? worstSpacingRhythmIssue = spacingRhythmIssues.Count > 0
+            ? spacingRhythmIssues
+                .OrderByDescending(issue => issue.Visuals.Count)
+                .ThenByDescending(issue => issue.Penalty)
+                .First()
+            : null;
 
         // Sub 1: Grid alignment (35 pts)
         int totalV = 0, alignedV = 0;
@@ -594,13 +613,15 @@ public sealed class PbirScoringService
         var misalignedVisuals = new List<(string PageName, VisualData Visual)>();
         foreach (var page in pages)
         {
+            double colWidthPx = GetColumnWidth(page);
+            double rowHeightPx = GetRowHeight(page);
             foreach (var v in page.Visuals)
             {
                 // Skip hidden visuals from alignment scoring
                 if (v.IsHidden) continue;
                 
                 totalV++;
-                if (IsNearMultiple(v.X, ColWidthPx) && IsNearMultiple(v.Y, RowHeightPx))
+                if (IsNearMultiple(v.X, colWidthPx) && IsNearMultiple(v.Y, rowHeightPx))
                     alignedV++;
                 else
                 {
@@ -613,15 +634,38 @@ public sealed class PbirScoringService
             }
         }
         double alignPct = totalV == 0 ? 100.0 : (double)alignedV / totalV * 100.0;
-        double sub1 = alignPct * 0.35;
+        var alignmentConcerns = new List<string>();
+        var alignmentAffectedVisuals = new List<(string PageName, VisualData Visual)>(misalignedVisuals);
+        double alignmentPenalty = 0.0;
+        if (misalignedPages.Count > 0)
+        {
+            alignmentConcerns.Add($"{misalignedPages.Count} page(s) have off-grid visuals");
+        }
+
+        if (worstKpiConsistencyIssue is { } kpiConsistencyIssue)
+        {
+            alignmentConcerns.Add(kpiConsistencyIssue.Message);
+            alignmentAffectedVisuals.AddRange(kpiConsistencyIssue.Visuals.Select(visual => (kpiConsistencyIssue.Page.DisplayName, visual)));
+            alignmentPenalty += kpiConsistencyIssue.Penalty;
+        }
+
+        if (worstSpacingRhythmIssue is { } spacingRhythmIssue)
+        {
+            alignmentConcerns.Add(spacingRhythmIssue.Message);
+            alignmentAffectedVisuals.AddRange(spacingRhythmIssue.Visuals.Select(visual => (spacingRhythmIssue.Page.DisplayName, visual)));
+            alignmentPenalty += spacingRhythmIssue.Penalty;
+        }
+
+        double sub1 = Math.Max(0.0, alignPct * 0.35 - alignmentPenalty);
         feedback.Add(ScoredFeedback(
-            misalignedPages.Count == 0,
-            misalignedPages.Count == 0
+            alignmentConcerns.Count == 0,
+            alignmentConcerns.Count == 0
                 ? "Grid alignment: All visuals align to the 12-column grid — strong spatial organisation."
-                : $"Grid alignment: {misalignedPages.Count} page(s) have off-grid visuals — snap to the 12-column grid for visual harmony.",
+                : $"Grid alignment: {string.Join("; ", alignmentConcerns)} — tighten the layout so peer visuals read as a deliberate system.",
             sub1,
             35.0,
-            misalignedPages.Count == 0 ? null : BuildAffectedVisuals(misalignedVisuals)));
+            FindingTypes.StrongHeuristic,
+            alignmentConcerns.Count == 0 ? null : BuildAffectedVisuals(alignmentAffectedVisuals)));
 
         // Sub 2: Figure/ground contrast — has KPI/card AND at least one chart (30 pts)
         bool hasFigGround = allVisuals.Any(v => v.IsKpiCard) && allVisuals.Any(v => !v.IsKpiCard && !v.IsDecorative);
@@ -632,7 +676,8 @@ public sealed class PbirScoringService
                 ? "Figure/ground: KPI cards contrast with supporting charts — effective visual hierarchy."
                 : "Figure/ground: Add at least one KPI/card visual alongside charts to create a clear focal point.",
             sub2,
-            30.0));
+            30.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 3: Similarity — 2–5 unique non-decorative visual types (20 pts)
         int uniqueTypes = allVisuals.Where(v => !v.IsDecorative).Select(v => v.Type).Distinct().Count();
@@ -646,7 +691,8 @@ public sealed class PbirScoringService
                     ? "Similarity: Only one visual type in use — add 2–5 distinct chart types for grouping cues."
                     : $"Similarity: {uniqueTypes} visual types may cause noise — aim for 2–5 distinct types.",
             sub3,
-            20.0));
+            20.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 4: Visual presence (15 pts)
         bool hasViz = allVisuals.Any(v => !v.IsDecorative);
@@ -656,7 +702,26 @@ public sealed class PbirScoringService
             hasViz ? "Visual presence: Report contains data visuals."
                    : "Visual presence: No data visuals detected — add charts, tables, or KPI cards.",
             sub4,
-            15.0));
+            15.0,
+            FindingTypes.Objective));
+
+        if (worstKpiConsistencyIssue is { } topBandIssue)
+        {
+            feedback.Add(FeedbackItem(
+                false,
+                $"Top-band KPI consistency: {topBandIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(topBandIssue.Page.DisplayName, topBandIssue.Visuals)));
+        }
+
+        if (worstSpacingRhythmIssue is { } rowRhythmIssue)
+        {
+            feedback.Add(FeedbackItem(
+                false,
+                $"Spacing rhythm: {rowRhythmIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(rowRhythmIssue.Page.DisplayName, rowRhythmIssue.Visuals)));
+        }
 
         return (Clamp(sub1 + sub2 + sub3 + sub4), feedback);
     }
@@ -682,20 +747,50 @@ public sealed class PbirScoringService
                 true,
                 "Visual density: No pages to evaluate.",
                 100.0,
-                100.0));
+                100.0,
+                FindingTypes.Objective));
             return (100.0, feedback);
         }
 
         double total = 0.0;
         var dense = new List<(PageData Page, VisualComposition Composition)>();
         var navHotspots = new List<(PageData Page, VisualComposition Composition)>();
+        var filterPlacementIssues = new List<PageLayoutIssue>();
+        var filterScatterIssues = new List<PageLayoutIssue>();
+        var overviewFilterDensityIssues = new List<PageLayoutIssue>();
+        var scanPathIssues = new List<PageLayoutIssue>();
 
         foreach (var page in pages)
         {
             var composition = BuildVisualComposition(page.Visuals, navigationScoring);
             double v = composition.WeightedVisibleCount;
             double s = v > 6 ? Math.Max(0, 100 - Math.Log2(v / 6.0) * 15) : 100;
-            total    += s;
+
+            if (AnalyzeFilterPlacement(page) is { } filterPlacementIssue)
+            {
+                filterPlacementIssues.Add(filterPlacementIssue);
+                s = Math.Max(0.0, s - filterPlacementIssue.Penalty);
+            }
+
+            if (AnalyzeFilterScatter(page) is { } filterScatterIssue)
+            {
+                filterScatterIssues.Add(filterScatterIssue);
+                s = Math.Max(0.0, s - filterScatterIssue.Penalty);
+            }
+
+            if (AnalyzeOverviewFilterDensity(page) is { } overviewFilterDensityIssue)
+            {
+                overviewFilterDensityIssues.Add(overviewFilterDensityIssue);
+                s = Math.Max(0.0, s - overviewFilterDensityIssue.Penalty);
+            }
+
+            if (AnalyzePrimaryScanPath(page) is { } scanPathIssue)
+            {
+                scanPathIssues.Add(scanPathIssue);
+                s = Math.Max(0.0, s - scanPathIssue.Penalty);
+            }
+
+            total += s;
             if (v > 6)
             {
                 dense.Add((page, composition));
@@ -731,6 +826,7 @@ public sealed class PbirScoringService
                 $"Visual density: '{worst.Page.DisplayName}' has a weighted load of {worst.Composition.WeightedVisibleCount:F1}{navigationSummary} (target ≤6 per page) — consider simplifying controls or splitting the page to reduce cognitive overload.",
                 score,
                 100.0,
+                FindingTypes.StrongHeuristic,
                 denseVisuals));
         }
         else
@@ -739,7 +835,8 @@ public sealed class PbirScoringService
                 true,
                 "Visual density: All pages have ≤6 visuals — comfortable viewing density.",
                 score,
-                100.0));
+                100.0,
+                FindingTypes.StrongHeuristic));
         }
 
         if (navigationScoring.Enabled && navHotspots.Count > 0)
@@ -757,22 +854,88 @@ public sealed class PbirScoringService
                     .ThenBy(v => v.Id, StringComparer.OrdinalIgnoreCase));
             recs.Add(
                 $"[Medium] Navigation: '{hotspot.Page.DisplayName}' uses {hotspot.Composition.NavigationVisualCount} navigation control(s) and {hotspot.Composition.HiddenVisualCount} hidden visual(s). Consider consolidating bookmark-driven interaction with button slicers or field parameters.");
-            feedback.Add(new(false,
+            feedback.Add(FeedbackItem(
+                false,
                 $"Navigation complexity: '{hotspot.Page.DisplayName}' combines {hotspot.Composition.NavigationVisualCount} navigation control(s) with {hotspot.Composition.HiddenVisualCount} hidden visual(s) — this often signals an interaction-heavy layout that can be simplified.",
+                FindingTypes.StrongHeuristic,
                 hotspotVisuals));
         }
         else if (navigationScoring.Enabled)
         {
-            feedback.Add(new(true,
-                $"Navigation treatment: Navigation controls count at {navigationScoring.WeightPercent:F0}% of a standard visual in cognitive load scoring."));
+            feedback.Add(FeedbackItem(
+                true,
+                $"Navigation treatment: Navigation controls count at {navigationScoring.WeightPercent:F0}% of a standard visual in cognitive load scoring.",
+                FindingTypes.Objective));
+        }
+
+        if (filterPlacementIssues.Count > 0)
+        {
+            var filterPlacementIssue = filterPlacementIssues
+                .OrderByDescending(issue => issue.Visuals.Count)
+                .ThenByDescending(issue => issue.Penalty)
+                .First();
+            recs.Add(
+                $"[Medium] Cognitive Load: Move slicers on '{filterPlacementIssue.Page.DisplayName}' into a left rail or top control band so they do not interrupt the primary reading flow.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Filter placement: {filterPlacementIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(filterPlacementIssue.Page.DisplayName, filterPlacementIssue.Visuals)));
+        }
+
+        if (filterScatterIssues.Count > 0)
+        {
+            var filterScatterIssue = filterScatterIssues
+                .OrderByDescending(issue => issue.Visuals.Count)
+                .ThenByDescending(issue => issue.Penalty)
+                .First();
+            recs.Add(
+                $"[Medium] Cognitive Load: Consolidate slicers on '{filterScatterIssue.Page.DisplayName}' into a single top band or left rail instead of scattering them across the page.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Filter consolidation: {filterScatterIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(filterScatterIssue.Page.DisplayName, filterScatterIssue.Visuals)));
+        }
+
+        if (overviewFilterDensityIssues.Count > 0)
+        {
+            var overviewFilterDensityIssue = overviewFilterDensityIssues
+                .OrderByDescending(issue => issue.Visuals.Count)
+                .ThenByDescending(issue => issue.Penalty)
+                .First();
+            recs.Add(
+                $"[Medium] Cognitive Load: Reduce or merge slicers on '{overviewFilterDensityIssue.Page.DisplayName}' so the overview page stays focused on the main evidence.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Overview filter density: {overviewFilterDensityIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(overviewFilterDensityIssue.Page.DisplayName, overviewFilterDensityIssue.Visuals)));
+        }
+
+        if (scanPathIssues.Count > 0)
+        {
+            var scanPathIssue = scanPathIssues
+                .OrderByDescending(issue => issue.Visuals.Count)
+                .ThenByDescending(issue => issue.Penalty)
+                .First();
+            recs.Add(
+                $"[Medium] Cognitive Load: Give '{scanPathIssue.Page.DisplayName}' a clearer upper-left entry point so the first scan lands on the main evidence before secondary controls.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Primary scan path: {scanPathIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(scanPathIssue.Page.DisplayName, scanPathIssue.Visuals)));
         }
 
         // Add positive feedback for low-density pages
         int idealPages = pages.Count(p => BuildVisualComposition(p.Visuals, navigationScoring).WeightedVisibleCount <= 4);
         if (idealPages > 0)
         {
-            feedback.Add(new(true,
-                $"Optimal density: {idealPages} page(s) have ≤4 visuals — excellent focus."));
+            feedback.Add(FeedbackItem(
+                true,
+                $"Optimal density: {idealPages} page(s) have ≤4 visuals — excellent focus.",
+                FindingTypes.StrongHeuristic));
         }
 
         return (score, feedback);
@@ -830,7 +993,8 @@ public sealed class PbirScoringService
                 true,
                 "Data-ink ratio: No visuals to evaluate.",
                 100.0,
-                100.0));
+                100.0,
+                FindingTypes.Objective));
             return (100.0, feedback);
         }
 
@@ -845,6 +1009,7 @@ public sealed class PbirScoringService
                 $"Data-ink ratio: {ratio * 100:F0}% of visuals carry data; {decorativeCount} decorative visual(s) remain ({(1 - ratio) * 100:F0}% of total) — remove images, shapes, and text boxes that don't carry data.",
                 ratio * 100.0,
                 100.0,
+                FindingTypes.StrongHeuristic,
                 BuildAffectedVisuals(
                     decorativeVisuals
                         .OrderBy(entry => entry.PageName, StringComparer.OrdinalIgnoreCase)
@@ -857,15 +1022,18 @@ public sealed class PbirScoringService
                 true,
                 $"Data-ink ratio: {ratio * 100:F0}% of visuals carry data — minimal decorative overhead.",
                 ratio * 100.0,
-                100.0));
+                100.0,
+                FindingTypes.StrongHeuristic));
         }
 
         if (navigationScoring.Enabled)
         {
-            feedback.Add(new(true,
+            feedback.Add(FeedbackItem(
+                true,
                 excludedNavigation > 0
                     ? $"Navigation treatment: {excludedNavigation} navigation visual(s) excluded from Data-Ink Ratio."
-                    : "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio."));
+                    : "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+                FindingTypes.Objective));
         }
 
         // Surface the decorative types present
@@ -879,8 +1047,10 @@ public sealed class PbirScoringService
             .ToList();
         if (decorativeTypes.Count > 0)
         {
-            feedback.Add(new(false,
-                $"Decorative types present: {string.Join(", ", decorativeTypes)} — consider removal to improve data-ink ratio."));
+            feedback.Add(FeedbackItem(
+                false,
+                $"Decorative types present: {string.Join(", ", decorativeTypes)} — consider removal to improve data-ink ratio.",
+                FindingTypes.StrongHeuristic));
         }
 
         return (ratio * 100.0, feedback);
@@ -903,7 +1073,8 @@ public sealed class PbirScoringService
                 true,
                 "WCAG 2.1 AA: No custom theme detected — using default Power BI theme colours.",
                 100.0,
-                100.0));
+                100.0,
+                FindingTypes.Objective));
             return (100.0, feedback);
         }
 
@@ -937,7 +1108,8 @@ public sealed class PbirScoringService
                 $"{string.Join(", ", failing.Take(3))}{(failing.Count > 3 ? $" and {failing.Count - 3} more" : "")}. " +
                 "Update the report theme with accessible colours to fix.",
                 (double)passing / themeColors.Count * 100.0,
-                100.0));
+                100.0,
+                FindingTypes.Objective));
         }
         else
         {
@@ -945,7 +1117,8 @@ public sealed class PbirScoringService
                 true,
                 $"WCAG 2.1 AA: All {passing} theme colour(s) pass contrast ratio ≥4.5:1 — accessible for most users.",
                 100.0,
-                100.0));
+                100.0,
+                FindingTypes.Objective));
         }
 
         double score = (double)passing / themeColors.Count * 100.0;
@@ -964,28 +1137,91 @@ public sealed class PbirScoringService
     {
         var feedback   = new List<FrameworkFeedbackItem>();
         var allVisuals = pages.SelectMany(p => p.Visuals).ToList();
+        var pieUsage = AnalyzePieUsage(pages);
+        var comparisonGapIssues = CollectSemanticPageIssues(pages, AnalyzeMissingComparisonVisualIssue);
+        var executiveVarianceIssues = CollectSemanticPageIssues(pages, AnalyzeExecutiveVarianceContextIssue);
+        var redundantLabelIssues = CollectSemanticIssues(pages, AnalyzeRedundantLabelIssues);
+        var metricLabelIssue = AnalyzeMetricLabelConsistency(pages);
+        var pageStyleLanguageIssue = AnalyzePageStyleLanguageConsistency(pages);
+        var layoutConventionIssue = AnalyzeLayoutConventionConsistency(pages);
+        var semanticRelevantPages = pages
+            .Select(AnalyzeNarrativePage)
+            .Where(analysis => analysis.VisibleDataVisuals.Count > 0)
+            .Where(analysis => analysis.KpiCards.Count >= 2 || HasComparisonIntent(analysis) || IsOverviewPage(analysis.Page, analysis.VisibleTitle))
+            .ToList();
 
-        // Sub 1: Pie/donut avoidance (20 pts) — 0 pie→20, 1 pie→12, 2+→0
-        int pieCount = allVisuals.Count(v => v.IsPieDonut);
-        double sub1  = pieCount == 0 ? 20.0 : pieCount == 1 ? 12.0 : 0.0;
+        // Sub 1: Pie/donut avoidance (20 pts) — severity scales by count and overview-page usage.
+        double sub1 = pieUsage.PieCount switch
+        {
+            0 => 20.0,
+            1 when pieUsage.OverviewPieCount == 0 => 12.0,
+            1 => 6.0,
+            2 when pieUsage.OverviewPieCount == 0 => 4.0,
+            _ => 0.0,
+        };
         feedback.Add(ScoredFeedback(
-            pieCount == 0,
-            pieCount == 0
+            pieUsage.PieCount == 0,
+            pieUsage.PieCount == 0
                 ? "Pie avoidance: No pie/donut charts — bar/column charts make comparisons easier."
-                : $"Pie avoidance: {pieCount} pie/donut chart(s) detected — replace with bar or column charts for accurate comparison.",
+                : pieUsage.OverviewPieCount > 0
+                    ? $"Pie avoidance: {pieUsage.PieCount} pie/donut chart(s) detected, including overview-page use — exact comparison is usually more important than part-to-whole emphasis on landing pages."
+                    : $"Pie avoidance: {pieUsage.PieCount} pie/donut chart(s) detected — replace with bar or column charts when exact comparison matters.",
             sub1,
-            20.0));
+            20.0,
+            FindingTypes.StrongHeuristic,
+            pieUsage.PieCount == 0 ? null : BuildAffectedVisuals(pieUsage.PieVisuals)));
 
-        // Sub 2: Trend/comparison chart presence (20 pts)
-        bool hasTrendOrComparison = allVisuals.Any(v => v.IsTrend || v.IsComparison);
-        double sub2 = hasTrendOrComparison ? 20.0 : 0.0;
+        // Sub 2: Analytical fit (20 pts) — KPI/overview pages should include fitting comparison or variance context.
+        var semanticIssuePages = comparisonGapIssues
+            .Concat(executiveVarianceIssues)
+            .Select(issue => issue.Page.DisplayName)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        bool hasTrendOrComparison = allVisuals.Any(v => !v.IsHidden && (v.IsTrend || IsComparisonOptimizedVisual(v)));
+        double sub2;
+        string analyticalFitMessage;
+        List<AffectedVisualReference>? analyticalFitVisuals = null;
+        if (semanticRelevantPages.Count == 0)
+        {
+            sub2 = hasTrendOrComparison ? 20.0 : 0.0;
+            analyticalFitMessage = hasTrendOrComparison
+                ? "Analytical fit: The report includes trend or comparison visuals that support common decision tasks."
+                : "Analytical fit: Add at least one line or bar/column chart to support trend or comparison analysis.";
+        }
+        else
+        {
+            int supportedPages = Math.Max(0, semanticRelevantPages.Count - semanticIssuePages.Count);
+            sub2 = 20.0 * supportedPages / semanticRelevantPages.Count;
+            if (semanticIssuePages.Count == 0)
+            {
+                analyticalFitMessage = "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context.";
+            }
+            else if (comparisonGapIssues.Count > 0)
+            {
+                var issue = comparisonGapIssues
+                    .OrderByDescending(item => item.Visuals.Count)
+                    .ThenByDescending(item => item.Penalty)
+                    .First();
+                analyticalFitMessage = $"Analytical fit: {issue.Message}.";
+                analyticalFitVisuals = BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals);
+            }
+            else
+            {
+                var issue = executiveVarianceIssues
+                    .OrderByDescending(item => item.Visuals.Count)
+                    .ThenByDescending(item => item.Penalty)
+                    .First();
+                analyticalFitMessage = $"Analytical fit: {issue.Message}.";
+                analyticalFitVisuals = BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals);
+            }
+        }
         feedback.Add(ScoredFeedback(
-            hasTrendOrComparison,
-            hasTrendOrComparison
-                ? "Chart variety: Includes trend or comparison charts — supports analytical reasoning."
-                : "Chart variety: Add at least one line or bar chart to enable trend or comparison analysis.",
+            semanticIssuePages.Count == 0 && (semanticRelevantPages.Count == 0 ? hasTrendOrComparison : true),
+            analyticalFitMessage,
             sub2,
-            20.0));
+            20.0,
+            FindingTypes.StrongHeuristic,
+            analyticalFitVisuals));
 
         // Sub 3: Slicer presence (20 pts)
         bool hasSlicer = allVisuals.Any(v => v.IsSlicer);
@@ -996,7 +1232,8 @@ public sealed class PbirScoringService
                 ? "Slicer: At least one slicer provides interactive filtering — good for exploration."
                 : "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
             sub3,
-            20.0));
+            20.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 4: Theme palette size (20 pts) — same formula as legacy ThemeScore, scaled
         int c = themeColors.Count;
@@ -1009,7 +1246,8 @@ public sealed class PbirScoringService
                 false,
                 $"Colour palette: {c} data colours defined (recommended ≤5) — reduce for visual consistency.",
                 sub4,
-                20.0));
+                20.0,
+                FindingTypes.StrongHeuristic));
         }
         else
         {
@@ -1017,7 +1255,8 @@ public sealed class PbirScoringService
                 true,
                 $"Colour palette: {(c == 0 ? "Default" : c.ToString())} data colour(s) — palette is concise.",
                 sub4,
-                20.0));
+                20.0,
+                FindingTypes.StrongHeuristic));
         }
 
         // Sub 5: Data binding completeness (20 pts) — % of non-decorative visuals with non-empty Type
@@ -1031,7 +1270,91 @@ public sealed class PbirScoringService
                 ? "Data bindings: All data visuals have a chart type assigned."
                 : $"Data bindings: {unbound} visual(s) have no type assigned — verify all visuals are properly configured.",
             sub5,
-            20.0));
+            20.0,
+            FindingTypes.Objective));
+
+        if (pieUsage.PieCount > 0)
+        {
+            recs.Add(
+                pieUsage.OverviewPieCount > 0
+                    ? "[Medium] Visual Best Practices: Replace overview-page pie/donut charts with bar or column charts so the landing page supports exact comparison."
+                    : "[Low] Visual Best Practices: Replace pie/donut charts with bar or column charts when users need exact comparisons.");
+        }
+
+        if (comparisonGapIssues.Count > 0)
+        {
+            var issue = comparisonGapIssues
+                .OrderByDescending(item => item.Visuals.Count)
+                .ThenByDescending(item => item.Penalty)
+                .First();
+            recs.Add(
+                $"[Medium] Visual Best Practices: Add a clustered bar or column comparison visual to {FormatSemanticPageLabel(issue.Page)} so the KPI layer has categorical evidence.");
+        }
+
+        if (executiveVarianceIssues.Count > 0)
+        {
+            var issue = executiveVarianceIssues
+                .OrderByDescending(item => item.Visuals.Count)
+                .ThenByDescending(item => item.Penalty)
+                .First();
+            recs.Add(
+                $"[Medium] Visual Best Practices: Add target, variance, prior-period, or trend context to {FormatSemanticPageLabel(issue.Page)} so the KPI summary can be interpreted quickly.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Executive variance context: {issue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals)));
+        }
+
+        if (redundantLabelIssues.Count > 0)
+        {
+            var issue = redundantLabelIssues
+                .OrderByDescending(item => item.Penalty)
+                .ThenByDescending(item => item.Visuals.Count)
+                .First();
+            recs.Add(
+                $"[Low] Visual Best Practices: Remove either axis labels or direct data labels from {FormatSemanticVisualLabel(issue.Page, issue.Visuals.First())} if both are not needed.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Redundant labeling: {issue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals)));
+        }
+
+        if (metricLabelIssue is { } labelIssue)
+        {
+            recs.Add(
+                "[Low] Visual Best Practices: Standardize KPI and card label naming. Keep modifier placement consistent and replace auto-generated labels such as `Sum of ...`.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Metric label consistency: {labelIssue.Message}.",
+                FindingTypes.StylePreference,
+                BuildAffectedVisuals(labelIssue.Visuals)));
+        }
+
+        if (pageStyleLanguageIssue is { } styleIssue)
+        {
+            recs.Add(
+                "[Low] Visual Best Practices: Keep rounded corners, shadows, and filled surfaces consistent across repeated page templates unless the style shift signals a deliberate mode change.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Page style language: {styleIssue.Message}.",
+                FindingTypes.StylePreference,
+                BuildAffectedVisuals(styleIssue.Visuals)));
+        }
+
+        if (layoutConventionIssue is { } conventionIssue)
+        {
+            recs.Add(
+                "[Low] Visual Best Practices: Keep title alignment and filter-band conventions stable across repeated report pages unless the layout change serves a clear user purpose.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Layout convention: {conventionIssue.Message}.",
+                FindingTypes.StylePreference,
+                BuildAffectedVisuals(conventionIssue.Visuals)));
+        }
+
+        AddSurfaceTreatmentFeedback(feedback, pages);
 
         return (Clamp(sub1 + sub2 + sub3 + sub4 + sub5), feedback);
     }
@@ -1052,7 +1375,7 @@ public sealed class PbirScoringService
 
         if (pages.Count == 0)
         {
-            feedback.Add(new(false, "No pages found to evaluate against governance rules."));
+            feedback.Add(FeedbackItem(false, "No pages found to evaluate against governance rules.", FindingTypes.Objective));
             return (0.0, feedback);
         }
 
@@ -1065,7 +1388,8 @@ public sealed class PbirScoringService
                 ? $"Visual limit: All {pages.Count} page(s) are within the configured maximum of {rules.MaxVisualsPerPage} data visuals."
                 : $"Visual limit: {pages.Count - compliantPages} page(s) exceed the configured maximum of {rules.MaxVisualsPerPage} data visuals.",
             sub1,
-            40.0));
+            40.0,
+            FindingTypes.Objective));
 
         bool pieCompliant = rules.AllowPieCharts || !allVisuals.Any(v => v.IsPieDonut);
         double sub2 = pieCompliant ? 30.0 : 0.0;
@@ -1077,17 +1401,39 @@ public sealed class PbirScoringService
                     : "Pie chart policy: No pie or donut charts detected, matching the configured governance rule."
                 : "Pie chart policy: Pie or donut charts are present, but the current governance configuration disallows them.",
             sub2,
-            30.0));
+            30.0,
+            FindingTypes.Objective));
 
-        bool titleCompliant = !rules.RequirePageTitle || pages.All(page => !string.IsNullOrWhiteSpace(page.DisplayName));
+        var titledPages = pages
+            .Select(page => new
+            {
+                Page = page,
+                VisibleTitle = GetPageVisibleTitle(page),
+            })
+            .ToList();
+        var missingVisibleTitlePages = titledPages
+            .Where(entry => string.IsNullOrWhiteSpace(entry.VisibleTitle))
+            .Select(entry => entry.Page.DisplayName)
+            .ToList();
+        bool titleCompliant = !rules.RequirePageTitle || missingVisibleTitlePages.Count == 0;
         double sub3 = titleCompliant ? 30.0 : 0.0;
+        var titleExamples = titledPages
+            .Select(entry => entry.VisibleTitle)
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Select(title => $"'{title}'")
+            .Distinct(StringComparer.Ordinal)
+            .Take(2)
+            .ToList();
         feedback.Add(ScoredFeedback(
             titleCompliant,
             titleCompliant
-                ? "Page title policy: All evaluated pages have titles, satisfying the configured governance rule."
-                : "Page title policy: One or more pages are missing a title while titles are required by governance.",
+                ? titleExamples.Count > 0
+                    ? $"Page title policy: All evaluated pages expose visible title intent, satisfying the configured governance rule. Example titles: {string.Join(", ", titleExamples)}."
+                    : "Page title policy: Visible title intent is not required by the current governance configuration."
+                : $"Page title policy: {missingVisibleTitlePages.Count} page(s) rely on page metadata alone ({string.Join(", ", missingVisibleTitlePages.Select(pageName => $"'{pageName}'"))}) — add a visible page title or question anchor.",
             sub3,
-            30.0));
+            30.0,
+            FindingTypes.Objective));
 
         return (Clamp(sub1 + sub2 + sub3), feedback);
     }
@@ -1105,7 +1451,7 @@ public sealed class PbirScoringService
 
         if (pages.Count == 0)
         {
-            feedback.Add(new(false, "No pages found to evaluate against Stephen Few's guidelines."));
+            feedback.Add(FeedbackItem(false, "No pages found to evaluate against Stephen Few's guidelines.", FindingTypes.Objective));
             return (0.0, feedback);
         }
 
@@ -1120,7 +1466,8 @@ public sealed class PbirScoringService
                 ? "One-screen rule: All pages have ≤8 visuals — within Stephen Few's recommended density."
                 : $"One-screen rule: {exceeding.Count} page(s) exceed 8 visuals — split dense pages to reduce cognitive load.",
             sub1,
-            30.0));
+            30.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 2: KPI prominence (25 pts)
         bool hasKpi = allVisuals.Any(v => v.IsKpiCard);
@@ -1131,7 +1478,8 @@ public sealed class PbirScoringService
                 ? "KPI prominence: KPI/card visual(s) present — key metric immediately visible."
                 : "KPI prominence: Add a KPI or card visual to make the report's headline metric immediately visible.",
             sub2,
-            25.0));
+            25.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 3: Pie avoidance — strict (25 pts); Few: any pie = failure
         bool noPie  = !allVisuals.Any(v => v.IsPieDonut);
@@ -1142,7 +1490,8 @@ public sealed class PbirScoringService
                 ? "Pie avoidance: No pie/donut charts — aligns with Stephen Few's strict guidance."
                 : "Pie avoidance: Stephen Few strongly recommends replacing pie/donut charts with bar charts for accurate magnitude comparison.",
             sub3,
-            25.0));
+            25.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 4: Contextual slicer (20 pts)
         bool hasSlicer = allVisuals.Any(v => v.IsSlicer);
@@ -1153,7 +1502,8 @@ public sealed class PbirScoringService
                 ? "Contextual slicer: Slicer present — provides context-switching for the audience."
                 : "Contextual slicer: Few recommends filtering controls — add a slicer to support audience exploration.",
             sub4,
-            20.0));
+            20.0,
+            FindingTypes.StrongHeuristic));
 
         return (Clamp(sub1 + sub2 + sub3 + sub4), feedback);
     }
@@ -1171,7 +1521,7 @@ public sealed class PbirScoringService
 
         if (pages.Count == 0 || allVisuals.Count == 0)
         {
-            feedback.Add(new(false, "No visuals found to evaluate against Tufte's minimalism principles."));
+            feedback.Add(FeedbackItem(false, "No visuals found to evaluate against Tufte's minimalism principles.", FindingTypes.Objective));
             return (0.0, feedback);
         }
 
@@ -1188,7 +1538,8 @@ public sealed class PbirScoringService
                 ? $"Data-ink ratio: {dataVisuals}/{totalVisible} visuals carry data — strong data-ink discipline."
                 : $"Data-ink ratio: {dataVisuals}/{totalVisible} visuals carry data; {decorativeCount} decorative visual(s) remain ({Math.Round(decorativeCount * 100.0 / totalVisible)}% of total) — remove images, shapes, and text boxes that don't carry data.",
             sub1,
-            40.0));
+            40.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 2: Pie/donut avoidance (30 pts) — Tufte considers radial slices poor for comparison
         bool noPie = !allVisuals.Any(v => v.IsPieDonut);
@@ -1199,7 +1550,8 @@ public sealed class PbirScoringService
                 ? "Pie avoidance: No pie/donut charts — aligns with Tufte's guidance on precise quantitative comparison."
                 : "Pie avoidance: Tufte recommends replacing pie/donut charts with bar or dot plots for more accurate visual comparison.",
             sub2,
-            30.0));
+            30.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 3: Decoration minimalism (30 pts) — penalise > 2 decorative visuals per page
         double avgDecorativePerPage = (double)decorativeCount / pages.Count;
@@ -1213,7 +1565,8 @@ public sealed class PbirScoringService
                 ? "Decoration minimalism: Minimal use of non-data elements — ink is maximally devoted to data."
                 : $"Decoration minimalism: {decorativeCount} decorative element(s) across {pages.Count} page(s) ({avgDecorativePerPage:F1} per page) — every visual element should carry quantitative information.",
             sub3,
-            30.0));
+            30.0,
+            FindingTypes.StrongHeuristic));
 
         return (Clamp(sub1 + sub2 + sub3), feedback);
     }
@@ -1231,10 +1584,14 @@ public sealed class PbirScoringService
         var feedback    = new List<FrameworkFeedbackItem>();
         var allVisuals  = pages.SelectMany(p => p.Visuals).Where(v => !v.IsHidden).ToList();
         var dataVisuals = allVisuals.Where(v => !v.IsDecorative).ToList();
+        var lineSequenceIssues = CollectSemanticIssues(pages, AnalyzeLineChartSequenceIssues);
+        var funnelSemanticsIssues = CollectSemanticIssues(pages, AnalyzeWeakFunnelMeaningIssues);
+        var comparisonGapIssues = CollectSemanticPageIssues(pages, AnalyzeMissingComparisonVisualIssue);
+        var pieUsage = AnalyzePieUsage(pages);
 
         if (dataVisuals.Count == 0)
         {
-            feedback.Add(new(false, "No data visuals found to evaluate against graphical perception principles."));
+            feedback.Add(FeedbackItem(false, "No data visuals found to evaluate against graphical perception principles.", FindingTypes.Objective));
             return (0.0, feedback);
         }
 
@@ -1244,38 +1601,115 @@ public sealed class PbirScoringService
         int positional = dataVisuals.Count(v => v.IsComparison || v.IsTrend ||
             v.Type is "scatterChart" or "barChart" or "columnChart" or "waterfallChart" or "funnel");
         double positionalRatio = (double)positional / dataVisuals.Count;
-        double sub1 = positionalRatio * 40.0;
+        double encodingPenalty = Math.Min(20.0,
+            lineSequenceIssues.Sum(issue => issue.Penalty) +
+            funnelSemanticsIssues.Sum(issue => issue.Penalty));
+        double sub1 = Math.Max(0.0, positionalRatio * 40.0 - encodingPenalty);
+        var perceptualIssues = lineSequenceIssues.Concat(funnelSemanticsIssues).ToList();
         feedback.Add(ScoredFeedback(
-            positionalRatio >= 0.7,
-            positionalRatio >= 0.7
+            positionalRatio >= 0.7 && perceptualIssues.Count == 0,
+            positionalRatio >= 0.7 && perceptualIssues.Count == 0
                 ? $"Perceptual accuracy: {positional}/{dataVisuals.Count} visuals use position/length encodings — high perceptual accuracy (Cleveland & McGill)."
-                : $"Perceptual accuracy: {positional}/{dataVisuals.Count} visuals use position/length encodings — replace angle/area charts with bar or line charts for more accurate data perception.",
+                : perceptualIssues.Count > 0
+                    ? $"Perceptual accuracy: {positional}/{dataVisuals.Count} visuals use position/length encodings, but some charts still use an encoding that does not match the task implied by their titles or field roles."
+                    : $"Perceptual accuracy: {positional}/{dataVisuals.Count} visuals use position/length encodings — replace angle/area charts with bar or line charts for more accurate data perception.",
             sub1,
-            40.0));
+            40.0,
+            FindingTypes.StrongHeuristic,
+            perceptualIssues.Count == 0 ? null : BuildAffectedVisuals(perceptualIssues.SelectMany(issue => issue.Visuals.Select(visual => (issue.Page.DisplayName, visual))))));
 
         // Sub 2: Pie/donut avoidance (35 pts)
         // Radial angle encodings rank lowest in the Cleveland & McGill perceptual hierarchy
-        bool noPie  = !allVisuals.Any(v => v.IsPieDonut);
-        double sub2 = noPie ? 35.0 : 0.0;
+        bool noPie  = pieUsage.PieCount == 0;
+        double sub2 = noPie
+            ? 35.0
+            : pieUsage.OverviewPieCount > 0 || pieUsage.PieCount >= 2
+                ? 0.0
+                : 18.0;
         feedback.Add(ScoredFeedback(
             noPie,
             noPie
                 ? "Radial avoidance: No pie/donut charts — using bar/column charts provides more accurate quantitative comparisons."
-                : "Radial avoidance: Pie/donut charts detected — replace with bar charts for more accurate quantitative judgment per the perceptual ranking.",
+                : pieUsage.OverviewPieCount > 0
+                    ? "Radial avoidance: Pie/donut charts appear on an overview page, where aligned bars or columns usually support more accurate first-pass comparison."
+                    : "Radial avoidance: Pie/donut charts detected — replace with bar charts for more accurate quantitative judgment per the perceptual ranking.",
             sub2,
-            35.0));
+            35.0,
+            FindingTypes.StrongHeuristic,
+            noPie ? null : BuildAffectedVisuals(pieUsage.PieVisuals)));
 
         // Sub 3: Comparison-optimised structure (25 pts)
-        // Clustered bars/columns allow direct side-by-side comparison
-        bool hasComparison = dataVisuals.Any(v => v.IsComparison);
-        double sub3 = hasComparison ? 25.0 : 0.0;
+        // Clustered bars/columns allow direct side-by-side comparison on KPI-heavy or comparison-led pages.
+        var comparisonRelevantPages = pages
+            .Select(AnalyzeNarrativePage)
+            .Where(analysis => analysis.VisibleDataVisuals.Count > 0)
+            .Where(analysis => analysis.KpiCards.Count >= 2 || HasComparisonIntent(analysis))
+            .ToList();
+        double sub3;
+        bool hasComparison;
+        string comparisonMessage;
+        List<AffectedVisualReference>? comparisonAffectedVisuals = null;
+        if (comparisonRelevantPages.Count == 0)
+        {
+            hasComparison = dataVisuals.Any(IsComparisonOptimizedVisual);
+            sub3 = hasComparison ? 25.0 : 0.0;
+            comparisonMessage = hasComparison
+                ? "Comparative structure: Clustered bar/column charts present — enables direct side-by-side comparison."
+                : "Comparative structure: Add a clustered bar or column chart to support direct comparative judgments between categories.";
+        }
+        else
+        {
+            int supportedPages = comparisonRelevantPages.Count(analysis =>
+                analysis.VisibleDataVisuals.Any(IsComparisonOptimizedVisual));
+            sub3 = 25.0 * supportedPages / comparisonRelevantPages.Count;
+            hasComparison = supportedPages == comparisonRelevantPages.Count;
+            if (hasComparison)
+            {
+                comparisonMessage = "Comparative structure: Pages that ask for comparison include a strong bar/column comparison view.";
+            }
+            else
+            {
+                var issue = comparisonGapIssues
+                    .OrderByDescending(item => item.Visuals.Count)
+                    .ThenByDescending(item => item.Penalty)
+                    .First();
+                comparisonMessage = $"Comparative structure: {issue.Message}.";
+                comparisonAffectedVisuals = BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals);
+            }
+        }
         feedback.Add(ScoredFeedback(
             hasComparison,
-            hasComparison
-                ? "Comparative structure: Clustered bar/column charts present — enables direct side-by-side comparison."
-                : "Comparative structure: Add a clustered bar or column chart to support direct comparative judgments between categories.",
+            comparisonMessage,
             sub3,
-            25.0));
+            25.0,
+            FindingTypes.StrongHeuristic,
+            comparisonAffectedVisuals));
+
+        if (lineSequenceIssues.Count > 0)
+        {
+            var issue = lineSequenceIssues
+                .OrderByDescending(item => item.Penalty)
+                .ThenByDescending(item => item.Visuals.Count)
+                .First();
+            feedback.Add(FeedbackItem(
+                false,
+                $"Sequential fit: {issue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals)));
+        }
+
+        if (funnelSemanticsIssues.Count > 0)
+        {
+            var issue = funnelSemanticsIssues
+                .OrderByDescending(item => item.Penalty)
+                .ThenByDescending(item => item.Visuals.Count)
+                .First();
+            feedback.Add(FeedbackItem(
+                false,
+                $"Funnel semantics: {issue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(issue.Page.DisplayName, issue.Visuals)));
+        }
 
         return (Clamp(sub1 + sub2 + sub3), feedback);
     }
@@ -1283,27 +1717,48 @@ public sealed class PbirScoringService
     // ── 9. Dashboard Density score ──────────────────────────────────────────────
 
     /// <summary>
-    /// Scores three Dashboard Density sub-criteria: optimal visual count per page (40 pts),
-    /// content type diversity (30 pts), and navigation support via slicers (30 pts).
+    /// Scores three Dashboard Density sub-criteria and supplements them with
+    /// page-composition checks for long-page risk, whitespace balance, and overview/detail separation.
     /// </summary>
     private static (double score, List<FrameworkFeedbackItem> feedback) ComputeDashboardDensityScore(
         List<PageData> pages,
+        List<string> recs,
         NavigationScoringSettings navigationScoring)
     {
         var feedback = new List<FrameworkFeedbackItem>();
 
         if (pages.Count == 0)
         {
-            feedback.Add(new(false, "No pages found to evaluate dashboard density."));
+            feedback.Add(FeedbackItem(false, "No pages found to evaluate dashboard density.", FindingTypes.Objective));
             return (0.0, feedback);
         }
 
         var allVisuals = pages.SelectMany(p => p.Visuals).Where(v => !v.IsHidden).ToList();
         var compositions = pages.Select(page => BuildVisualComposition(page.Visuals, navigationScoring)).ToList();
+        var longPageIssues = CollectLayoutIssues(pages, AnalyzeLongPageRisk);
+        var overviewDetailIssues = CollectLayoutIssues(pages, AnalyzeOverviewDetailSeparation);
+        var deadZoneIssues = CollectLayoutIssues(pages, AnalyzeDeadZoneBalance);
+        PageLayoutIssue? worstLongPageIssue = longPageIssues.Count > 0
+            ? longPageIssues
+                .OrderByDescending(issue => issue.Penalty)
+                .ThenByDescending(issue => issue.Visuals.Count)
+                .First()
+            : null;
+        PageLayoutIssue? worstOverviewDetailIssue = overviewDetailIssues.Count > 0
+            ? overviewDetailIssues
+                .OrderByDescending(issue => issue.Penalty)
+                .ThenByDescending(issue => issue.Visuals.Count)
+                .First()
+            : null;
+        PageLayoutIssue? worstDeadZoneIssue = deadZoneIssues.Count > 0
+            ? deadZoneIssues
+                .OrderByDescending(issue => issue.Penalty)
+                .ThenByDescending(issue => issue.Visuals.Count)
+                .First()
+            : null;
 
         // Sub 1: Optimal visual count per page (40 pts) — 3–8 weighted visuals per page is ideal
         double avgVisuals = compositions.Sum(composition => composition.WeightedVisibleCount) / pages.Count;
-        bool optimalDensity = avgVisuals is >= 3.0 and <= 8.0;
         double sub1;
         string densityMsg;
         if (avgVisuals < 1.0)
@@ -1331,11 +1786,18 @@ public sealed class PbirScoringService
             sub1 = 0.0;
             densityMsg = $"Visual density: {avgVisuals:F1} weighted visuals per page on average — too crowded; split into multiple pages to maintain scanability.";
         }
+        if (worstLongPageIssue is { } longPageIssue)
+        {
+            sub1 = Math.Min(sub1, 20.0);
+            densityMsg += $" {longPageIssue.Page.DisplayName} also extends beyond a standard one-screen scan.";
+        }
+        bool optimalDensity = avgVisuals is >= 3.0 and <= 8.0 && worstLongPageIssue is null;
         feedback.Add(ScoredFeedback(
             optimalDensity,
             densityMsg,
             sub1,
-            40.0));
+            40.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 2: Content diversity (30 pts) — ≥3 distinct visual types indicates rich information architecture
         int distinctTypes = navigationScoring.Enabled
@@ -1353,7 +1815,8 @@ public sealed class PbirScoringService
                 ? $"Content diversity: {distinctTypes} distinct visual types — varied chart types support different perceptual tasks."
                 : $"Content diversity: Only {distinctTypes} distinct visual type(s) — add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks.",
             sub2,
-            30.0));
+            30.0,
+            FindingTypes.StrongHeuristic));
 
         // Sub 3: Navigation support (30 pts) — slicers help users navigate dense content
         bool hasSlicers = allVisuals.Any(v => v.IsSlicer);
@@ -1364,69 +1827,272 @@ public sealed class PbirScoringService
                 ? "Navigation support: Slicers present — interactive filters help users navigate and explore the dashboard efficiently."
                 : "Navigation support: No slicers found — add at least one slicer to enable interactive filtering and improve dashboard navigation.",
             sub3,
-            30.0));
+            30.0,
+            FindingTypes.StrongHeuristic));
 
         if (navigationScoring.Enabled)
         {
             var navigationVisualCount = compositions.Sum(composition => composition.NavigationVisualCount);
-            feedback.Add(new(true,
-                $"Navigation treatment: {navigationVisualCount} navigation visual(s) counted at {navigationScoring.WeightPercent:F0}% weight in dashboard density scoring."));
+            feedback.Add(FeedbackItem(
+                true,
+                $"Navigation treatment: {navigationVisualCount} navigation visual(s) counted at {navigationScoring.WeightPercent:F0}% weight in dashboard density scoring.",
+                FindingTypes.Objective));
         }
 
-        return (Clamp(sub1 + sub2 + sub3), feedback);
+        if (worstLongPageIssue is { } longPageFinding)
+        {
+            recs.Add(
+                $"[Medium] Density: '{longPageFinding.Page.DisplayName}' reads like a long page. Move the lower visual cluster to a separate page or shorten the canvas so the main story fits one screen.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Long-page risk: {longPageFinding.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(longPageFinding.Page.DisplayName, longPageFinding.Visuals)));
+        }
+
+        if (worstOverviewDetailIssue is { } overviewDetailIssue)
+        {
+            recs.Add(
+                $"[Medium] Density: Add more vertical separation between the KPI overview band and detail visuals on '{overviewDetailIssue.Page.DisplayName}' so the page reads in layers.");
+            feedback.Add(FeedbackItem(
+                false,
+                $"Overview/detail separation: {overviewDetailIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(overviewDetailIssue.Page.DisplayName, overviewDetailIssue.Visuals)));
+        }
+
+        if (worstDeadZoneIssue is { } deadZoneIssue)
+        {
+            feedback.Add(FeedbackItem(
+                false,
+                $"Whitespace balance: {deadZoneIssue.Message}.",
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(deadZoneIssue.Page.DisplayName, deadZoneIssue.Visuals)));
+        }
+
+        var score = sub1 + sub2 + sub3;
+        if (worstOverviewDetailIssue is not null)
+        {
+            score -= 10.0;
+        }
+
+        if (worstDeadZoneIssue is not null)
+        {
+            score -= 5.0;
+        }
+
+        return (Clamp(score), feedback);
     }
 
     // ── 10. Narrative Design score ──────────────────────────────────────────────
 
     /// <summary>
-    /// Scores three Narrative Design sub-criteria: headline metric (35 pts),
-    /// temporal/trend context (35 pts), and comparative context (30 pts).
+    /// Scores five narrative sub-criteria at 20 points each:
+    /// visible page purpose, headline outcome clarity, KPI comparison context,
+    /// supporting evidence flow, and overview-to-detail readability.
     /// </summary>
-    private static (double score, List<FrameworkFeedbackItem> feedback) ComputeNarrativeDesignScore(List<PageData> pages)
+    private static (double score, List<FrameworkFeedbackItem> feedback) ComputeNarrativeDesignScore(
+        List<PageData> pages,
+        List<string> recs)
     {
-        var feedback   = new List<FrameworkFeedbackItem>();
-        var allVisuals = pages.SelectMany(p => p.Visuals).Where(v => !v.IsHidden).ToList();
+        var feedback = new List<FrameworkFeedbackItem>();
+        var analyses = pages
+            .Select(AnalyzeNarrativePage)
+            .Where(analysis => analysis.VisibleDataVisuals.Count > 0)
+            .ToList();
 
-        if (allVisuals.Count == 0)
+        if (analyses.Count == 0)
         {
-            feedback.Add(new(false, "No visuals found to evaluate against narrative design principles."));
+            feedback.Add(FeedbackItem(false, "No data visuals found to evaluate against narrative design principles.", FindingTypes.Objective));
             return (0.0, feedback);
         }
 
-        // Sub 1: Headline metric present (35 pts) — KPI/card establishes the primary outcome
-        bool hasHeadline = allVisuals.Any(v => v.IsKpiCard);
-        double sub1 = hasHeadline ? 35.0 : 0.0;
-        feedback.Add(ScoredFeedback(
-            hasHeadline,
-            hasHeadline
-                ? "Headline metric: KPI/card visual present — leads the narrative with the key performance outcome."
-                : "Headline metric: Add a KPI or card visual to anchor the narrative and immediately communicate the most important outcome.",
-            sub1,
-            35.0));
+        // Sub 1: visible page purpose
+        int purposePages = analyses.Count(analysis => analysis.HasMeaningfulVisibleTitle);
+        double sub1 = 20.0 * purposePages / analyses.Count;
+        if (purposePages == analyses.Count)
+        {
+            var examples = analyses
+                .Select(analysis => analysis.VisibleTitle)
+                .Where(title => !string.IsNullOrWhiteSpace(title))
+                .Distinct(StringComparer.Ordinal)
+                .Take(2)
+                .Select(title => $"'{title}'")
+                .ToList();
+            feedback.Add(ScoredFeedback(
+                true,
+                $"Visible page purpose: Every evaluated page exposes a clear visible title or question anchor{(examples.Count > 0 ? $" ({string.Join(", ", examples)})" : string.Empty)}.",
+                sub1,
+                20.0,
+                FindingTypes.StrongHeuristic));
+        }
+        else
+        {
+            var missingPurpose = analyses.Where(analysis => !analysis.HasMeaningfulVisibleTitle).ToList();
+            var vagueTitles = missingPurpose.Where(analysis => analysis.HasAnyVisibleTitle).Select(analysis => $"'{analysis.Page.DisplayName}'").ToList();
+            var noTitles = missingPurpose.Where(analysis => !analysis.HasAnyVisibleTitle).Select(analysis => $"'{analysis.Page.DisplayName}'").ToList();
+            var purposeMessage = BuildNarrativePurposeMessage(vagueTitles, noTitles);
+            feedback.Add(ScoredFeedback(
+                false,
+                purposeMessage,
+                sub1,
+                20.0,
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(BuildNarrativeEvidenceVisuals(missingPurpose))));
+            recs.Add(
+                $"[Medium] Narrative: {BuildNarrativeRecommendationSubject(missingPurpose.First())} needs a visible title or question anchor so users understand the page purpose in the first scan.");
+        }
 
-        // Sub 2: Temporal context (35 pts) — trend chart gives the story arc over time
-        bool hasTrend = allVisuals.Any(v => v.IsTrend);
-        double sub2 = hasTrend ? 35.0 : 0.0;
-        feedback.Add(ScoredFeedback(
-            hasTrend,
-            hasTrend
-                ? "Temporal context: Line/area chart present — provides historical context and guides the reader through change over time."
-                : "Temporal context: Add a line or area chart to provide temporal context and guide the reader through change over time.",
-            sub2,
-            35.0));
+        // Sub 2: headline outcome clarity
+        int clearHeadlinePages = analyses.Count(analysis => analysis.HasHeadlineOutcome);
+        double sub2 = 20.0 * clearHeadlinePages / analyses.Count;
+        if (clearHeadlinePages == analyses.Count)
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+                sub2,
+                20.0,
+                FindingTypes.StrongHeuristic));
+        }
+        else
+        {
+            var unclearPages = analyses.Where(analysis => !analysis.HasHeadlineOutcome).ToList();
+            var mostUnclear = unclearPages
+                .OrderByDescending(analysis => analysis.VisibleDataVisuals.Count)
+                .First();
+            feedback.Add(ScoredFeedback(
+                false,
+                $"Headline outcome clarity: {string.Join(", ", unclearPages.Select(analysis => $"'{analysis.Page.DisplayName}'"))} contain data but no obvious primary outcome — decide what the user should answer in the first 5–10 seconds.",
+                sub2,
+                20.0,
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(BuildNarrativeEvidenceVisuals(unclearPages))));
+            recs.Add(
+                $"[Medium] Narrative: {BuildNarrativeRecommendationSubject(mostUnclear)} needs a clearer primary outcome before the detail visuals.");
+        }
 
-        // Sub 3: Comparative context (30 pts) — bar/column chart provides supporting categorisation
-        bool hasComparison = allVisuals.Any(v => v.IsComparison);
-        double sub3 = hasComparison ? 30.0 : 0.0;
-        feedback.Add(ScoredFeedback(
-            hasComparison,
-            hasComparison
-                ? "Comparative context: Bar/column chart present — supports the narrative with categorical comparisons."
-                : "Comparative context: Add a bar or column chart to provide comparative evidence that supports the report's narrative.",
-            sub3,
-            30.0));
+        // Sub 3: KPI comparison context
+        var kpiPages = analyses.Where(analysis => analysis.KpiCards.Count > 0).ToList();
+        double sub3;
+        if (kpiPages.Count == 0)
+        {
+            sub3 = 20.0;
+            feedback.Add(ScoredFeedback(
+                true,
+                "KPI comparison context: No KPI-heavy pages detected, so comparison context is not missing from a KPI layer.",
+                sub3,
+                20.0,
+                FindingTypes.StrongHeuristic));
+        }
+        else
+        {
+            int contextRichPages = kpiPages.Count(analysis => analysis.HasKpiComparisonContext);
+            sub3 = 20.0 * contextRichPages / kpiPages.Count;
+            if (contextRichPages == kpiPages.Count)
+            {
+                feedback.Add(ScoredFeedback(
+                    true,
+                    "KPI comparison context: KPI pages include at least one target, trend, variance, or supporting comparison so the numbers can be interpreted.",
+                    sub3,
+                    20.0,
+                    FindingTypes.StrongHeuristic));
+            }
+            else
+            {
+                var missingContextPages = kpiPages.Where(analysis => !analysis.HasKpiComparisonContext).ToList();
+                var focusPage = missingContextPages
+                    .OrderByDescending(analysis => analysis.KpiCards.Count)
+                    .First();
+                var kpiLabel = GetPrimaryKpiLabel(focusPage);
+                feedback.Add(ScoredFeedback(
+                    false,
+                    $"{kpiLabel} has no target, variance, prior-period, or trend context. Add one comparison so the value can be interpreted.",
+                    sub3,
+                    20.0,
+                    FindingTypes.StrongHeuristic,
+                    BuildAffectedVisuals(focusPage.Page.DisplayName, focusPage.KpiCards)));
+                recs.Add(
+                    $"[Medium] Narrative: {BuildNarrativeRecommendationSubject(focusPage)} KPI cards need a target, variance, or prior-period comparison.");
+            }
+        }
 
-        return (Clamp(sub1 + sub2 + sub3), feedback);
+        // Sub 4: supporting evidence flow
+        int evidencePages = analyses.Count(analysis => analysis.HasSupportingEvidenceFlow);
+        double sub4 = 20.0 * evidencePages / analyses.Count;
+        if (evidencePages == analyses.Count)
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+                sub4,
+                20.0,
+                FindingTypes.StrongHeuristic));
+        }
+        else
+        {
+            var unsupportedPages = analyses.Where(analysis => !analysis.HasSupportingEvidenceFlow).ToList();
+            var focusPage = unsupportedPages
+                .OrderByDescending(analysis => analysis.KpiCards.Count)
+                .First();
+            feedback.Add(ScoredFeedback(
+                false,
+                $"{string.Join(", ", unsupportedPages.Select(analysis => $"'{analysis.Page.DisplayName}'"))} lead with KPI cards but do not include supporting evidence visuals. Add a chart or table that explains why the KPI moved.",
+                sub4,
+                20.0,
+                FindingTypes.StrongHeuristic,
+                BuildAffectedVisuals(focusPage.Page.DisplayName, focusPage.KpiCards)));
+            recs.Add(
+                $"[Medium] Narrative: {BuildNarrativeRecommendationSubject(focusPage)} needs at least one supporting chart or table behind the KPI layer.");
+        }
+
+        // Sub 5: overview-to-detail readability
+        bool overviewFlowOk;
+        double sub5;
+        string overviewMessage;
+        List<AffectedVisualReference>? overviewAffectedVisuals = null;
+        if (analyses.Count == 1)
+        {
+            var single = analyses[0];
+            overviewFlowOk = single.HasMeaningfulVisibleTitle && single.HasHeadlineOutcome &&
+                (single.HasSupportingEvidenceFlow || single.VisibleDataVisuals.Count <= 2);
+            sub5 = overviewFlowOk ? 20.0 : single.HasMeaningfulVisibleTitle ? 10.0 : 0.0;
+            overviewMessage = overviewFlowOk
+                ? "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence."
+                : $"Overview-to-detail readability: '{single.Page.DisplayName}' contains data but no fast overview path before the detail — anchor the page with a clearer lead message and supporting context.";
+            if (!overviewFlowOk)
+            {
+                overviewAffectedVisuals = BuildAffectedVisuals(BuildNarrativeEvidenceVisuals([single]));
+                recs.Add(
+                    $"[Medium] Narrative: {BuildNarrativeRecommendationSubject(single)} should guide the first scan before users read the detail visuals.");
+            }
+        }
+        else
+        {
+            var firstPage = analyses[0];
+            var laterDetailPages = analyses.Skip(1).Any(analysis => analysis.VisibleDataVisuals.Count > 0);
+            overviewFlowOk = firstPage.HasMeaningfulVisibleTitle && firstPage.HasHeadlineOutcome && laterDetailPages;
+            sub5 = overviewFlowOk ? 20.0 : firstPage.HasMeaningfulVisibleTitle && laterDetailPages ? 10.0 : 0.0;
+            overviewMessage = overviewFlowOk
+                ? $"Overview-to-detail readability: '{firstPage.Page.DisplayName}' provides a clear overview before the report moves into deeper detail."
+                : $"Overview-to-detail readability: The report lacks a strong overview-first path. Use '{firstPage.Page.DisplayName}' as a decision-led landing page before deeper breakdowns.";
+            if (!overviewFlowOk)
+            {
+                overviewAffectedVisuals = BuildAffectedVisuals(BuildNarrativeEvidenceVisuals([firstPage]));
+                recs.Add(
+                    $"[Medium] Narrative: Strengthen '{firstPage.Page.DisplayName}' as the overview page before the report branches into detail.");
+            }
+        }
+
+        feedback.Add(ScoredFeedback(
+            overviewFlowOk,
+            overviewMessage,
+            sub5,
+            20.0,
+            FindingTypes.StrongHeuristic,
+            overviewAffectedVisuals));
+
+        return (Clamp(sub1 + sub2 + sub3 + sub4 + sub5), feedback);
     }
 
     // ── Data loaders ─────────────────────────────────────────────────────────
@@ -1469,7 +2135,12 @@ public sealed class PbirScoringService
                     visuals = ParseVisualsFromDirectory(pageDir);
                 }
                 
-                pages.Add(new PageData(displayName, visuals));
+                pages.Add(new PageData
+                {
+                    DisplayName = displayName,
+                    Visuals = visuals,
+                    Canvas = ParseCanvasMetadata(pageJson),
+                });
             }
             catch (Exception ex)
             {
@@ -1515,7 +2186,7 @@ public sealed class PbirScoringService
             .ToList();
     }
 
-    private static List<VisualData> ParseVisuals(JsonObject pageJson)
+    private List<VisualData> ParseVisuals(JsonObject pageJson)
     {
         var visuals = new List<VisualData>();
 
@@ -1524,15 +2195,18 @@ public sealed class PbirScoringService
         foreach (var item in arr)
         {
             if (item is not JsonObject vo) continue;
-            bool isHidden = vo["isHidden"]?.GetValue<bool>() ?? false;
-            visuals.Add(new VisualData(
-                Id:   vo["id"]?.GetValue<string>()   ?? string.Empty,
-                Type: vo["type"]?.GetValue<string>() ?? string.Empty,
-                X:    TryDouble(vo, "x"),
-                Y:    TryDouble(vo, "y"),
-                W:    TryDouble(vo, "width"),
-                H:    TryDouble(vo, "height"),
-                IsHidden: isHidden));
+            var visualId = vo["id"]?.GetValue<string>() ?? string.Empty;
+            bool isHidden = ReadBooleanNode(vo["isHidden"]) ?? false;
+            visuals.Add(CreateVisualData(
+                visualJson: vo,
+                visualId: visualId,
+                visualType: vo["type"]?.GetValue<string>() ?? string.Empty,
+                x: TryDouble(vo, "x"),
+                y: TryDouble(vo, "y"),
+                w: TryDouble(vo, "width"),
+                h: TryDouble(vo, "height"),
+                isHidden: isHidden,
+                sourceContext: $"page visual '{visualId}'"));
         }
 
         return visuals;
@@ -1542,7 +2216,7 @@ public sealed class PbirScoringService
     /// Parses visuals from the visuals/ subdirectory within a page folder.
     /// This handles Power BI Desktop-authored reports where each visual is stored as visual.json.
     /// </summary>
-    private static List<VisualData> ParseVisualsFromDirectory(string pageDir)
+    private List<VisualData> ParseVisualsFromDirectory(string pageDir)
     {
         var visuals = new List<VisualData>();
         var visualsDir = Path.Combine(pageDir, "visuals");
@@ -1581,23 +2255,191 @@ public sealed class PbirScoringService
                 // Extract hidden state
                 bool isHidden = visualJson["isHidden"]?.GetValue<bool>() ?? false;
                 
-                visuals.Add(new VisualData(
-                    Id:   visualName,
-                    Type: visualType,
-                    X:    x,
-                    Y:    y,
-                    W:    w,
-                    H:    h,
-                    IsHidden: isHidden));
+                visuals.Add(CreateVisualData(
+                    visualJson: visualJson,
+                    visualId: visualName,
+                    visualType: visualType,
+                    x: x,
+                    y: y,
+                    w: w,
+                    h: h,
+                    isHidden: isHidden,
+                    sourceContext: visualJsonPath));
             }
             catch (Exception ex)
             {
-                // Skip malformed visuals and continue
-                System.Diagnostics.Debug.WriteLine($"Warning: Could not parse visual at {visualJsonPath}: {ex.Message}");
+                _logger.LogWarning(ex, "[Scoring] Could not parse visual definition at {Path}", visualJsonPath);
             }
         }
         
         return visuals;
+    }
+
+    private static CanvasMetadata? ParseCanvasMetadata(JsonObject pageJson)
+    {
+        var width = ReadDoubleNode(pageJson["width"])
+            ?? ReadNestedDouble(pageJson, "canvas", "width")
+            ?? ReadNestedDouble(pageJson, "pageSize", "width")
+            ?? ReadNestedDouble(pageJson, "size", "width");
+        var height = ReadDoubleNode(pageJson["height"])
+            ?? ReadNestedDouble(pageJson, "canvas", "height")
+            ?? ReadNestedDouble(pageJson, "pageSize", "height")
+            ?? ReadNestedDouble(pageJson, "size", "height");
+
+        if (width is > 0 && height is > 0)
+        {
+            return new CanvasMetadata(width.Value, height.Value);
+        }
+
+        return null;
+    }
+
+    private VisualData CreateVisualData(
+        JsonObject visualJson,
+        string visualId,
+        string visualType,
+        double x,
+        double y,
+        double w,
+        double h,
+        bool isHidden,
+        string sourceContext)
+    {
+        return new VisualData
+        {
+            Id = visualId,
+            Type = visualType,
+            X = x,
+            Y = y,
+            W = w,
+            H = h,
+            IsHidden = isHidden,
+            Text = ParseVisualTextMetadata(visualJson, visualId, visualType, sourceContext),
+            Labels = ParseVisualLabelMetadata(visualJson, visualId, sourceContext),
+            FieldRoles = ParseVisualFieldRoleMetadata(visualJson, visualId, sourceContext),
+            Formatting = ParseVisualFormattingMetadata(visualJson, visualId, sourceContext),
+        };
+    }
+
+    private VisualTextMetadata ParseVisualTextMetadata(
+        JsonObject visualJson,
+        string visualId,
+        string visualType,
+        string sourceContext)
+    {
+        return TryParseVisualComponent(
+            visualId,
+            "text",
+            sourceContext,
+            () =>
+            {
+                var titleText = FirstNonBlank(
+                    ExtractVisibleObjectText(visualJson, ["title", "visualTitle", "header"]),
+                    ExtractVisibleScalarText(visualJson, ["titleText", "visualTitleText"]));
+                var subtitleText = FirstNonBlank(
+                    ExtractVisibleObjectText(visualJson, ["subtitle", "subTitle"]),
+                    ExtractVisibleScalarText(visualJson, ["subtitleText", "subTitleText"]));
+                string? textBoxText = null;
+                if (IsTextVisualType(visualType))
+                {
+                    textBoxText = FirstNonBlank(
+                        ExtractVisibleObjectText(visualJson, ["textbox", "textBox", "body"]),
+                        ExtractVisibleScalarText(visualJson, ["textBoxText", "bodyText", "text"]),
+                        ExtractTextRunContent(visualJson));
+                }
+
+                return new VisualTextMetadata(
+                    VisibleTitleText: titleText,
+                    VisibleSubtitleText: subtitleText,
+                    TextBoxText: textBoxText);
+            },
+            VisualTextMetadata.Empty);
+    }
+
+    private VisualLabelMetadata ParseVisualLabelMetadata(
+        JsonObject visualJson,
+        string visualId,
+        string sourceContext)
+    {
+        return TryParseVisualComponent(
+            visualId,
+            "labels",
+            sourceContext,
+            () =>
+            {
+                var hasLegend = ExtractPresenceFlag(visualJson, ["legend"], ["hasLegend", "showLegend"]);
+                var hasAxisLabels = ExtractPresenceFlag(
+                    visualJson,
+                    ["axis", "xAxis", "yAxis", "categoryAxis", "valueAxis"],
+                    ["hasAxisLabels", "showAxisLabels"]);
+                var hasDataLabels = ExtractPresenceFlag(
+                    visualJson,
+                    ["dataLabels", "labels"],
+                    ["hasDataLabels", "showDataLabels"]);
+
+                return new VisualLabelMetadata(
+                    HasLegend: hasLegend,
+                    HasAxisLabels: hasAxisLabels,
+                    HasDataLabels: hasDataLabels);
+            },
+            VisualLabelMetadata.Empty);
+    }
+
+    private VisualFieldRoleMetadata ParseVisualFieldRoleMetadata(
+        JsonObject visualJson,
+        string visualId,
+        string sourceContext)
+    {
+        return TryParseVisualComponent(
+            visualId,
+            "field roles",
+            sourceContext,
+            () =>
+            {
+                var categoryHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["category", "categories"]);
+                var valueHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["value", "values"]);
+                var seriesHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["series", "legend"]);
+                var measureHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["measure", "measures", "value", "values"]);
+
+                return new VisualFieldRoleMetadata(
+                    CategoryHints: categoryHints,
+                    ValueHints: valueHints,
+                    SeriesHints: seriesHints,
+                    MeasureHints: measureHints);
+            },
+            VisualFieldRoleMetadata.Empty);
+    }
+
+    private VisualFormattingMetadata ParseVisualFormattingMetadata(
+        JsonObject visualJson,
+        string visualId,
+        string sourceContext)
+    {
+        return TryParseVisualComponent(
+            visualId,
+            "formatting",
+            sourceContext,
+            () =>
+            {
+                var backgroundFillColor = FirstNonBlank(
+                    ExtractColorFromObjects(visualJson, ["background", "backgroundFill"]),
+                    ExtractColorFromObjects(visualJson, ["fill"]));
+                var fontColor = FirstNonBlank(
+                    ExtractColorFromObjects(visualJson, ["font", "foreground", "fontColor"]),
+                    ExtractColorFromObjects(visualJson, ["labelColor", "textColor", "foregroundColor"]));
+                var hasBorder = ExtractPresenceFlag(visualJson, ["border", "outline"], ["showBorder", "hasBorder"]);
+                var cornerRadius = ExtractNumericSetting(visualJson, ["corners"], ["radius"])
+                    ?? ExtractScalarNumber(visualJson, ["cornerRadius"]);
+                var hasShadow = ExtractPresenceFlag(visualJson, ["shadow", "dropShadow", "elevation"], ["showShadow", "hasShadow"]);
+
+                return new VisualFormattingMetadata(
+                    BackgroundFillColor: backgroundFillColor,
+                    FontColor: fontColor,
+                    HasBorder: hasBorder,
+                    CornerRadius: cornerRadius,
+                    HasShadow: hasShadow);
+            },
+            VisualFormattingMetadata.Empty);
     }
 
     /// <summary>
@@ -1671,6 +2513,29 @@ public sealed class PbirScoringService
         return 0.0;
     }
 
+    private T TryParseVisualComponent<T>(
+        string visualId,
+        string componentName,
+        string sourceContext,
+        Func<T> parser,
+        T fallback)
+    {
+        try
+        {
+            return parser();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(
+                ex,
+                "[Scoring] Could not parse {Component} metadata for visual '{VisualId}' from {Source}",
+                componentName,
+                visualId,
+                sourceContext);
+            return fallback;
+        }
+    }
+
     private static VisualComposition BuildVisualComposition(
         IEnumerable<VisualData> visuals,
         NavigationScoringSettings navigationScoring)
@@ -1712,6 +2577,1919 @@ public sealed class PbirScoringService
             WeightedVisibleCount: weightedVisibleCount);
     }
 
+    private static List<PageLayoutIssue> CollectLayoutIssues(
+        IEnumerable<PageData> pages,
+        Func<PageData, PageLayoutIssue?> analyzer) =>
+        pages
+            .Select(analyzer)
+            .Where(issue => issue.HasValue)
+            .Select(issue => issue!.Value)
+            .ToList();
+
+    private static double GetCanvasWidth(PageData page) =>
+        page.Canvas?.Width is > 0 ? page.Canvas.Value.Width : CanvasWidth;
+
+    private static double GetCanvasHeight(PageData page) =>
+        page.Canvas?.Height is > 0 ? page.Canvas.Value.Height : CanvasHeight;
+
+    private static double GetColumnWidth(PageData page)
+    {
+        return GetCanvasWidth(page) / GridCols;
+    }
+
+    private static double GetRowHeight(PageData page)
+    {
+        return GetCanvasHeight(page) / GridRows;
+    }
+
+    private static string? GetPageVisibleTitle(PageData page) =>
+        page.Visuals
+            .Where(visual => !visual.IsHidden && visual.HasVisibleTitleIntent)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .Select(visual => visual.BestVisibleText)
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+
+    private static PageVisualMetadataSummary BuildPageVisualMetadataSummary(PageData page)
+    {
+        var orderedVisuals = page.Visuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ThenBy(visual => visual.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var visibleVisuals = orderedVisuals.Where(visual => !visual.IsHidden).ToList();
+
+        return new PageVisualMetadataSummary
+        {
+            PageName = page.DisplayName,
+            VisiblePageTitle = GetPageVisibleTitle(page),
+            CanvasWidth = page.Canvas?.Width,
+            CanvasHeight = page.Canvas?.Height,
+            VisualCount = orderedVisuals.Count,
+            VisibleTitleVisualCount = visibleVisuals.Count(visual => visual.HasVisibleTitleIntent),
+            TextVisualCount = visibleVisuals.Count(visual => IsTextVisualType(visual.Type)),
+            SlicerCount = visibleVisuals.Count(visual => visual.IsSlicer),
+            LegendVisualCount = visibleVisuals.Count(visual => visual.Labels.HasLegend == true),
+            AxisLabelVisualCount = visibleVisuals.Count(visual => visual.Labels.HasAxisLabels == true),
+            DataLabelVisualCount = visibleVisuals.Count(visual => visual.Labels.HasDataLabels == true),
+            FormattedVisualCount = visibleVisuals.Count(HasAnyFormattingMetadata),
+            Visuals = orderedVisuals.Select(BuildVisualMetadataItem).ToList(),
+        };
+    }
+
+    private static VisualMetadataItem BuildVisualMetadataItem(VisualData visual) => new()
+    {
+        VisualId = visual.Id,
+        VisualType = visual.Type,
+        X = visual.X,
+        Y = visual.Y,
+        Width = visual.W,
+        Height = visual.H,
+        IsHidden = visual.IsHidden,
+        IsNavigationElement = visual.IsNavigationElement,
+        IsDecorative = visual.IsDecorative,
+        IsSlicer = visual.IsSlicer,
+        VisibleTitleText = visual.VisibleTitleText,
+        VisibleSubtitleText = visual.VisibleSubtitleText,
+        TextBoxText = visual.TextBoxText,
+        BestVisibleText = visual.BestVisibleText,
+        HasVisibleTitleIntent = visual.HasVisibleTitleIntent,
+        HasLegend = visual.Labels.HasLegend,
+        HasAxisLabels = visual.Labels.HasAxisLabels,
+        HasDataLabels = visual.Labels.HasDataLabels,
+        CategoryHints = visual.FieldRoles.CategoryHints.ToList(),
+        ValueHints = visual.FieldRoles.ValueHints.ToList(),
+        SeriesHints = visual.FieldRoles.SeriesHints.ToList(),
+        MeasureHints = visual.FieldRoles.MeasureHints.ToList(),
+        BackgroundFillColor = visual.Formatting.BackgroundFillColor,
+        FontColor = visual.Formatting.FontColor,
+        HasBorder = visual.Formatting.HasBorder,
+        CornerRadius = visual.Formatting.CornerRadius,
+        HasShadow = visual.Formatting.HasShadow,
+    };
+
+    private static bool HasAnyFormattingMetadata(VisualData visual) =>
+        !string.IsNullOrWhiteSpace(visual.Formatting.BackgroundFillColor) ||
+        !string.IsNullOrWhiteSpace(visual.Formatting.FontColor) ||
+        visual.Formatting.HasBorder.HasValue ||
+        visual.Formatting.CornerRadius.HasValue ||
+        visual.Formatting.HasShadow.HasValue;
+
+    private static void AddSurfaceTreatmentFeedback(List<FrameworkFeedbackItem> feedback, List<PageData> pages)
+    {
+        var formattedVisuals = pages
+            .SelectMany(page => page.Visuals, (page, visual) => (PageName: page.DisplayName, Visual: visual))
+            .Where(entry => !entry.Visual.IsHidden && !entry.Visual.IsNavigationElement && !entry.Visual.IsDecorative)
+            .ToList();
+
+        if (formattedVisuals.Count < 2)
+        {
+            return;
+        }
+
+        var issues = new List<string>();
+
+        var borderVisuals = formattedVisuals.Where(entry => entry.Visual.Formatting.HasBorder.HasValue).ToList();
+        if (borderVisuals.Count >= 2)
+        {
+            int withBorder = borderVisuals.Count(entry => entry.Visual.Formatting.HasBorder == true);
+            int withoutBorder = borderVisuals.Count(entry => entry.Visual.Formatting.HasBorder == false);
+            if (withBorder > 0 && withoutBorder > 0)
+            {
+                issues.Add($"{withBorder} visual(s) show borders while {withoutBorder} do not");
+            }
+        }
+
+        var shadowVisuals = formattedVisuals.Where(entry => entry.Visual.Formatting.HasShadow.HasValue).ToList();
+        if (shadowVisuals.Count >= 2)
+        {
+            int withShadow = shadowVisuals.Count(entry => entry.Visual.Formatting.HasShadow == true);
+            int withoutShadow = shadowVisuals.Count(entry => entry.Visual.Formatting.HasShadow == false);
+            if (withShadow > 0 && withoutShadow > 0)
+            {
+                issues.Add($"{withShadow} visual(s) use elevation while {withoutShadow} stay flat");
+            }
+        }
+
+        var cornerVisuals = formattedVisuals
+            .Where(entry => entry.Visual.Formatting.CornerRadius is not null)
+            .ToList();
+        if (cornerVisuals.Count >= 2)
+        {
+            var radii = cornerVisuals
+                .Select(entry => Math.Round(entry.Visual.Formatting.CornerRadius!.Value, 1))
+                .Distinct()
+                .OrderBy(radius => radius)
+                .ToList();
+            if (radii.Count > 1)
+            {
+                issues.Add($"corner radii vary ({string.Join(", ", radii.Select(radius => $"{radius:0.#}"))} px)");
+            }
+        }
+
+        var fillVisuals = formattedVisuals
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Visual.Formatting.BackgroundFillColor))
+            .ToList();
+        if (fillVisuals.Count >= 2)
+        {
+            var fillColors = fillVisuals
+                .Select(entry => entry.Visual.Formatting.BackgroundFillColor!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(color => color, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (fillColors.Count > 1)
+            {
+                issues.Add($"background fills vary ({string.Join(", ", fillColors.Take(3))}{(fillColors.Count > 3 ? $" +{fillColors.Count - 3} more" : string.Empty)})");
+            }
+        }
+
+        if (issues.Count == 0)
+        {
+            return;
+        }
+
+        feedback.Add(FeedbackItem(
+            false,
+            $"Surface treatment: Formatting metadata shows inconsistent peer styling — {string.Join("; ", issues)}.",
+            FindingTypes.StylePreference,
+            BuildAffectedVisuals(formattedVisuals)));
+    }
+
+    private static PageLayoutIssue? AnalyzeTopBandKpiConsistency(PageData page)
+    {
+        var canvasHeight = GetCanvasHeight(page);
+        var rowHeight = GetRowHeight(page);
+        var colWidth = GetColumnWidth(page);
+        var topBandCards = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && visual.IsKpiCard && visual.Y <= canvasHeight * 0.28)
+            .OrderBy(visual => visual.X)
+            .ToList();
+
+        if (topBandCards.Count < 2)
+        {
+            return null;
+        }
+
+        double verticalSpread = topBandCards.Max(visual => visual.Y) - topBandCards.Min(visual => visual.Y);
+        double heightSpread = topBandCards.Max(visual => visual.H) - topBandCards.Min(visual => visual.H);
+        var gaps = GetHorizontalGaps(topBandCards);
+        bool overlap = gaps.Any(gap => gap < -4.0);
+        double gapRange = gaps.Count > 1 ? gaps.Max() - gaps.Min() : 0.0;
+        var concerns = new List<string>();
+
+        if (verticalSpread > Math.Max(12.0, rowHeight * 0.35))
+        {
+            concerns.Add($"vary by {verticalSpread:0.#} px vertically");
+        }
+
+        if (heightSpread > Math.Max(16.0, rowHeight * 0.4))
+        {
+            concerns.Add($"use {heightSpread:0.#} px different heights");
+        }
+
+        if (overlap)
+        {
+            concerns.Add("overlap instead of holding a clean band");
+        }
+        else if (gaps.Count > 1 && gapRange > Math.Max(24.0, colWidth * 0.75))
+        {
+            concerns.Add($"use uneven gaps ({gaps.Min():0.#}-{gaps.Max():0.#} px)");
+        }
+
+        if (concerns.Count == 0)
+        {
+            return null;
+        }
+
+        return new PageLayoutIssue(
+            page,
+            $"'{page.DisplayName}' top-row KPI cards {string.Join(" and ", concerns)}",
+            topBandCards,
+            Penalty: 5.0);
+    }
+
+    private static PageLayoutIssue? AnalyzeSpacingRhythm(PageData page)
+    {
+        var visibleDataVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative)
+            .ToList();
+        if (visibleDataVisuals.Count < 3)
+        {
+            return null;
+        }
+
+        var rows = BuildVisualRows(visibleDataVisuals, Math.Max(24.0, GetRowHeight(page) * 0.45));
+        PageLayoutIssue? worstIssue = null;
+        double worstGapRange = 0.0;
+
+        foreach (var row in rows.Where(row => row.Visuals.Count >= 3))
+        {
+            var gaps = GetHorizontalGaps(row.Visuals);
+            if (gaps.Count < 2)
+            {
+                continue;
+            }
+
+            bool overlap = gaps.Any(gap => gap < -4.0);
+            double gapRange = gaps.Max() - gaps.Min();
+            double averageGap = gaps.Average();
+            if (!overlap && gapRange <= Math.Max(30.0, Math.Abs(averageGap) * 0.9 + 12.0))
+            {
+                continue;
+            }
+
+            var message = overlap
+                ? $"'{page.DisplayName}' has peer visuals in the same row that overlap or collide"
+                : $"'{page.DisplayName}' has peer visuals in the same row with uneven spacing ({gaps.Min():0.#}-{gaps.Max():0.#} px)";
+            if (worstIssue is null || gapRange > worstGapRange || overlap)
+            {
+                worstIssue = new PageLayoutIssue(
+                    page,
+                    message,
+                    row.Visuals,
+                    Penalty: 5.0);
+                worstGapRange = overlap ? double.MaxValue : gapRange;
+            }
+        }
+
+        return worstIssue;
+    }
+
+    private static PageLayoutIssue? AnalyzeFilterPlacement(PageData page)
+    {
+        var filters = page.Visuals
+            .Where(visual => !visual.IsHidden && visual.IsSlicer)
+            .ToList();
+        if (filters.Count == 0)
+        {
+            return null;
+        }
+
+        double canvasWidth = GetCanvasWidth(page);
+        double canvasHeight = GetCanvasHeight(page);
+        var unusualFilters = filters
+            .Where(filter => !IsPreferredFilterZone(filter, canvasWidth, canvasHeight))
+            .ToList();
+        if (unusualFilters.Count == 0)
+        {
+            return null;
+        }
+
+        bool lowerRightFilters = unusualFilters.All(filter =>
+            filter.X > canvasWidth * 0.5 &&
+            filter.Y > canvasHeight * 0.3);
+        var message = lowerRightFilters
+            ? $"'{page.DisplayName}' places primary filters in the lower-right area of the page instead of a top or left control zone"
+            : $"'{page.DisplayName}' places filters inside the main evidence area instead of a top or left control zone";
+        return new PageLayoutIssue(page, message, unusualFilters, Penalty: 10.0);
+    }
+
+    private static PageLayoutIssue? AnalyzeFilterScatter(PageData page)
+    {
+        var filters = page.Visuals
+            .Where(visual => !visual.IsHidden && visual.IsSlicer)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        if (filters.Count < 2)
+        {
+            return null;
+        }
+
+        double canvasWidth = GetCanvasWidth(page);
+        double canvasHeight = GetCanvasHeight(page);
+        var zones = filters
+            .Select(filter => ClassifyFilterZone(filter, canvasWidth, canvasHeight))
+            .ToList();
+        var distinctZones = zones
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        double minX = filters.Min(filter => filter.X);
+        double minY = filters.Min(filter => filter.Y);
+        double maxRight = filters.Max(filter => filter.X + filter.W);
+        double maxBottom = filters.Max(filter => filter.Y + filter.H);
+        bool widelyDistributed = (maxRight - minX) > canvasWidth * 0.45 &&
+            (maxBottom - minY) > canvasHeight * 0.28;
+        bool touchesSecondaryZone = distinctZones.Any(zone =>
+            zone is "center" or "right rail" or "bottom band");
+        if (!touchesSecondaryZone && !widelyDistributed && distinctZones.Count < 3)
+        {
+            return null;
+        }
+
+        return new PageLayoutIssue(
+            page,
+            $"{FormatSemanticPageLabel(page)} distributes {filters.Count} slicer(s) across {distinctZones.Count} page zones ({string.Join(", ", distinctZones)}) instead of a single filter band",
+            filters,
+            Penalty: 8.0);
+    }
+
+    private static PageLayoutIssue? AnalyzeOverviewFilterDensity(PageData page)
+    {
+        if (!IsOverviewPage(page))
+        {
+            return null;
+        }
+
+        var filters = page.Visuals
+            .Where(visual => !visual.IsHidden && visual.IsSlicer)
+            .ToList();
+        if (filters.Count == 0)
+        {
+            return null;
+        }
+
+        double canvasArea = GetCanvasWidth(page) * GetCanvasHeight(page);
+        double filterAreaRatio = canvasArea <= 0
+            ? 0
+            : filters.Sum(filter => filter.W * filter.H) / canvasArea;
+        bool denseOverviewControls = filters.Count >= 4 ||
+            (filters.Count >= 3 && filterAreaRatio >= 0.08) ||
+            filterAreaRatio >= 0.14;
+        if (!denseOverviewControls)
+        {
+            return null;
+        }
+
+        return new PageLayoutIssue(
+            page,
+            $"{FormatSemanticPageLabel(page)} uses {filters.Count} slicer(s) across {filterAreaRatio * 100:0.#}% of the canvas, which is heavy for an overview page",
+            filters,
+            Penalty: 8.0);
+    }
+
+    private static PageLayoutIssue? AnalyzePrimaryScanPath(PageData page)
+    {
+        var visibleVisuals = page.Visuals.Where(visual => !visual.IsHidden).ToList();
+        var visibleDataVisuals = visibleVisuals
+            .Where(visual => !visual.IsNavigationElement && !visual.IsDecorative)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        if (visibleDataVisuals.Count == 0)
+        {
+            return null;
+        }
+
+        double canvasWidth = GetCanvasWidth(page);
+        double canvasHeight = GetCanvasHeight(page);
+        double rowHeight = GetRowHeight(page);
+        var leadVisual = visibleDataVisuals[0];
+        bool hasTitleAnchor = visibleVisuals.Any(visual => visual.HasVisibleTitleIntent && visual.Y <= canvasHeight * 0.18);
+        bool hasKpiAnchor = visibleDataVisuals.Any(visual => visual.IsKpiCard && visual.Y <= canvasHeight * 0.25);
+        bool delayedLeadVisual = leadVisual.Y > canvasHeight * 0.28 || leadVisual.X > canvasWidth * 0.22;
+        var topLeftFilters = visibleVisuals
+            .Where(visual =>
+                visual.IsSlicer &&
+                visual.X <= canvasWidth * 0.3 &&
+                visual.Y <= canvasHeight * 0.28)
+            .ToList();
+        bool filterHeavyEntry = topLeftFilters.Count > 0 &&
+            leadVisual.Y >= topLeftFilters.Max(filter => filter.Y + filter.H) + rowHeight * 0.4 &&
+            leadVisual.X > canvasWidth * 0.18;
+
+        if ((!hasTitleAnchor && !hasKpiAnchor && delayedLeadVisual) || filterHeavyEntry)
+        {
+            var affectedVisuals = DeduplicateVisuals([leadVisual, .. topLeftFilters]);
+            var message = filterHeavyEntry
+                ? $"'{page.DisplayName}' opens with filters before the first data visual, so the evidence starts late in the scan path"
+                : $"'{page.DisplayName}' has no strong upper-left title or KPI anchor, and the first data visual begins well below the expected entry zone";
+            return new PageLayoutIssue(page, message, affectedVisuals, Penalty: 10.0);
+        }
+
+        return null;
+    }
+
+    private static PageLayoutIssue? AnalyzeLongPageRisk(PageData page)
+    {
+        var visibleVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsDecorative)
+            .ToList();
+        if (visibleVisuals.Count == 0)
+        {
+            return null;
+        }
+
+        double canvasHeight = GetCanvasHeight(page);
+        double usedBottom = visibleVisuals.Max(visual => visual.Y + visual.H);
+        bool tallCanvas = canvasHeight > CanvasHeight * 1.25;
+        bool extendsBeyondStandardScan = usedBottom > CanvasHeight * 1.05;
+        bool nearCanvasBottom = usedBottom > canvasHeight * 0.9;
+        if (!extendsBeyondStandardScan || !(tallCanvas || nearCanvasBottom))
+        {
+            return null;
+        }
+
+        double rowHeight = GetRowHeight(page);
+        var bottomBandVisuals = visibleVisuals
+            .Where(visual => visual.Y + visual.H >= usedBottom - Math.Max(24.0, rowHeight))
+            .ToList();
+        return new PageLayoutIssue(
+            page,
+            $"'{page.DisplayName}' uses a {canvasHeight:0.#} px canvas and visible content reaches {usedBottom:0.#} px, which extends beyond a standard one-screen scan",
+            bottomBandVisuals,
+            Penalty: 15.0);
+    }
+
+    private static PageLayoutIssue? AnalyzeOverviewDetailSeparation(PageData page)
+    {
+        var visibleDataVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative)
+            .ToList();
+        if (visibleDataVisuals.Count < 2)
+        {
+            return null;
+        }
+
+        double canvasHeight = GetCanvasHeight(page);
+        double rowHeight = GetRowHeight(page);
+        var topBandKpis = visibleDataVisuals
+            .Where(visual => visual.IsKpiCard && visual.Y <= canvasHeight * 0.3)
+            .OrderBy(visual => visual.X)
+            .ToList();
+        var detailVisuals = visibleDataVisuals
+            .Where(visual => !visual.IsKpiCard)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        if (topBandKpis.Count == 0 || detailVisuals.Count == 0)
+        {
+            return null;
+        }
+
+        double topBandBottom = topBandKpis.Max(visual => visual.Y + visual.H);
+        double firstDetailTop = detailVisuals.Min(visual => visual.Y);
+        double gap = firstDetailTop - topBandBottom;
+        if (gap >= Math.Max(18.0, rowHeight * 0.4))
+        {
+            return null;
+        }
+
+        var firstDetailBand = detailVisuals
+            .Where(visual => visual.Y <= firstDetailTop + Math.Max(16.0, rowHeight * 0.35))
+            .ToList();
+        return new PageLayoutIssue(
+            page,
+            $"'{page.DisplayName}' mixes KPI overview cards and supporting detail visuals with only {gap:0.#} px of vertical separation",
+            DeduplicateVisuals(topBandKpis.Concat(firstDetailBand)),
+            Penalty: 10.0);
+    }
+
+    private static PageLayoutIssue? AnalyzeDeadZoneBalance(PageData page)
+    {
+        var visibleDataVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative)
+            .ToList();
+        if (visibleDataVisuals.Count < 4)
+        {
+            return null;
+        }
+
+        double canvasHeight = GetCanvasHeight(page);
+        var rows = BuildVisualRows(visibleDataVisuals, Math.Max(24.0, GetRowHeight(page) * 0.45));
+        if (rows.Count < 2)
+        {
+            return null;
+        }
+
+        double largestGap = 0.0;
+        VisualRow? upperRow = null;
+        VisualRow? lowerRow = null;
+        for (int i = 0; i < rows.Count - 1; i++)
+        {
+            double gap = rows[i + 1].Top - rows[i].Bottom;
+            if (gap > largestGap)
+            {
+                largestGap = gap;
+                upperRow = rows[i];
+                lowerRow = rows[i + 1];
+            }
+        }
+
+        if (largestGap < canvasHeight * 0.28 || upperRow is null || lowerRow is null)
+        {
+            return null;
+        }
+
+        return new PageLayoutIssue(
+            page,
+            $"'{page.DisplayName}' leaves a {largestGap:0.#} px mid-page gap between peer visual clusters, which can feel like an accidental dead zone",
+            DeduplicateVisuals(upperRow.Value.Visuals.Concat(lowerRow.Value.Visuals)),
+            Penalty: 5.0);
+    }
+
+    private static bool IsPreferredFilterZone(VisualData filter, double canvasWidth, double canvasHeight)
+    {
+        double right = filter.X + filter.W;
+        return filter.X <= canvasWidth * 0.24 ||
+            right <= canvasWidth * 0.32 ||
+            filter.Y <= canvasHeight * 0.22;
+    }
+
+    private static string ClassifyFilterZone(VisualData filter, double canvasWidth, double canvasHeight)
+    {
+        double right = filter.X + filter.W;
+        double bottom = filter.Y + filter.H;
+        bool top = filter.Y <= canvasHeight * 0.22;
+        bool left = filter.X <= canvasWidth * 0.24 || right <= canvasWidth * 0.32;
+        if (top && left)
+        {
+            return "top-left";
+        }
+
+        if (top)
+        {
+            return "top band";
+        }
+
+        if (left)
+        {
+            return "left rail";
+        }
+
+        if (right >= canvasWidth * 0.72)
+        {
+            return "right rail";
+        }
+
+        if (bottom >= canvasHeight * 0.72)
+        {
+            return "bottom band";
+        }
+
+        return "center";
+    }
+
+    private static List<VisualRow> BuildVisualRows(IEnumerable<VisualData> visuals, double tolerance)
+    {
+        var rows = new List<List<VisualData>>();
+        foreach (var visual in visuals.OrderBy(visual => visual.Y).ThenBy(visual => visual.X))
+        {
+            var centerY = visual.Y + visual.H / 2.0;
+            var matchingRow = rows.FirstOrDefault(row =>
+            {
+                double rowTop = row.Min(item => item.Y);
+                double rowBottom = row.Max(item => item.Y + item.H);
+                double rowCenter = (rowTop + rowBottom) / 2.0;
+                return Math.Abs(centerY - rowCenter) <= tolerance;
+            });
+
+            if (matchingRow is null)
+            {
+                rows.Add([visual]);
+            }
+            else
+            {
+                matchingRow.Add(visual);
+            }
+        }
+
+        return rows
+            .Select(row => new VisualRow(
+                row.OrderBy(visual => visual.X).ToList(),
+                Top: row.Min(visual => visual.Y),
+                Bottom: row.Max(visual => visual.Y + visual.H)))
+            .OrderBy(row => row.Top)
+            .ToList();
+    }
+
+    private static List<double> GetHorizontalGaps(IReadOnlyList<VisualData> visuals)
+    {
+        var gaps = new List<double>();
+        for (int i = 0; i < visuals.Count - 1; i++)
+        {
+            gaps.Add(visuals[i + 1].X - (visuals[i].X + visuals[i].W));
+        }
+
+        return gaps;
+    }
+
+    private static List<VisualData> DeduplicateVisuals(IEnumerable<VisualData> visuals) =>
+        visuals
+            .Where(visual => !string.IsNullOrWhiteSpace(visual.Id))
+            .GroupBy(visual => visual.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+    private static List<SemanticChartIssue> CollectSemanticIssues(
+        IEnumerable<PageData> pages,
+        Func<PageData, IEnumerable<SemanticChartIssue>> analyzer) =>
+        pages.SelectMany(analyzer).ToList();
+
+    private static List<SemanticChartIssue> CollectSemanticPageIssues(
+        IEnumerable<PageData> pages,
+        Func<PageData, SemanticChartIssue?> analyzer) =>
+        pages
+            .Select(analyzer)
+            .Where(issue => issue.HasValue)
+            .Select(issue => issue!.Value)
+            .ToList();
+
+    private static PieUsageAnalysis AnalyzePieUsage(IEnumerable<PageData> pages)
+    {
+        var pieVisuals = pages
+            .SelectMany(page => page.Visuals
+                .Where(visual => !visual.IsHidden && visual.IsPieDonut)
+                .Select(visual => (PageName: page.DisplayName, Visual: visual)))
+            .ToList();
+        int overviewPieCount = pages.Count(page =>
+            IsOverviewPage(page) &&
+            page.Visuals.Any(visual => !visual.IsHidden && visual.IsPieDonut));
+        return new PieUsageAnalysis(
+            PieCount: pieVisuals.Count,
+            OverviewPieCount: overviewPieCount,
+            PieVisuals: pieVisuals);
+    }
+
+    private static IEnumerable<SemanticChartIssue> AnalyzeLineChartSequenceIssues(PageData page)
+    {
+        foreach (var visual in page.Visuals.Where(visual => !visual.IsHidden && IsLineLikeVisual(visual)))
+        {
+            if (!HasExplicitCategoricalContext(visual) || HasSequentialContext(visual, page))
+            {
+                continue;
+            }
+
+            var hint = visual.FieldRoles.CategoryHints.FirstOrDefault(LooksCategoricalHint)
+                ?? ExtractCategoricalCue(visual.BestVisibleText)
+                ?? ExtractCategoricalCue(visual.VisibleTitleText)
+                ?? "the visible category cues";
+            yield return new SemanticChartIssue(
+                page,
+                $"{FormatSemanticVisualLabel(page, visual)} uses a line/area encoding, but '{hint}' looks categorical rather than sequential",
+                [visual],
+                Penalty: 8.0);
+        }
+    }
+
+    private static IEnumerable<SemanticChartIssue> AnalyzeWeakFunnelMeaningIssues(PageData page)
+    {
+        foreach (var visual in page.Visuals.Where(visual => !visual.IsHidden && IsFunnelVisual(visual)))
+        {
+            if (HasFunnelContext(visual, page))
+            {
+                continue;
+            }
+
+            yield return new SemanticChartIssue(
+                page,
+                $"{FormatSemanticVisualLabel(page, visual)} uses a funnel encoding without stage, pipeline, or conversion context",
+                [visual],
+                Penalty: 6.0);
+        }
+    }
+
+    private static IEnumerable<SemanticChartIssue> AnalyzeRedundantLabelIssues(PageData page)
+    {
+        foreach (var visual in page.Visuals.Where(visual =>
+                     !visual.IsHidden &&
+                     !visual.IsNavigationElement &&
+                     !visual.IsDecorative &&
+                     (visual.IsTrend || IsComparisonOptimizedVisual(visual)) &&
+                     visual.Labels.HasDataLabels == true &&
+                     visual.Labels.HasAxisLabels == true))
+        {
+            yield return new SemanticChartIssue(
+                page,
+                $"{FormatSemanticVisualLabel(page, visual)} shows both direct data labels and axis labels, which may be redundant for an already labeled chart",
+                [visual],
+                Penalty: 4.0);
+        }
+    }
+
+    private static SemanticChartIssue? AnalyzeMissingComparisonVisualIssue(PageData page)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        if (analysis.VisibleDataVisuals.Count == 0)
+        {
+            return null;
+        }
+
+        bool needsComparisonVisual = analysis.KpiCards.Count >= 2 || HasComparisonIntent(analysis);
+        bool hasComparisonVisual = analysis.VisibleDataVisuals.Any(IsComparisonOptimizedVisual);
+        if (!needsComparisonVisual || hasComparisonVisual)
+        {
+            return null;
+        }
+
+        var evidenceVisuals = analysis.KpiCards.Count > 0
+            ? analysis.KpiCards
+            : analysis.VisibleDataVisuals.Take(2).ToList();
+        return new SemanticChartIssue(
+            page,
+            $"{FormatSemanticPageLabel(page)} asks users to compare results but does not include a strong bar/column comparison visual",
+            evidenceVisuals,
+            Penalty: 8.0);
+    }
+
+    private static SemanticChartIssue? AnalyzeExecutiveVarianceContextIssue(PageData page)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        if (analysis.VisibleDataVisuals.Count == 0 ||
+            !IsOverviewPage(page, analysis.VisibleTitle) ||
+            analysis.KpiCards.Count < 2 ||
+            analysis.HasKpiComparisonContext)
+        {
+            return null;
+        }
+
+        return new SemanticChartIssue(
+            page,
+            $"{FormatSemanticPageLabel(page)} reads like an executive overview but lacks target, variance, prior-period, or trend context for the KPI layer",
+            analysis.KpiCards,
+            Penalty: 8.0);
+    }
+
+    private static bool IsOverviewPage(PageData page, string? visibleTitle = null)
+    {
+        var texts = new[]
+        {
+            visibleTitle,
+            GetPageVisibleTitle(page),
+            page.DisplayName,
+        };
+
+        return texts.Any(text =>
+            ContainsTextKeyword(text, "executive") ||
+            ContainsTextKeyword(text, "overview") ||
+            ContainsTextKeyword(text, "summary") ||
+            ContainsTextKeyword(text, "dashboard") ||
+            ContainsTextKeyword(text, "leadership") ||
+            ContainsTextKeyword(text, "headline"));
+    }
+
+    private static bool HasComparisonIntent(NarrativePageAnalysis analysis) =>
+        analysis.KpiCards.Count >= 2 ||
+        ContainsComparisonIntentKeywords(analysis.VisibleTitle) ||
+        ContainsComparisonIntentKeywords(analysis.Page.DisplayName) ||
+        analysis.VisibleTexts.Any(ContainsComparisonIntentKeywords);
+
+    private static bool IsComparisonOptimizedVisual(VisualData visual) =>
+        visual.IsComparison ||
+        visual.Type is "barChart" or "columnChart" or "waterfallChart";
+
+    private static bool IsLineLikeVisual(VisualData visual) =>
+        visual.Type is "lineChart" or "areaChart" or "lineAndStackedColumnChart" or "lineAndClusteredColumnChart";
+
+    private static bool IsFunnelVisual(VisualData visual) =>
+        visual.Type.Equals("funnel", StringComparison.OrdinalIgnoreCase) ||
+        visual.Type.Equals("funnelChart", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasSequentialContext(VisualData visual, PageData page)
+    {
+        var evidenceTexts = BuildSemanticEvidenceTexts(page, visual);
+        return evidenceTexts.Any(ContainsSequentialKeywords);
+    }
+
+    private static bool HasExplicitCategoricalContext(VisualData visual)
+    {
+        if (visual.FieldRoles.CategoryHints.Any(LooksCategoricalHint))
+        {
+            return true;
+        }
+
+        return BuildVisualTextEvidence(visual).Any(text => ExtractCategoricalCue(text) is not null);
+    }
+
+    private static bool HasFunnelContext(VisualData visual, PageData page) =>
+        BuildSemanticEvidenceTexts(page, visual).Any(ContainsFunnelContextKeywords);
+
+    private static IEnumerable<string> BuildSemanticEvidenceTexts(PageData page, VisualData visual) =>
+        BuildVisualTextEvidence(visual)
+            .Concat(visual.FieldRoles.CategoryHints)
+            .Concat(visual.FieldRoles.SeriesHints)
+            .Concat(visual.FieldRoles.MeasureHints)
+            .Append(GetPageVisibleTitle(page) ?? string.Empty)
+            .Append(page.DisplayName)
+            .Where(text => !string.IsNullOrWhiteSpace(text));
+
+    private static IEnumerable<string> BuildVisualTextEvidence(VisualData visual) =>
+        new[] { visual.BestVisibleText, visual.VisibleTitleText, visual.VisibleSubtitleText, visual.TextBoxText }
+            .Where(text => !string.IsNullOrWhiteSpace(text))!
+            .Select(text => text!);
+
+    private static string FormatSemanticPageLabel(PageData page) =>
+        !string.IsNullOrWhiteSpace(GetPageVisibleTitle(page))
+            ? $"'{GetPageVisibleTitle(page)}'"
+            : $"'{page.DisplayName}'";
+
+    private static string FormatSemanticVisualLabel(PageData page, VisualData visual)
+    {
+        if (!string.IsNullOrWhiteSpace(visual.BestVisibleText))
+        {
+            return $"'{visual.BestVisibleText}'";
+        }
+
+        return !string.IsNullOrWhiteSpace(GetPageVisibleTitle(page))
+            ? $"{FormatSemanticPageLabel(page)} {visual.Type}"
+            : $"'{visual.Id}' {visual.Type}";
+    }
+
+    private static bool ContainsComparisonIntentKeywords(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return ContainsTextKeyword(text, "compare") ||
+            ContainsTextKeyword(text, "comparison") ||
+            ContainsTextKeyword(text, "vs ") ||
+            ContainsTextKeyword(text, "versus") ||
+            ContainsTextKeyword(text, "variance") ||
+            ContainsTextKeyword(text, "difference") ||
+            ContainsTextKeyword(text, "gap") ||
+            ContainsTextKeyword(text, "ranking") ||
+            ContainsTextKeyword(text, "rank") ||
+            ContainsTextKeyword(text, "top ") ||
+            ContainsTextKeyword(text, "bottom");
+    }
+
+    private static bool ContainsSequentialKeywords(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return ContainsTextKeyword(text, "trend") ||
+            ContainsTextKeyword(text, "over time") ||
+            ContainsTextKeyword(text, "time") ||
+            ContainsTextKeyword(text, "timeline") ||
+            ContainsTextKeyword(text, "month") ||
+            ContainsTextKeyword(text, "monthly") ||
+            ContainsTextKeyword(text, "quarter") ||
+            ContainsTextKeyword(text, "quarterly") ||
+            ContainsTextKeyword(text, "year") ||
+            ContainsTextKeyword(text, "yearly") ||
+            ContainsTextKeyword(text, "week") ||
+            ContainsTextKeyword(text, "weekly") ||
+            ContainsTextKeyword(text, "day") ||
+            ContainsTextKeyword(text, "daily") ||
+            ContainsTextKeyword(text, "yoy") ||
+            ContainsTextKeyword(text, "mom") ||
+            ContainsTextKeyword(text, "qoq");
+    }
+
+    private static bool ContainsFunnelContextKeywords(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return ContainsTextKeyword(text, "funnel") ||
+            ContainsTextKeyword(text, "pipeline") ||
+            ContainsTextKeyword(text, "stage") ||
+            ContainsTextKeyword(text, "step") ||
+            ContainsTextKeyword(text, "conversion") ||
+            ContainsTextKeyword(text, "journey") ||
+            ContainsTextKeyword(text, "drop off") ||
+            ContainsTextKeyword(text, "lead") ||
+            ContainsTextKeyword(text, "opportunity") ||
+            ContainsTextKeyword(text, "prospect") ||
+            ContainsTextKeyword(text, "application");
+    }
+
+    private static bool LooksCategoricalHint(string? text)
+    {
+        var cue = ExtractCategoricalCue(text);
+        return cue is not null;
+    }
+
+    private static string? ExtractCategoricalCue(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        foreach (var cue in new[]
+                 {
+                     "region", "product", "category", "segment", "customer", "channel",
+                     "country", "state", "city", "store", "department", "brand", "gender", "age"
+                 })
+        {
+            if (ContainsTextKeyword(text, cue))
+            {
+                return cue;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ContainsTextKeyword(string? text, string keyword)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(keyword))
+        {
+            return false;
+        }
+
+        var normalizedText = NormalizeNarrativeText(text);
+        var normalizedKeyword = NormalizeNarrativeText(keyword);
+        if (string.IsNullOrWhiteSpace(normalizedText) || string.IsNullOrWhiteSpace(normalizedKeyword))
+        {
+            return false;
+        }
+
+        if (normalizedKeyword.Contains(' '))
+        {
+            return normalizedText.Contains(normalizedKeyword, StringComparison.Ordinal);
+        }
+
+        return normalizedText
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Contains(normalizedKeyword, StringComparer.Ordinal);
+    }
+
+    private static ConsistencyIssue? AnalyzeMetricLabelConsistency(IEnumerable<PageData> pages)
+    {
+        var metricLabels = pages
+            .SelectMany(page => page.Visuals
+                .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && visual.IsKpiCard && !string.IsNullOrWhiteSpace(visual.BestVisibleText))
+                .Select(visual => new
+                {
+                    PageName = page.DisplayName,
+                    Visual = visual,
+                    Label = visual.BestVisibleText!,
+                    Pattern = ClassifyMetricLabelPattern(visual.BestVisibleText!),
+                }))
+            .ToList();
+        if (metricLabels.Count < 2)
+        {
+            return null;
+        }
+
+        bool hasPrefix = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.PrefixModifier);
+        bool hasSuffix = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.SuffixModifier);
+        bool hasGeneric = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.GenericAggregate);
+        if (!(hasPrefix && hasSuffix) && !hasGeneric)
+        {
+            return null;
+        }
+
+        var messageParts = new List<string>();
+        if (hasPrefix && hasSuffix)
+        {
+            var prefixExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.PrefixModifier).Label;
+            var suffixExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.SuffixModifier).Label;
+            messageParts.Add($"metric labels mix prefix modifiers such as '{prefixExample}' and suffix modifiers such as '{suffixExample}'");
+        }
+
+        if (hasGeneric)
+        {
+            var genericExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.GenericAggregate).Label;
+            messageParts.Add($"generic labels such as '{genericExample}' remain in the KPI layer");
+        }
+
+        return new ConsistencyIssue(
+            string.Join("; ", messageParts),
+            metricLabels
+                .Where(entry => entry.Pattern != MetricLabelPattern.Plain)
+                .Select(entry => (entry.PageName, entry.Visual))
+                .ToList());
+    }
+
+    private static ConsistencyIssue? AnalyzePageStyleLanguageConsistency(IEnumerable<PageData> pages)
+    {
+        var profiles = pages
+            .Select(BuildPageStyleProfile)
+            .Where(profile => profile.RepresentativeVisuals.Count > 0)
+            .ToList();
+        if (profiles.Count < 2)
+        {
+            return null;
+        }
+
+        var distinctProfiles = profiles
+            .Select(profile => profile.Signature)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinctProfiles.Count < 2)
+        {
+            return null;
+        }
+
+        var primary = profiles[0];
+        var contrast = profiles.First(profile => !string.Equals(profile.Signature, primary.Signature, StringComparison.Ordinal));
+        var visuals = primary.RepresentativeVisuals
+            .Select(visual => (primary.Page.DisplayName, visual))
+            .Concat(contrast.RepresentativeVisuals.Select(visual => (contrast.Page.DisplayName, visual)))
+            .ToList();
+        return new ConsistencyIssue(
+            $"{FormatSemanticPageLabel(primary.Page)} uses {DescribePageStyleProfile(primary)} while {FormatSemanticPageLabel(contrast.Page)} uses {DescribePageStyleProfile(contrast)}",
+            visuals);
+    }
+
+    private static ConsistencyIssue? AnalyzeLayoutConventionConsistency(IEnumerable<PageData> pages)
+    {
+        var profiles = pages
+            .Select(BuildLayoutConventionProfile)
+            .Where(profile => profile.TitleVisual is not null || profile.FilterVisuals.Count > 0)
+            .ToList();
+        if (profiles.Count < 2)
+        {
+            return null;
+        }
+
+        var messageParts = new List<string>();
+        var visuals = new List<(string PageName, VisualData Visual)>();
+
+        var titleProfiles = profiles
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.TitleAlignment) && profile.TitleVisual is not null)
+            .ToList();
+        var distinctTitleAlignments = titleProfiles
+            .Select(profile => profile.TitleAlignment)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinctTitleAlignments.Count >= 2)
+        {
+            var first = titleProfiles[0];
+            var second = titleProfiles.First(profile =>
+                !string.Equals(profile.TitleAlignment, first.TitleAlignment, StringComparison.Ordinal));
+            messageParts.Add($"title anchors shift between {first.TitleAlignment} and {second.TitleAlignment} alignment");
+            visuals.Add((first.Page.DisplayName, first.TitleVisual!));
+            visuals.Add((second.Page.DisplayName, second.TitleVisual!));
+        }
+
+        var filterProfiles = profiles
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.FilterConvention) && profile.FilterVisuals.Count > 0)
+            .ToList();
+        var distinctFilterConventions = filterProfiles
+            .Select(profile => profile.FilterConvention)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinctFilterConventions.Count >= 2)
+        {
+            var first = filterProfiles[0];
+            var second = filterProfiles.First(profile =>
+                !string.Equals(profile.FilterConvention, first.FilterConvention, StringComparison.Ordinal));
+            messageParts.Add($"filter conventions shift between a {first.FilterConvention} and a {second.FilterConvention}");
+            visuals.AddRange(first.FilterVisuals.Take(2).Select(visual => (first.Page.DisplayName, visual)));
+            visuals.AddRange(second.FilterVisuals.Take(2).Select(visual => (second.Page.DisplayName, visual)));
+        }
+
+        return messageParts.Count == 0
+            ? null
+            : new ConsistencyIssue(
+                string.Join("; ", messageParts),
+                DeduplicateAffectedVisualTuples(visuals));
+    }
+
+    private static PageStyleProfile BuildPageStyleProfile(PageData page)
+    {
+        var dataVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative)
+            .ToList();
+        var formattedVisuals = dataVisuals
+            .Where(HasAnyFormattingMetadata)
+            .ToList();
+        if (formattedVisuals.Count == 0)
+        {
+            return new PageStyleProfile(page, false, false, false, null, []);
+        }
+
+        var roundedKnown = formattedVisuals.Where(visual => visual.Formatting.CornerRadius.HasValue).ToList();
+        var shadowKnown = formattedVisuals.Where(visual => visual.Formatting.HasShadow.HasValue).ToList();
+        var fillKnown = formattedVisuals.Where(visual => !string.IsNullOrWhiteSpace(visual.Formatting.BackgroundFillColor)).ToList();
+        bool usesRounded = roundedKnown.Count > 0 &&
+            roundedKnown.Count(visual => visual.Formatting.CornerRadius >= 4) >= Math.Max(1, (int)Math.Ceiling(roundedKnown.Count / 2.0));
+        bool usesShadow = shadowKnown.Count > 0 &&
+            shadowKnown.Count(visual => visual.Formatting.HasShadow == true) >= Math.Max(1, (int)Math.Ceiling(shadowKnown.Count / 2.0));
+        bool usesFill = fillKnown.Count > 0 &&
+            fillKnown.Count >= Math.Max(1, (int)Math.Ceiling(formattedVisuals.Count / 2.0));
+        string? dominantFillColor = fillKnown
+            .GroupBy(visual => visual.Formatting.BackgroundFillColor!, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .Select(group => group.Key)
+            .FirstOrDefault();
+
+        return new PageStyleProfile(
+            page,
+            usesRounded,
+            usesShadow,
+            usesFill,
+            dominantFillColor,
+            formattedVisuals.Take(2).ToList());
+    }
+
+    private static string DescribePageStyleProfile(PageStyleProfile profile)
+    {
+        var parts = new List<string>
+        {
+            profile.UsesRoundedCorners ? "rounded surfaces" : "square surfaces",
+            profile.UsesShadow ? "elevated cards" : "flat cards",
+        };
+
+        parts.Add(profile.UsesBackgroundFill
+            ? $"filled surfaces{(string.IsNullOrWhiteSpace(profile.DominantFillColor) ? string.Empty : $" ({profile.DominantFillColor})")}"
+            : "unfilled surfaces");
+        return string.Join(", ", parts);
+    }
+
+    private static LayoutConventionProfile BuildLayoutConventionProfile(PageData page)
+    {
+        double canvasWidth = GetCanvasWidth(page);
+        double canvasHeight = GetCanvasHeight(page);
+        var titleVisual = page.Visuals
+            .Where(visual => !visual.IsHidden && visual.HasVisibleTitleIntent)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .FirstOrDefault();
+        string? titleAlignment = titleVisual is null
+            ? null
+            : ClassifyTitleAlignment(titleVisual, canvasWidth);
+        var filterVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && visual.IsSlicer)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        string? filterConvention = filterVisuals.Count == 0
+            ? null
+            : ClassifyFilterConvention(filterVisuals, canvasWidth, canvasHeight);
+
+        return new LayoutConventionProfile(
+            page,
+            titleAlignment,
+            titleVisual,
+            filterConvention,
+            filterVisuals);
+    }
+
+    private static string ClassifyTitleAlignment(VisualData visual, double canvasWidth)
+    {
+        double centerX = visual.X + visual.W / 2.0;
+        if (visual.X <= canvasWidth * 0.18)
+        {
+            return "left";
+        }
+
+        if (centerX >= canvasWidth * 0.35 && centerX <= canvasWidth * 0.65)
+        {
+            return "center";
+        }
+
+        return "offset";
+    }
+
+    private static string ClassifyFilterConvention(IReadOnlyList<VisualData> filters, double canvasWidth, double canvasHeight)
+    {
+        bool allTop = filters.All(filter => filter.Y <= canvasHeight * 0.22);
+        bool allLeft = filters.All(filter => filter.X <= canvasWidth * 0.24 || filter.X + filter.W <= canvasWidth * 0.32);
+        if (allTop)
+        {
+            return "top band";
+        }
+
+        if (allLeft)
+        {
+            return "left rail";
+        }
+
+        return "mixed filter placement";
+    }
+
+    private static MetricLabelPattern ClassifyMetricLabelPattern(string label)
+    {
+        var normalized = NormalizeNarrativeText(label);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return MetricLabelPattern.Plain;
+        }
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^(sum|average|avg|count|min|max|median)\s+of\s+", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            return MetricLabelPattern.GenericAggregate;
+        }
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^(ytd|mtd|qtd|fy|yoy|mom|qoq|rolling)\b", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            return MetricLabelPattern.PrefixModifier;
+        }
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, @"\b(ytd|mtd|qtd|fy|yoy|mom|qoq|rolling)$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            return MetricLabelPattern.SuffixModifier;
+        }
+
+        return MetricLabelPattern.Plain;
+    }
+
+    private static List<(string PageName, VisualData Visual)> DeduplicateAffectedVisualTuples(
+        IEnumerable<(string PageName, VisualData Visual)> visuals) =>
+        visuals
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Visual.Id))
+            .GroupBy(entry => (entry.PageName, entry.Visual.Id))
+            .Select(group => group.First())
+            .ToList();
+
+    private static NarrativePageAnalysis AnalyzeNarrativePage(PageData page)
+    {
+        var visibleVisuals = page.Visuals.Where(visual => !visual.IsHidden).ToList();
+        var visibleDataVisuals = visibleVisuals
+            .Where(visual => !visual.IsDecorative && !visual.IsNavigationElement)
+            .ToList();
+        var kpiCards = visibleDataVisuals.Where(visual => visual.IsKpiCard).ToList();
+        var supportingDataVisuals = visibleDataVisuals.Where(visual => !visual.IsKpiCard).ToList();
+        var trendVisuals = visibleDataVisuals.Where(visual => visual.IsTrend).ToList();
+        var comparisonVisuals = visibleDataVisuals.Where(visual => visual.IsComparison).ToList();
+        var titleBearingVisuals = visibleVisuals.Where(visual => visual.HasVisibleTitleIntent).ToList();
+        var visibleTexts = visibleVisuals
+            .SelectMany(visual => new[] { visual.VisibleTitleText, visual.VisibleSubtitleText, visual.TextBoxText, visual.BestVisibleText })
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .Select(text => text!)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var visibleTitle = GetPageVisibleTitle(page);
+        bool hasAnyVisibleTitle = !string.IsNullOrWhiteSpace(visibleTitle);
+        bool hasMeaningfulVisibleTitle = hasAnyVisibleTitle && !IsVagueNarrativeText(visibleTitle!);
+        bool hasHeadlineOutcome =
+            kpiCards.Count > 0 ||
+            (hasMeaningfulVisibleTitle && (trendVisuals.Count > 0 || comparisonVisuals.Count > 0 || visibleDataVisuals.Count <= 2));
+        bool hasKpiComparisonContext =
+            kpiCards.Count == 0 ||
+            trendVisuals.Count > 0 ||
+            comparisonVisuals.Count > 0 ||
+            visibleTexts.Any(ContainsNarrativeContextKeywords) ||
+            visibleDataVisuals.Any(visual => visual.Labels.HasDataLabels == true);
+        bool hasSupportingEvidenceFlow =
+            kpiCards.Count == 0 ||
+            supportingDataVisuals.Count > 0;
+
+        return new NarrativePageAnalysis(
+            Page: page,
+            VisibleTitle: visibleTitle,
+            HasAnyVisibleTitle: hasAnyVisibleTitle,
+            HasMeaningfulVisibleTitle: hasMeaningfulVisibleTitle,
+            VisibleDataVisuals: visibleDataVisuals,
+            KpiCards: kpiCards,
+            SupportingDataVisuals: supportingDataVisuals,
+            TrendVisuals: trendVisuals,
+            ComparisonVisuals: comparisonVisuals,
+            TitleBearingVisuals: titleBearingVisuals,
+            VisibleTexts: visibleTexts,
+            HasHeadlineOutcome: hasHeadlineOutcome,
+            HasKpiComparisonContext: hasKpiComparisonContext,
+            HasSupportingEvidenceFlow: hasSupportingEvidenceFlow);
+    }
+
+    private static string BuildNarrativePurposeMessage(
+        IReadOnlyList<string> vagueTitlePages,
+        IReadOnlyList<string> noTitlePages)
+    {
+        if (vagueTitlePages.Count > 0 && noTitlePages.Count > 0)
+        {
+            return $"Visible page purpose: {string.Join(", ", vagueTitlePages)} use vague visible titles and {string.Join(", ", noTitlePages)} have no visible title or question anchor. Replace generic labels such as 'Overview' or 'Page 1' with a clearer purpose statement.";
+        }
+
+        if (vagueTitlePages.Count > 0)
+        {
+            return $"Visible page purpose: {string.Join(", ", vagueTitlePages)} use vague visible titles. Replace generic labels such as 'Overview' or 'Page 1' with a clearer decision-led title.";
+        }
+
+        return $"Visible page purpose: {string.Join(", ", noTitlePages)} have no visible title or question anchor. Add one so users understand what the page is trying to say.";
+    }
+
+    private static IEnumerable<(string PageName, VisualData Visual)> BuildNarrativeEvidenceVisuals(
+        IEnumerable<NarrativePageAnalysis> analyses) =>
+        analyses.SelectMany(analysis =>
+        {
+            var visuals = analysis.TitleBearingVisuals.Count > 0
+                ? analysis.TitleBearingVisuals
+                : analysis.KpiCards.Count > 0
+                    ? analysis.KpiCards
+                    : analysis.VisibleDataVisuals.Take(1).ToList();
+
+            return visuals.Select(visual => (analysis.Page.DisplayName, visual));
+        });
+
+    private static string BuildNarrativeRecommendationSubject(NarrativePageAnalysis analysis) =>
+        !string.IsNullOrWhiteSpace(analysis.VisibleTitle) && !IsVagueNarrativeText(analysis.VisibleTitle!)
+            ? $"'{analysis.VisibleTitle}'"
+            : $"'{analysis.Page.DisplayName}'";
+
+    private static string GetPrimaryKpiLabel(NarrativePageAnalysis analysis)
+    {
+        var titledCard = analysis.KpiCards
+            .Select(card => card.BestVisibleText)
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text) && !IsVagueNarrativeText(text));
+
+        return !string.IsNullOrWhiteSpace(titledCard)
+            ? $"{titledCard} KPI"
+            : $"'{analysis.Page.DisplayName}' KPI layer";
+    }
+
+    private static bool ContainsNarrativeContextKeywords(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var normalized = text.ToLowerInvariant();
+        return normalized.Contains("target", StringComparison.Ordinal) ||
+            normalized.Contains("budget", StringComparison.Ordinal) ||
+            normalized.Contains("variance", StringComparison.Ordinal) ||
+            normalized.Contains("prior", StringComparison.Ordinal) ||
+            normalized.Contains("previous", StringComparison.Ordinal) ||
+            normalized.Contains("trend", StringComparison.Ordinal) ||
+            normalized.Contains("delta", StringComparison.Ordinal) ||
+            normalized.Contains("change", StringComparison.Ordinal) ||
+            normalized.Contains("growth", StringComparison.Ordinal) ||
+            normalized.Contains("decline", StringComparison.Ordinal) ||
+            normalized.Contains("on track", StringComparison.Ordinal) ||
+            normalized.Contains("at risk", StringComparison.Ordinal) ||
+            normalized.Contains("below target", StringComparison.Ordinal) ||
+            normalized.Contains("above target", StringComparison.Ordinal) ||
+            normalized.Contains("vs ", StringComparison.Ordinal) ||
+            normalized.Contains("versus", StringComparison.Ordinal) ||
+            normalized.Contains("yoy", StringComparison.Ordinal) ||
+            normalized.Contains("mom", StringComparison.Ordinal) ||
+            normalized.Contains("qoq", StringComparison.Ordinal);
+    }
+
+    private static bool IsVagueNarrativeText(string text)
+    {
+        var normalized = NormalizeNarrativeText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return true;
+        }
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^page\s+\d+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return normalized is "page"
+            or "overview"
+            or "summary"
+            or "dashboard"
+            or "analysis"
+            or "details"
+            or "detail"
+            or "report"
+            or "metrics"
+            or "kpis"
+            or "kpi"
+            or "home";
+    }
+
+    private static string NormalizeNarrativeText(string text)
+    {
+        var cleaned = new string(text
+            .Trim()
+            .ToLowerInvariant()
+            .Select(ch => char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch) ? ch : ' ')
+            .ToArray());
+        return string.Join(" ", cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static bool IsTextVisualType(string visualType) =>
+        visualType.Equals("textbox", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ExtractVisibleObjectText(JsonNode? root, IReadOnlyList<string> objectNames)
+    {
+        foreach (var obj in FindObjectsRecursive(root, objectNames))
+        {
+            if (!IsObjectVisible(obj))
+            {
+                continue;
+            }
+
+            var directText = NormalizeText(ReadFirstString(obj, ["text", "value", "displayText", "titleText", "subtitleText", "content"]));
+            if (!string.IsNullOrWhiteSpace(directText))
+            {
+                return directText;
+            }
+
+            var runText = ExtractTextRunContent(obj);
+            if (!string.IsNullOrWhiteSpace(runText))
+            {
+                return runText;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractVisibleScalarText(JsonNode? root, IReadOnlyList<string> propertyNames)
+    {
+        foreach (var node in FindValuesRecursive(root, propertyNames))
+        {
+            var text = NormalizeText(ReadStringNode(node));
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractTextRunContent(JsonNode? root)
+    {
+        var values = FindValuesRecursive(root, new[] { "textRuns", "runs", "paragraphs" })
+            .SelectMany(CollectTextLeaves)
+            .Select(NormalizeText)
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .ToList();
+
+        return values.Count == 0
+            ? null
+            : string.Join(" ", values.Distinct(StringComparer.Ordinal));
+    }
+
+    private static IEnumerable<string> CollectTextLeaves(JsonNode? node)
+    {
+        if (node is null)
+        {
+            yield break;
+        }
+
+        if (node is JsonObject obj)
+        {
+            var text = NormalizeText(ReadFirstString(obj, ["text", "value", "content", "displayText"]));
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                yield return text;
+            }
+
+            foreach (var child in obj)
+            {
+                foreach (var nested in CollectTextLeaves(child.Value))
+                {
+                    yield return nested;
+                }
+            }
+
+            yield break;
+        }
+
+        if (node is JsonArray arr)
+        {
+            foreach (var item in arr)
+            {
+                foreach (var nested in CollectTextLeaves(item))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    private static bool? ExtractPresenceFlag(
+        JsonNode? root,
+        IReadOnlyList<string> objectNames,
+        IReadOnlyList<string> scalarNames)
+    {
+        foreach (var obj in FindObjectsRecursive(root, objectNames))
+        {
+            var explicitValue = ReadFirstBoolean(obj, ["visible", "show", "enabled"]);
+            if (explicitValue.HasValue)
+            {
+                return explicitValue.Value;
+            }
+
+            return true;
+        }
+
+        foreach (var node in FindValuesRecursive(root, scalarNames))
+        {
+            var boolValue = ReadBooleanNode(node);
+            if (boolValue.HasValue)
+            {
+                return boolValue.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static List<string> CollectRoleHints(
+        JsonNode? root,
+        IReadOnlyList<string> containerNames,
+        IReadOnlyList<string> roleNames)
+    {
+        var hints = new List<string>();
+        foreach (var container in FindObjectsRecursive(root, containerNames))
+        {
+            foreach (var roleName in roleNames)
+            {
+                if (TryGetPropertyCaseInsensitive(container, roleName, out var roleNode))
+                {
+                    hints.AddRange(ReadStringValues(roleNode));
+                }
+            }
+        }
+
+        return hints
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string? ExtractColorFromObjects(JsonNode? root, IReadOnlyList<string> objectNames)
+    {
+        foreach (var obj in FindObjectsRecursive(root, objectNames))
+        {
+            var color = ExtractColor(obj);
+            if (!string.IsNullOrWhiteSpace(color))
+            {
+                return color;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractColor(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        if (node is JsonValue)
+        {
+            return NormalizeColor(ReadStringNode(node));
+        }
+
+        if (node is JsonObject obj)
+        {
+            var direct = NormalizeColor(ReadFirstString(obj, ["color", "hex", "value"]));
+            if (!string.IsNullOrWhiteSpace(direct))
+            {
+                return direct;
+            }
+
+            foreach (var key in new[] { "solid", "fill", "foreground", "background" })
+            {
+                if (TryGetPropertyCaseInsensitive(obj, key, out var nested))
+                {
+                    var color = ExtractColor(nested);
+                    if (!string.IsNullOrWhiteSpace(color))
+                    {
+                        return color;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static double? ExtractNumericSetting(
+        JsonNode? root,
+        IReadOnlyList<string> objectNames,
+        IReadOnlyList<string> valueNames)
+    {
+        foreach (var obj in FindObjectsRecursive(root, objectNames))
+        {
+            var number = ReadFirstDouble(obj, valueNames);
+            if (number.HasValue)
+            {
+                return number.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static double? ExtractScalarNumber(JsonNode? root, IReadOnlyList<string> propertyNames)
+    {
+        foreach (var node in FindValuesRecursive(root, propertyNames))
+        {
+            var number = ReadDoubleNode(node);
+            if (number.HasValue)
+            {
+                return number.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<JsonObject> FindObjectsRecursive(JsonNode? node, IReadOnlyList<string> propertyNames) =>
+        FindValuesRecursive(node, propertyNames).OfType<JsonObject>();
+
+    private static IEnumerable<JsonNode> FindValuesRecursive(JsonNode? node, IReadOnlyList<string> propertyNames)
+    {
+        if (node is null)
+        {
+            yield break;
+        }
+
+        var nameSet = new HashSet<string>(propertyNames, StringComparer.OrdinalIgnoreCase);
+        foreach (var value in FindValuesRecursive(node, nameSet))
+        {
+            yield return value;
+        }
+    }
+
+    private static IEnumerable<JsonNode> FindValuesRecursive(JsonNode? node, HashSet<string> propertyNames)
+    {
+        if (node is null)
+        {
+            yield break;
+        }
+
+        if (node is JsonObject obj)
+        {
+            foreach (var child in obj)
+            {
+                if (child.Value is null)
+                {
+                    continue;
+                }
+
+                if (propertyNames.Contains(child.Key))
+                {
+                    yield return child.Value;
+                }
+
+                foreach (var nested in FindValuesRecursive(child.Value, propertyNames))
+                {
+                    yield return nested;
+                }
+            }
+
+            yield break;
+        }
+
+        if (node is JsonArray arr)
+        {
+            foreach (var item in arr)
+            {
+                foreach (var nested in FindValuesRecursive(item, propertyNames))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    private static string? ReadFirstString(JsonObject obj, IReadOnlyList<string> propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            if (TryGetPropertyCaseInsensitive(obj, propertyName, out var node))
+            {
+                var text = ReadStringNode(node);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool? ReadFirstBoolean(JsonObject obj, IReadOnlyList<string> propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            if (TryGetPropertyCaseInsensitive(obj, propertyName, out var node))
+            {
+                var value = ReadBooleanNode(node);
+                if (value.HasValue)
+                {
+                    return value.Value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static double? ReadFirstDouble(JsonObject obj, IReadOnlyList<string> propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            if (TryGetPropertyCaseInsensitive(obj, propertyName, out var node))
+            {
+                var value = ReadDoubleNode(node);
+                if (value.HasValue)
+                {
+                    return value.Value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static double? ReadNestedDouble(JsonObject obj, string objectName, string propertyName)
+    {
+        if (!TryGetPropertyCaseInsensitive(obj, objectName, out var child) || child is not JsonObject childObject)
+        {
+            return null;
+        }
+
+        return ReadFirstDouble(childObject, [propertyName]);
+    }
+
+    private static bool TryGetPropertyCaseInsensitive(JsonObject obj, string propertyName, out JsonNode? value)
+    {
+        foreach (var child in obj)
+        {
+            if (string.Equals(child.Key, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = child.Value;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static IReadOnlyList<string> ReadStringValues(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return [];
+        }
+
+        if (node is JsonArray arr)
+        {
+            return arr
+                .SelectMany(ReadStringValues)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+        }
+
+        if (node is JsonObject obj)
+        {
+            var values = new List<string>();
+            var direct = ReadFirstString(obj, ["name", "value", "field", "displayName", "queryRef"]);
+            if (!string.IsNullOrWhiteSpace(direct))
+            {
+                values.Add(direct);
+            }
+
+            foreach (var child in obj)
+            {
+                values.AddRange(ReadStringValues(child.Value));
+            }
+
+            return values;
+        }
+
+        var scalar = ReadStringNode(node);
+        return string.IsNullOrWhiteSpace(scalar) ? [] : [scalar];
+    }
+
+    private static bool IsObjectVisible(JsonObject obj)
+    {
+        var hidden = ReadFirstBoolean(obj, ["isHidden", "hidden"]);
+        if (hidden == true)
+        {
+            return false;
+        }
+
+        var visible = ReadFirstBoolean(obj, ["visible", "show", "enabled"]);
+        return visible != false;
+    }
+
+    private static string? ReadStringNode(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return node.GetValue<string>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool? ReadBooleanNode(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return node.GetValue<bool>();
+        }
+        catch
+        {
+            var text = ReadStringNode(node);
+            return bool.TryParse(text, out var result) ? result : null;
+        }
+    }
+
+    private static double? ReadDoubleNode(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return node.GetValue<double>();
+        }
+        catch
+        {
+            var text = ReadStringNode(node);
+            return double.TryParse(text, out var result) ? result : null;
+        }
+    }
+
+    private static string? NormalizeText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        return string.Join(' ', text.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+    }
+
+    private static string? NormalizeColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (!normalized.StartsWith("#", StringComparison.Ordinal))
+        {
+            normalized = $"#{normalized}";
+        }
+
+        if (normalized.Length is not (7 or 9))
+        {
+            return null;
+        }
+
+        for (int i = 1; i < normalized.Length; i++)
+        {
+            if (!Uri.IsHexDigit(normalized[i]))
+            {
+                return null;
+            }
+        }
+
+        return normalized.ToUpperInvariant();
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
     private static List<AffectedVisualReference> BuildAffectedVisuals(
         string pageName,
         IEnumerable<VisualData> visuals) =>
@@ -1729,18 +4507,31 @@ public sealed class PbirScoringService
                 string.IsNullOrWhiteSpace(entry.Visual.Type) ? "visual" : entry.Visual.Type))
             .ToList();
 
+    private static FrameworkFeedbackItem FeedbackItem(
+        bool ok,
+        string text,
+        string findingType,
+        List<AffectedVisualReference>? affectedVisuals = null) =>
+        new(
+            ok,
+            text,
+            affectedVisuals,
+            FindingType: findingType);
+
     private static FrameworkFeedbackItem ScoredFeedback(
         bool ok,
         string text,
         double earnedPoints,
         double possiblePoints,
+        string findingType,
         List<AffectedVisualReference>? affectedVisuals = null) =>
         new(
             ok,
             text,
             affectedVisuals,
             Math.Max(0.0, Math.Min(possiblePoints, earnedPoints)),
-            possiblePoints);
+            possiblePoints,
+            findingType);
 
     /// <summary>
     /// Extracts framework weights from the configuration JsonElement passed from the frontend.
@@ -2031,16 +4822,95 @@ public sealed class PbirScoringService
         int HiddenVisualCount,
         double WeightedVisibleCount);
 
-    private sealed record PageData(string DisplayName, List<VisualData> Visuals);
+    private readonly record struct CanvasMetadata(double Width, double Height);
 
-    private sealed record VisualData(string Id, string Type, double X, double Y, double W, double H, bool IsHidden = false)
+    private readonly record struct VisualRow(
+        List<VisualData> Visuals,
+        double Top,
+        double Bottom);
+
+    private readonly record struct PageLayoutIssue(
+        PageData Page,
+        string Message,
+        List<VisualData> Visuals,
+        double Penalty);
+
+    private readonly record struct SemanticChartIssue(
+        PageData Page,
+        string Message,
+        List<VisualData> Visuals,
+        double Penalty);
+
+    private readonly record struct PieUsageAnalysis(
+        int PieCount,
+        int OverviewPieCount,
+        List<(string PageName, VisualData Visual)> PieVisuals);
+
+    private readonly record struct ConsistencyIssue(
+        string Message,
+        List<(string PageName, VisualData Visual)> Visuals,
+        double Penalty = 0.0);
+
+    private readonly record struct PageStyleProfile(
+        PageData Page,
+        bool UsesRoundedCorners,
+        bool UsesShadow,
+        bool UsesBackgroundFill,
+        string? DominantFillColor,
+        List<VisualData> RepresentativeVisuals)
     {
+        public string Signature =>
+            $"{(UsesRoundedCorners ? "rounded" : "square")}|{(UsesShadow ? "elevated" : "flat")}|{(UsesBackgroundFill ? DominantFillColor ?? "filled" : "unfilled")}";
+    }
+
+    private readonly record struct LayoutConventionProfile(
+        PageData Page,
+        string? TitleAlignment,
+        VisualData? TitleVisual,
+        string? FilterConvention,
+        List<VisualData> FilterVisuals);
+
+    private enum MetricLabelPattern
+    {
+        Plain,
+        PrefixModifier,
+        SuffixModifier,
+        GenericAggregate,
+    }
+
+    private sealed record PageData
+    {
+        public required string DisplayName { get; init; }
+        public List<VisualData> Visuals { get; init; } = [];
+        public CanvasMetadata? Canvas { get; init; }
+    }
+
+    private sealed record VisualData
+    {
+        public required string Id { get; init; }
+        public required string Type { get; init; }
+        public double X { get; init; }
+        public double Y { get; init; }
+        public double W { get; init; }
+        public double H { get; init; }
+        public bool IsHidden { get; init; }
+        public VisualTextMetadata Text { get; init; } = VisualTextMetadata.Empty;
+        public VisualLabelMetadata Labels { get; init; } = VisualLabelMetadata.Empty;
+        public VisualFieldRoleMetadata FieldRoles { get; init; } = VisualFieldRoleMetadata.Empty;
+        public VisualFormattingMetadata Formatting { get; init; } = VisualFormattingMetadata.Empty;
+
         public bool IsSlicer     => Type is "slicer" or "advancedSlicerVisual";
         public bool IsKpiCard    => Type is "card" or "kpiVisual" or "multiRowCard";
         public bool IsPieDonut   => Type is "pieChart" or "donutChart";
-        public bool IsTrend      => Type is "lineChart" or "areaChart" or "lineAndStackedColumnChart";
+        public bool IsTrend      => Type is "lineChart" or "areaChart" or "lineAndStackedColumnChart" or "lineAndClusteredColumnChart";
         public bool IsComparison => Type is "clusteredColumnChart" or "clusteredBarChart"
-                                          or "stackedColumnChart" or "stackedBarChart";
+                                          or "stackedColumnChart" or "stackedBarChart"
+                                          or "barChart" or "columnChart" or "waterfallChart";
+        public string? VisibleTitleText => Text.VisibleTitleText;
+        public string? VisibleSubtitleText => Text.VisibleSubtitleText;
+        public string? TextBoxText => Text.TextBoxText;
+        public string? BestVisibleText => FirstNonBlank(VisibleTitleText, TextBoxText, VisibleSubtitleText);
+        public bool HasVisibleTitleIntent => !string.IsNullOrWhiteSpace(BestVisibleText);
         public bool IsNavigationElement
         {
             get
@@ -2067,4 +4937,49 @@ public sealed class PbirScoringService
 
         public bool IsDecorative => string.IsNullOrWhiteSpace(Type) || _decorativeTypes.Contains(Type);
     }
+
+    private sealed record VisualTextMetadata(string? VisibleTitleText, string? VisibleSubtitleText, string? TextBoxText)
+    {
+        public static VisualTextMetadata Empty { get; } = new(null, null, null);
+    }
+
+    private sealed record VisualLabelMetadata(bool? HasLegend, bool? HasAxisLabels, bool? HasDataLabels)
+    {
+        public static VisualLabelMetadata Empty { get; } = new(null, null, null);
+    }
+
+    private sealed record VisualFieldRoleMetadata(
+        IReadOnlyList<string> CategoryHints,
+        IReadOnlyList<string> ValueHints,
+        IReadOnlyList<string> SeriesHints,
+        IReadOnlyList<string> MeasureHints)
+    {
+        public static VisualFieldRoleMetadata Empty { get; } = new([], [], [], []);
+    }
+
+    private sealed record VisualFormattingMetadata(
+        string? BackgroundFillColor,
+        string? FontColor,
+        bool? HasBorder,
+        double? CornerRadius,
+        bool? HasShadow)
+    {
+        public static VisualFormattingMetadata Empty { get; } = new(null, null, null, null, null);
+    }
+
+    private sealed record NarrativePageAnalysis(
+        PageData Page,
+        string? VisibleTitle,
+        bool HasAnyVisibleTitle,
+        bool HasMeaningfulVisibleTitle,
+        List<VisualData> VisibleDataVisuals,
+        List<VisualData> KpiCards,
+        List<VisualData> SupportingDataVisuals,
+        List<VisualData> TrendVisuals,
+        List<VisualData> ComparisonVisuals,
+        List<VisualData> TitleBearingVisuals,
+        List<string> VisibleTexts,
+        bool HasHeadlineOutcome,
+        bool HasKpiComparisonContext,
+        bool HasSupportingEvidenceFlow);
 }

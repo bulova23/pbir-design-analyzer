@@ -4,6 +4,9 @@ All notable changes to PBIR Design Analyzer are recorded here.
 
 ## Unreleased
 
+- Added finding classification badges (`Objective`, `Heuristic`, `Style`) to score feedback.
+- Expanded the analyzer heuristics across metadata extraction, narrative, hierarchy, chart semantics, and visual consistency.
+- Bumped the extension to `0.1.13`.
 - Public release docs updated to include the MIT license and changelog references.
 - README headers now show the extension logo inline before the product title.
 

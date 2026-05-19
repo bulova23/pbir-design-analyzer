@@ -53,6 +53,9 @@ public sealed class PageScore
     /// <summary>Count of hidden visuals on the page.</summary>
     public int HiddenVisualCount { get; init; }
 
+    /// <summary>Structured visual metadata extracted for this page.</summary>
+    public PageVisualMetadataSummary? VisualMetadata { get; init; }
+
     /// <summary>
     /// Gets or sets the normalized framework weights for composite score calculation.
     /// </summary>

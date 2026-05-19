@@ -12,22 +12,27 @@ public class PbirScoringServiceTests
 {
     // ── FrameworkFeedbackItem tests ──────────────────────────────────────────
 
-    [Fact(DisplayName = "FrameworkFeedbackItem stores Ok and Text correctly")]
-    public void FrameworkFeedbackItem_Constructor_StoresOkAndText()
+    [Fact(DisplayName = "FrameworkFeedbackItem stores Ok, Text, and default classification correctly")]
+    public void FrameworkFeedbackItem_Constructor_StoresOkTextAndDefaultClassification()
     {
         var item = new FrameworkFeedbackItem(true, "All visuals aligned.");
 
         Assert.True(item.Ok);
         Assert.Equal("All visuals aligned.", item.Text);
+        Assert.Equal(FindingTypes.StrongHeuristic, item.FindingType);
     }
 
-    [Fact(DisplayName = "FrameworkFeedbackItem with Ok=false stores failure text")]
-    public void FrameworkFeedbackItem_FailureItem_OkIsFalse()
+    [Fact(DisplayName = "FrameworkFeedbackItem with explicit classification stores failure metadata")]
+    public void FrameworkFeedbackItem_FailureItem_StoresExplicitFindingType()
     {
-        var item = new FrameworkFeedbackItem(false, "Grid misalignment detected on page 1.");
+        var item = new FrameworkFeedbackItem(
+            false,
+            "Grid misalignment detected on page 1.",
+            FindingType: FindingTypes.Objective);
 
         Assert.False(item.Ok);
         Assert.Contains("Grid misalignment", item.Text);
+        Assert.Equal(FindingTypes.Objective, item.FindingType);
     }
 
     // ── ScoreResult composite formula tests ─────────────────────────────────

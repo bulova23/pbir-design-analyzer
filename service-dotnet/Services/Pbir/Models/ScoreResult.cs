@@ -1,6 +1,16 @@
 namespace PowerBIModelingService.Services.Pbir.Models;
 
 /// <summary>
+/// Canonical feedback classification values used by the scorer and score panel.
+/// </summary>
+public static class FindingTypes
+{
+    public const string Objective = "objective";
+    public const string StrongHeuristic = "strongHeuristic";
+    public const string StylePreference = "stylePreference";
+}
+
+/// <summary>
 /// A single pass/fail evaluation result within a scoring framework.
 /// </summary>
 /// <param name="Ok"><see langword="true"/> if the criterion passed; <see langword="false"/> if it needs attention.</param>
@@ -8,12 +18,14 @@ namespace PowerBIModelingService.Services.Pbir.Models;
 /// <param name="AffectedVisuals">Optional visual references that help users locate the contributing PBIR visuals in the explorer.</param>
 /// <param name="EarnedPoints">Optional earned points for this criterion so the UI can summarize score breakdowns.</param>
 /// <param name="PossiblePoints">Optional maximum points for this criterion so the UI can summarize score breakdowns.</param>
+/// <param name="FindingType">One of <c>objective</c>, <c>strongHeuristic</c>, or <c>stylePreference</c>.</param>
 public sealed record FrameworkFeedbackItem(
     bool Ok,
     string Text,
     List<AffectedVisualReference>? AffectedVisuals = null,
     double? EarnedPoints = null,
-    double? PossiblePoints = null);
+    double? PossiblePoints = null,
+    string FindingType = FindingTypes.StrongHeuristic);
 
 /// <summary>
 /// Identifies a visual mentioned in score feedback so the UI can link findings back to the PBIR sidecar tree.
@@ -181,6 +193,12 @@ public sealed class ScoreResult
 
     /// <summary>Gets or sets the count of hidden visuals across the scored scope.</summary>
     public int HiddenVisualCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the structured visual metadata summary for the scored page when single-page scoring is used.
+    /// <c>null</c> for full-report scoring where page-level metadata is carried on <see cref="PageScores"/>.
+    /// </summary>
+    public PageVisualMetadataSummary? VisualMetadata { get; set; }
 
     // ── Per-Page Scores (Feature 003: Per-Page Scoring) ───────────────────────
 

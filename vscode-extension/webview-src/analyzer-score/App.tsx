@@ -1,12 +1,15 @@
 import React from 'react';
 import type {
   AffectedVisualReference,
+  FindingType,
   FrameworkFeedbackItem,
+  PageVisualMetadataSummary,
   PageScore,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
   ScorePanelWebviewToHostMessage,
   ScoreResult,
+  VisualMetadataItem,
 } from '../../src/analyzer/contracts/scorePanel';
 import {
   basename,
@@ -86,6 +89,36 @@ function getFeedbackCriterionLabel(text: string): string {
 function formatPoints(points: number): string {
   const rounded = Math.round(points * 10) / 10;
   return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+}
+
+function getFindingTypeLabel(findingType: FindingType): string {
+  switch (findingType) {
+    case 'objective':
+      return 'Objective';
+    case 'stylePreference':
+      return 'Style';
+    default:
+      return 'Heuristic';
+  }
+}
+
+function getFindingTypeClassName(findingType: FindingType): string {
+  switch (findingType) {
+    case 'objective':
+      return 'finding-badge-objective';
+    case 'stylePreference':
+      return 'finding-badge-style';
+    default:
+      return 'finding-badge-heuristic';
+  }
+}
+
+function renderFindingBadge(findingType: FindingType): React.ReactNode {
+  return (
+    <span className={`finding-badge ${getFindingTypeClassName(findingType)}`}>
+      {getFindingTypeLabel(findingType)}
+    </span>
+  );
 }
 
 function buildScoreBreakdown(items: FrameworkFeedbackItem[] | undefined): string | undefined {
@@ -199,7 +232,10 @@ function renderFeedback(
               <li className={`criterion-card ${item.ok ? 'criterion-pass' : 'criterion-fail'}`} key={`${item.text}-${index}`}>
                 <div className="criterion-head">
                   <div>
-                    <p className="criterion-label">{details.label}</p>
+                    <div className="criterion-title-row">
+                      <p className="criterion-label">{details.label}</p>
+                      {renderFindingBadge(item.findingType)}
+                    </div>
                     <p className="criterion-state">{item.ok ? 'Meeting expectation' : 'Needs improvement'}</p>
                   </div>
                   <span className={`criterion-points ${pointsTone}`}>
@@ -229,7 +265,10 @@ function renderFeedback(
               <li className={`feedback-item ${item.ok ? 'feedback-pass' : 'feedback-fail'}`} key={`${item.text}-${index}`}>
                 <span className="feedback-icon">{item.ok ? '✓' : '!'}</span>
                 <div className="feedback-copy">
-                  <span>{item.text}</span>
+                  <div className="feedback-copy-head">
+                    {renderFindingBadge(item.findingType)}
+                    <span>{item.text}</span>
+                  </div>
                   {renderEvidence(item.affectedVisuals ?? [], currentPageName, onRevealVisual)}
                 </div>
               </li>
@@ -238,6 +277,200 @@ function renderFeedback(
         </div>
       ) : null}
     </div>
+  );
+}
+
+function formatMetadataBoolean(value: boolean | undefined, truthy: string, falsy: string): string | undefined {
+  if (typeof value !== 'boolean') {
+    return undefined;
+  }
+
+  return value ? truthy : falsy;
+}
+
+function formatMetadataNumber(value: number | undefined): string | undefined {
+  if (typeof value !== 'number') {
+    return undefined;
+  }
+
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function buildMetadataTags(item: VisualMetadataItem): string[] {
+  const tags = [
+    item.isSlicer ? 'Slicer' : undefined,
+    item.isNavigationElement ? 'Navigation' : undefined,
+    item.isDecorative ? 'Decorative' : undefined,
+    formatMetadataBoolean(item.hasLegend, 'Legend', 'No legend'),
+    formatMetadataBoolean(item.hasAxisLabels, 'Axis labels', 'No axis labels'),
+    formatMetadataBoolean(item.hasDataLabels, 'Data labels', 'No data labels'),
+    formatMetadataBoolean(item.hasBorder, 'Border', 'No border'),
+    formatMetadataBoolean(item.hasShadow, 'Shadow', 'Flat'),
+    item.cornerRadius !== undefined ? `Radius ${formatMetadataNumber(item.cornerRadius)} px` : undefined,
+    item.backgroundFillColor ? `Fill ${item.backgroundFillColor}` : undefined,
+    item.fontColor ? `Font ${item.fontColor}` : undefined,
+  ];
+
+  return tags.filter((tag): tag is string => Boolean(tag));
+}
+
+function buildRoleHints(item: VisualMetadataItem): string[] {
+  const entries: Array<[string, string[]]> = [
+    ['Category', item.categoryHints],
+    ['Value', item.valueHints],
+    ['Series', item.seriesHints],
+    ['Measure', item.measureHints],
+  ];
+
+  return entries
+    .filter(([, values]) => values.length > 0)
+    .map(([label, values]) => `${label}: ${values.join(', ')}`);
+}
+
+function renderMetadataOverview(pageScores: PageScore[]): React.ReactNode {
+  const pagesWithMetadata = pageScores.filter((page) => page.visualMetadata);
+  if (pagesWithMetadata.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="panel-card">
+      <h2>Parsed Visual Metadata</h2>
+      <p className="empty-text">
+        Page-level parser coverage snapshot across the report. Open a page tab for per-visual detail.
+      </p>
+      <div className="metadata-overview-grid">
+        {pagesWithMetadata.map((page) => {
+          const summary = page.visualMetadata!;
+          return (
+            <article className="metadata-overview-card" key={page.pageName}>
+              <div className="metadata-overview-head">
+                <div>
+                  <p className="metadata-overview-page">{summary.pageName}</p>
+                  <p className="metadata-overview-title">
+                    {summary.visiblePageTitle ?? 'No visible page title detected'}
+                  </p>
+                </div>
+                <strong>{summary.visualCount}</strong>
+              </div>
+              <p className="metadata-overview-copy">
+                {summary.visibleTitleVisualCount} title-bearing visual(s), {summary.legendVisualCount} with legends,
+                {' '}
+                {summary.axisLabelVisualCount} with axis labels, {summary.dataLabelVisualCount} with data labels.
+              </p>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function renderVisualMetadataDetail(
+  summary: PageVisualMetadataSummary,
+  onRevealVisual: (visual: AffectedVisualReference) => void,
+): React.ReactNode {
+  return (
+    <section className="panel-card">
+      <h2>Parsed Visual Metadata</h2>
+      <p className="empty-text">
+        {summary.visiblePageTitle
+          ? `Visible page title: ${summary.visiblePageTitle}.`
+          : 'No visible page title was detected on this page.'}
+        {' '}
+        {summary.canvasWidth && summary.canvasHeight
+          ? `Canvas ${Math.round(summary.canvasWidth)} × ${Math.round(summary.canvasHeight)}.`
+          : 'Canvas size not exposed by PBIR.'}
+      </p>
+      <div className="metadata-stat-grid">
+        <div className="metadata-stat-card">
+          <strong>{summary.visualCount}</strong>
+          <span>Total visuals</span>
+        </div>
+        <div className="metadata-stat-card">
+          <strong>{summary.visibleTitleVisualCount}</strong>
+          <span>Title-bearing</span>
+        </div>
+        <div className="metadata-stat-card">
+          <strong>{summary.slicerCount}</strong>
+          <span>Slicers</span>
+        </div>
+        <div className="metadata-stat-card">
+          <strong>{summary.legendVisualCount}</strong>
+          <span>Legends</span>
+        </div>
+        <div className="metadata-stat-card">
+          <strong>{summary.axisLabelVisualCount}</strong>
+          <span>Axis labels</span>
+        </div>
+        <div className="metadata-stat-card">
+          <strong>{summary.formattedVisualCount}</strong>
+          <span>Formatting facts</span>
+        </div>
+      </div>
+      {summary.visuals.length > 0 ? (
+        <ul className="metadata-visual-list">
+          {summary.visuals.map((item) => {
+            const tags = buildMetadataTags(item);
+            const roleHints = buildRoleHints(item);
+            const visibleText = item.bestVisibleText ?? item.visibleTitleText ?? item.textBoxText ?? item.visibleSubtitleText;
+
+            return (
+              <li className="metadata-visual-card" key={`${summary.pageName}-${item.visualId}`}>
+                <div className="metadata-visual-head">
+                  <div>
+                    <p className="metadata-visual-title">
+                      {visibleText ?? `${item.visualType} ${shortenVisualId(item.visualId)}`}
+                    </p>
+                    <p className="metadata-visual-meta">
+                      {item.visualType} · {item.visualId} · {Math.round(item.width)} × {Math.round(item.height)} at {Math.round(item.x)},{' '}
+                      {Math.round(item.y)}
+                    </p>
+                  </div>
+                  <button
+                    className="secondary-button metadata-reveal-button"
+                    onClick={() => onRevealVisual({
+                      pageName: summary.pageName,
+                      visualId: item.visualId,
+                      visualType: item.visualType,
+                    })}
+                    type="button"
+                  >
+                    Reveal
+                  </button>
+                </div>
+                {item.visibleSubtitleText && item.visibleSubtitleText !== visibleText ? (
+                  <p className="metadata-visual-copy">
+                    <strong>Subtitle:</strong> {item.visibleSubtitleText}
+                  </p>
+                ) : null}
+                {item.textBoxText && item.textBoxText !== visibleText ? (
+                  <p className="metadata-visual-copy">
+                    <strong>Text:</strong> {item.textBoxText}
+                  </p>
+                ) : null}
+                {roleHints.length > 0 ? (
+                  <p className="metadata-visual-copy">
+                    <strong>Role hints:</strong> {roleHints.join(' · ')}
+                  </p>
+                ) : null}
+                {tags.length > 0 ? (
+                  <div className="metadata-tag-row">
+                    {tags.map((tag) => (
+                      <span className="metadata-tag" key={`${item.visualId}-${tag}`}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="empty-text">No per-visual metadata was exposed for this page.</p>
+      )}
+    </section>
   );
 }
 
@@ -379,6 +612,8 @@ export default function App(): JSX.Element {
   const allZero = isZeroScore(result);
   const scoredAt = new Date(result.scoredAt).toLocaleString();
   const scoreValue = selectedPage ? selectedPage.compositeScore : result.compositeScore;
+  const pageMetadata = selectedPage?.visualMetadata
+    ?? (!multiPage ? (result.visualMetadata ?? pageScores[0]?.visualMetadata) : undefined);
   const visualMix = selectedPage
     ? {
         data: selectedPage.dataVisualCount,
@@ -501,6 +736,9 @@ export default function App(): JSX.Element {
         frameworkValues={frameworkValues}
         onRevealVisual={revealVisual}
       />
+
+      {overallView && multiPage ? renderMetadataOverview(pageScores) : null}
+      {pageMetadata ? renderVisualMetadataDetail(pageMetadata, revealVisual) : null}
 
       {overallView && result.scoringErrors && Object.keys(result.scoringErrors).length > 0 ? (
         <section className="panel-card">
