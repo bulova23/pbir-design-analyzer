@@ -277,33 +277,39 @@ public sealed class PbirScoringService
         };
 #pragma warning restore CS0618
 
-        // ── Phase 2: Check for bookmarks and score layout states ─────────────
-        var bookmarks = BookmarkParser.ParseBookmarks(reportJson);
-        if (bookmarks.Count > 0)
+        // ── Bookmark-aware (per-state) scoring ──────────────────────────────
+        // When bookmarks affect this page, re-score the page once per layout state with the
+        // visuals filtered to that state and replace the full-page framework scores with the
+        // per-state averages. The per-state composites surface on result.PerStateScores so the
+        // panel can break out individual state quality.
+        var overlay = ComputeBookmarkAwareOverlay(
+            page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+        if (overlay is not null)
         {
-            _logger.LogInformation("[Bookmark State] Detected {Count} bookmarks on page '{Page}'", bookmarks.Count, pageName);
-            
-            var pageVisualIds = pageList.SelectMany(p => p.Visuals).Select(v => v.Id).ToList();
-            var layoutStates = LayoutStateGenerator.GenerateStates(pageVisualIds, bookmarks);
-            
-            _logger.LogInformation("[Bookmark State] Generated {Count} layout states", layoutStates.Count);
-            
-            // Score each layout state (placeholder implementation)
-            var perStateScores = new Dictionary<string, double>();
-            foreach (var state in layoutStates)
-            {
-                // For now, use the full page score for all states as a placeholder
-                // In production, this would filter visuals and recompute scores
-                perStateScores[state.StateName] = result.CompositeScore;
-            }
-            
-            result.PerStateScores = perStateScores;
-            
-            // Overall page score = average of all state scores
-            var averageScore = BookmarkStateAnalyzer.ComputeAverageStateScore(perStateScores);
-            _logger.LogInformation("[Bookmark State] Page '{Page}' average state score: {Score}", pageName, averageScore);
-            
-            recommendations.Add($"[Info] Report contains {bookmarks.Count} bookmarks with {layoutStates.Count} total layout states.");
+#pragma warning disable CS0618
+            result.GestaltScore              = overlay.AveragedFrameworks["gestalt"];
+            result.CognitiveLoadScore        = overlay.AveragedFrameworks["cognitiveLoad"];
+            result.DataInkScore              = overlay.AveragedFrameworks["dataInk"];
+            result.AccessibilityScore        = overlay.AveragedFrameworks["accessibility"];
+            result.VisualBestPracticesScore  = overlay.AveragedFrameworks["visualBestPractices"];
+            result.EnterpriseGovernanceScore = overlay.AveragedFrameworks["governance"];
+            result.StephenFewScore           = overlay.AveragedFrameworks["stephenFew"];
+            result.TufteScore                = overlay.AveragedFrameworks["tufte"];
+            result.GraphicalPerceptionScore  = overlay.AveragedFrameworks["graphicalPerception"];
+            result.DensityScore              = overlay.AveragedFrameworks["density"];
+            result.NarrativeScore            = overlay.AveragedFrameworks["narrative"];
+            result.LayoutScore               = result.GestaltScore;
+            result.ThemeScore                = result.VisualBestPracticesScore;
+            result.GovernanceScore           = result.EnterpriseGovernanceScore;
+#pragma warning restore CS0618
+            result.PerStateScores = overlay.PerStateScores;
+
+            recommendations.Add(
+                $"[Info] Bookmark-aware scoring active: page scored across {overlay.PerStateScores.Count} layout states (Default + {overlay.PerStateScores.Count - 1} bookmark state{(overlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+
+            _logger.LogInformation(
+                "[Bookmark State] Page '{Page}' scored across {Count} states, composite={Score}",
+                pageName, overlay.PerStateScores.Count, result.CompositeScore);
         }
 
         _logger.LogInformation(
@@ -523,20 +529,48 @@ public sealed class PbirScoringService
                 var (pGraphical, pGraphicalFeedback)      = ComputeGraphicalPerceptionScore(pageList);
                 var (pDensity, pDensityFeedback)          = ComputeDashboardDensityScore(pageList, pagePageRecommendations, navigationScoring);
                 var (pNarrative, pNarrativeFeedback)      = ComputeNarrativeDesignScore(pageList, pagePageRecommendations);
+
+                // Bookmark-aware overlay: replace per-framework scores with state averages when
+                // bookmarks affect this page, and surface the per-state composite map.
+                var pageOverlay = ComputeBookmarkAwareOverlay(
+                    page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+
+                var finalGestalt        = pageOverlay?.AveragedFrameworks["gestalt"]              ?? Clamp(pGestalt);
+                var finalCogLoad        = pageOverlay?.AveragedFrameworks["cognitiveLoad"]        ?? Clamp(pCogLoad);
+                var finalDataInk        = pageOverlay?.AveragedFrameworks["dataInk"]              ?? Clamp(pDataInk);
+                var finalAccessibility  = pageOverlay?.AveragedFrameworks["accessibility"]        ?? Clamp(pAccessibility);
+                var finalVbp            = pageOverlay?.AveragedFrameworks["visualBestPractices"]  ?? Clamp(pVbp);
+                var finalGovernance     = pageOverlay?.AveragedFrameworks["governance"]           ?? Clamp(pGovernance);
+                var finalFew            = pageOverlay?.AveragedFrameworks["stephenFew"]           ?? Clamp(pFew);
+                var finalTufte          = pageOverlay?.AveragedFrameworks["tufte"]                ?? Clamp(pTufte);
+                var finalGraphical      = pageOverlay?.AveragedFrameworks["graphicalPerception"]  ?? Clamp(pGraphical);
+                var finalDensity        = pageOverlay?.AveragedFrameworks["density"]              ?? Clamp(pDensity);
+                var finalNarrative      = pageOverlay?.AveragedFrameworks["narrative"]            ?? Clamp(pNarrative);
+
+                if (pageOverlay is not null)
+                {
+                    pagePageRecommendations.Add(
+                        $"[Info] Bookmark-aware scoring active: page scored across {pageOverlay.PerStateScores.Count} layout states (Default + {pageOverlay.PerStateScores.Count - 1} bookmark state{(pageOverlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+
+                    _logger.LogInformation(
+                        "[Bookmark State] Page '{Page}' scored across {Count} states",
+                        page.DisplayName, pageOverlay.PerStateScores.Count);
+                }
+
                 result.PageScores!.Add(new PageScore
                 {
                     PageName = page.DisplayName,
-                    GestaltScore = Clamp(pGestalt),
-                    CognitiveLoadScore = Clamp(pCogLoad),
-                    DataInkScore = Clamp(pDataInk),
-                    AccessibilityScore = Clamp(pAccessibility),
-                    VisualBestPracticesScore = Clamp(pVbp),
-                    EnterpriseGovernanceScore = Clamp(pGovernance),
-                    StephenFewScore = Clamp(pFew),
-                    TufteScore = Clamp(pTufte),
-                    GraphicalPerceptionScore = Clamp(pGraphical),
-                    DensityScore = Clamp(pDensity),
-                    NarrativeScore = Clamp(pNarrative),
+                    GestaltScore = finalGestalt,
+                    CognitiveLoadScore = finalCogLoad,
+                    DataInkScore = finalDataInk,
+                    AccessibilityScore = finalAccessibility,
+                    VisualBestPracticesScore = finalVbp,
+                    EnterpriseGovernanceScore = finalGovernance,
+                    StephenFewScore = finalFew,
+                    TufteScore = finalTufte,
+                    GraphicalPerceptionScore = finalGraphical,
+                    DensityScore = finalDensity,
+                    NarrativeScore = finalNarrative,
                     Feedback = new()
                     {
                         ["gestalt"] = pGestaltFeedback,
@@ -557,13 +591,14 @@ public sealed class PbirScoringService
                     NavigationVisualCount = pageComposition.NavigationVisualCount,
                     HiddenVisualCount = pageComposition.HiddenVisualCount,
                     VisualMetadata = BuildPageVisualMetadataSummary(page),
+                    PerStateScores = pageOverlay?.PerStateScores,
                 });
 
                 _logger.LogDebug(
                     "[Scoring] Page '{Page}' — Composite: {Composite} (G={G} C={C} D={D} A={A} V={V} Gov={Gov} F={F})",
                     page.DisplayName,
                     result.PageScores[^1].CompositeScore,
-                    Clamp(pGestalt), Clamp(pCogLoad), Clamp(pDataInk), Clamp(pAccessibility), Clamp(pVbp), Clamp(pGovernance), Clamp(pFew));
+                    finalGestalt, finalCogLoad, finalDataInk, finalAccessibility, finalVbp, finalGovernance, finalFew);
             }
             catch (Exception ex)
             {
@@ -580,6 +615,187 @@ public sealed class PbirScoringService
             result.AccessibilityScore, result.VisualBestPracticesScore, result.StephenFewScore);
 
         return result;
+    }
+
+    // ── Bookmark-aware (per-state) scoring ───────────────────────────────────
+
+    /// <summary>
+    /// Captures the bookmark-aware overlay for a page: per-state composite scores and the
+    /// state-averaged per-framework scores that should replace the page's full-page scores
+    /// when bookmarks are present.
+    /// </summary>
+    private sealed record BookmarkAwareOverlay(
+        Dictionary<string, double> AveragedFrameworks,
+        Dictionary<string, double> PerStateScores);
+
+    /// <summary>
+    /// Filters the set of report-level bookmarks to those whose controlled visuals overlap
+    /// with the supplied page visual ids. Bookmarks that do not touch this page are excluded.
+    /// </summary>
+    private static List<BookmarkParser.BookmarkDefinition> FilterBookmarksForPage(
+        IReadOnlyList<BookmarkParser.BookmarkDefinition> allBookmarks,
+        HashSet<string> pageVisualIds)
+    {
+        if (allBookmarks.Count == 0 || pageVisualIds.Count == 0)
+        {
+            return [];
+        }
+
+        var bookmarksForPage = new List<BookmarkParser.BookmarkDefinition>(allBookmarks.Count);
+        foreach (var bookmark in allBookmarks)
+        {
+            foreach (var visualId in bookmark.ControlledVisualIds)
+            {
+                if (pageVisualIds.Contains(visualId))
+                {
+                    bookmarksForPage.Add(bookmark);
+                    break;
+                }
+            }
+        }
+        return bookmarksForPage;
+    }
+
+    /// <summary>
+    /// Scores a "shadow" page (a page projected to a subset of its visuals) by running every
+    /// framework against the single-page list and returning the composite + per-framework map.
+    /// Side-effect-free: framework recommendations are discarded so per-state scoring does not
+    /// pollute the page-level recommendations list.
+    /// </summary>
+    private (double composite, Dictionary<string, double> frameworks) ScoreShadowPage(
+        PageData shadowPage,
+        List<string> themeColors,
+        NavigationScoringSettings navigationScoring,
+        JsonElement? config,
+        Dictionary<string, double>? frameworkWeights)
+    {
+        var shadowList = new List<PageData> { shadowPage };
+        var throwaway = new List<string>();
+
+        var (gestalt, _)        = ComputeGestaltScore(shadowList);
+        var (cogLoad, _)        = ComputeCognitiveLoadScore(shadowList, throwaway, navigationScoring);
+        var (dataInk, _)        = ComputeDataInkScore(shadowList, throwaway, navigationScoring);
+        var (accessibility, _)  = ComputeAccessibilityScore(themeColors, shadowList, throwaway);
+        var (vbp, _)            = ComputeVisualBestPracticesScore(shadowList, themeColors, throwaway);
+        var (governance, _)     = ComputeGovernanceScore(shadowList, config);
+        var (few, _)            = ComputeStephenFewScore(shadowList);
+        var (tufte, _)          = ComputeTufteScore(shadowList);
+        var (graphical, _)      = ComputeGraphicalPerceptionScore(shadowList);
+        var (density, _)        = ComputeDashboardDensityScore(shadowList, throwaway, navigationScoring);
+        var (narrative, _)      = ComputeNarrativeDesignScore(shadowList, throwaway);
+
+#pragma warning disable CS0618
+        var shadowResult = new ScoreResult
+        {
+            GestaltScore              = Clamp(gestalt),
+            CognitiveLoadScore        = Clamp(cogLoad),
+            DataInkScore              = Clamp(dataInk),
+            AccessibilityScore        = Clamp(accessibility),
+            VisualBestPracticesScore  = Clamp(vbp),
+            EnterpriseGovernanceScore = Clamp(governance),
+            StephenFewScore           = Clamp(few),
+            TufteScore                = Clamp(tufte),
+            GraphicalPerceptionScore  = Clamp(graphical),
+            DensityScore              = Clamp(density),
+            NarrativeScore            = Clamp(narrative),
+            FrameworkWeights          = frameworkWeights,
+        };
+#pragma warning restore CS0618
+
+        var frameworks = new Dictionary<string, double>(StringComparer.Ordinal)
+        {
+            ["gestalt"]              = shadowResult.GestaltScore,
+            ["cognitiveLoad"]        = shadowResult.CognitiveLoadScore,
+            ["dataInk"]              = shadowResult.DataInkScore,
+            ["accessibility"]        = shadowResult.AccessibilityScore,
+            ["visualBestPractices"]  = shadowResult.VisualBestPracticesScore,
+            ["governance"]           = shadowResult.EnterpriseGovernanceScore,
+            ["stephenFew"]           = shadowResult.StephenFewScore,
+            ["tufte"]                = shadowResult.TufteScore,
+            ["graphicalPerception"]  = shadowResult.GraphicalPerceptionScore,
+            ["density"]              = shadowResult.DensityScore,
+            ["narrative"]            = shadowResult.NarrativeScore,
+        };
+
+        return (shadowResult.CompositeScore, frameworks);
+    }
+
+    /// <summary>
+    /// Computes a bookmark-aware overlay for a page. For each layout state derived from the
+    /// page's bookmarks the page visuals are filtered to those visible in the state and re-scored,
+    /// producing a per-state composite map and per-framework state averages that the caller may
+    /// use to replace the full-page scores. Returns <c>null</c> when no bookmarks affect the page.
+    /// </summary>
+    private BookmarkAwareOverlay? ComputeBookmarkAwareOverlay(
+        PageData page,
+        JsonObject reportJson,
+        List<string> themeColors,
+        NavigationScoringSettings navigationScoring,
+        JsonElement? config,
+        Dictionary<string, double>? frameworkWeights)
+    {
+        var allBookmarks = BookmarkParser.ParseBookmarks(reportJson);
+        if (allBookmarks.Count == 0)
+        {
+            return null;
+        }
+
+        var pageVisualIds = new HashSet<string>(
+            page.Visuals.Select(v => v.Id),
+            StringComparer.Ordinal);
+        if (pageVisualIds.Count == 0)
+        {
+            return null;
+        }
+
+        var bookmarksForPage = FilterBookmarksForPage(allBookmarks, pageVisualIds);
+        if (bookmarksForPage.Count == 0)
+        {
+            return null;
+        }
+
+        var states = LayoutStateGenerator.GenerateStates(
+            pageVisualIds.ToList(),
+            bookmarksForPage);
+        if (states.Count == 0)
+        {
+            return null;
+        }
+
+        var perStateScores = new Dictionary<string, double>(StringComparer.Ordinal);
+        var stateFrameworks = new List<Dictionary<string, double>>(states.Count);
+
+        foreach (var state in states)
+        {
+            var visibleIds = new HashSet<string>(state.VisibleVisualIds, StringComparer.Ordinal);
+            var filteredVisuals = page.Visuals.Where(v => visibleIds.Contains(v.Id)).ToList();
+            var shadowPage = page with { Visuals = filteredVisuals };
+            var (composite, frameworks) = ScoreShadowPage(
+                shadowPage, themeColors, navigationScoring, config, frameworkWeights);
+
+            // Disambiguate any duplicate state names so the perStateScores map preserves all states.
+            var key = state.StateName;
+            if (perStateScores.ContainsKey(key))
+            {
+                var suffix = 2;
+                while (perStateScores.ContainsKey($"{key} ({suffix})"))
+                {
+                    suffix++;
+                }
+                key = $"{key} ({suffix})";
+            }
+            perStateScores[key] = composite;
+            stateFrameworks.Add(frameworks);
+        }
+
+        var averaged = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var frameworkKey in stateFrameworks[0].Keys)
+        {
+            averaged[frameworkKey] = Math.Round(
+                stateFrameworks.Average(d => d[frameworkKey]), 2);
+        }
+
+        return new BookmarkAwareOverlay(averaged, perStateScores);
     }
 
     // ── 1. Gestalt Principles score ──────────────────────────────────────────

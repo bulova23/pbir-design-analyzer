@@ -968,6 +968,131 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Equal("v1", affectedVisual.VisualId);
     }
 
+    // ── Bookmark-aware (per-state) scoring ───────────────────────────────────
+
+    [Fact]
+    public async Task ScoreAsync_PageWithoutBookmarks_LeavesPerStateScoresNull()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":0,"width":200,"height":160},
+              {"id":"v2","type":"barChart","x":220,"y":0,"width":200,"height":160},
+              {"id":"v3","type":"barChart","x":440,"y":0,"width":200,"height":160}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.Null(result.PerStateScores);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_PageWithBookmarks_PopulatesPerStateScoresAndAveragesFrameworks()
+    {
+        // 8 barChart visuals so the default state exceeds the cognitive-load threshold (6) and
+        // the bookmark states fall below it. The composite scores should therefore differ
+        // between states and the page's framework scores should be the state averages.
+        var pageJson = """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":0,"width":100,"height":100},
+              {"id":"v2","type":"barChart","x":110,"y":0,"width":100,"height":100},
+              {"id":"v3","type":"barChart","x":220,"y":0,"width":100,"height":100},
+              {"id":"v4","type":"barChart","x":330,"y":0,"width":100,"height":100},
+              {"id":"v5","type":"barChart","x":440,"y":0,"width":100,"height":100},
+              {"id":"v6","type":"barChart","x":550,"y":0,"width":100,"height":100},
+              {"id":"v7","type":"barChart","x":660,"y":0,"width":100,"height":100},
+              {"id":"v8","type":"barChart","x":770,"y":0,"width":100,"height":100}
+            ]}
+            """;
+        var bookmarksJson = """
+            [
+              {"id":"bm1","displayName":"Filter A","state":{"Page1":{"visuals":{"v1":{},"v2":{},"v3":{}}}}},
+              {"id":"bm2","displayName":"Filter B","state":{"Page1":{"visuals":{"v4":{},"v5":{}}}}}
+            ]
+            """;
+        var tempDir = CreateTempPbirFolderWithBookmarks(pageJson, bookmarksJson);
+        var svc = BuildScoringService();
+
+        // Single-page mode so top-level result.PerStateScores carries the bookmark overlay.
+        var result = await svc.ScoreAsync(tempDir, config: null, pageName: "Page 1");
+
+        Assert.NotNull(result.PerStateScores);
+        Assert.Equal(3, result.PerStateScores!.Count);
+        Assert.Contains("Default", result.PerStateScores.Keys);
+        Assert.Contains("Filter A", result.PerStateScores.Keys);
+        Assert.Contains("Filter B", result.PerStateScores.Keys);
+
+        // The 8-visual default state has a different cognitive-load profile than the 3- and
+        // 2-visual bookmark states, so the per-state composites must not all be identical.
+        Assert.True(
+            result.PerStateScores.Values.Distinct().Count() > 1,
+            $"Expected per-state composites to differ but got {string.Join(", ", result.PerStateScores)}.");
+
+        // The page composite must be the average of the per-state composites (within rounding).
+        var expectedComposite = Math.Round(result.PerStateScores.Values.Average(), 2);
+        Assert.InRange(result.CompositeScore, expectedComposite - 0.5, expectedComposite + 0.5);
+
+        // The overlay should surface in the recommendations list.
+        Assert.Contains(result.Recommendations, r => r.Contains("Bookmark-aware scoring", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_BookmarkTargetingOtherPageOnly_LeavesPagePerStateScoresNull()
+    {
+        // The page has v1..v3 but the bookmark only references w1, which lives on another page.
+        // The bookmark must not produce a layout state for this page.
+        var pageJson = """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":0,"width":100,"height":100},
+              {"id":"v2","type":"barChart","x":110,"y":0,"width":100,"height":100},
+              {"id":"v3","type":"barChart","x":220,"y":0,"width":100,"height":100}
+            ]}
+            """;
+        var bookmarksJson = """
+            [
+              {"id":"bm1","displayName":"Filter Other","state":{"OtherPage":{"visuals":{"w1":{}}}}}
+            ]
+            """;
+        var tempDir = CreateTempPbirFolderWithBookmarks(pageJson, bookmarksJson);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.Null(result.PerStateScores);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReportMode_PageWithBookmarksExposesPerStateScoresOnPageScore()
+    {
+        // Single-page report so the per-page bookmark overlay lands in PageScores[0].PerStateScores.
+        var pageJson = """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":0,"width":100,"height":100},
+              {"id":"v2","type":"barChart","x":110,"y":0,"width":100,"height":100},
+              {"id":"v3","type":"barChart","x":220,"y":0,"width":100,"height":100},
+              {"id":"v4","type":"barChart","x":330,"y":0,"width":100,"height":100}
+            ]}
+            """;
+        var bookmarksJson = """
+            [
+              {"id":"bm1","displayName":"Focus Mode","state":{"Page1":{"visuals":{"v1":{},"v2":{}}}}}
+            ]
+            """;
+        var tempDir = CreateTempPbirFolderWithBookmarks(pageJson, bookmarksJson);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.PageScores);
+        var pageScore = Assert.Single(result.PageScores!);
+        Assert.NotNull(pageScore.PerStateScores);
+        Assert.Equal(2, pageScore.PerStateScores!.Count);
+        Assert.Contains("Default", pageScore.PerStateScores.Keys);
+        Assert.Contains("Focus Mode", pageScore.PerStateScores.Keys);
+    }
+
     // ── Composite: all sub-scores 100 ────────────────────────────────────────
 
     /// <summary>
@@ -1147,6 +1272,26 @@ public sealed class PbirScoringServiceTests : IDisposable
 
         File.WriteAllText(Path.Combine(defDir, "report.json"),
             """{"id":"test","name":"TestReport","pages":["Page1"],"theme":{"name":"CY24SU10"}}""");
+        File.WriteAllText(Path.Combine(pagesDir, "page.json"), pageJson);
+
+        return tmp;
+    }
+
+    /// <summary>
+    /// Creates a minimal single-page PBIR folder with the given page.json and a report.json that
+    /// embeds the supplied bookmarks array. Used by per-state scoring tests.
+    /// </summary>
+    private string CreateTempPbirFolderWithBookmarks(string pageJson, string bookmarksJson)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "pbir-score-" + Guid.NewGuid().ToString("N"));
+        var reportRoot = Path.Combine(tmp, "TestReport.Report");
+        var defDir = Path.Combine(reportRoot, "definition");
+        var pagesDir = Path.Combine(defDir, "pages", "Page1");
+        Directory.CreateDirectory(pagesDir);
+        _tempDirs.Add(tmp);
+
+        File.WriteAllText(Path.Combine(defDir, "report.json"),
+            $$"""{"id":"test","name":"TestReport","pages":["Page1"],"theme":{"name":"CY24SU10"},"bookmarks":{{bookmarksJson}}}""");
         File.WriteAllText(Path.Combine(pagesDir, "page.json"), pageJson);
 
         return tmp;

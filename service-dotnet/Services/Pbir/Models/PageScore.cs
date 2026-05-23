@@ -139,4 +139,12 @@ public sealed class PageScore
 
     /// <summary>Gets a value indicating whether this page's scoring completed successfully.</summary>
     public bool IsSuccessful => string.IsNullOrEmpty(ScoringError);
+
+    /// <summary>
+    /// Gets the per-state composite scores when bookmarks affect this page.
+    /// Keys are state display names ("Default", bookmark display name, ...) and values are the
+    /// composite score (0-100) for the layout state. <c>null</c> when no bookmarks affect this page.
+    /// When populated, the page's top-level framework scores are the per-state averages.
+    /// </summary>
+    public Dictionary<string, double>? PerStateScores { get; init; }
 }
