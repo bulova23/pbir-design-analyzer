@@ -34,7 +34,8 @@
     "onCommand:pbirAnalyzer.refreshReports",
     "onCommand:pbirAnalyzer.scoreReport",
     "onCommand:pbirAnalyzer.configureScoring",
-    "onCommand:pbirAnalyzer.checkGovernance"
+    "onCommand:pbirAnalyzer.checkGovernance",
+    "onCommand:pbirAnalyzer.exportGovernanceReport"
   ],
   "contributes": {
     "viewsContainers": {
@@ -71,6 +72,11 @@
         "command": "pbirAnalyzer.checkGovernance",
         "title": "PBIR Design Analyzer: Check Governance",
         "icon": "$(shield)"
+      },
+      {
+        "command": "pbirAnalyzer.exportGovernanceReport",
+        "title": "PBIR Design Analyzer: Export Governance Report",
+        "icon": "$(export)"
       }
     ],
     "configuration": {

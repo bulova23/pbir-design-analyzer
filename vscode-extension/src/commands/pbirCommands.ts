@@ -5,6 +5,14 @@ import { LSPModelService } from '../services/lsp/LSPModelService';
 import { PbirTreeItem, PbirTreeProvider } from '../providers/PbirTreeProvider';
 import { PbirScorePanel } from '../views/PbirScorePanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
+import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
+import {
+  buildGovernanceExportData,
+  exportAsJson,
+  exportAsMarkdown,
+  type GovernanceCheckResult,
+} from '../analyzer/score/governanceExport';
+import type { ScoreResult } from '../analyzer/contracts/scorePanel';
 
 // PBIR command IDs — must match CommandDispatcher registrations
 export const PBIR_COMMANDS = {
@@ -12,6 +20,7 @@ export const PBIR_COMMANDS = {
     refreshTree: 'pbir.refreshTree',
     scoreReport: 'pbir.scoreReport',
     governanceCheck: 'pbir.governanceCheck',
+    exportGovernanceReport: 'pbir.exportGovernanceReport',
 } as const;
 
 /** Shared provider instance (exported so register.ts can pass it to the treeview). */
@@ -338,6 +347,120 @@ export function registerPbirCommands(
                     `PBIR Governance Check error: ${err instanceof Error ? err.message : String(err)}`
                 );
             }
+        })
+    );
+
+    // pbir.exportGovernanceReport — score the report then export governance summary to Markdown or JSON
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.exportGovernanceReport, async (target?: PbirCommandTarget) => {
+            const bridge = getBridge();
+            let reportPath = resolveCommandTarget(target).reportPath;
+
+            if (!reportPath) {
+                const uris = await vscode.window.showOpenDialog({
+                    title: 'Select PBIR Report',
+                    filters: { 'PBIR Reports': ['pbir'], 'All Files': ['*'] },
+                    canSelectMany: false,
+                    canSelectFolders: false,
+                    openLabel: 'Export Governance Report',
+                });
+                reportPath = uris?.[0]?.fsPath;
+            }
+
+            if (!reportPath) return;
+
+            if (!fs.existsSync(reportPath)) {
+                vscode.window.showErrorMessage(`Report not found: ${reportPath}`);
+                return;
+            }
+
+            if (!bridge) {
+                vscode.window.showErrorMessage('PBIR: LSP server not available.');
+                return;
+            }
+
+            const formatChoice = await vscode.window.showQuickPick(
+                [
+                    { label: 'Markdown', description: 'Human-readable summary (.md)' },
+                    { label: 'JSON', description: 'Machine-readable for CI/CD ingestion (.json)' },
+                ],
+                { placeHolder: 'Choose export format' },
+            );
+            if (!formatChoice) return;
+
+            const isMarkdown = formatChoice.label === 'Markdown';
+
+            const saveUri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.file(
+                    path.join(
+                        path.dirname(reportPath),
+                        `governance-report.${isMarkdown ? 'md' : 'json'}`,
+                    ),
+                ),
+                filters: isMarkdown
+                    ? { Markdown: ['md'] }
+                    : { JSON: ['json'] },
+                saveLabel: 'Export',
+            });
+            if (!saveUri) return;
+
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Exporting governance report…', cancellable: false },
+                async () => {
+                    try {
+                        const config = await loadDesignAnalyzerConfig(context);
+
+                        const [scoreResponse, govResponse] = await Promise.all([
+                            bridge.executeRequest('model/pbir/scoreReport', { reportPath, config }) as Promise<{
+                                success: boolean;
+                                error?: string;
+                                data?: ScoreResult;
+                            }>,
+                            bridge.executeRequest('model/pbir/governanceCheck', { reportPath, themeId: '' }) as Promise<{
+                                success: boolean;
+                                error?: string;
+                                data?: GovernanceCheckResult;
+                            }>,
+                        ]);
+
+                        if (!scoreResponse?.success || !scoreResponse.data) {
+                            vscode.window.showErrorMessage(
+                                `Export failed: could not score report — ${scoreResponse?.error ?? 'unknown error'}`,
+                            );
+                            return;
+                        }
+
+                        const governanceResult: GovernanceCheckResult = scoreResponse.data.governanceScore !== undefined
+                            ? {
+                                blocked: govResponse?.data?.blocked ?? false,
+                                policyState: govResponse?.data?.policyState,
+                                evaluatedScore: govResponse?.data?.evaluatedScore,
+                                requiredThreshold: govResponse?.data?.requiredThreshold,
+                                reasons: govResponse?.data?.reasons ?? [],
+                                policyNotes: govResponse?.data?.policyNotes,
+                            }
+                            : { blocked: false, reasons: [] };
+
+                        const exportData = buildGovernanceExportData(scoreResponse.data, governanceResult);
+                        const content = isMarkdown ? exportAsMarkdown(exportData) : exportAsJson(exportData);
+
+                        fs.writeFileSync(saveUri.fsPath, content, 'utf8');
+
+                        const openAction = 'Open File';
+                        const choice = await vscode.window.showInformationMessage(
+                            `Governance report exported to ${path.basename(saveUri.fsPath)}`,
+                            openAction,
+                        );
+                        if (choice === openAction) {
+                            vscode.window.showTextDocument(saveUri);
+                        }
+                    } catch (err) {
+                        vscode.window.showErrorMessage(
+                            `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+                        );
+                    }
+                },
+            );
         })
     );
 
