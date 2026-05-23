@@ -1093,6 +1093,42 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Contains("Focus Mode", pageScore.PerStateScores.Keys);
     }
 
+    // ── Parallel per-page scoring (REC-09) ───────────────────────────────────
+
+    [Fact]
+    public async Task ScoreAsync_MultiPageReport_ParallelRunProducesDeterministicComposite()
+    {
+        // Six-page report exercises the parallel per-page loop. Running the same fixture twice
+        // must produce identical composite scores and identical per-page composite scores —
+        // parallelization must not introduce nondeterminism.
+        var tempDir = CreateTempPbirFolder(
+            [
+                ("section-1", "Overview"),
+                ("section-2", "Customer Analysis"),
+                ("section-3", "Order Detail"),
+                ("section-4", "Revenue Trends"),
+                ("section-5", "Margin Mix"),
+                ("section-6", "Region Drilldown"),
+            ],
+            ["section-1", "section-2", "section-3", "section-4", "section-5", "section-6"]);
+        var svc = BuildScoringService();
+
+        var first = await svc.ScoreAsync(tempDir);
+        var second = await svc.ScoreAsync(tempDir);
+
+        Assert.Equal(first.CompositeScore, second.CompositeScore);
+        Assert.NotNull(first.PageScores);
+        Assert.NotNull(second.PageScores);
+        Assert.Equal(first.PageScores!.Count, second.PageScores!.Count);
+
+        // Page order preserved and per-page composites identical between runs.
+        for (var i = 0; i < first.PageScores.Count; i++)
+        {
+            Assert.Equal(first.PageScores[i].PageName, second.PageScores[i].PageName);
+            Assert.Equal(first.PageScores[i].CompositeScore, second.PageScores[i].CompositeScore);
+        }
+    }
+
     // ── Composite: all sub-scores 100 ────────────────────────────────────────
 
     /// <summary>

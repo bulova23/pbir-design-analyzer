@@ -466,146 +466,168 @@ public sealed class PbirScoringService
         };
 #pragma warning restore CS0618
 
-        // ── Compute per-page breakdown ────────────────────────────────────────
-        foreach (var page in pages)
-        {
-            try
-            {
-                var pageList = new List<PageData> { page };
-                var pageComposition = BuildVisualComposition(page.Visuals, navigationScoring);
-                var pageHasDataVisuals = pageComposition.DataVisualCount > 0;
+        // ── Compute per-page breakdown (parallel) ─────────────────────────────
+        // Each page is scored independently: framework methods are pure (the only mutation is to
+        // a per-iteration recommendations list) and the only shared writes are PageScores and
+        // ScoringErrors. Collect into thread-safe structures and re-order at the end so the
+        // display order matches the original page order.
+        var concurrentPageScores = new System.Collections.Concurrent.ConcurrentBag<(int Index, PageScore Score)>();
+        var concurrentScoringErrors = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
 
-                if (!pageHasDataVisuals)
+        Parallel.ForEach(
+            pages.Select((page, index) => (page, index)),
+            new ParallelOptions { MaxDegreeOfParallelism = 4 },
+            tuple =>
+            {
+                var page = tuple.page;
+                var pageIndex = tuple.index;
+                try
                 {
-                    // Page with no visuals — set all scores to 0 with note
-                    result.PageScores!.Add(new PageScore
+                    var pageList = new List<PageData> { page };
+                    var pageComposition = BuildVisualComposition(page.Visuals, navigationScoring);
+                    var pageHasDataVisuals = pageComposition.DataVisualCount > 0;
+
+                    if (!pageHasDataVisuals)
+                    {
+                        concurrentPageScores.Add((pageIndex, new PageScore
+                        {
+                            PageName = page.DisplayName,
+                            GestaltScore = 0,
+                            CognitiveLoadScore = 0,
+                            DataInkScore = 0,
+                            AccessibilityScore = 0,
+                            VisualBestPracticesScore = 0,
+                            StephenFewScore = 0,
+                            EnterpriseGovernanceScore = 0,
+                            TufteScore = 0,
+                            GraphicalPerceptionScore = 0,
+                            DensityScore = 0,
+                            NarrativeScore = 0,
+                            Feedback = new()
+                            {
+                                ["gestalt"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["cognitiveLoad"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["dataInk"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["accessibility"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["visualBestPractices"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["governance"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["stephenFew"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["tufte"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["graphicalPerception"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["density"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                                ["narrative"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            },
+                            Recommendations = [],
+                            FrameworkWeights = frameworkWeights,
+                            DataVisualCount = pageComposition.DataVisualCount,
+                            NavigationVisualCount = pageComposition.NavigationVisualCount,
+                            HiddenVisualCount = pageComposition.HiddenVisualCount,
+                            VisualMetadata = BuildPageVisualMetadataSummary(page),
+                        }));
+                        return;
+                    }
+
+                    // Score this page
+                    var pagePageRecommendations = new List<string>();
+                    var (pGestalt, pGestaltFeedback)          = ComputeGestaltScore(pageList);
+                    var (pCogLoad, pCogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, new(), navigationScoring);
+                    var (pDataInk, pDataInkFeedback)          = ComputeDataInkScore(pageList, new(), navigationScoring);
+                    var (pAccessibility, pA11yFeedback)       = ComputeAccessibilityScore(themeColors, pageList, new());
+                    var (pVbp, pVbpFeedback)                  = ComputeVisualBestPracticesScore(pageList, themeColors, new());
+                    var (pGovernance, pGovernanceFeedback)    = ComputeGovernanceScore(pageList, config);
+                    var (pFew, pFewFeedback)                  = ComputeStephenFewScore(pageList);
+                    var (pTufte, pTufteFeedback)              = ComputeTufteScore(pageList);
+                    var (pGraphical, pGraphicalFeedback)      = ComputeGraphicalPerceptionScore(pageList);
+                    var (pDensity, pDensityFeedback)          = ComputeDashboardDensityScore(pageList, pagePageRecommendations, navigationScoring);
+                    var (pNarrative, pNarrativeFeedback)      = ComputeNarrativeDesignScore(pageList, pagePageRecommendations);
+
+                    // Bookmark-aware overlay: replace per-framework scores with state averages when
+                    // bookmarks affect this page, and surface the per-state composite map.
+                    var pageOverlay = ComputeBookmarkAwareOverlay(
+                        page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+
+                    var finalGestalt        = pageOverlay?.AveragedFrameworks["gestalt"]              ?? Clamp(pGestalt);
+                    var finalCogLoad        = pageOverlay?.AveragedFrameworks["cognitiveLoad"]        ?? Clamp(pCogLoad);
+                    var finalDataInk        = pageOverlay?.AveragedFrameworks["dataInk"]              ?? Clamp(pDataInk);
+                    var finalAccessibility  = pageOverlay?.AveragedFrameworks["accessibility"]        ?? Clamp(pAccessibility);
+                    var finalVbp            = pageOverlay?.AveragedFrameworks["visualBestPractices"]  ?? Clamp(pVbp);
+                    var finalGovernance     = pageOverlay?.AveragedFrameworks["governance"]           ?? Clamp(pGovernance);
+                    var finalFew            = pageOverlay?.AveragedFrameworks["stephenFew"]           ?? Clamp(pFew);
+                    var finalTufte          = pageOverlay?.AveragedFrameworks["tufte"]                ?? Clamp(pTufte);
+                    var finalGraphical      = pageOverlay?.AveragedFrameworks["graphicalPerception"]  ?? Clamp(pGraphical);
+                    var finalDensity        = pageOverlay?.AveragedFrameworks["density"]              ?? Clamp(pDensity);
+                    var finalNarrative      = pageOverlay?.AveragedFrameworks["narrative"]            ?? Clamp(pNarrative);
+
+                    if (pageOverlay is not null)
+                    {
+                        pagePageRecommendations.Add(
+                            $"[Info] Bookmark-aware scoring active: page scored across {pageOverlay.PerStateScores.Count} layout states (Default + {pageOverlay.PerStateScores.Count - 1} bookmark state{(pageOverlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+
+                        _logger.LogInformation(
+                            "[Bookmark State] Page '{Page}' scored across {Count} states",
+                            page.DisplayName, pageOverlay.PerStateScores.Count);
+                    }
+
+                    var pageScore = new PageScore
                     {
                         PageName = page.DisplayName,
-                        GestaltScore = 0,
-                        CognitiveLoadScore = 0,
-                        DataInkScore = 0,
-                        AccessibilityScore = 0,
-                        VisualBestPracticesScore = 0,
-                        StephenFewScore = 0,
-                        EnterpriseGovernanceScore = 0,
-                        TufteScore = 0,
-                        GraphicalPerceptionScore = 0,
-                        DensityScore = 0,
-                        NarrativeScore = 0,
+                        GestaltScore = finalGestalt,
+                        CognitiveLoadScore = finalCogLoad,
+                        DataInkScore = finalDataInk,
+                        AccessibilityScore = finalAccessibility,
+                        VisualBestPracticesScore = finalVbp,
+                        EnterpriseGovernanceScore = finalGovernance,
+                        StephenFewScore = finalFew,
+                        TufteScore = finalTufte,
+                        GraphicalPerceptionScore = finalGraphical,
+                        DensityScore = finalDensity,
+                        NarrativeScore = finalNarrative,
                         Feedback = new()
                         {
-                            ["gestalt"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["cognitiveLoad"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["dataInk"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["accessibility"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["visualBestPractices"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["governance"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["stephenFew"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["tufte"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["graphicalPerception"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["density"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            ["narrative"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
+                            ["gestalt"] = pGestaltFeedback,
+                            ["cognitiveLoad"] = pCogLoadFeedback,
+                            ["dataInk"] = pDataInkFeedback,
+                            ["accessibility"] = pA11yFeedback,
+                            ["visualBestPractices"] = pVbpFeedback,
+                            ["governance"] = pGovernanceFeedback,
+                            ["stephenFew"] = pFewFeedback,
+                            ["tufte"] = pTufteFeedback,
+                            ["graphicalPerception"] = pGraphicalFeedback,
+                            ["density"] = pDensityFeedback,
+                            ["narrative"] = pNarrativeFeedback,
                         },
-                        Recommendations = [],
+                        Recommendations = pagePageRecommendations,
                         FrameworkWeights = frameworkWeights,
                         DataVisualCount = pageComposition.DataVisualCount,
                         NavigationVisualCount = pageComposition.NavigationVisualCount,
                         HiddenVisualCount = pageComposition.HiddenVisualCount,
                         VisualMetadata = BuildPageVisualMetadataSummary(page),
-                    });
-                    continue;
+                        PerStateScores = pageOverlay?.PerStateScores,
+                    };
+                    concurrentPageScores.Add((pageIndex, pageScore));
+
+                    _logger.LogDebug(
+                        "[Scoring] Page '{Page}' — Composite: {Composite} (G={G} C={C} D={D} A={A} V={V} Gov={Gov} F={F})",
+                        page.DisplayName,
+                        pageScore.CompositeScore,
+                        finalGestalt, finalCogLoad, finalDataInk, finalAccessibility, finalVbp, finalGovernance, finalFew);
                 }
-
-                // Score this page
-                var pagePageRecommendations = new List<string>();
-                var (pGestalt, pGestaltFeedback)          = ComputeGestaltScore(pageList);
-                var (pCogLoad, pCogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, new(), navigationScoring);
-                var (pDataInk, pDataInkFeedback)          = ComputeDataInkScore(pageList, new(), navigationScoring);
-                var (pAccessibility, pA11yFeedback)       = ComputeAccessibilityScore(themeColors, pageList, new());
-                var (pVbp, pVbpFeedback)                  = ComputeVisualBestPracticesScore(pageList, themeColors, new());
-                var (pGovernance, pGovernanceFeedback)    = ComputeGovernanceScore(pageList, config);
-                var (pFew, pFewFeedback)                  = ComputeStephenFewScore(pageList);
-                var (pTufte, pTufteFeedback)              = ComputeTufteScore(pageList);
-                var (pGraphical, pGraphicalFeedback)      = ComputeGraphicalPerceptionScore(pageList);
-                var (pDensity, pDensityFeedback)          = ComputeDashboardDensityScore(pageList, pagePageRecommendations, navigationScoring);
-                var (pNarrative, pNarrativeFeedback)      = ComputeNarrativeDesignScore(pageList, pagePageRecommendations);
-
-                // Bookmark-aware overlay: replace per-framework scores with state averages when
-                // bookmarks affect this page, and surface the per-state composite map.
-                var pageOverlay = ComputeBookmarkAwareOverlay(
-                    page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
-
-                var finalGestalt        = pageOverlay?.AveragedFrameworks["gestalt"]              ?? Clamp(pGestalt);
-                var finalCogLoad        = pageOverlay?.AveragedFrameworks["cognitiveLoad"]        ?? Clamp(pCogLoad);
-                var finalDataInk        = pageOverlay?.AveragedFrameworks["dataInk"]              ?? Clamp(pDataInk);
-                var finalAccessibility  = pageOverlay?.AveragedFrameworks["accessibility"]        ?? Clamp(pAccessibility);
-                var finalVbp            = pageOverlay?.AveragedFrameworks["visualBestPractices"]  ?? Clamp(pVbp);
-                var finalGovernance     = pageOverlay?.AveragedFrameworks["governance"]           ?? Clamp(pGovernance);
-                var finalFew            = pageOverlay?.AveragedFrameworks["stephenFew"]           ?? Clamp(pFew);
-                var finalTufte          = pageOverlay?.AveragedFrameworks["tufte"]                ?? Clamp(pTufte);
-                var finalGraphical      = pageOverlay?.AveragedFrameworks["graphicalPerception"]  ?? Clamp(pGraphical);
-                var finalDensity        = pageOverlay?.AveragedFrameworks["density"]              ?? Clamp(pDensity);
-                var finalNarrative      = pageOverlay?.AveragedFrameworks["narrative"]            ?? Clamp(pNarrative);
-
-                if (pageOverlay is not null)
+                catch (Exception ex)
                 {
-                    pagePageRecommendations.Add(
-                        $"[Info] Bookmark-aware scoring active: page scored across {pageOverlay.PerStateScores.Count} layout states (Default + {pageOverlay.PerStateScores.Count - 1} bookmark state{(pageOverlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
-
-                    _logger.LogInformation(
-                        "[Bookmark State] Page '{Page}' scored across {Count} states",
-                        page.DisplayName, pageOverlay.PerStateScores.Count);
+                    var errorMsg = $"Failed to score page '{page.DisplayName}': {ex.Message}";
+                    _logger.LogWarning("[Scoring] {Error}", errorMsg);
+                    concurrentScoringErrors[page.DisplayName] = errorMsg;
                 }
+            });
 
-                result.PageScores!.Add(new PageScore
-                {
-                    PageName = page.DisplayName,
-                    GestaltScore = finalGestalt,
-                    CognitiveLoadScore = finalCogLoad,
-                    DataInkScore = finalDataInk,
-                    AccessibilityScore = finalAccessibility,
-                    VisualBestPracticesScore = finalVbp,
-                    EnterpriseGovernanceScore = finalGovernance,
-                    StephenFewScore = finalFew,
-                    TufteScore = finalTufte,
-                    GraphicalPerceptionScore = finalGraphical,
-                    DensityScore = finalDensity,
-                    NarrativeScore = finalNarrative,
-                    Feedback = new()
-                    {
-                        ["gestalt"] = pGestaltFeedback,
-                        ["cognitiveLoad"] = pCogLoadFeedback,
-                        ["dataInk"] = pDataInkFeedback,
-                        ["accessibility"] = pA11yFeedback,
-                        ["visualBestPractices"] = pVbpFeedback,
-                        ["governance"] = pGovernanceFeedback,
-                        ["stephenFew"] = pFewFeedback,
-                        ["tufte"] = pTufteFeedback,
-                        ["graphicalPerception"] = pGraphicalFeedback,
-                        ["density"] = pDensityFeedback,
-                        ["narrative"] = pNarrativeFeedback,
-                    },
-                    Recommendations = pagePageRecommendations,
-                    FrameworkWeights = frameworkWeights,
-                    DataVisualCount = pageComposition.DataVisualCount,
-                    NavigationVisualCount = pageComposition.NavigationVisualCount,
-                    HiddenVisualCount = pageComposition.HiddenVisualCount,
-                    VisualMetadata = BuildPageVisualMetadataSummary(page),
-                    PerStateScores = pageOverlay?.PerStateScores,
-                });
-
-                _logger.LogDebug(
-                    "[Scoring] Page '{Page}' — Composite: {Composite} (G={G} C={C} D={D} A={A} V={V} Gov={Gov} F={F})",
-                    page.DisplayName,
-                    result.PageScores[^1].CompositeScore,
-                    finalGestalt, finalCogLoad, finalDataInk, finalAccessibility, finalVbp, finalGovernance, finalFew);
-            }
-            catch (Exception ex)
-            {
-                var errorMsg = $"Failed to score page '{page.DisplayName}': {ex.Message}";
-                _logger.LogWarning("[Scoring] {Error}", errorMsg);
-                result.ScoringErrors[page.DisplayName] = errorMsg;
-            }
+        // Restore the original page order before exposing PageScores.
+        foreach (var entry in concurrentPageScores.OrderBy(item => item.Index))
+        {
+            result.PageScores!.Add(entry.Score);
+        }
+        foreach (var entry in concurrentScoringErrors)
+        {
+            result.ScoringErrors[entry.Key] = entry.Value;
         }
 
         _logger.LogInformation(

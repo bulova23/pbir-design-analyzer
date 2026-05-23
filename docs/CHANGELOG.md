@@ -15,6 +15,7 @@ All notable changes to PBIR Design Analyzer are recorded here.
 - Accessibility: scoring now combines three sub-criteria — theme-palette contrast against white (40 pts), per-visual on-canvas text contrast using actual background/font colours when available (40 pts), and a deuteranopia-aware red/green pair check on the theme palette (20 pts). On-canvas failures cite the affected visuals so users can locate them in the explorer.
 - Scoring: bookmark-aware per-state page scoring. Pages with bookmarks are now scored once per layout state (Default + one per bookmark) and the page composite is the average of the per-state composites. The per-state breakdown is surfaced on `ScoreResult.PerStateScores` (single-page mode) and `PageScore.PerStateScores` (report mode) so panels can show how each bookmark view affects the score.
 - Configuration: introduced audience presets. Three bundled presets — Executive, Operational, Analyst — overlay sensible thresholds (`maxVisualsPerPage`, `maxHiddenVisuals`, `minWhiteSpaceRatio`, navigation scoring weight) onto the analyzer configuration in one click. Individual fields can still be tuned afterward.
+- Performance: per-page scoring in the full-report path now runs in parallel (`Parallel.ForEach`, capped at 4 concurrent pages). Display order is preserved and behaviour is unchanged; large reports score noticeably faster.
 
 ## 0.1.11
 
