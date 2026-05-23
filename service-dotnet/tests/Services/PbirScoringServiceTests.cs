@@ -203,8 +203,122 @@ public sealed class PbirScoringServiceTests : IDisposable
             item.Text.StartsWith("Page title policy:", StringComparison.Ordinal)));
         Assert.False(titleFeedback.Ok);
         Assert.Equal(FindingTypes.Objective, titleFeedback.FindingType);
-        Assert.Contains("metadata alone", titleFeedback.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("lack a meaningful visible title", titleFeedback.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("'Page 1'", titleFeedback.Text, StringComparison.Ordinal);
+        Assert.Null(result.VisualMetadata!.StrictVisiblePageTitle);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_GovernanceTitleRule_FailsWhenVisibleTitleIsBelowTopBand()
+    {
+        // Default canvas is 720px tall. 15% top band = 108px. Place the titled visual at y=400.
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"textbox","x":0,"y":400,"width":320,"height":60,
+               "title":{"visible":true,"text":"Bottom Band Title"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var titleFeedback = Assert.Single(result.Feedback["governance"].Where(item =>
+            item.Text.StartsWith("Page title policy:", StringComparison.Ordinal)));
+        Assert.False(titleFeedback.Ok);
+        Assert.Contains("top band", titleFeedback.Text, StringComparison.OrdinalIgnoreCase);
+        // Non-strict helper still returns the text; strict helper should not.
+        Assert.Equal("Bottom Band Title", result.VisualMetadata!.VisiblePageTitle);
+        Assert.Null(result.VisualMetadata.StrictVisiblePageTitle);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_GovernanceTitleRule_FailsWhenVisibleTitleIsVague()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"textbox","x":0,"y":0,"width":320,"height":60,
+               "title":{"visible":true,"text":"Page 1"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var titleFeedback = Assert.Single(result.Feedback["governance"].Where(item =>
+            item.Text.StartsWith("Page title policy:", StringComparison.Ordinal)));
+        Assert.False(titleFeedback.Ok);
+        Assert.Null(result.VisualMetadata!.StrictVisiblePageTitle);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_GovernanceTitleRule_ExposesStrictVisibleTitleOnPass()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"textbox","x":40,"y":20,"width":400,"height":60,
+               "title":{"visible":true,"text":"Q3 Revenue Overview"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.Equal("Q3 Revenue Overview", result.VisualMetadata!.StrictVisiblePageTitle);
+    }
+
+    // ── Accessibility scoring tests (REC-05) ──────────────────────────────
+
+    [Fact]
+    public async Task ScoreAsync_Accessibility_AwardsFullMarksWhenNoFormattingMetadata()
+    {
+        // No theme overrides, no background/font colours — all three sub-criteria award full marks.
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":0,"width":320,"height":180}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.Equal(100, result.AccessibilityScore);
+        Assert.Contains(result.Feedback["accessibility"], item =>
+            item.Text.StartsWith("WCAG 2.1 AA palette:", StringComparison.Ordinal) && item.Ok);
+        Assert.Contains(result.Feedback["accessibility"], item =>
+            item.Text.StartsWith("On-canvas text contrast:", StringComparison.Ordinal) && item.Ok);
+        Assert.Contains(result.Feedback["accessibility"], item =>
+            item.Text.StartsWith("Colorblind-safe palette:", StringComparison.Ordinal) && item.Ok);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_Accessibility_FlagsOnCanvasContrastFailure()
+    {
+        // Background #444444 with font #555555 — contrast ratio is well below 4.5:1.
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"card","x":0,"y":0,"width":320,"height":180,
+               "title":{"visible":true,"text":"Revenue"},
+               "background":{"color":"444444"},
+               "font":{"color":"555555"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var onCanvasFeedback = result.Feedback["accessibility"]
+            .FirstOrDefault(item => item.Text.StartsWith("On-canvas text contrast:", StringComparison.Ordinal));
+        Assert.NotNull(onCanvasFeedback);
+        Assert.False(onCanvasFeedback!.Ok);
+        Assert.Contains("fail WCAG 2.1 AA", onCanvasFeedback.Text, StringComparison.OrdinalIgnoreCase);
+        // The failing visual should be cited
+        Assert.NotNull(onCanvasFeedback.AffectedVisuals);
+        Assert.Contains(onCanvasFeedback.AffectedVisuals!, v => v.VisualId == "v1");
     }
 
     [Fact]

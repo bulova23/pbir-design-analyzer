@@ -219,7 +219,7 @@ public sealed class PbirScoringService
         var (gestaltScore, gestaltFeedback)          = ComputeGestaltScore(pageList);
         var (cogLoadScore, cogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, recommendations, navigationScoring);
         var (dataInkScore, dataInkFeedback)          = ComputeDataInkScore(pageList, recommendations, navigationScoring);
-        var (accessibilityScore, a11yFeedback)       = ComputeAccessibilityScore(themeColors, recommendations);
+        var (accessibilityScore, a11yFeedback)       = ComputeAccessibilityScore(themeColors, pageList, recommendations);
         var (vbpScore, vbpFeedback)                  = ComputeVisualBestPracticesScore(pageList, themeColors, recommendations);
         var (governanceScore, governanceFeedback)    = ComputeGovernanceScore(pageList, config);
         var (fewScore, fewFeedback)                  = ComputeStephenFewScore(pageList);
@@ -401,7 +401,7 @@ public sealed class PbirScoringService
         var (gestaltScore, gestaltFeedback)          = ComputeGestaltScore(pages);
         var (cogLoadScore, cogLoadFeedback)          = ComputeCognitiveLoadScore(pages, recommendations, navigationScoring);
         var (dataInkScore, dataInkFeedback)          = ComputeDataInkScore(pages, recommendations, navigationScoring);
-        var (accessibilityScore, a11yFeedback)       = ComputeAccessibilityScore(themeColors, recommendations);
+        var (accessibilityScore, a11yFeedback)       = ComputeAccessibilityScore(themeColors, pages, recommendations);
         var (vbpScore, vbpFeedback)                  = ComputeVisualBestPracticesScore(pages, themeColors, recommendations);
         var (governanceScore, governanceFeedback)    = ComputeGovernanceScore(pages, config);
         var (fewScore, fewFeedback)                  = ComputeStephenFewScore(pages);
@@ -515,7 +515,7 @@ public sealed class PbirScoringService
                 var (pGestalt, pGestaltFeedback)          = ComputeGestaltScore(pageList);
                 var (pCogLoad, pCogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, new(), navigationScoring);
                 var (pDataInk, pDataInkFeedback)          = ComputeDataInkScore(pageList, new(), navigationScoring);
-                var (pAccessibility, pA11yFeedback)       = ComputeAccessibilityScore(themeColors, new());
+                var (pAccessibility, pA11yFeedback)       = ComputeAccessibilityScore(themeColors, pageList, new());
                 var (pVbp, pVbpFeedback)                  = ComputeVisualBestPracticesScore(pageList, themeColors, new());
                 var (pGovernance, pGovernanceFeedback)    = ComputeGovernanceScore(pageList, config);
                 var (pFew, pFewFeedback)                  = ComputeStephenFewScore(pageList);
@@ -1059,28 +1059,65 @@ public sealed class PbirScoringService
     // ── 4. Accessibility score ────────────────────────────────────────────────
 
     /// <summary>
-    /// % of theme data colours that pass WCAG 2.1 AA (≥4.5:1) against white.
-    /// If no theme colours are available, returns 100 with no recommendation.
+    /// Sub-criteria weights for the accessibility score (must sum to 100).
+    /// </summary>
+    private const double A11yPalettePoints = 40.0;
+    private const double A11yOnCanvasPoints = 40.0;
+    private const double A11yColorblindPoints = 20.0;
+
+    /// <summary>
+    /// Computes the accessibility score across three sub-criteria:
+    /// <list type="number">
+    /// <item><b>Theme palette contrast against white (40 pts)</b> — percentage of theme colours
+    /// that meet WCAG 2.1 AA against a white background.</item>
+    /// <item><b>On-canvas text contrast (40 pts)</b> — for each visual that exposes both a
+    /// <see cref="VisualFormattingMetadata.BackgroundFillColor"/> and a
+    /// <see cref="VisualFormattingMetadata.FontColor"/>, compute the actual contrast ratio
+    /// instead of assuming a white background.</item>
+    /// <item><b>Colorblind-safe palette (20 pts)</b> — flag theme palettes that contain
+    /// red/green pairs that simulate to indistinguishable values for deuteranopia.</item>
+    /// </list>
+    /// If no theme colours or formatted visuals are available, the corresponding sub-criterion
+    /// awards full marks rather than failing.
     /// </summary>
     private static (double score, List<FrameworkFeedbackItem> feedback) ComputeAccessibilityScore(
-        List<string> themeColors, List<string> recs)
+        List<string> themeColors,
+        List<PageData> pages,
+        List<string> recs)
     {
         var feedback = new List<FrameworkFeedbackItem>();
+        double total = 0;
 
+        // ── Sub 1: Theme palette contrast vs. white (40 pts) ────────────────
+        total += ScoreA11yPaletteContrast(themeColors, feedback, recs);
+
+        // ── Sub 2: On-canvas text contrast (40 pts) ─────────────────────────
+        total += ScoreA11yOnCanvasContrast(pages, feedback, recs);
+
+        // ── Sub 3: Colorblind-safe palette (20 pts) ─────────────────────────
+        total += ScoreA11yColorblindPalette(themeColors, feedback, recs);
+
+        return (Clamp(total), feedback);
+    }
+
+    private static double ScoreA11yPaletteContrast(
+        List<string> themeColors,
+        List<FrameworkFeedbackItem> feedback,
+        List<string> recs)
+    {
         if (themeColors.Count == 0)
         {
             feedback.Add(ScoredFeedback(
                 true,
-                "WCAG 2.1 AA: No custom theme detected — using default Power BI theme colours.",
-                100.0,
-                100.0,
+                "WCAG 2.1 AA palette: No custom theme detected — using default Power BI theme colours.",
+                A11yPalettePoints,
+                A11yPalettePoints,
                 FindingTypes.Objective));
-            return (100.0, feedback);
+            return A11yPalettePoints;
         }
 
         int passing = 0;
         var failing = new List<string>();
-
         foreach (var hex in themeColors)
         {
             try
@@ -1096,33 +1133,264 @@ public sealed class PbirScoringService
             }
         }
 
+        double earned = (double)passing / themeColors.Count * A11yPalettePoints;
+
         if (failing.Count > 0)
         {
-            recs.Add($"[High] Accessibility: {failing.Count} theme colour(s) fail WCAG 2.1 AA " +
-                     $"contrast against white: {string.Join(", ", failing.Take(3))}" +
-                     (failing.Count > 3 ? $" (+{failing.Count - 3} more)" : "") +
-                     ". Update the report theme colours to replace them.");
+            recs.Add($"[High] Accessibility: {failing.Count} theme colour(s) fail WCAG 2.1 AA contrast against white: " +
+                     $"{string.Join(", ", failing.Take(3))}{(failing.Count > 3 ? $" (+{failing.Count - 3} more)" : "")}. " +
+                     "Update the report theme colours to replace them.");
             feedback.Add(ScoredFeedback(
                 false,
-                $"WCAG 2.1 AA: {failing.Count} colour(s) fail contrast ratio ≥4.5:1 against white: " +
+                $"WCAG 2.1 AA palette: {failing.Count} colour(s) fail contrast ratio ≥4.5:1 against white: " +
                 $"{string.Join(", ", failing.Take(3))}{(failing.Count > 3 ? $" and {failing.Count - 3} more" : "")}. " +
                 "Update the report theme with accessible colours to fix.",
-                (double)passing / themeColors.Count * 100.0,
-                100.0,
+                earned,
+                A11yPalettePoints,
                 FindingTypes.Objective));
         }
         else
         {
             feedback.Add(ScoredFeedback(
                 true,
-                $"WCAG 2.1 AA: All {passing} theme colour(s) pass contrast ratio ≥4.5:1 — accessible for most users.",
-                100.0,
-                100.0,
+                $"WCAG 2.1 AA palette: All {passing} theme colour(s) pass contrast ratio ≥4.5:1 against white.",
+                earned,
+                A11yPalettePoints,
                 FindingTypes.Objective));
         }
 
-        double score = (double)passing / themeColors.Count * 100.0;
-        return (score, feedback);
+        return earned;
+    }
+
+    private static double ScoreA11yOnCanvasContrast(
+        List<PageData> pages,
+        List<FrameworkFeedbackItem> feedback,
+        List<string> recs)
+    {
+        var pairs = pages
+            .SelectMany(page => page.Visuals.Select(visual => (page, visual)))
+            .Where(entry => !entry.visual.IsHidden)
+            .Where(entry =>
+                TryNormalizeHex(entry.visual.Formatting.BackgroundFillColor) is not null &&
+                TryNormalizeHex(entry.visual.Formatting.FontColor) is not null)
+            .ToList();
+
+        if (pairs.Count == 0)
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                "On-canvas text contrast: No visuals expose both background and font colour metadata — unable to evaluate. Awarding full marks; theme palette check still applies.",
+                A11yOnCanvasPoints,
+                A11yOnCanvasPoints,
+                FindingTypes.Objective));
+            return A11yOnCanvasPoints;
+        }
+
+        int passing = 0;
+        var failingRefs = new List<AffectedVisualReference>();
+
+        foreach (var (page, visual) in pairs)
+        {
+            var bg = TryNormalizeHex(visual.Formatting.BackgroundFillColor)!;
+            var fg = TryNormalizeHex(visual.Formatting.FontColor)!;
+            try
+            {
+                if (WcagContrastCalculator.MeetsNormalTextAA(bg, fg))
+                {
+                    passing++;
+                }
+                else
+                {
+                    failingRefs.Add(new AffectedVisualReference(page.DisplayName, visual.Id, visual.Type));
+                }
+            }
+            catch
+            {
+                // Skip pairs that can't be parsed; do not penalize the visual.
+            }
+        }
+
+        int evaluated = passing + failingRefs.Count;
+        if (evaluated == 0)
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                "On-canvas text contrast: No parseable background/font colour pairs found.",
+                A11yOnCanvasPoints,
+                A11yOnCanvasPoints,
+                FindingTypes.Objective));
+            return A11yOnCanvasPoints;
+        }
+
+        double earned = (double)passing / evaluated * A11yOnCanvasPoints;
+
+        if (failingRefs.Count > 0)
+        {
+            recs.Add(
+                $"[High] Accessibility: {failingRefs.Count} visual(s) have on-canvas background/font pairs below the WCAG 2.1 AA threshold (4.5:1). " +
+                "Increase contrast between visual backgrounds and their text colours.");
+            feedback.Add(ScoredFeedback(
+                false,
+                $"On-canvas text contrast: {failingRefs.Count} visual(s) fail WCAG 2.1 AA ≥4.5:1 against their own background fill — increase contrast on these visuals.",
+                earned,
+                A11yOnCanvasPoints,
+                FindingTypes.Objective,
+                failingRefs));
+        }
+        else
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                $"On-canvas text contrast: All {passing} visual(s) with parsed background/font colours pass WCAG 2.1 AA against their actual backgrounds.",
+                earned,
+                A11yOnCanvasPoints,
+                FindingTypes.Objective));
+        }
+
+        return earned;
+    }
+
+    private static double ScoreA11yColorblindPalette(
+        List<string> themeColors,
+        List<FrameworkFeedbackItem> feedback,
+        List<string> recs)
+    {
+        var normalized = themeColors
+            .Select(TryNormalizeHex)
+            .Where(hex => hex is not null)
+            .Select(hex => hex!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalized.Count < 2)
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                "Colorblind-safe palette: Fewer than two parseable theme colours — colourblind pair check skipped.",
+                A11yColorblindPoints,
+                A11yColorblindPoints,
+                FindingTypes.Objective));
+            return A11yColorblindPoints;
+        }
+
+        var problemPairs = new List<(string A, string B)>();
+        for (int i = 0; i < normalized.Count; i++)
+        {
+            for (int j = i + 1; j < normalized.Count; j++)
+            {
+                if (LooksLikeRedGreenPair(normalized[i], normalized[j]) &&
+                    SimulatesToSimilarUnderDeuteranopia(normalized[i], normalized[j]))
+                {
+                    problemPairs.Add((normalized[i], normalized[j]));
+                }
+            }
+        }
+
+        if (problemPairs.Count == 0)
+        {
+            feedback.Add(ScoredFeedback(
+                true,
+                "Colorblind-safe palette: No red/green theme pairs simulate to indistinguishable values for deuteranopia.",
+                A11yColorblindPoints,
+                A11yColorblindPoints,
+                FindingTypes.Objective));
+            return A11yColorblindPoints;
+        }
+
+        var sample = problemPairs.Take(2).Select(p => $"{p.A}/{p.B}").ToList();
+        recs.Add(
+            $"[High] Accessibility: {problemPairs.Count} theme colour pair(s) are likely indistinguishable for users with deuteranopia: {string.Join("; ", sample)}. " +
+            "Choose distinct hues or add non-colour cues (icons, patterns).");
+        feedback.Add(ScoredFeedback(
+            false,
+            $"Colorblind-safe palette: {problemPairs.Count} red/green theme pair(s) simulate to similar values for deuteranopia ({string.Join("; ", sample)}). " +
+            "Replace them or add non-colour distinguishing cues.",
+            0,
+            A11yColorblindPoints,
+            FindingTypes.StrongHeuristic));
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Returns a normalized #RRGGBB string when the input is a parseable hex colour;
+    /// returns <c>null</c> for null, empty, or malformed inputs. Tolerates the # prefix
+    /// being optional and the 3-digit shorthand (#RGB).
+    /// </summary>
+    private static string? TryNormalizeHex(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return null;
+        var trimmed = hex.Trim().TrimStart('#');
+        if (trimmed.Length == 3)
+        {
+            trimmed = $"{trimmed[0]}{trimmed[0]}{trimmed[1]}{trimmed[1]}{trimmed[2]}{trimmed[2]}";
+        }
+        if (trimmed.Length != 6) return null;
+        for (int i = 0; i < 6; i++)
+        {
+            if (!Uri.IsHexDigit(trimmed[i])) return null;
+        }
+        return "#" + trimmed.ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when one colour reads as predominantly red and the other as predominantly green
+    /// (the classic red/green colourblindness failure pattern). Uses a coarse RGB dominance heuristic.
+    /// </summary>
+    private static bool LooksLikeRedGreenPair(string a, string b) =>
+        (IsRedDominant(a) && IsGreenDominant(b)) || (IsGreenDominant(a) && IsRedDominant(b));
+
+    private static bool IsRedDominant(string hex)
+    {
+        var (r, g, bl) = HexToRgb(hex);
+        return r > g + 40 && r > bl + 40;
+    }
+
+    private static bool IsGreenDominant(string hex)
+    {
+        var (r, g, bl) = HexToRgb(hex);
+        return g > r + 40 && g > bl + 40;
+    }
+
+    /// <summary>
+    /// Applies a simple deuteranopia simulation (Brettel/Viénot-style projection collapsed to a
+    /// linearised channel mix) and reports whether the two simulated colours fall within a small
+    /// perceptual distance. Intentionally conservative — only flag pairs that are clearly at risk.
+    /// </summary>
+    private static bool SimulatesToSimilarUnderDeuteranopia(string a, string b)
+    {
+        var simA = SimulateDeuteranopia(a);
+        var simB = SimulateDeuteranopia(b);
+        double dr = simA.R - simB.R;
+        double dg = simA.G - simB.G;
+        double db = simA.B - simB.B;
+        double distance = Math.Sqrt(dr * dr + dg * dg + db * db);
+        // sRGB values in [0,1]; 0.15 is a coarse perceptual threshold for "looks similar".
+        return distance < 0.15;
+    }
+
+    private static (double R, double G, double B) SimulateDeuteranopia(string hex)
+    {
+        var (rByte, gByte, bByte) = HexToRgb(hex);
+        double r = rByte / 255.0;
+        double g = gByte / 255.0;
+        double b = bByte / 255.0;
+        // Approximate deuteranopia projection in sRGB space (linear approximation of the
+        // Brettel/Viénot model). Sufficient for "indistinguishable hue" warnings; not a full
+        // CIE simulation.
+        double simR = 0.625 * r + 0.375 * g + 0.0 * b;
+        double simG = 0.700 * r + 0.300 * g + 0.0 * b;
+        double simB = 0.0 * r + 0.300 * g + 0.700 * b;
+        return (Math.Clamp(simR, 0, 1), Math.Clamp(simG, 0, 1), Math.Clamp(simB, 0, 1));
+    }
+
+    private static (int R, int G, int B) HexToRgb(string hex)
+    {
+        var h = hex.TrimStart('#');
+        return (
+            Convert.ToInt32(h[..2], 16),
+            Convert.ToInt32(h[2..4], 16),
+            Convert.ToInt32(h[4..], 16));
     }
 
     // ── 5. Visual Best Practices score ──────────────────────────────────────
@@ -1408,17 +1676,17 @@ public sealed class PbirScoringService
             .Select(page => new
             {
                 Page = page,
-                VisibleTitle = GetPageVisibleTitle(page),
+                StrictVisibleTitle = GetStrictVisibleTitleText(page),
             })
             .ToList();
         var missingVisibleTitlePages = titledPages
-            .Where(entry => string.IsNullOrWhiteSpace(entry.VisibleTitle))
+            .Where(entry => string.IsNullOrWhiteSpace(entry.StrictVisibleTitle))
             .Select(entry => entry.Page.DisplayName)
             .ToList();
         bool titleCompliant = !rules.RequirePageTitle || missingVisibleTitlePages.Count == 0;
         double sub3 = titleCompliant ? 30.0 : 0.0;
         var titleExamples = titledPages
-            .Select(entry => entry.VisibleTitle)
+            .Select(entry => entry.StrictVisibleTitle)
             .Where(title => !string.IsNullOrWhiteSpace(title))
             .Select(title => $"'{title}'")
             .Distinct(StringComparer.Ordinal)
@@ -1428,9 +1696,9 @@ public sealed class PbirScoringService
             titleCompliant,
             titleCompliant
                 ? titleExamples.Count > 0
-                    ? $"Page title policy: All evaluated pages expose visible title intent, satisfying the configured governance rule. Example titles: {string.Join(", ", titleExamples)}."
+                    ? $"Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: {string.Join(", ", titleExamples)}."
                     : "Page title policy: Visible title intent is not required by the current governance configuration."
-                : $"Page title policy: {missingVisibleTitlePages.Count} page(s) rely on page metadata alone ({string.Join(", ", missingVisibleTitlePages.Select(pageName => $"'{pageName}'"))}) — add a visible page title or question anchor.",
+                : $"Page title policy: {missingVisibleTitlePages.Count} page(s) lack a meaningful visible title in the top band ({string.Join(", ", missingVisibleTitlePages.Select(pageName => $"'{pageName}'"))}) — add a non-vague title near the top of the canvas.",
             sub3,
             30.0,
             FindingTypes.Objective));
@@ -2610,6 +2878,46 @@ public sealed class PbirScoringService
             .Select(visual => visual.BestVisibleText)
             .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
 
+    /// <summary>
+    /// Fraction of the canvas height that defines the "top band" used by strict visible-title detection.
+    /// Visible-title candidates whose Y coordinate falls above this threshold (numerically smaller Y) are
+    /// considered to be in a position consistent with a page title anchor.
+    /// </summary>
+    private const double TopBandTitleFraction = 0.15;
+
+    /// <summary>
+    /// Returns the first visible page-title text that satisfies the strict rule used by the
+    /// <c>requirePageTitle</c> governance check and the page-title sub-criterion of the
+    /// Enterprise Governance framework:
+    /// <list type="bullet">
+    /// <item>the visual is not hidden and has visible title intent;</item>
+    /// <item>the visual sits in the top <c>TopBandTitleFraction</c> of the canvas;</item>
+    /// <item>the text is non-empty and is not a vague placeholder such as <c>"Page 1"</c> or <c>"Overview"</c>.</item>
+    /// </list>
+    /// Returns <c>null</c> when the page has no visible title that meets all three rules.
+    /// </summary>
+    private static string? GetStrictVisibleTitleText(PageData page)
+    {
+        double canvasHeight = GetCanvasHeight(page);
+        double topBandLimit = canvasHeight * TopBandTitleFraction;
+
+        return page.Visuals
+            .Where(visual => !visual.IsHidden && visual.HasVisibleTitleIntent)
+            .Where(visual => visual.Y <= topBandLimit)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .Select(visual => visual.BestVisibleText)
+            .Where(text => !string.IsNullOrWhiteSpace(text) && !IsVagueNarrativeText(text!))
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when the page has a visible title that satisfies the strict rule.
+    /// See <see cref="GetStrictVisibleTitleText"/> for the exact criteria.
+    /// </summary>
+    private static bool HasStrictVisibleTitle(PageData page) =>
+        !string.IsNullOrWhiteSpace(GetStrictVisibleTitleText(page));
+
     private static PageVisualMetadataSummary BuildPageVisualMetadataSummary(PageData page)
     {
         var orderedVisuals = page.Visuals
@@ -2624,6 +2932,7 @@ public sealed class PbirScoringService
         {
             PageName = page.DisplayName,
             VisiblePageTitle = GetPageVisibleTitle(page),
+            StrictVisiblePageTitle = GetStrictVisibleTitleText(page),
             CanvasWidth = page.Canvas?.Width,
             CanvasHeight = page.Canvas?.Height,
             VisualCount = orderedVisuals.Count,

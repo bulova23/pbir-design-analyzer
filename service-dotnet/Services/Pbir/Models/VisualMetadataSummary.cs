@@ -12,6 +12,14 @@ public sealed class PageVisualMetadataSummary
     /// <summary>Gets or sets the first visible page title detected on the page, when available.</summary>
     public string? VisiblePageTitle { get; init; }
 
+    /// <summary>
+    /// Gets or sets the first visible page title that satisfies the strict governance rule
+    /// (positioned in the top band of the canvas and not a vague placeholder).
+    /// <c>null</c> when the page has no meaningful top-band title. Used by the
+    /// <c>requirePageTitle</c> governance check.
+    /// </summary>
+    public string? StrictVisiblePageTitle { get; init; }
+
     /// <summary>Gets or sets the parsed canvas width for the page, when PBIR provided it.</summary>
     public double? CanvasWidth { get; init; }
 

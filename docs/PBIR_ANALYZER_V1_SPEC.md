@@ -125,26 +125,27 @@ Core/default-enabled frameworks:
 - `dataink`
 - `accessibility`
 - `visual`
-- `governance`
 
 Optional/default-disabled frameworks:
 
 - `graphical`
+- `governance`
 - `stephen`
 - `tufte`
 - `density`
 - `narrative`
 
+Enterprise Governance is intentionally optional. Many users do not run an enterprise governance program; forcing it into the default-enabled set would distort baseline scoring for those users. Customers who use governance can enable it in the configuration panel and rebalance the other weights to sum to `100`.
+
 ### Default Weights
 
 The default enabled weights are:
 
-- Gestalt Principles: `25`
+- Gestalt Principles: `30`
 - Cognitive Load: `20`
 - Data-Ink Ratio: `15`
 - Accessibility: `15`
-- Visual Best Practices: `15`
-- Enterprise Governance: `10`
+- Visual Best Practices: `20`
 
 The default disabled frameworks start at `0`.
 

@@ -135,6 +135,210 @@ public sealed class PbirGovernanceServiceTests : IDisposable
         Assert.Contains(result.Reasons, reason => reason.Contains("no theme name was supplied", StringComparison.OrdinalIgnoreCase));
     }
 
+    // ── Dynamic governance rule tests (REC-02) ───────────────────────────────
+
+    [Fact]
+    public void Evaluate_MaxVisualsPerPage_BlocksWhenPageExceedsLimit()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "maxVisualsPerPage", new GovernanceRule { Name = "Max Visuals Per Page", Value = 3 });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visualCount: 5)));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("maxVisualsPerPage", StringComparison.Ordinal)
+            && r.Contains("'Overview'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_MaxVisualsPerPage_PassesWhenAllPagesUnderLimit()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "maxVisualsPerPage", new GovernanceRule { Name = "Max Visuals Per Page", Value = 10 });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visualCount: 4)),
+            ("Detail", BuildPageMetadata(visualCount: 7)));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.DoesNotContain(result.Reasons, r => r.Contains("maxVisualsPerPage", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_MaxHiddenVisuals_BlocksWhenAggregateExceeds()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "maxHiddenVisuals", new GovernanceRule { Name = "Max Hidden Visuals", Value = 5 });
+        var score = CreateScoreResultWithPages(("Overview", BuildPageMetadata(visualCount: 0)));
+        score.HiddenVisualCount = 11;
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("maxHiddenVisuals", StringComparison.Ordinal)
+            && r.Contains("11", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_AllowPieCharts_FalseBlocksWhenPieDetected()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "allowPieCharts", new GovernanceRule { Name = "Allow Pie Charts", Value = false });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visuals: new[]
+            {
+                ("v1", "barChart", false),
+                ("v2", "pieChart", false),
+            })));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("allowPieCharts", StringComparison.Ordinal)
+            && r.Contains("'Overview'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_AllowPieCharts_TrueDoesNotBlock()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "allowPieCharts", new GovernanceRule { Name = "Allow Pie Charts", Value = true });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visuals: new[] { ("v1", "donutChart", false) })));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.DoesNotContain(result.Reasons, r => r.Contains("allowPieCharts", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_AllowCustomVisuals_FalseBlocksWhenUnknownTypePresent()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "allowCustomVisuals", new GovernanceRule { Name = "Allow Custom Visuals", Value = false });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visuals: new[]
+            {
+                ("v1", "barChart", false),
+                ("v2", "acmeCustomVisual", false),
+            })));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("allowCustomVisuals", StringComparison.Ordinal)
+            && r.Contains("acmeCustomVisual", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_RequirePageTitle_BlocksWhenStrictTitleMissing()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "requirePageTitle", new GovernanceRule { Name = "Require Page Title", Value = true });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visualCount: 1, strictVisibleTitle: null)),
+            ("Detail", BuildPageMetadata(visualCount: 1, strictVisibleTitle: "Detail Drill-Down")));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("requirePageTitle", StringComparison.Ordinal)
+            && r.Contains("'Overview'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_RequireFilterPanel_BlocksWhenPageHasNoSlicer()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "requireFilterPanel", new GovernanceRule { Name = "Require Filter Panel", Value = true });
+        var score = CreateScoreResultWithPages(
+            ("Overview", BuildPageMetadata(visualCount: 3, slicerCount: 0)),
+            ("Detail", BuildPageMetadata(visualCount: 3, slicerCount: 2)));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("requireFilterPanel", StringComparison.Ordinal)
+            && r.Contains("'Overview'", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Reasons, r => r.Contains("'Detail'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_MinWhiteSpaceRatio_BlocksWhenPageIsCrowded()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "minWhiteSpaceRatio", new GovernanceRule { Name = "Min White Space Ratio", Value = 0.25 });
+        var crowded = new PageVisualMetadataSummary
+        {
+            PageName = "Crowded",
+            CanvasWidth = 1000,
+            CanvasHeight = 1000,
+            Visuals =
+            [
+                new VisualMetadataItem { VisualId = "v1", VisualType = "barChart", X = 0, Y = 0, Width = 900, Height = 900 },
+            ],
+        };
+        var score = CreateScoreResultWithPages(("Crowded", crowded));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("minWhiteSpaceRatio", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_ThemeStandard_BlocksWhenThemeDiffers()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "themeStandard", new GovernanceRule { Name = "Standard Theme", Value = "Executive" });
+        var score = CreateScoreResultWithPages(("Overview", BuildPageMetadata(visualCount: 1)));
+
+        var result = service.Evaluate(policy, score, themeId: "Marketing");
+
+        Assert.True(result.Blocked);
+        Assert.Contains(result.Reasons, r => r.Contains("themeStandard", StringComparison.Ordinal)
+            && r.Contains("Marketing", StringComparison.Ordinal)
+            && r.Contains("Executive", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_UnknownRule_IsIgnoredWithoutThrowing()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "completelyMadeUpRule", new GovernanceRule { Name = "Made Up", Value = true });
+        var score = CreateScoreResultWithPages(("Overview", BuildPageMetadata(visualCount: 1)));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.DoesNotContain(result.Reasons, r => r.Contains("completelyMadeUpRule", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_DeferredBookmarkRules_AreRecognizedButDoNotBlock()
+    {
+        var service = BuildService();
+        var policy = BuildEnabledPolicyWithRule(
+            "maxBookmarksPerPage", new GovernanceRule { Name = "Max Bookmarks Per Page", Value = 5 });
+        var score = CreateScoreResultWithPages(("Overview", BuildPageMetadata(visualCount: 1)));
+
+        var result = service.Evaluate(policy, score, themeId: null);
+
+        Assert.DoesNotContain(result.Reasons, r => r.Contains("maxBookmarksPerPage", StringComparison.Ordinal));
+    }
+
     public void Dispose()
     {
         foreach (var dir in _tempDirs)
@@ -180,6 +384,63 @@ public sealed class PbirGovernanceServiceTests : IDisposable
                 ["density"] = 0,
                 ["narrative"] = 0,
             },
+        };
+    }
+
+    private static GovernancePolicy BuildEnabledPolicyWithRule(string ruleId, GovernanceRule rule) => new()
+    {
+        Enabled = true,
+        IsConfigured = true,
+        MinScoreThreshold = 0, // not the rule under test
+        DynamicRules = new Dictionary<string, GovernanceRule> { [ruleId] = rule },
+    };
+
+    private static ScoreResult CreateScoreResultWithPages(params (string PageName, PageVisualMetadataSummary Metadata)[] pages)
+    {
+        var result = CreateScoreResult(100);
+        result.PageScores = pages.Select(p => new PageScore
+        {
+            PageName = p.PageName,
+            VisualMetadata = p.Metadata,
+            FrameworkWeights = result.FrameworkWeights,
+        }).ToList();
+        result.PageCount = pages.Length;
+        return result;
+    }
+
+    private static PageVisualMetadataSummary BuildPageMetadata(
+        int visualCount = 0,
+        string? strictVisibleTitle = "Title",
+        int slicerCount = 0,
+        (string Id, string Type, bool Hidden)[]? visuals = null)
+    {
+        var visualItems = visuals is null
+            ? Enumerable.Range(0, visualCount)
+                .Select(i => new VisualMetadataItem
+                {
+                    VisualId = $"v{i + 1}",
+                    VisualType = "barChart",
+                    X = i * 100, Y = 0, Width = 100, Height = 100,
+                })
+                .ToList()
+            : visuals.Select(v => new VisualMetadataItem
+            {
+                VisualId = v.Id,
+                VisualType = v.Type,
+                IsHidden = v.Hidden,
+                X = 0, Y = 0, Width = 100, Height = 100,
+            }).ToList();
+
+        return new PageVisualMetadataSummary
+        {
+            PageName = "Test",
+            StrictVisiblePageTitle = strictVisibleTitle,
+            VisiblePageTitle = strictVisibleTitle,
+            CanvasWidth = 1280,
+            CanvasHeight = 720,
+            VisualCount = visualItems.Count,
+            SlicerCount = slicerCount,
+            Visuals = visualItems,
         };
     }
 }
