@@ -18,6 +18,7 @@ import {
   getResultScore,
   groupRecommendations,
 } from '../../src/analyzer/score/presentation';
+import { buildQuickFixList } from '../../src/analyzer/score/quickFixes';
 
 interface ScoreVsCodeApi {
   postMessage(message: ScorePanelWebviewToHostMessage): void;
@@ -609,6 +610,9 @@ export default function App(): JSX.Element {
   }));
   const groupedRecommendations = groupRecommendations(displayedRecommendations);
   const recommendationCount = groupedRecommendations.length;
+  const feedbackForQuickFixes = selectedPage?.feedback ?? result.feedback ?? {};
+  const flatFeedback = Object.values(feedbackForQuickFixes).flat();
+  const quickFixes = buildQuickFixList(displayedRecommendations, flatFeedback);
   const allZero = isZeroScore(result);
   const scoredAt = new Date(result.scoredAt).toLocaleString();
   const scoreValue = selectedPage ? selectedPage.compositeScore : result.compositeScore;
@@ -772,6 +776,42 @@ export default function App(): JSX.Element {
           </ul>
         )}
       </section>
+
+      {quickFixes.length > 0 ? (
+        <section aria-label="Quick fixes" className="panel-card quick-fix-card">
+          <h2>Quick Fixes</h2>
+          <p className="quick-fix-intro">
+            Advisory next steps derived from the findings above. Each fix is a manual action — no
+            visuals are modified automatically.
+          </p>
+          <ul className="quick-fix-list">
+            {quickFixes.map((fix) => (
+              <li className="quick-fix-item" key={fix.operation}>
+                <div className="quick-fix-header">
+                  <span className="quick-fix-label">{fix.label}</span>
+                  <span className="quick-fix-operation">{fix.operation}</span>
+                </div>
+                {fix.detail ? <p className="quick-fix-detail">{fix.detail}</p> : null}
+                {fix.affectedVisuals && fix.affectedVisuals.length > 0 ? (
+                  <ul className="quick-fix-visual-list">
+                    {fix.affectedVisuals.map((visual) => (
+                      <li className="quick-fix-visual" key={`${visual.pageName}|${visual.visualId}`}>
+                        <button
+                          className="quick-fix-visual-button"
+                          onClick={() => revealVisual(visual)}
+                          type="button"
+                        >
+                          {visual.pageName} · {visual.visualType} ({shortenVisualId(visual.visualId)})
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }
