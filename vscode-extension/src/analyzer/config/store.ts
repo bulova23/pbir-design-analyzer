@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type {
+  AudiencePreset,
   DesignAnalyzerConfig,
   DesignAnalyzerConfigValidation,
   GovernanceRule,
@@ -468,6 +469,8 @@ function migrateConfig(
     frameworks: normalizeFrameworks(parsed.frameworks),
     governance: normalizeGovernanceRules(parsed.governance, defaults.governance),
     navigationScoring: normalizeNavigationScoring(parsed.navigationScoring),
+    appliedAudiencePresetId:
+      typeof parsed.appliedAudiencePresetId === 'string' ? parsed.appliedAudiencePresetId : undefined,
     lastUpdated: typeof parsed.lastUpdated === 'string' ? parsed.lastUpdated : undefined,
   };
 
@@ -487,6 +490,94 @@ async function persistConfig(
 export function getGovernanceDefaultsPath(context: vscode.ExtensionContext): string {
   return path.join(context.extensionPath, 'config', 'governance-defaults.json');
 }
+
+export function getAudiencePresetsPath(context: vscode.ExtensionContext): string {
+  return path.join(context.extensionPath, 'config', 'audience-presets.json');
+}
+
+function isGovernanceRuleValue(value: unknown): value is GovernanceRuleValue {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+}
+
+function coerceAudiencePreset(raw: unknown): AudiencePreset | undefined {
+  if (!isRecord(raw)) {
+    return undefined;
+  }
+
+  const id = typeof raw.id === 'string' && raw.id.trim().length > 0 ? raw.id.trim() : undefined;
+  const name = typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name.trim() : undefined;
+  if (!id || !name) {
+    return undefined;
+  }
+
+  const preset: AudiencePreset = { id, name };
+
+  if (typeof raw.description === 'string') {
+    preset.description = raw.description;
+  }
+
+  if (isRecord(raw.governanceOverrides)) {
+    const overrides: Record<string, GovernanceRuleValue> = {};
+    for (const [ruleId, value] of Object.entries(raw.governanceOverrides)) {
+      if (isGovernanceRuleValue(value)) {
+        overrides[normalizeGovernanceRuleId(ruleId)] = value;
+      }
+    }
+    if (Object.keys(overrides).length > 0) {
+      preset.governanceOverrides = overrides;
+    }
+  }
+
+  if (isRecord(raw.navigationScoring)) {
+    const ns: Partial<NavigationScoringConfig> = {};
+    if (typeof raw.navigationScoring.enabled === 'boolean') {
+      ns.enabled = raw.navigationScoring.enabled;
+    }
+    if (typeof raw.navigationScoring.weight === 'number') {
+      ns.weight = Math.max(0, Math.min(100, raw.navigationScoring.weight));
+    }
+    if (Object.keys(ns).length > 0) {
+      preset.navigationScoring = ns;
+    }
+  }
+
+  if (isRecord(raw.frameworkWeights)) {
+    const weights: Record<string, number> = {};
+    for (const [frameworkId, value] of Object.entries(raw.frameworkWeights)) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        weights[normalizeFrameworkId(frameworkId)] = Math.max(0, Math.min(100, value));
+      }
+    }
+    if (Object.keys(weights).length > 0) {
+      preset.frameworkWeights = weights;
+    }
+  }
+
+  return preset;
+}
+
+export function loadAudiencePresets(context: vscode.ExtensionContext): AudiencePreset[] {
+  const configPath = getAudiencePresetsPath(context);
+  if (!fs.existsSync(configPath)) {
+    return [];
+  }
+
+  try {
+    const raw = fs.readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(raw) as { presets?: unknown };
+    if (!Array.isArray(parsed.presets)) {
+      return [];
+    }
+
+    return parsed.presets
+      .map((entry) => coerceAudiencePreset(entry))
+      .filter((preset): preset is AudiencePreset => preset !== undefined);
+  } catch {
+    return [];
+  }
+}
+
+export { applyAudiencePreset } from './presets';
 
 export function validateDesignAnalyzerConfig(
   config: DesignAnalyzerConfig,
@@ -555,6 +646,7 @@ export async function saveDesignAnalyzerConfig(
       enabled: config.navigationScoring.enabled,
       weight: config.navigationScoring.weight,
     },
+    appliedAudiencePresetId: config.appliedAudiencePresetId,
     lastUpdated: new Date().toISOString(),
   };
 

@@ -5,12 +5,14 @@ import type {
   ConfigPanelWebviewToHostMessage,
 } from '../../src/analyzer/contracts/configPanel';
 import type {
+  AudiencePreset,
   DesignAnalyzerConfig,
   GovernanceRule,
   GovernanceRuleValue,
   NavigationScoringConfig,
   ScoringFramework,
 } from '../../src/analyzer/config/types';
+import { applyAudiencePreset } from '../../src/analyzer/config/presets';
 
 interface ConfigVsCodeApi {
   postMessage(message: ConfigPanelWebviewToHostMessage): void;
@@ -76,6 +78,7 @@ function cloneConfig(config: DesignAnalyzerConfig): DesignAnalyzerConfig {
     frameworks: config.frameworks.map((framework) => ({ ...framework })),
     governance: config.governance.map((rule) => ({ ...rule })),
     navigationScoring: { ...config.navigationScoring },
+    appliedAudiencePresetId: config.appliedAudiencePresetId,
   };
 }
 
@@ -89,6 +92,7 @@ function updateFramework(
     frameworks: config.frameworks.map((framework) =>
       framework.id === frameworkId ? updater(framework) : framework,
     ),
+    appliedAudiencePresetId: undefined,
   };
 }
 
@@ -102,6 +106,7 @@ function updateGovernanceRule(
     governance: config.governance.map((rule) =>
       rule.id === ruleId ? { ...rule, value } : rule,
     ),
+    appliedAudiencePresetId: undefined,
   };
 }
 
@@ -112,6 +117,7 @@ function updateNavigationScoring(
   return {
     ...config,
     navigationScoring: updater(config.navigationScoring),
+    appliedAudiencePresetId: undefined,
   };
 }
 
@@ -164,6 +170,7 @@ function renderGovernanceInput(
 
 export default function App(): JSX.Element {
   const [config, setConfig] = React.useState<DesignAnalyzerConfig | null>(null);
+  const [presets, setPresets] = React.useState<AudiencePreset[]>([]);
   const [status, setStatus] = React.useState<ConfigPanelStatus | undefined>();
   const vscodeApiRef = React.useRef<ConfigVsCodeApi | null>(null);
 
@@ -181,6 +188,9 @@ export default function App(): JSX.Element {
       if (message.type === 'configState') {
         setConfig(cloneConfig(message.config));
         setStatus(message.status);
+        if (message.presets) {
+          setPresets(message.presets);
+        }
       } else if (message.type === 'error') {
         setStatus({
           level: 'error',
@@ -235,6 +245,25 @@ export default function App(): JSX.Element {
     vscodeApiRef.current?.postMessage({ type: 'resetConfig' });
   };
 
+  const handlePresetSelect = (presetId: string) => {
+    if (!config) {
+      return;
+    }
+    if (presetId === '') {
+      setConfig({ ...config, appliedAudiencePresetId: undefined });
+      return;
+    }
+    const preset = presets.find((entry) => entry.id === presetId);
+    if (!preset) {
+      return;
+    }
+    setConfig(applyAudiencePreset(config, preset));
+    setStatus({
+      level: 'success',
+      message: `Applied "${preset.name}" preset. Save to persist, or continue tuning individual fields.`,
+    });
+  };
+
   return (
     <main className="page-shell">
       <section className="hero-card">
@@ -264,6 +293,45 @@ export default function App(): JSX.Element {
         </section>
       ) : (
         <>
+          {presets.length > 0 ? (
+            <section className="section-card preset-card">
+              <div className="section-header">
+                <div>
+                  <p className="section-kicker">Audience</p>
+                  <h2>Preset</h2>
+                </div>
+                <p className="section-caption">
+                  Apply a starting bundle of thresholds; tune individual fields afterward.
+                </p>
+              </div>
+              <label className="preset-control">
+                <span>Audience preset</span>
+                <select
+                  className="preset-select"
+                  onChange={(event) => handlePresetSelect(event.target.value)}
+                  value={config.appliedAudiencePresetId ?? ''}
+                >
+                  <option value="">No preset (custom)</option>
+                  {presets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {config.appliedAudiencePresetId
+                ? (() => {
+                    const active = presets.find(
+                      (preset) => preset.id === config.appliedAudiencePresetId,
+                    );
+                    return active?.description ? (
+                      <p className="preset-description">{active.description}</p>
+                    ) : null;
+                  })()
+                : null}
+            </section>
+          ) : null}
+
           <section className="section-card">
             <div className="section-header">
               <div>

@@ -7,6 +7,7 @@ import type {
 } from '../analyzer/contracts/configPanel';
 import {
   getGovernanceDefaultsPath,
+  loadAudiencePresets,
   loadDesignAnalyzerConfig,
   resetDesignAnalyzerConfig,
   saveDesignAnalyzerConfig,
@@ -80,6 +81,7 @@ export class PbirConfigPanel {
           this.postMessage({
             type: 'configState',
             config,
+            presets: loadAudiencePresets(this.context),
             status: {
               level: 'success',
               message: 'Analyzer configuration saved.',
@@ -95,6 +97,7 @@ export class PbirConfigPanel {
           this.postMessage({
             type: 'configState',
             config,
+            presets: loadAudiencePresets(this.context),
             status: {
               level: 'success',
               message: 'Analyzer configuration reset to defaults.',
@@ -116,6 +119,7 @@ export class PbirConfigPanel {
       this.postMessage({
         type: 'configState',
         config,
+        presets: loadAudiencePresets(this.context),
         status,
       });
     } catch (error) {

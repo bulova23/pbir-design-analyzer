@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "description": "Audience presets bundle threshold defaults for different reporting personas. Selecting a preset overlays its values onto the current configuration. Individual fields can still be tuned afterward.",
+  "presets": [
+    {
+      "id": "executive",
+      "name": "Executive",
+      "description": "Sparser layouts, tighter visual budgets, conservative cognitive load thresholds.",
+      "governanceOverrides": {
+        "maxVisualsPerPage": 4,
+        "maxHiddenVisuals": 5,
+        "minWhiteSpaceRatio": 0.25
+      },
+      "navigationScoring": {
+        "weight": 18
+      }
+    },
+    {
+      "id": "operational",
+      "name": "Operational",
+      "description": "Balanced defaults for day-to-day operational reports.",
+      "governanceOverrides": {
+        "maxVisualsPerPage": 8,
+        "maxHiddenVisuals": 10,
+        "minWhiteSpaceRatio": 0.15
+      },
+      "navigationScoring": {
+        "weight": 25
+      }
+    },
+    {
+      "id": "analyst",
+      "name": "Analyst",
+      "description": "Looser thresholds for analyst-focused exploration views with richer drill-down density.",
+      "governanceOverrides": {
+        "maxVisualsPerPage": 15,
+        "maxHiddenVisuals": 25,
+        "minWhiteSpaceRatio": 0.10
+      },
+      "navigationScoring": {
+        "weight": 30
+      }
+    }
+  ]
+}

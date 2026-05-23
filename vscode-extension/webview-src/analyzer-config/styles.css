@@ -331,3 +331,36 @@ a {
     width: 100%;
   }
 }
+
+.preset-card {
+  background: color-mix(in srgb, var(--panel-accent) 4%, transparent);
+}
+
+.preset-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 28rem;
+}
+
+.preset-control > span {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preset-select {
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font: inherit;
+}
+
+.preset-description {
+  margin: 12px 0 0;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+}

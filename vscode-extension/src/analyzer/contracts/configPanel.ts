@@ -1,4 +1,4 @@
-import type { DesignAnalyzerConfig } from '../config/types';
+import type { AudiencePreset, DesignAnalyzerConfig } from '../config/types';
 
 export interface ConfigPanelStatus {
   level: 'success' | 'error';
@@ -12,5 +12,10 @@ export type ConfigPanelWebviewToHostMessage =
   | { type: 'openGovernanceJson' };
 
 export type ConfigPanelHostToWebviewMessage =
-  | { type: 'configState'; config: DesignAnalyzerConfig; status?: ConfigPanelStatus }
+  | {
+      type: 'configState';
+      config: DesignAnalyzerConfig;
+      presets?: AudiencePreset[];
+      status?: ConfigPanelStatus;
+    }
   | { type: 'error'; message: string };
