@@ -212,11 +212,14 @@ public sealed class PbirScoringServiceTests : IDisposable
     public async Task ScoreAsync_GovernanceTitleRule_FailsWhenVisibleTitleIsBelowTopBand()
     {
         // Default canvas is 720px tall. 15% top band = 108px. Place the titled visual at y=400.
+        // Include a data visual so the governance evaluator runs (the zero-data-visual guard
+        // would otherwise short-circuit Feedback["governance"]).
         var tempDir = CreateTempPbirFolderFromPageJson(
             """
             {"displayName":"Page 1","visuals":[
               {"id":"v1","type":"textbox","x":0,"y":400,"width":320,"height":60,
-               "title":{"visible":true,"text":"Bottom Band Title"}}
+               "title":{"visible":true,"text":"Bottom Band Title"}},
+              {"id":"v2","type":"barChart","x":340,"y":120,"width":420,"height":220}
             ]}
             """);
         var svc = BuildScoringService();
@@ -235,11 +238,13 @@ public sealed class PbirScoringServiceTests : IDisposable
     [Fact]
     public async Task ScoreAsync_GovernanceTitleRule_FailsWhenVisibleTitleIsVague()
     {
+        // Include a data visual so the governance evaluator runs and emits the page-title feedback.
         var tempDir = CreateTempPbirFolderFromPageJson(
             """
             {"displayName":"Page 1","visuals":[
               {"id":"v1","type":"textbox","x":0,"y":0,"width":320,"height":60,
-               "title":{"visible":true,"text":"Page 1"}}
+               "title":{"visible":true,"text":"Page 1"}},
+              {"id":"v2","type":"barChart","x":340,"y":120,"width":420,"height":220}
             ]}
             """);
         var svc = BuildScoringService();
