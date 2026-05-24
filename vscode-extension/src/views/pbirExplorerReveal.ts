@@ -31,5 +31,9 @@ export async function revealVisualInPbirExplorer(
     expand: true,
   });
 
+  if (visualItem.resourceUri) {
+    await vscode.commands.executeCommand('vscode.open', visualItem.resourceUri);
+  }
+
   return true;
 }
