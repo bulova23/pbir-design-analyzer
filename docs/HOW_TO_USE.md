@@ -432,6 +432,44 @@ Each finding includes:
 
 Audit findings are not incorporated into the composite score. They are supplemental evidence intended to be reviewed alongside the framework findings.
 
+### How The Audit Prompt Works
+
+When you click **Analyze**, the extension sends the screenshot to the configured AI provider along with a structured prompt. Understanding what is in that prompt helps you interpret the findings and their confidence levels.
+
+**What the model receives**
+
+Each request includes:
+
+- the screenshot as a base64-encoded image
+- the page name
+- the PBIR composite score for that page, when one is available
+
+The composite score gives the model relevant context — for example, a page already scoring 57 on Gestalt Principles is more likely to have layout or grouping issues than a page scoring 95.
+
+**What the model is asked to produce**
+
+The prompt instructs the model to act as a Power BI report design auditor and identify up to five visual design issues. It must return each finding as a single JSON line with no surrounding prose — the extension parses each line individually and discards any line that is not valid JSON or is missing required fields.
+
+The five-finding cap is intentional. A short list of high-signal issues is more actionable than an exhaustive inventory of everything the model can observe.
+
+**How finding types are defined**
+
+The classification rules are embedded in the prompt itself, not inferred by the model:
+
+- `objective` — clearly visible defects: clipped text, overlapping visuals, error states, cut-off labels
+- `strongHeuristic` — hierarchy, scan path, spacing, density, or visual balance problems
+- `stylePreference` — polish and consistency observations
+
+This means the type field reflects whether the issue is something measurable and visible (`objective`), a design principle concern (`strongHeuristic`), or a subjective consistency note (`stylePreference`). If the model returns an unrecognised type, the extension defaults it to `strongHeuristic`.
+
+**Both providers use the same prompt**
+
+Anthropic Claude Vision and OpenAI GPT-4o Vision receive identical prompt text. The only difference is the API format used to deliver the image and text. This means findings from the two providers are directly comparable, and switching providers for the same screenshot will often produce similar but not identical results.
+
+**Why findings are not scored**
+
+The composite score is produced by deterministic rule evaluation against the PBIR JSON structure. AI audit findings are produced by a vision model observing a rendered screenshot — they are probabilistic, not reproducible. Including them in the composite score would make the score unstable across re-runs and across provider choices. The findings are kept as a separate evidence layer so they inform your review without changing the numeric score.
+
 ### Coverage Card
 
 The **Visual Audit Coverage** card on the `Overall` tab shows a summary across the whole report:
