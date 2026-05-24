@@ -8,7 +8,7 @@ namespace PowerBIModelingService.Tests;
 /// Tests use the public <see cref="ScoreResult"/> shape and verify composite and
 /// feedback behavior without requiring a running PBIR project on disk.
 /// </summary>
-public class PbirScoringServiceTests
+public class ScoreResultModelTests
 {
     // ── FrameworkFeedbackItem tests ──────────────────────────────────────────
 

@@ -5,7 +5,7 @@ PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI
 This repository contains only the public PBIR analyzer product surface:
 
 - the VS Code extension in `vscode-extension/`
-- the packaged .NET backend host in `service-dotnet/LspHost/`
+- the packaged .NET backend host in `service-dotnet/RpcHost/`
 - the PBIR scoring, governance, and analyzer support services in `service-dotnet/Services/Pbir/`
 - PBIR-focused tests and public docs
 

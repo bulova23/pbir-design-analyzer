@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 
-export enum LSPState {
+export enum BridgeState {
   UNINITIALIZED = 'uninitialized',
   STARTING = 'starting',
   READY = 'ready',
@@ -12,11 +12,11 @@ export enum LSPState {
 /**
  * PBIR-only request bridge over the packaged analyzer backend transport.
  */
-export class LSPModelService extends EventEmitter {
-  private static instance: LSPModelService | null = null;
+export class AnalyzerBridgeService extends EventEmitter {
+  private static instance: AnalyzerBridgeService | null = null;
 
   private client: LanguageClient | null = null;
-  private state: LSPState = LSPState.UNINITIALIZED;
+  private state: BridgeState = BridgeState.UNINITIALIZED;
   private readonly defaultTimeout = 30000;
   private readonly outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer Backend');
 
@@ -24,46 +24,46 @@ export class LSPModelService extends EventEmitter {
     super();
   }
 
-  static getInstance(): LSPModelService {
-    if (!LSPModelService.instance) {
-      LSPModelService.instance = new LSPModelService();
+  static getInstance(): AnalyzerBridgeService {
+    if (!AnalyzerBridgeService.instance) {
+      AnalyzerBridgeService.instance = new AnalyzerBridgeService();
     }
-    return LSPModelService.instance;
+    return AnalyzerBridgeService.instance;
   }
 
   static resetInstance(): void {
-    if (LSPModelService.instance) {
-      void LSPModelService.instance.shutdown();
-      LSPModelService.instance = null;
+    if (AnalyzerBridgeService.instance) {
+      void AnalyzerBridgeService.instance.shutdown();
+      AnalyzerBridgeService.instance = null;
     }
   }
 
   async initialize(client: LanguageClient): Promise<void> {
-    if (this.state !== LSPState.UNINITIALIZED) {
+    if (this.state !== BridgeState.UNINITIALIZED) {
       return;
     }
 
-    this.state = LSPState.STARTING;
+    this.state = BridgeState.STARTING;
     this.client = client;
-    this.outputChannel.appendLine('[LSPModelService] Waiting for analyzer backend to become ready...');
+    this.outputChannel.appendLine('[AnalyzerBridge] Waiting for analyzer backend to become ready...');
 
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    this.state = LSPState.READY;
-    this.outputChannel.appendLine('[LSPModelService] Analyzer backend ready');
-    this.emit('stateChange', LSPState.READY);
+    this.state = BridgeState.READY;
+    this.outputChannel.appendLine('[AnalyzerBridge] Analyzer backend ready');
+    this.emit('stateChange', BridgeState.READY);
     this.emit('connected');
   }
 
-  getState(): LSPState {
+  getState(): BridgeState {
     return this.state;
   }
 
   isInitialized(): boolean {
-    return this.state === LSPState.READY;
+    return this.state === BridgeState.READY;
   }
 
-  onStateChange(listener: (state: LSPState) => void): void {
+  onStateChange(listener: (state: BridgeState) => void): void {
     this.on('stateChange', listener);
   }
 
@@ -77,8 +77,8 @@ export class LSPModelService extends EventEmitter {
       this.client = null;
     }
 
-    this.state = LSPState.UNINITIALIZED;
-    this.emit('stateChange', LSPState.UNINITIALIZED);
+    this.state = BridgeState.UNINITIALIZED;
+    this.emit('stateChange', BridgeState.UNINITIALIZED);
   }
 
   async getPbirTree(reportPath: string): Promise<unknown> {
@@ -95,11 +95,11 @@ export class LSPModelService extends EventEmitter {
     timeout: number = this.defaultTimeout,
   ): Promise<T> {
     if (!this.client) {
-      throw new Error('LSPModelService not initialized. Call initialize() first.');
+      throw new Error('Analyzer backend not available. Call initialize() first.');
     }
 
-    if (this.state !== LSPState.READY) {
-      throw new Error(`LSPModelService not ready. Current state: ${this.state}`);
+    if (this.state !== BridgeState.READY) {
+      throw new Error(`Analyzer backend not ready. Current state: ${this.state}`);
     }
 
     const timestamp = new Date().toISOString();
@@ -138,7 +138,7 @@ export class LSPModelService extends EventEmitter {
         this.outputChannel.appendLine(`Stack: ${error.stack}`);
       }
 
-      throw new Error(`LSP request failed: ${message}`);
+      throw new Error(`RPC request failed: ${message}`);
     }
   }
 }

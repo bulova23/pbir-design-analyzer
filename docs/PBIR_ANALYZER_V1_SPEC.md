@@ -472,7 +472,7 @@ The following are reasonable next steps but are not required to define v1 behavi
 - further narrowing of non-PBIR backend paths
 - trimming the shipped VSIX contents further
 - deleting stale plans, backup files, and obsolete markdown
-- renaming `LSP` and `LspHost` terminology
+- ~~renaming `LSP` and `LspHost` terminology~~ (completed — `LspHost` → `RpcHost`, `LSPModelService` → `AnalyzerBridgeService`)
 - richer dynamic governance rule enforcement
 - deeper bookmark-state scoring beyond the v1 navigation-treatment baseline
 

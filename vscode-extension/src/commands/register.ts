@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolvePbirProjectPath } from '../analyzer/project/pathing';
-import { LSPModelService } from '../services/lsp/LSPModelService';
+import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { registerPbirCommands, pbirTreeProvider } from './pbirCommands';
 import { PbirConfigPanel } from '../views/PbirConfigPanel';
 
@@ -69,7 +69,7 @@ function registerCommandAlias(
 
 export function registerCommands(
   context: vscode.ExtensionContext,
-  getDotnetBridge: () => LSPModelService | undefined,
+  getDotnetBridge: () => AnalyzerBridgeService | undefined,
 ): void {
   registerPbirCommands(context, getDotnetBridge);
 

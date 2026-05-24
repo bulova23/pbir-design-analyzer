@@ -17,7 +17,7 @@ import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture
 import type { VisualAuditSession } from '../analyzer/audit/types';
 import { AnthropicVisualAuditProvider } from '../analyzer/audit/providers/AnthropicVisualAuditProvider';
 import { telemetry, bucketScore } from '../telemetry/reporter';
-import { LSPModelService } from '../services/lsp/LSPModelService';
+import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { resolveWebviewAssets } from './webviewAssets';
 import { normalizeScoreResultPayload } from './scoreResultPayload';
 import { revealVisualInPbirExplorer } from './pbirExplorerReveal';
@@ -26,7 +26,7 @@ export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
 
   private readonly panel: vscode.WebviewPanel;
-  private readonly bridge: LSPModelService | undefined;
+  private readonly bridge: AnalyzerBridgeService | undefined;
   private readonly context: vscode.ExtensionContext;
   private readonly disposables: vscode.Disposable[] = [];
   private isDisposed = false;
@@ -42,7 +42,7 @@ export class PbirScorePanel {
 
   static async createOrShow(
     context: vscode.ExtensionContext,
-    bridge: LSPModelService | undefined,
+    bridge: AnalyzerBridgeService | undefined,
     reportPath: string,
     pageName?: string,
   ): Promise<PbirScorePanel> {
@@ -75,7 +75,7 @@ export class PbirScorePanel {
   private constructor(
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
-    bridge: LSPModelService | undefined,
+    bridge: AnalyzerBridgeService | undefined,
     reportPath: string,
     pageName?: string,
   ) {

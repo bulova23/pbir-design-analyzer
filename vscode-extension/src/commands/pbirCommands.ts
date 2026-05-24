@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { LSPModelService } from '../services/lsp/LSPModelService';
+import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { PbirTreeItem, PbirTreeProvider } from '../providers/PbirTreeProvider';
 import { PbirScorePanel } from '../views/PbirScorePanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
@@ -132,10 +132,10 @@ function readWorkspaceGovernanceSettings(): WorkspaceGovernanceSettings {
  */
 export function registerPbirCommands(
     context: vscode.ExtensionContext,
-    getBridge: () => LSPModelService | undefined
+    getBridge: () => AnalyzerBridgeService | undefined
 ): PbirTreeProvider {
     pbirTreeProvider = new PbirTreeProvider();
-    pbirTreeProvider.setLSPModelService(getBridge());
+    pbirTreeProvider.setBridgeService(getBridge());
 
     // Wire provider into the treeview
     const treeView = vscode.window.createTreeView('powerbiModeling.pbirExplorer', {

@@ -4,6 +4,10 @@ All notable changes to PBIR Design Analyzer are recorded here.
 
 ## Unreleased
 
+- Technical debt: renamed `LspHost/` → `RpcHost/` and `LSPModelService`/`LSPState` → `AnalyzerBridgeService`/`BridgeState` throughout — the transport is JSON-RPC over stdio, not Language Server Protocol.
+- Technical debt: renamed `LspHostJsonRpcTests.cs` → `RpcHostJsonRpcTests.cs` and `ScoreResultModelTests.cs` (was a duplicate name for the data-model contract test file).
+- Technical debt: removed dead `ColWidthPx`/`RowHeightPx` constants from `PbirScoringService`; fixed one stray `CanvasHeight` constant reference that should have used the per-page `canvasHeight` local variable.
+
 - Added finding classification badges (`Objective`, `Heuristic`, `Style`) to score feedback.
 - Expanded the analyzer heuristics across metadata extraction, narrative, hierarchy, chart semantics, and visual consistency.
 - Bumped the extension to `0.1.13`.

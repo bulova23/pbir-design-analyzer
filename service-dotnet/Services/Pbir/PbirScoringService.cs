@@ -24,8 +24,6 @@ public sealed class PbirScoringService
     private const int CanvasHeight = 720;
     private const int GridCols     = 12;
     private const int GridRows     = 12;
-    private const double ColWidthPx  = (double)CanvasWidth  / GridCols;  // 106.666…
-    private const double RowHeightPx = (double)CanvasHeight / GridRows;  // 60.0
 
     // White is used as the background reference for accessibility contrast checks.
     private const string BackgroundWhite = "#FFFFFF";

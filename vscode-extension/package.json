@@ -178,8 +178,8 @@
   "scripts": {
     "vscode:prepublish": "npm run clean:backend && npm run build:backend && npm run compile && npm run bundle:extension && npm run build:webview",
     "build": "npm run clean:backend && npm run build:backend && npm run compile && npm run bundle:extension && npm run build:webview",
-    "clean:backend": "rm -rf backend/lsp",
-    "build:backend": "dotnet publish ../service-dotnet/LspHost/LspHost.csproj -c Release -o backend/lsp",
+    "clean:backend": "rm -rf backend/rpc",
+    "build:backend": "dotnet publish ../service-dotnet/RpcHost/RpcHost.csproj -c Release -o backend/rpc",
     "precompile": "rm -rf out dist",
     "compile": "tsc -p ./",
     "bundle:extension": "node scripts/bundle-extension.mjs",
