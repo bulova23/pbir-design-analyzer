@@ -6,7 +6,7 @@
 **/coverage/
 **/.nyc_output/
 **/webview-dist/
-vscode-extension/backend/lsp/
+vscode-extension/backend/rpc/
 *.vsix
 
 **/bin/
