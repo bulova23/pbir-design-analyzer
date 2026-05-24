@@ -386,7 +386,13 @@ Before you can analyze screenshots you must provide an API key for one of the su
 2. Run **PBIR Design Analyzer: Configure Visual Audit Provider**.
 3. Select a provider and enter your API key.
 
-The API key is stored in VS Code `SecretStorage`. It is never written to disk, logged, or included in any extension output. The active provider choice is saved to VS Code `globalState` and remembered across sessions.
+The API key is stored in VS Code `SecretStorage`. It is never written to disk, logged, or included in any extension output. SecretStorage maps to the OS-level credential manager on each platform:
+
+- **macOS**: system Keychain
+- **Windows**: Windows Credential Manager
+- **Linux**: libsecret / gnome-keyring
+
+The active provider choice (`Anthropic` or `OpenAI`) is saved to VS Code `globalState` and remembered across sessions — this is just a label, not a key.
 
 To switch providers later, run the configure command again and select a different provider. The previous key for the old provider is retained in SecretStorage in case you switch back.
 
