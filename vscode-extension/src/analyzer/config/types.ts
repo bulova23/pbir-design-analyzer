@@ -26,10 +26,20 @@ export interface NavigationScoringConfig {
   weight: number;
 }
 
+export interface AudiencePreset {
+  id: string;
+  name: string;
+  description?: string;
+  governanceOverrides?: Record<string, GovernanceRuleValue>;
+  navigationScoring?: Partial<NavigationScoringConfig>;
+  frameworkWeights?: Record<string, number>;
+}
+
 export interface DesignAnalyzerConfig {
   frameworks: ScoringFramework[];
   governance: GovernanceRule[];
   navigationScoring: NavigationScoringConfig;
+  appliedAudiencePresetId?: string;
   lastUpdated?: string;
 }
 

@@ -7,7 +7,7 @@ import {
     PbirVisualNode,
 } from '../analyzer/project/localTree';
 import { detectWorkspacePbirProjectPath } from '../analyzer/project/discovery';
-import { LSPModelService } from '../services/lsp/LSPModelService';
+import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { resolvePbirWorkspaceRoot } from '../analyzer/project/pathing';
 
 // ── Tree item types ───────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<PbirTreeItem | undefined | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    private _bridge: LSPModelService | undefined;
+    private _bridge: AnalyzerBridgeService | undefined;
     private _projectPath: string | undefined;
 
     /** Call when the active PBIP project path changes. */
@@ -83,8 +83,8 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
         this.refresh();
     }
 
-    /** Inject the LSP bridge (called after extension activation). */
-    setLSPModelService(bridge: LSPModelService | undefined): void {
+    /** Inject the RPC bridge (called after extension activation). */
+    setBridgeService(bridge: AnalyzerBridgeService | undefined): void {
         this._bridge = bridge;
     }
 

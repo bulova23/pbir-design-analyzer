@@ -1,12 +1,19 @@
 import React from 'react';
 import type {
   AffectedVisualReference,
+  AuditCaptureSummary,
+  AuditFindingDisplay,
+  AuditPageState,
+  AuditState,
+  FindingType,
   FrameworkFeedbackItem,
+  PageVisualMetadataSummary,
   PageScore,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
   ScorePanelWebviewToHostMessage,
   ScoreResult,
+  VisualMetadataItem,
 } from '../../src/analyzer/contracts/scorePanel';
 import {
   basename,
@@ -15,6 +22,7 @@ import {
   getResultScore,
   groupRecommendations,
 } from '../../src/analyzer/score/presentation';
+import { buildQuickFixList } from '../../src/analyzer/score/quickFixes';
 
 interface ScoreVsCodeApi {
   postMessage(message: ScorePanelWebviewToHostMessage): void;
@@ -25,7 +33,7 @@ declare function acquireVsCodeApi(): ScoreVsCodeApi;
 type ViewState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; state: ScorePanelState };
+  | { kind: 'ready'; state: ScorePanelState; audit?: AuditState };
 
 function isZeroScore(result: ScoreResult): boolean {
   return (
@@ -86,6 +94,36 @@ function getFeedbackCriterionLabel(text: string): string {
 function formatPoints(points: number): string {
   const rounded = Math.round(points * 10) / 10;
   return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+}
+
+function getFindingTypeLabel(findingType: FindingType): string {
+  switch (findingType) {
+    case 'objective':
+      return 'Objective';
+    case 'stylePreference':
+      return 'Style';
+    default:
+      return 'Heuristic';
+  }
+}
+
+function getFindingTypeClassName(findingType: FindingType): string {
+  switch (findingType) {
+    case 'objective':
+      return 'finding-badge-objective';
+    case 'stylePreference':
+      return 'finding-badge-style';
+    default:
+      return 'finding-badge-heuristic';
+  }
+}
+
+function renderFindingBadge(findingType: FindingType): React.ReactNode {
+  return (
+    <span className={`finding-badge ${getFindingTypeClassName(findingType)}`}>
+      {getFindingTypeLabel(findingType)}
+    </span>
+  );
 }
 
 function buildScoreBreakdown(items: FrameworkFeedbackItem[] | undefined): string | undefined {
@@ -199,7 +237,10 @@ function renderFeedback(
               <li className={`criterion-card ${item.ok ? 'criterion-pass' : 'criterion-fail'}`} key={`${item.text}-${index}`}>
                 <div className="criterion-head">
                   <div>
-                    <p className="criterion-label">{details.label}</p>
+                    <div className="criterion-title-row">
+                      <p className="criterion-label">{details.label}</p>
+                      {renderFindingBadge(item.findingType)}
+                    </div>
                     <p className="criterion-state">{item.ok ? 'Meeting expectation' : 'Needs improvement'}</p>
                   </div>
                   <span className={`criterion-points ${pointsTone}`}>
@@ -229,7 +270,10 @@ function renderFeedback(
               <li className={`feedback-item ${item.ok ? 'feedback-pass' : 'feedback-fail'}`} key={`${item.text}-${index}`}>
                 <span className="feedback-icon">{item.ok ? '✓' : '!'}</span>
                 <div className="feedback-copy">
-                  <span>{item.text}</span>
+                  <div className="feedback-copy-head">
+                    {renderFindingBadge(item.findingType)}
+                    <span>{item.text}</span>
+                  </div>
                   {renderEvidence(item.affectedVisuals ?? [], currentPageName, onRevealVisual)}
                 </div>
               </li>
@@ -238,6 +282,210 @@ function renderFeedback(
         </div>
       ) : null}
     </div>
+  );
+}
+
+function formatMetadataBoolean(value: boolean | undefined, truthy: string, falsy: string): string | undefined {
+  if (typeof value !== 'boolean') {
+    return undefined;
+  }
+
+  return value ? truthy : falsy;
+}
+
+function formatMetadataNumber(value: number | undefined): string | undefined {
+  if (typeof value !== 'number') {
+    return undefined;
+  }
+
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function buildMetadataTags(item: VisualMetadataItem): string[] {
+  const tags = [
+    item.isSlicer ? 'Slicer' : undefined,
+    item.isNavigationElement ? 'Navigation' : undefined,
+    item.isDecorative ? 'Decorative' : undefined,
+    formatMetadataBoolean(item.hasLegend, 'Legend', 'No legend'),
+    formatMetadataBoolean(item.hasAxisLabels, 'Axis labels', 'No axis labels'),
+    formatMetadataBoolean(item.hasDataLabels, 'Data labels', 'No data labels'),
+    formatMetadataBoolean(item.hasBorder, 'Border', 'No border'),
+    formatMetadataBoolean(item.hasShadow, 'Shadow', 'Flat'),
+    item.cornerRadius !== undefined ? `Radius ${formatMetadataNumber(item.cornerRadius)} px` : undefined,
+    item.backgroundFillColor ? `Fill ${item.backgroundFillColor}` : undefined,
+    item.fontColor ? `Font ${item.fontColor}` : undefined,
+  ];
+
+  return tags.filter((tag): tag is string => Boolean(tag));
+}
+
+function buildRoleHints(item: VisualMetadataItem): string[] {
+  const entries: Array<[string, string[]]> = [
+    ['Category', item.categoryHints],
+    ['Value', item.valueHints],
+    ['Series', item.seriesHints],
+    ['Measure', item.measureHints],
+  ];
+
+  return entries
+    .filter(([, values]) => values.length > 0)
+    .map(([label, values]) => `${label}: ${values.join(', ')}`);
+}
+
+function renderMetadataOverview(pageScores: PageScore[]): React.ReactNode {
+  const pagesWithMetadata = pageScores.filter((page) => page.visualMetadata);
+  if (pagesWithMetadata.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="panel-card collapsible-panel">
+      <summary className="collapsible-summary">
+        <span>Parsed Visual Metadata</span>
+        <span className="collapsible-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div className="collapsible-body">
+        <p className="empty-text">
+          Page-level parser coverage snapshot across the report. Open a page tab for per-visual detail.
+        </p>
+        <div className="metadata-overview-grid">
+          {pagesWithMetadata.map((page) => {
+            const summary = page.visualMetadata!;
+            return (
+              <article className="metadata-overview-card" key={page.pageName}>
+                <div className="metadata-overview-head">
+                  <div>
+                    <p className="metadata-overview-page">{summary.pageName}</p>
+                    <p className="metadata-overview-title">
+                      {summary.visiblePageTitle ?? 'No visible page title detected'}
+                    </p>
+                  </div>
+                  <strong>{summary.visualCount}</strong>
+                </div>
+                <p className="metadata-overview-copy">
+                  {summary.visibleTitleVisualCount} title-bearing visual(s), {summary.legendVisualCount} with legends,
+                  {' '}
+                  {summary.axisLabelVisualCount} with axis labels, {summary.dataLabelVisualCount} with data labels.
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function renderVisualMetadataDetail(
+  summary: PageVisualMetadataSummary,
+  onRevealVisual: (visual: AffectedVisualReference) => void,
+): React.ReactNode {
+  return (
+    <details className="panel-card collapsible-panel">
+      <summary className="collapsible-summary">
+        <span>Parsed Visual Metadata</span>
+        <span className="collapsible-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div className="collapsible-body">
+        <p className="empty-text">
+          {summary.visiblePageTitle
+            ? `Visible page title: ${summary.visiblePageTitle}.`
+            : 'No visible page title was detected on this page.'}
+          {' '}
+          {summary.canvasWidth && summary.canvasHeight
+            ? `Canvas ${Math.round(summary.canvasWidth)} × ${Math.round(summary.canvasHeight)}.`
+            : 'Canvas size not exposed by PBIR.'}
+        </p>
+        <div className="metadata-stat-grid">
+          <div className="metadata-stat-card">
+            <strong>{summary.visualCount}</strong>
+            <span>Total visuals</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.visibleTitleVisualCount}</strong>
+            <span>Title-bearing</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.slicerCount}</strong>
+            <span>Slicers</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.legendVisualCount}</strong>
+            <span>Legends</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.axisLabelVisualCount}</strong>
+            <span>Axis labels</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.formattedVisualCount}</strong>
+            <span>Formatting facts</span>
+          </div>
+        </div>
+        {summary.visuals.length > 0 ? (
+          <ul className="metadata-visual-list">
+            {summary.visuals.map((item) => {
+              const tags = buildMetadataTags(item);
+              const roleHints = buildRoleHints(item);
+              const visibleText = item.bestVisibleText ?? item.visibleTitleText ?? item.textBoxText ?? item.visibleSubtitleText;
+
+              return (
+                <li className="metadata-visual-card" key={`${summary.pageName}-${item.visualId}`}>
+                  <div className="metadata-visual-head">
+                    <div>
+                      <p className="metadata-visual-title">
+                        {visibleText ?? `${item.visualType} ${shortenVisualId(item.visualId)}`}
+                      </p>
+                      <p className="metadata-visual-meta">
+                        {item.visualType} · {item.visualId} · {Math.round(item.width)} × {Math.round(item.height)} at {Math.round(item.x)},{' '}
+                        {Math.round(item.y)}
+                      </p>
+                    </div>
+                    <button
+                      className="secondary-button metadata-reveal-button"
+                      onClick={() => onRevealVisual({
+                        pageName: summary.pageName,
+                        visualId: item.visualId,
+                        visualType: item.visualType,
+                      })}
+                      type="button"
+                    >
+                      Reveal
+                    </button>
+                  </div>
+                  {item.visibleSubtitleText && item.visibleSubtitleText !== visibleText ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Subtitle:</strong> {item.visibleSubtitleText}
+                    </p>
+                  ) : null}
+                  {item.textBoxText && item.textBoxText !== visibleText ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Text:</strong> {item.textBoxText}
+                    </p>
+                  ) : null}
+                  {roleHints.length > 0 ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Role hints:</strong> {roleHints.join(' · ')}
+                    </p>
+                  ) : null}
+                  {tags.length > 0 ? (
+                    <div className="metadata-tag-row">
+                      {tags.map((tag) => (
+                        <span className="metadata-tag" key={`${item.visualId}-${tag}`}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="empty-text">No per-visual metadata was exposed for this page.</p>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -257,7 +505,10 @@ function FrameworkSection(props: {
           <details className="framework-card" key={framework.key}>
             <summary className="framework-summary">
               <div className="framework-heading">
-                <span className="framework-title">{framework.label}</span>
+                <div className="framework-title-group">
+                  <span className="framework-title">{framework.label}</span>
+                  <span className="framework-caret" aria-hidden="true">▾</span>
+                </div>
                 <span className="framework-weight">{framework.weightLabel}</span>
               </div>
               {breakdown ? <p className="framework-breakdown">{breakdown}</p> : null}
@@ -285,11 +536,226 @@ function FrameworkSection(props: {
   );
 }
 
+function getSeverityClass(severity: AuditFindingDisplay['severity']): string {
+  if (severity === 'critical') return 'audit-finding-critical';
+  if (severity === 'info') return 'audit-finding-info';
+  return 'audit-finding-warning';
+}
+
+function getConfidenceLabel(confidence: AuditFindingDisplay['confidence']): string {
+  if (confidence === 'high') return 'High confidence';
+  if (confidence === 'low') return 'Low confidence';
+  return 'Medium confidence';
+}
+
+function renderAuditCoverageCard(
+  audit: AuditState,
+  pageNames: string[],
+  vscode: ScoreVsCodeApi,
+): React.ReactNode {
+  const { coverage, unmatchedCaptures, providerConfigured, providerName } = audit;
+  const missingPages = coverage.totalPages - coverage.pagesWithCaptures;
+
+  return (
+    <section className="panel-card audit-coverage-card">
+      <div className="audit-coverage-head">
+        <h2>Visual Audit Coverage</h2>
+        <div className="audit-coverage-actions">
+          <button
+            className="secondary-button"
+            onClick={() => vscode.postMessage({ type: 'uploadScreenshots' })}
+            type="button"
+          >
+            Upload Screenshots
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => vscode.postMessage({ type: 'openSettings' })}
+            title="Open Design Analyzer Configuration to set up an AI provider"
+            type="button"
+          >
+            Configure AI Provider
+          </button>
+        </div>
+      </div>
+
+      <div className="audit-coverage-stats">
+        <div className="audit-stat">
+          <strong>{coverage.pagesWithCaptures}</strong>
+          <span>of {coverage.totalPages} pages covered</span>
+        </div>
+        <div className="audit-stat">
+          <strong>{coverage.pagesWithFindings}</strong>
+          <span>pages with findings</span>
+        </div>
+        {coverage.unmatchedCaptures > 0 ? (
+          <div className="audit-stat audit-stat-warn">
+            <strong>{coverage.unmatchedCaptures}</strong>
+            <span>unmatched screenshots</span>
+          </div>
+        ) : null}
+        {missingPages > 0 ? (
+          <div className="audit-stat audit-stat-missing">
+            <strong>{missingPages}</strong>
+            <span>pages without screenshots</span>
+          </div>
+        ) : null}
+      </div>
+
+      {unmatchedCaptures.length > 0 ? (
+        <div className="audit-unmatched">
+          <p className="audit-unmatched-label">Unmatched screenshots — assign to a page:</p>
+          <ul className="audit-unmatched-list">
+            {unmatchedCaptures.map((capture) => (
+              <li className="audit-unmatched-item" key={capture.captureId}>
+                <span className="audit-capture-filename">{capture.fileName}</span>
+                <select
+                  className="audit-assign-select"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      vscode.postMessage({
+                        type: 'assignCapture',
+                        captureId: capture.captureId,
+                        targetPageName: e.target.value,
+                      });
+                    }
+                  }}
+                >
+                  <option value="" disabled>Assign to page…</option>
+                  {pageNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <button
+                  className="audit-remove-button"
+                  onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                  title="Remove screenshot"
+                  type="button"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {!providerConfigured ? (
+        <p className="audit-provider-note">
+          No AI provider configured. Click "Configure AI Provider" to open settings and add your key.
+        </p>
+      ) : (
+        <p className="audit-provider-note">
+          AI provider: {providerName}. Open a page tab to analyze individual screenshots. Use "Configure AI Provider" to change the provider or rotate your key.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function renderAuditPageSection(
+  pageName: string,
+  auditPageState: AuditPageState | undefined,
+  analyzingCaptureId: string | undefined,
+  providerConfigured: boolean,
+  vscode: ScoreVsCodeApi,
+): React.ReactNode {
+  return (
+    <section className="panel-card audit-page-section">
+      <div className="audit-page-head">
+        <h2>Visual Audit — {pageName}</h2>
+        <button
+          className="secondary-button"
+          onClick={() => vscode.postMessage({ type: 'attachScreenshot', pageName })}
+          type="button"
+        >
+          {auditPageState?.captures.length ? 'Replace / Add Screenshot' : 'Attach Screenshot'}
+        </button>
+      </div>
+
+      {!auditPageState || auditPageState.captures.length === 0 ? (
+        <p className="empty-text">No screenshots attached to this page.</p>
+      ) : (
+        <>
+          <div className="audit-captures">
+            {auditPageState.captures.map((capture) => {
+              const isAnalyzing = capture.captureId === analyzingCaptureId;
+              return (
+                <div className="audit-capture-card" key={capture.captureId}>
+                  <div className="audit-capture-head">
+                    <span className="audit-capture-filename">{capture.fileName}</span>
+                    {capture.stateName ? (
+                      <span className="audit-capture-state">{capture.stateName}</span>
+                    ) : null}
+                    <div className="audit-capture-actions">
+                      {providerConfigured ? (
+                        <button
+                          className="primary-button audit-analyze-button"
+                          disabled={isAnalyzing}
+                          onClick={() => vscode.postMessage({ type: 'analyzeCapture', captureId: capture.captureId, pageName })}
+                          type="button"
+                        >
+                          {isAnalyzing ? 'Analyzing…' : 'Analyze'}
+                        </button>
+                      ) : null}
+                      <button
+                        className="audit-remove-button"
+                        onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                        title="Remove screenshot"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  <p className="audit-capture-meta">{capture.findingCount} finding(s)</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {auditPageState.findings.length > 0 ? (
+            <ul className="audit-findings-list">
+              {auditPageState.findings.map((finding) => (
+                <li className={`audit-finding-item ${getSeverityClass(finding.severity)}`} key={finding.findingId}>
+                  <div className="audit-finding-head">
+                    <span className="audit-finding-type">{finding.findingType}</span>
+                    <span className="audit-finding-confidence">{getConfidenceLabel(finding.confidence)}</span>
+                  </div>
+                  <p className="audit-finding-text">{finding.text}</p>
+                  {finding.recommendation ? (
+                    <p className="audit-finding-rec">
+                      <strong>Fix:</strong> {finding.recommendation}
+                    </p>
+                  ) : null}
+                  {finding.regionHint ? (
+                    <p className="audit-finding-region">
+                      <strong>Region:</strong> {finding.regionHint}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty-text">
+              {auditPageState.captures.length > 0 && providerConfigured
+                ? 'No findings yet. Click "Analyze" to run AI-assisted review.'
+                : 'Attach a screenshot and configure the AI provider to run analysis.'}
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function App(): JSX.Element {
   const [viewState, setViewState] = React.useState<ViewState>({ kind: 'loading' });
   const [activeTab, setActiveTab] = React.useState(0);
+  const [analyzingCaptureId, setAnalyzingCaptureId] = React.useState<string | undefined>(undefined);
   const vscodeApiRef = React.useRef<ScoreVsCodeApi | null>(null);
-  const recommendationsSectionRef = React.useRef<HTMLElement | null>(null);
+  const recommendationsSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   if (!vscodeApiRef.current) {
     vscodeApiRef.current = acquireVsCodeApi();
@@ -313,8 +779,24 @@ export default function App(): JSX.Element {
         return;
       }
 
-      setViewState({ kind: 'ready', state: message.state });
-      setActiveTab(message.state.selectedPageIndex);
+      if (message.type === 'scoreState') {
+        setViewState({ kind: 'ready', state: message.state });
+        setActiveTab(message.state.selectedPageIndex);
+        return;
+      }
+
+      if (message.type === 'auditState') {
+        setViewState((prev) =>
+          prev.kind === 'ready' ? { ...prev, audit: message.audit } : prev,
+        );
+        setAnalyzingCaptureId(undefined);
+        return;
+      }
+
+      if (message.type === 'auditAnalyzing') {
+        setAnalyzingCaptureId(message.captureId);
+        return;
+      }
     };
 
     window.addEventListener('message', handleMessage);
@@ -354,7 +836,7 @@ export default function App(): JSX.Element {
     );
   }
 
-  const { state } = viewState;
+  const { state, audit } = viewState;
   const { config, result } = state;
   const pageScores = result.pageScores ?? [];
   const multiPage = pageScores.length > 1;
@@ -376,9 +858,14 @@ export default function App(): JSX.Element {
   }));
   const groupedRecommendations = groupRecommendations(displayedRecommendations);
   const recommendationCount = groupedRecommendations.length;
+  const feedbackForQuickFixes = selectedPage?.feedback ?? result.feedback ?? {};
+  const flatFeedback = Object.values(feedbackForQuickFixes).flat();
+  const quickFixes = buildQuickFixList(displayedRecommendations, flatFeedback);
   const allZero = isZeroScore(result);
   const scoredAt = new Date(result.scoredAt).toLocaleString();
   const scoreValue = selectedPage ? selectedPage.compositeScore : result.compositeScore;
+  const pageMetadata = selectedPage?.visualMetadata
+    ?? (!multiPage ? (result.visualMetadata ?? pageScores[0]?.visualMetadata) : undefined);
   const visualMix = selectedPage
     ? {
         data: selectedPage.dataVisualCount,
@@ -464,31 +951,70 @@ export default function App(): JSX.Element {
       ) : null}
 
       <section className="summary-card">
-        <div className={`score-chip ${getScoreTone(scoreValue)}`}>
-          <span>{Math.round(scoreValue)}</span>
-          <small>/100</small>
-        </div>
-        <div className="summary-copy">
-          <h2>{selectedPage ? `${selectedPage.pageName} Score` : 'Composite Score'}</h2>
-          <p>
-            {selectedPage
-              ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks on this page.`
-              : multiPage
-                ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks across all pages.`
-                : `Weighted average of ${enabledFrameworks.length} enabled design frameworks.`}
-          </p>
-          {typeof visualMix.data === 'number' &&
-          typeof visualMix.navigation === 'number' &&
-          typeof visualMix.hidden === 'number' ? (
+        <div className="summary-top-row">
+          <div className={`score-chip ${getScoreTone(scoreValue)}`}>
+            <span>{Math.round(scoreValue)}</span>
+            <small>/100</small>
+          </div>
+          <div className="summary-copy">
+            <h2>{selectedPage ? `${selectedPage.pageName} Score` : 'Composite Score'}</h2>
             <p>
-              Visual mix: {visualMix.data} data, {visualMix.navigation} navigation, {visualMix.hidden} hidden.
-              {' '}
-              {config.navigationScoring.enabled
-                ? `Navigation controls count at ${config.navigationScoring.weight}% weight.`
-                : 'Navigation controls use legacy full-weight treatment.'}
+              {selectedPage
+                ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks on this page.`
+                : multiPage
+                  ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks across all pages.`
+                  : `Weighted average of ${enabledFrameworks.length} enabled design frameworks.`}
             </p>
-          ) : null}
+            {typeof visualMix.data === 'number' &&
+            typeof visualMix.navigation === 'number' &&
+            typeof visualMix.hidden === 'number' ? (
+              <p>
+                Visual mix: {visualMix.data} data, {visualMix.navigation} navigation, {visualMix.hidden} hidden.
+                {' '}
+                {config.navigationScoring.enabled
+                  ? `Navigation controls count at ${config.navigationScoring.weight}% weight.`
+                  : 'Navigation controls use legacy full-weight treatment.'}
+              </p>
+            ) : null}
+          </div>
         </div>
+
+        {!allZero && frameworkValues.length > 0 ? (
+          <div className="summary-framework-list">
+            {frameworkValues.map((fw) => (
+              <div className="summary-framework-row" key={fw.key}>
+                <span className="summary-framework-label">{fw.label}</span>
+                <div className="summary-framework-bar-track">
+                  <span
+                    className={`summary-framework-bar-fill ${getScoreTone(fw.score)}`}
+                    style={{ width: `${Math.round(fw.score)}%` }}
+                  />
+                </div>
+                <span className={`summary-framework-score ${getScoreTone(fw.score)}`}>
+                  {Math.round(fw.score)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {groupedRecommendations.length > 0 ? (
+          <div
+            aria-label="Recommendations"
+            className="summary-recommendations"
+            ref={recommendationsSectionRef}
+            tabIndex={-1}
+          >
+            <p className="summary-recommendations-heading">Recommendations</p>
+            <ul className="recommendation-list">
+              {groupedRecommendations.map((recommendation, index) => (
+                <li className={`recommendation-item ${recommendation.cls}`} key={`${recommendation.text}-${index}`}>
+                  {recommendation.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {selectedPage?.scoringError ? (
@@ -501,6 +1027,9 @@ export default function App(): JSX.Element {
         frameworkValues={frameworkValues}
         onRevealVisual={revealVisual}
       />
+
+      {overallView && multiPage ? renderMetadataOverview(pageScores) : null}
+      {pageMetadata ? renderVisualMetadataDetail(pageMetadata, revealVisual) : null}
 
       {overallView && result.scoringErrors && Object.keys(result.scoringErrors).length > 0 ? (
         <section className="panel-card">
@@ -515,25 +1044,55 @@ export default function App(): JSX.Element {
         </section>
       ) : null}
 
-      <section
-        aria-label="Recommendations"
-        className="panel-card"
-        ref={recommendationsSectionRef}
-        tabIndex={-1}
-      >
-        <h2>Recommendations</h2>
-        {groupedRecommendations.length === 0 ? (
-          <p className="empty-text">No issues found.</p>
-        ) : (
-          <ul className="recommendation-list">
-            {groupedRecommendations.map((recommendation, index) => (
-              <li className={`recommendation-item ${recommendation.cls}`} key={`${recommendation.text}-${index}`}>
-                {recommendation.text}
+      {quickFixes.length > 0 ? (
+        <section aria-label="Quick fixes" className="panel-card quick-fix-card">
+          <h2>Quick Fixes</h2>
+          <p className="quick-fix-intro">
+            Advisory next steps derived from the findings above. Each fix is a manual action — no
+            visuals are modified automatically.
+          </p>
+          <ul className="quick-fix-list">
+            {quickFixes.map((fix) => (
+              <li className="quick-fix-item" key={fix.operation}>
+                <div className="quick-fix-header">
+                  <span className="quick-fix-label">{fix.label}</span>
+                  <span className="quick-fix-operation">{fix.operation}</span>
+                </div>
+                {fix.detail ? <p className="quick-fix-detail">{fix.detail}</p> : null}
+                {fix.affectedVisuals && fix.affectedVisuals.length > 0 ? (
+                  <ul className="quick-fix-visual-list">
+                    {fix.affectedVisuals.map((visual) => (
+                      <li className="quick-fix-visual" key={`${visual.pageName}|${visual.visualId}`}>
+                        <button
+                          className="quick-fix-visual-button"
+                          onClick={() => revealVisual(visual)}
+                          type="button"
+                        >
+                          {visual.pageName} · {visual.visualType} ({shortenVisualId(visual.visualId)})
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
+
+      {audit && overallView
+        ? renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!)
+        : null}
+
+      {audit && selectedPage
+        ? renderAuditPageSection(
+            selectedPage.pageName,
+            audit.pages.find((p) => p.pageName === selectedPage.pageName),
+            analyzingCaptureId,
+            audit.providerConfigured,
+            vscodeApiRef.current!,
+          )
+        : null}
     </main>
   );
 }

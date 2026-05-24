@@ -1,8 +1,11 @@
 import type {
   AffectedVisualReference,
+  FindingType,
   FrameworkFeedbackItem,
+  PageVisualMetadataSummary,
   PageScore,
   ScoreResult,
+  VisualMetadataItem,
 } from '../analyzer/contracts/scorePanel';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -41,6 +44,16 @@ function readOptionalString(source: Record<string, unknown>, key: string): strin
   return typeof value === 'string' ? value : undefined;
 }
 
+function readRequiredBoolean(source: Record<string, unknown>, key: string): boolean {
+  const value = readProperty(source, key);
+  return value === true;
+}
+
+function readOptionalBoolean(source: Record<string, unknown>, key: string): boolean | undefined {
+  const value = readProperty(source, key);
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 function readStringArray(source: Record<string, unknown>, key: string): string[] {
   const value = readProperty(source, key);
   if (!Array.isArray(value)) {
@@ -68,6 +81,12 @@ function normalizeAffectedVisual(value: unknown): AffectedVisualReference | unde
     visualId,
     visualType,
   };
+}
+
+function normalizeFindingType(value: unknown): FindingType {
+  return value === 'objective' || value === 'strongHeuristic' || value === 'stylePreference'
+    ? value
+    : 'strongHeuristic';
 }
 
 function readStringRecord(source: Record<string, unknown>, key: string): Record<string, string> {
@@ -105,6 +124,7 @@ function normalizeFeedbackItem(value: unknown): FrameworkFeedbackItem | undefine
   return {
     ok: readProperty(value, 'ok') === true,
     text,
+    findingType: normalizeFindingType(readProperty(value, 'findingType')),
     affectedVisuals: Array.isArray(readProperty(value, 'affectedVisuals'))
       ? (readProperty(value, 'affectedVisuals') as unknown[])
           .map((entry) => normalizeAffectedVisual(entry))
@@ -136,6 +156,81 @@ function normalizeFeedback(value: unknown): Record<string, FrameworkFeedbackItem
   );
 }
 
+function normalizeVisualMetadataItem(value: unknown): VisualMetadataItem | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const visualId = readOptionalString(value, 'visualId');
+  const visualType = readOptionalString(value, 'visualType');
+  if (!visualId || !visualType) {
+    return undefined;
+  }
+
+  return {
+    visualId,
+    visualType,
+    x: readRequiredNumber(value, 'x'),
+    y: readRequiredNumber(value, 'y'),
+    width: readRequiredNumber(value, 'width'),
+    height: readRequiredNumber(value, 'height'),
+    isHidden: readRequiredBoolean(value, 'isHidden'),
+    isNavigationElement: readRequiredBoolean(value, 'isNavigationElement'),
+    isDecorative: readRequiredBoolean(value, 'isDecorative'),
+    isSlicer: readRequiredBoolean(value, 'isSlicer'),
+    visibleTitleText: readOptionalString(value, 'visibleTitleText'),
+    visibleSubtitleText: readOptionalString(value, 'visibleSubtitleText'),
+    textBoxText: readOptionalString(value, 'textBoxText'),
+    bestVisibleText: readOptionalString(value, 'bestVisibleText'),
+    hasVisibleTitleIntent: readRequiredBoolean(value, 'hasVisibleTitleIntent'),
+    hasLegend: readOptionalBoolean(value, 'hasLegend'),
+    hasAxisLabels: readOptionalBoolean(value, 'hasAxisLabels'),
+    hasDataLabels: readOptionalBoolean(value, 'hasDataLabels'),
+    categoryHints: readStringArray(value, 'categoryHints'),
+    valueHints: readStringArray(value, 'valueHints'),
+    seriesHints: readStringArray(value, 'seriesHints'),
+    measureHints: readStringArray(value, 'measureHints'),
+    backgroundFillColor: readOptionalString(value, 'backgroundFillColor'),
+    fontColor: readOptionalString(value, 'fontColor'),
+    hasBorder: readOptionalBoolean(value, 'hasBorder'),
+    cornerRadius: readOptionalNumber(value, 'cornerRadius'),
+    hasShadow: readOptionalBoolean(value, 'hasShadow'),
+  };
+}
+
+function normalizePageVisualMetadata(value: unknown): PageVisualMetadataSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const pageName = readOptionalString(value, 'pageName');
+  if (!pageName) {
+    return undefined;
+  }
+
+  const visualsValue = readProperty(value, 'visuals');
+
+  return {
+    pageName,
+    visiblePageTitle: readOptionalString(value, 'visiblePageTitle'),
+    canvasWidth: readOptionalNumber(value, 'canvasWidth'),
+    canvasHeight: readOptionalNumber(value, 'canvasHeight'),
+    visualCount: readRequiredNumber(value, 'visualCount'),
+    visibleTitleVisualCount: readRequiredNumber(value, 'visibleTitleVisualCount'),
+    textVisualCount: readRequiredNumber(value, 'textVisualCount'),
+    slicerCount: readRequiredNumber(value, 'slicerCount'),
+    legendVisualCount: readRequiredNumber(value, 'legendVisualCount'),
+    axisLabelVisualCount: readRequiredNumber(value, 'axisLabelVisualCount'),
+    dataLabelVisualCount: readRequiredNumber(value, 'dataLabelVisualCount'),
+    formattedVisualCount: readRequiredNumber(value, 'formattedVisualCount'),
+    visuals: Array.isArray(visualsValue)
+      ? visualsValue
+          .map((entry) => normalizeVisualMetadataItem(entry))
+          .filter((entry): entry is VisualMetadataItem => Boolean(entry))
+      : [],
+  };
+}
+
 function normalizePageScore(value: unknown): PageScore {
   const candidate = isRecord(value) ? value : {};
 
@@ -160,6 +255,7 @@ function normalizePageScore(value: unknown): PageScore {
     recommendations: readStringArray(candidate, 'recommendations'),
     scoringError: readOptionalString(candidate, 'scoringError'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
+    visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
   };
 }
 
@@ -197,5 +293,6 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     themeScore: readOptionalNumber(candidate, 'themeScore'),
     governanceScore: readOptionalNumber(candidate, 'governanceScore'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
+    visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
   };
 }

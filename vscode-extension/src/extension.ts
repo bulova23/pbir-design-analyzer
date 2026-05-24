@@ -4,10 +4,11 @@ import { registerCommands } from './commands/register';
 import { pbirTreeProvider } from './commands/pbirCommands';
 import { initializeDesignAnalyzerConfig } from './analyzer/config/store';
 import { createAnalyzerBackendClient, stopAnalyzerBackendClient } from './languageServer/analyzerBackendClient';
-import { LSPModelService, LSPState } from './services/lsp/LSPModelService';
+import { AnalyzerBridgeService, BridgeState } from './services/rpc/AnalyzerBridgeService';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { telemetry } from './telemetry/reporter';
 
-let lspModelService: LSPModelService | undefined;
+let bridgeService: AnalyzerBridgeService | undefined;
 let daemonStatusBar: vscode.StatusBarItem | undefined;
 let backendClient: LanguageClient | undefined;
 let extensionOutput: vscode.OutputChannel | undefined;
@@ -19,6 +20,9 @@ export async function activate(context: vscode.ExtensionContext) {
   extensionOutput.appendLine(`Extension id: ${context.extension.id}`);
   extensionOutput.appendLine(`Extension path: ${context.extensionPath}`);
 
+  telemetry.initialize(context);
+  context.subscriptions.push({ dispose: () => telemetry.dispose() });
+
   await initializeDesignAnalyzerConfig(context);
 
   daemonStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -27,7 +31,7 @@ export async function activate(context: vscode.ExtensionContext) {
   daemonStatusBar.show();
   context.subscriptions.push(daemonStatusBar);
 
-  registerCommands(context, () => lspModelService);
+  registerCommands(context, () => bridgeService);
   await autoLoadPbipProject(extensionOutput);
 
   backendClient = createAnalyzerBackendClient(context);
@@ -47,34 +51,34 @@ export async function activate(context: vscode.ExtensionContext) {
     await backendClient.start();
     context.subscriptions.push(backendClient);
 
-    lspModelService = LSPModelService.getInstance();
-    lspModelService.onStateChange((state: LSPState) => {
+    bridgeService = AnalyzerBridgeService.getInstance();
+    bridgeService.onStateChange((state: BridgeState) => {
       if (!daemonStatusBar) {
         return;
       }
 
       switch (state) {
-        case LSPState.STARTING:
+        case BridgeState.STARTING:
           daemonStatusBar.text = '$(sync~spin) PBIR Design Analyzer: Starting backend';
           daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is starting';
           break;
-        case LSPState.READY:
+        case BridgeState.READY:
           daemonStatusBar.text = '$(check) PBIR Design Analyzer: Ready';
           daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is ready';
           break;
-        case LSPState.ERROR:
+        case BridgeState.ERROR:
           daemonStatusBar.text = '$(error) PBIR Design Analyzer: Backend error';
           daemonStatusBar.tooltip = 'PBIR Design Analyzer backend failed';
           break;
-        case LSPState.UNINITIALIZED:
+        case BridgeState.UNINITIALIZED:
           daemonStatusBar.text = '$(warning) PBIR Design Analyzer: Backend stopped';
           daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is not initialized';
           break;
       }
     });
 
-    await lspModelService.initialize(backendClient);
-    pbirTreeProvider?.setLSPModelService(lspModelService);
+    await bridgeService.initialize(backendClient);
+    pbirTreeProvider?.setBridgeService(bridgeService);
     pbirTreeProvider?.refresh();
     extensionOutput.appendLine('[Extension] Analyzer backend initialized successfully');
   } catch (error) {
@@ -86,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
       daemonStatusBar.text = '$(error) PBIR Design Analyzer: Backend error';
       daemonStatusBar.tooltip = 'PBIR Design Analyzer backend failed to initialize';
     }
-    pbirTreeProvider?.setLSPModelService(undefined);
+    pbirTreeProvider?.setBridgeService(undefined);
     pbirTreeProvider?.refresh();
   }
 
@@ -114,8 +118,8 @@ export async function deactivate() {
     extensionOutput.appendLine('PBIR Design Analyzer deactivating');
   }
 
-  if (lspModelService) {
-    await lspModelService.shutdown();
+  if (bridgeService) {
+    await bridgeService.shutdown();
   }
 
   if (backendClient) {

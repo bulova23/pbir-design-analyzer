@@ -62,4 +62,44 @@ describe('Analyzer Config App', () => {
       config: sampleConfig,
     });
   });
+
+  it('applies an audience preset and posts the overlaid config to the host', async () => {
+    render(<App />);
+
+    expect(postMessage).toHaveBeenCalledWith({ type: 'webviewReady' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'configState',
+            config: sampleConfig,
+            presets: [
+              {
+                id: 'executive',
+                name: 'Executive',
+                description: 'Tighter visual budget.',
+                governanceOverrides: { maxVisualsPerPage: 4 },
+                navigationScoring: { weight: 18 },
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText(/audience preset/i), {
+      target: { value: 'executive' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /save configuration/i }));
+
+    const lastCall = postMessage.mock.calls[postMessage.mock.calls.length - 1][0];
+    expect(lastCall.type).toBe('saveConfig');
+    expect(lastCall.config.appliedAudiencePresetId).toBe('executive');
+    expect(
+      lastCall.config.governance.find((rule: { id: string }) => rule.id === 'maxVisualsPerPage').value,
+    ).toBe(4);
+    expect(lastCall.config.navigationScoring.weight).toBe(18);
+  });
 });

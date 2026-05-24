@@ -34,15 +34,17 @@ const scoreState: ScorePanelState = {
     compositeScore: 77,
     feedback: {
       gestalt: [
-        { ok: true, text: 'Grid alignment: All visuals align to the grid.', earnedPoints: 35, possiblePoints: 35 },
-        { ok: true, text: 'Figure/ground: KPI cards contrast with supporting charts.', earnedPoints: 30, possiblePoints: 30 },
-        { ok: false, text: 'Similarity: 7 visual types may cause noise — aim for 2–5 distinct types.', earnedPoints: 0, possiblePoints: 20 },
-        { ok: true, text: 'Visual presence: Report contains data visuals.', earnedPoints: 15, possiblePoints: 15 },
+        { ok: true, text: 'Grid alignment: All visuals align to the grid.', findingType: 'strongHeuristic', earnedPoints: 35, possiblePoints: 35 },
+        { ok: true, text: 'Figure/ground: KPI cards contrast with supporting charts.', findingType: 'strongHeuristic', earnedPoints: 30, possiblePoints: 30 },
+        { ok: false, text: 'Similarity: 7 visual types may cause noise — aim for 2–5 distinct types.', findingType: 'strongHeuristic', earnedPoints: 0, possiblePoints: 20 },
+        { ok: true, text: 'Visual presence: Report contains data visuals.', findingType: 'objective', earnedPoints: 15, possiblePoints: 15 },
+        { ok: false, text: 'Surface treatment: Rounded cards and flat cards mix across repeated pages.', findingType: 'stylePreference' },
       ],
       cognitiveLoad: [
         {
           ok: false,
           text: 'Visual density: Several visuals compete for attention — simplify the page or split it into sub-pages.',
+          findingType: 'strongHeuristic',
           earnedPoints: 72,
           possiblePoints: 100,
           affectedVisuals: [
@@ -78,11 +80,12 @@ const scoreState: ScorePanelState = {
         narrativeScore: 67,
         compositeScore: 75,
         feedback: {
-          gestalt: [{ ok: true, text: 'Grid alignment: Overview grid is aligned.', earnedPoints: 35, possiblePoints: 35 }],
+          gestalt: [{ ok: true, text: 'Grid alignment: Overview grid is aligned.', findingType: 'strongHeuristic', earnedPoints: 35, possiblePoints: 35 }],
           cognitiveLoad: [
             {
               ok: false,
               text: 'Visual density: Overview is visually dense — simplify the page or split it into sub-pages.',
+              findingType: 'strongHeuristic',
               earnedPoints: 70,
               possiblePoints: 100,
               affectedVisuals: [
@@ -99,6 +102,49 @@ const scoreState: ScorePanelState = {
         dataVisualCount: 7,
         navigationVisualCount: 2,
         hiddenVisualCount: 1,
+        visualMetadata: {
+          pageName: 'Overview',
+          visiblePageTitle: 'Executive Overview',
+          canvasWidth: 1280,
+          canvasHeight: 720,
+          visualCount: 2,
+          visibleTitleVisualCount: 1,
+          textVisualCount: 0,
+          slicerCount: 0,
+          legendVisualCount: 1,
+          axisLabelVisualCount: 1,
+          dataLabelVisualCount: 0,
+          formattedVisualCount: 1,
+          visuals: [
+            {
+              visualId: 'v1',
+              visualType: 'barChart',
+              x: 0,
+              y: 0,
+              width: 320,
+              height: 180,
+              isHidden: false,
+              isNavigationElement: false,
+              isDecorative: false,
+              isSlicer: false,
+              visibleTitleText: 'Executive Overview',
+              bestVisibleText: 'Executive Overview',
+              hasVisibleTitleIntent: true,
+              hasLegend: true,
+              hasAxisLabels: true,
+              hasDataLabels: false,
+              categoryHints: ['Region'],
+              valueHints: ['Revenue'],
+              seriesHints: [],
+              measureHints: ['Revenue'],
+              backgroundFillColor: '#FFFFFF',
+              fontColor: '#111111',
+              hasBorder: true,
+              cornerRadius: 8,
+              hasShadow: false,
+            },
+          ],
+        },
       },
       {
         pageName: 'Details',
@@ -115,13 +161,26 @@ const scoreState: ScorePanelState = {
         narrativeScore: 70,
         compositeScore: 79,
         feedback: {
-          gestalt: [{ ok: true, text: 'Grid alignment: Details grid is aligned.', earnedPoints: 35, possiblePoints: 35 }],
-          cognitiveLoad: [{ ok: true, text: 'Visual density: Details density is acceptable.', earnedPoints: 74, possiblePoints: 100 }],
+          gestalt: [{ ok: true, text: 'Grid alignment: Details grid is aligned.', findingType: 'strongHeuristic', earnedPoints: 35, possiblePoints: 35 }],
+          cognitiveLoad: [{ ok: true, text: 'Visual density: Details density is acceptable.', findingType: 'strongHeuristic', earnedPoints: 74, possiblePoints: 100 }],
         },
         recommendations: [],
         dataVisualCount: 5,
         navigationVisualCount: 2,
         hiddenVisualCount: 0,
+        visualMetadata: {
+          pageName: 'Details',
+          visiblePageTitle: 'Detail Comparison',
+          visualCount: 1,
+          visibleTitleVisualCount: 1,
+          textVisualCount: 0,
+          slicerCount: 1,
+          legendVisualCount: 0,
+          axisLabelVisualCount: 1,
+          dataLabelVisualCount: 1,
+          formattedVisualCount: 0,
+          visuals: [],
+        },
       },
     ],
   },
@@ -156,11 +215,18 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Optimization Report')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /review recommendations/i })).toBeInTheDocument();
     expect(screen.getByText(/Visual mix: 12 data, 4 navigation, 1 hidden/i)).toBeInTheDocument();
+    expect(screen.getByText('Parsed Visual Metadata')).toBeInTheDocument();
+    expect(screen.getByText(/Executive Overview/i)).toBeInTheDocument();
+    expect(screen.getByText(/Detail Comparison/i)).toBeInTheDocument();
     expect(screen.getByText(/Score Breakdown - Grid alignment 35\/35, Figure\/ground 30\/30, Similarity 0\/20, Visual presence 15\/15\./i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Gestalt Principles'));
+    // Framework labels appear in both the summary mini-list and the framework cards; click the card title
+    fireEvent.click(screen.getAllByText('Gestalt Principles').find((el) => el.classList.contains('framework-title'))!);
     expect(screen.getAllByText('35/35').length).toBeGreaterThan(0);
     expect(screen.getAllByText('0/20').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Improve:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Heuristic').length).toBeGreaterThan(0);
+    expect(screen.getByText('Objective')).toBeInTheDocument();
+    expect(screen.getByText('Style')).toBeInTheDocument();
     expect(screen.getByText(/aim for 2–5 distinct types\./i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Details' }));
@@ -169,7 +235,9 @@ describe('Analyzer Score App', () => {
       type: 'selectTab',
       pageIndex: 2,
     });
-    fireEvent.click(screen.getByText('Cognitive Load'));
+    expect(screen.getByText(/Detail Comparison/i)).toBeInTheDocument();
+    // Framework labels appear in both the summary mini-list and the framework cards; click the card title
+    fireEvent.click(screen.getAllByText('Cognitive Load').find((el) => el.classList.contains('framework-title'))!);
     expect(screen.getAllByText('74/100').length).toBeGreaterThan(0);
     expect(screen.getByText(/Details density is acceptable\./i)).toBeInTheDocument();
   });
@@ -188,7 +256,8 @@ describe('Analyzer Score App', () => {
       );
     });
 
-    fireEvent.click(screen.getByText('Cognitive Load'));
+    // Framework labels appear in both the summary mini-list and the framework cards; click the card title
+    fireEvent.click(screen.getAllByText('Cognitive Load').find((el) => el.classList.contains('framework-title'))!);
     fireEvent.click(screen.getByText(/show affected visuals/i));
     fireEvent.click(screen.getByRole('button', { name: /actionbutton/i }));
 

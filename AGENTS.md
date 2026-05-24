@@ -1,13 +1,13 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`vscode-extension/` contains the shipped VS Code extension. Put extension runtime code in `src/`, React webviews in `webview-src/`, static assets in `resources/`, and Jest mocks in `tests/__mocks__/`. `service-dotnet/` contains the .NET 8 backend: `LspHost/` is the packaged entrypoint, `Services/Pbir/` holds scoring, governance, and tree logic, and `tests/` holds xUnit coverage. Long-form specs, release notes, and troubleshooting live in `docs/`.
+`vscode-extension/` contains the shipped VS Code extension. Put extension runtime code in `src/`, React webviews in `webview-src/`, static assets in `resources/`, and Jest mocks in `tests/__mocks__/`. `service-dotnet/` contains the .NET 8 backend: `RpcHost/` is the packaged entrypoint, `Services/Pbir/` holds scoring, governance, and tree logic, and `tests/` holds xUnit coverage. Long-form specs, release notes, and troubleshooting live in `docs/`.
 
 ## Build, Test, and Development Commands
 From `vscode-extension/`:
 
 - `npm ci` installs Node dependencies.
-- `npm run build` publishes the backend into `backend/lsp`, compiles TypeScript, bundles the extension, and builds both webviews.
+- `npm run build` publishes the backend into `backend/rpc`, compiles TypeScript, bundles the extension, and builds both webviews.
 - `npm run lint` runs ESLint on `src/**/*.ts`.
 - `npm test` runs the extension Jest suite and the webview Jest suite.
 - `npm run package` creates `pbir-design-analyzer-<version>.vsix`.
@@ -18,7 +18,25 @@ From the repo root:
 - `PBIR_REAL_FIXTURE_PATH=/path/to/Sales\\ \\&\\ Production.pbip dotnet test service-dotnet/tests/Tests.csproj --filter Category=PBITesting` runs opt-in fixture coverage.
 
 ## Agent Memory Workflow
-Read `AGENTS.md`, `.agent-memory/current-focus.md`, and `.agent-memory/repo-map.md` at session start. Review `.agent-memory/do-not-do-this.md` and `.agent-memory/failure-patterns.md` before repeating failing build, fixture, or packaging steps. Create one timestamped note per meaningful session in `.agent-memory/sessions/`, update `.agent-memory/current-focus.md` at session start and session close, and append concise outcomes to `.agent-memory/session-summaries.md`. Keep repo-local fixture details local unless they can be generalized safely.
+
+- Read `AGENTS.md`, `.agent-memory/current-focus.md`, and `.agent-memory/repo-map.md` at session start.
+- Review `.agent-memory/do-not-do-this.md` and `.agent-memory/failure-patterns.md` before repeating failing build, fixture, or packaging steps.
+- Create one timestamped note per meaningful session in `.agent-memory/sessions/`.
+- Update `.agent-memory/current-focus.md` at session start and session close.
+- Append concise outcomes to `.agent-memory/session-summaries.md`.
+- Keep repo-local fixture details local unless they can be generalized safely.
+
+## Retry And Validation Rules
+
+- Do not repeat the same failing build, test, fixture, or packaging command more than twice without a new hypothesis.
+- Prefer the narrowest useful validation after each material change.
+- If a fix cannot be validated, record that explicitly in the session note.
+
+## Session Closeout
+
+- Finalize the active session note in `.agent-memory/sessions/`.
+- Update `.agent-memory/current-focus.md` with the next recommended step.
+- Append a concise summary to `.agent-memory/session-summaries.md`.
 
 ## Coding Style & Naming Conventions
 Follow the existing file style: TypeScript and JSON use 2-space indentation, single quotes, and `camelCase` symbols; React components use `PascalCase`; test files use `*.test.ts` or `*.test.tsx`. C# uses 4-space indentation, file-scoped namespaces, `PascalCase` public members, and `_camelCase` private readonly fields. There is no Prettier config here, so rely on the current formatting and `npm run lint`.

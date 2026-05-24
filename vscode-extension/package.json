@@ -2,7 +2,7 @@
   "name": "pbir-design-analyzer",
   "displayName": "PBIR Design Analyzer",
   "description": "Analyze layout, navigation, accessibility, storytelling, and governance for local Power BI PBIP/PBIR reports in VS Code.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "publisher": "bcrowell",
   "icon": "resources/icon.png",
   "repository": {
@@ -34,7 +34,10 @@
     "onCommand:pbirAnalyzer.refreshReports",
     "onCommand:pbirAnalyzer.scoreReport",
     "onCommand:pbirAnalyzer.configureScoring",
-    "onCommand:pbirAnalyzer.checkGovernance"
+    "onCommand:pbirAnalyzer.checkGovernance",
+    "onCommand:pbirAnalyzer.exportGovernanceReport",
+    "onCommand:pbirAnalyzer.uploadScreenshots",
+    "onCommand:pbirAnalyzer.configureAuditProvider"
   ],
   "contributes": {
     "viewsContainers": {
@@ -71,6 +74,21 @@
         "command": "pbirAnalyzer.checkGovernance",
         "title": "PBIR Design Analyzer: Check Governance",
         "icon": "$(shield)"
+      },
+      {
+        "command": "pbirAnalyzer.exportGovernanceReport",
+        "title": "PBIR Design Analyzer: Export Governance Report",
+        "icon": "$(export)"
+      },
+      {
+        "command": "pbirAnalyzer.uploadScreenshots",
+        "title": "PBIR Design Analyzer: Upload Report Screenshots",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "pbirAnalyzer.configureAuditProvider",
+        "title": "PBIR Design Analyzer: Configure Visual Audit Provider",
+        "icon": "$(key)"
       }
     ],
     "configuration": {
@@ -160,8 +178,8 @@
   "scripts": {
     "vscode:prepublish": "npm run clean:backend && npm run build:backend && npm run compile && npm run bundle:extension && npm run build:webview",
     "build": "npm run clean:backend && npm run build:backend && npm run compile && npm run bundle:extension && npm run build:webview",
-    "clean:backend": "rm -rf backend/lsp",
-    "build:backend": "dotnet publish ../service-dotnet/LspHost/LspHost.csproj -c Release -o backend/lsp",
+    "clean:backend": "rm -rf backend/rpc",
+    "build:backend": "dotnet publish ../service-dotnet/RpcHost/RpcHost.csproj -c Release -o backend/rpc",
     "precompile": "rm -rf out dist",
     "compile": "tsc -p ./",
     "bundle:extension": "node scripts/bundle-extension.mjs",

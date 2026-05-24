@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolvePbirProjectPath } from '../analyzer/project/pathing';
-import { LSPModelService } from '../services/lsp/LSPModelService';
+import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { registerPbirCommands, pbirTreeProvider } from './pbirCommands';
 import { PbirConfigPanel } from '../views/PbirConfigPanel';
 
@@ -11,6 +11,9 @@ export const PBIR_ANALYZER_COMMANDS = {
   scoreReport: 'pbirAnalyzer.scoreReport',
   configureScoring: 'pbirAnalyzer.configureScoring',
   checkGovernance: 'pbirAnalyzer.checkGovernance',
+  exportGovernanceReport: 'pbirAnalyzer.exportGovernanceReport',
+  uploadScreenshots: 'pbirAnalyzer.uploadScreenshots',
+  configureAuditProvider: 'pbirAnalyzer.configureAuditProvider',
 } as const;
 
 async function promptForPbirProjectPath(): Promise<string | undefined> {
@@ -66,7 +69,7 @@ function registerCommandAlias(
 
 export function registerCommands(
   context: vscode.ExtensionContext,
-  getDotnetBridge: () => LSPModelService | undefined,
+  getDotnetBridge: () => AnalyzerBridgeService | undefined,
 ): void {
   registerPbirCommands(context, getDotnetBridge);
 
@@ -89,4 +92,7 @@ export function registerCommands(
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.refreshReports, 'pbir.refreshTree');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.scoreReport, 'pbir.scoreReport');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.checkGovernance, 'pbir.governanceCheck');
+  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportGovernanceReport, 'pbir.exportGovernanceReport');
+  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.uploadScreenshots, 'pbir.uploadScreenshots');
+  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.configureAuditProvider, 'pbir.configureAuditProvider');
 }

@@ -78,6 +78,25 @@ public sealed class BookmarkStateAnalyzer
     }
 
     /// <summary>
+    /// Filters a visual collection to the subset visible in the given layout state.
+    /// Used by per-state scoring to build a "shadow" view of the page with only the
+    /// visuals that participate in the bookmarked layout.
+    /// </summary>
+    /// <param name="visuals">All visuals on the page.</param>
+    /// <param name="state">The layout state to filter against.</param>
+    /// <returns>The subset of visuals whose id appears in <see cref="LayoutStateGenerator.LayoutState.VisibleVisualIds"/>.</returns>
+    public static List<VisualProxy> FilterVisualsForState(
+        IEnumerable<VisualProxy> visuals,
+        LayoutStateGenerator.LayoutState state)
+    {
+        ArgumentNullException.ThrowIfNull(visuals);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var visibleIds = new HashSet<string>(state.VisibleVisualIds, StringComparer.Ordinal);
+        return visuals.Where(v => visibleIds.Contains(v.Id)).ToList();
+    }
+
+    /// <summary>
     /// Computes the average score across all layout states.
     /// Used as the overall page score when bookmarks are present.
     /// </summary>

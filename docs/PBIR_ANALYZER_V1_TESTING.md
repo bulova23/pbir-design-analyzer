@@ -45,7 +45,7 @@ npm run build
 npm run package
 ```
 
-`npm run build` publishes the minimal packaged backend to `vscode-extension/backend/lsp`, then rebuilds the TypeScript extension and React webview bundles. `npm run package` runs that prepublish path again before creating `pbir-design-analyzer-0.1.9.vsix`.
+`npm run build` publishes the minimal packaged backend to `vscode-extension/backend/rpc`, then rebuilds the TypeScript extension and React webview bundles. `npm run package` runs that prepublish path again before creating `pbir-design-analyzer-0.1.9.vsix`.
 
 ## Manual Smoke Flow
 

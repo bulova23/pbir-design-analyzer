@@ -20,7 +20,7 @@ export function createAnalyzerBackendClient(
     const serverPath = getBackendExecutablePath(context);
 
     if (!serverPath) {
-      console.warn('[LSP] No analyzer backend path found. PBIR analysis features disabled.');
+      console.warn('[RPC] No analyzer backend path found. PBIR analysis features disabled.');
       return undefined;
     }
 
@@ -51,12 +51,12 @@ export function createAnalyzerBackendClient(
     );
 
     client.onDidChangeState((event) => {
-      console.log(`[LSP] State changed: ${event.oldState} -> ${event.newState}`);
+      console.log(`[RPC] State changed: ${event.oldState} -> ${event.newState}`);
 
       if (event.newState === State.Running) {
-        console.log('[LSP] Analyzer backend started successfully');
+        console.log('[RPC] Analyzer backend started successfully');
       } else if (event.newState === State.Stopped && event.oldState === State.Starting) {
-        console.error('[LSP] Analyzer backend failed to start');
+        console.error('[RPC] Analyzer backend failed to start');
         vscode.window
           .showErrorMessage(
             'PBIR Design Analyzer backend failed to start. Check that the packaged binary is executable and .NET 8 is installed.',
@@ -72,7 +72,7 @@ export function createAnalyzerBackendClient(
 
     return client;
   } catch (error) {
-    console.error('[LSP] Failed to create analyzer backend client:', error);
+    console.error('[RPC] Failed to create analyzer backend client:', error);
     return undefined;
   }
 }
@@ -81,11 +81,11 @@ function getBackendExecutablePath(context: vscode.ExtensionContext): string | nu
   try {
     const repoPath = path.resolve(context.extensionPath, '..');
     const possiblePaths = [
-      path.join(context.extensionPath, 'backend', 'lsp', 'ModelingLanguageServer'),
-      path.join(repoPath, 'vscode-extension', 'backend', 'lsp', 'ModelingLanguageServer'),
-      path.join(repoPath, 'service-dotnet', 'LspHost', 'bin', 'Debug', 'net8.0', 'ModelingLanguageServer'),
-      path.join(repoPath, 'service-dotnet', 'LspHost', 'bin', 'Release', 'net8.0', 'ModelingLanguageServer'),
-      path.join(repoPath, 'service-dotnet', 'LspHost', 'bin', 'Release', 'net8.0', 'publish', 'ModelingLanguageServer'),
+      path.join(context.extensionPath, 'backend', 'rpc', 'ModelingLanguageServer'),
+      path.join(repoPath, 'vscode-extension', 'backend', 'rpc', 'ModelingLanguageServer'),
+      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Debug', 'net8.0', 'ModelingLanguageServer'),
+      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Release', 'net8.0', 'ModelingLanguageServer'),
+      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Release', 'net8.0', 'publish', 'ModelingLanguageServer'),
     ];
 
     for (const basePath of possiblePaths) {
@@ -117,7 +117,7 @@ function getBackendExecutablePath(context: vscode.ExtensionContext): string | nu
 
     return null;
   } catch (error) {
-    console.error('[LSP] Error finding analyzer backend path:', error);
+    console.error('[RPC] Error finding analyzer backend path:', error);
     return null;
   }
 }
@@ -128,6 +128,6 @@ export async function stopAnalyzerBackendClient(client: LanguageClient): Promise
       await client.stop();
     }
   } catch (error) {
-    console.error('[LSP] Error stopping analyzer backend client:', error);
+    console.error('[RPC] Error stopping analyzer backend client:', error);
   }
 }

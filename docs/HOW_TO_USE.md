@@ -355,6 +355,96 @@ Evaluates whether a page contains a healthy amount of information without becomi
 
 Scores how well the report guides the user through a story, including page sequence, emphasis, supporting detail, and the flow from headline insights to supporting analysis.
 
+## Visual Audit Coverage
+
+Visual Audit Coverage lets you attach screenshots of report pages and run AI-assisted design analysis on them. Findings appear alongside the PBIR scoring results as a non-scored evidence layer — they do not change the composite score, but they surface visual issues that the static parser cannot detect, such as clipped labels, overlapping visuals, or layout imbalance.
+
+### Supported AI Providers
+
+Two providers are supported. Both send the screenshot to a vision-capable model and receive structured findings in return. Neither provider stores or trains on your screenshots.
+
+| Provider | Model | Key source |
+|---|---|---|
+| Anthropic Claude Vision | claude-haiku-4-5 | [console.anthropic.com](https://console.anthropic.com) |
+| OpenAI GPT-4o Vision | gpt-4o | [platform.openai.com](https://platform.openai.com) |
+
+### Step 1 — Configure The AI Provider
+
+Before you can analyze screenshots you must provide an API key for one of the supported providers.
+
+**From the score panel:**
+
+1. Score a report to open the score panel.
+2. Scroll to the **Visual Audit Coverage** card at the bottom of the panel.
+3. Click **Configure AI Provider**.
+4. Select your preferred provider from the quick-pick list.
+5. Paste your API key into the input box and press Enter.
+
+**From the command palette:**
+
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
+2. Run **PBIR Design Analyzer: Configure Visual Audit Provider**.
+3. Select a provider and enter your API key.
+
+The API key is stored in VS Code `SecretStorage`. It is never written to disk, logged, or included in any extension output. The active provider choice is saved to VS Code `globalState` and remembered across sessions.
+
+To switch providers later, run the configure command again and select a different provider. The previous key for the old provider is retained in SecretStorage in case you switch back.
+
+### Step 2 — Attach Screenshots
+
+You can attach one or more screenshots per report page.
+
+**Upload multiple screenshots at once:**
+
+1. Click **Upload Screenshots** in the Visual Audit Coverage card.
+2. Select one or more image files (`PNG`, `JPG`, `JPEG`, `WEBP`).
+
+The extension attempts to match each filename to a report page automatically. A filename like `01 - Executive Summary.png` will be matched against the page named `Executive Summary`. Unmatched screenshots appear in a review queue at the top of the coverage card where you can assign them to the correct page using the drop-down.
+
+**Attach a screenshot to a specific page:**
+
+1. Navigate to a page tab in the score panel.
+2. Scroll to the **Visual Audit** section for that page.
+3. Click **Attach Screenshot** and select one image file.
+
+Attached screenshots are copied to extension storage and persist across VS Code reloads and report re-scores.
+
+### Step 3 — Analyze A Screenshot
+
+Once a screenshot is attached and an AI provider is configured:
+
+1. Navigate to the page tab in the score panel.
+2. Locate the screenshot in the **Visual Audit** section.
+3. Click **Analyze**.
+
+The extension sends the screenshot to the configured AI provider. While analysis is in progress, the button shows **Analyzing…**. When complete, findings appear below the screenshot list.
+
+### Understanding Audit Findings
+
+Each finding includes:
+
+- **Finding type** — `Objective` (clearly visible defect), `Heuristic` (design best-practice concern), or `Style` (polish and consistency observation)
+- **Severity** — `Critical`, `Warning`, or `Info`
+- **Confidence** — `High`, `Medium`, or `Low`
+- **Description** — what was detected in the screenshot
+- **Recommendation** — a suggested corrective action
+- **Region hint** — the approximate area of the screenshot where the issue was observed (when available)
+
+Audit findings are not incorporated into the composite score. They are supplemental evidence intended to be reviewed alongside the framework findings.
+
+### Coverage Card
+
+The **Visual Audit Coverage** card on the `Overall` tab shows a summary across the whole report:
+
+- how many pages have at least one screenshot attached
+- how many pages have findings from at least one analysis run
+- how many pages are still missing screenshots
+- any screenshots that could not be matched to a page automatically
+
+### Removing Screenshots
+
+To remove a screenshot, click the **×** button beside it in the page audit section. The screenshot file is deleted from extension storage and the associated findings are removed from the session.
+
 ## Troubleshooting And Feedback
 
 - For setup or runtime issues, start with [PBIR Troubleshooting](PBIR_TROUBLESHOOTING.md).

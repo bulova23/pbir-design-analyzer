@@ -7,11 +7,11 @@ using PowerBIModelingService.Services.Pbir;
 using Serilog;
 using Serilog.Events;
 
-namespace PowerBIModelingService.LspHost;
+namespace PowerBIModelingService.RpcHost;
 
 /// <summary>
 /// Minimal PBIR analyzer host.
-/// Keeps the LSP/JSON-RPC transport shape for v1 while exposing only the
+/// Keeps the JSON-RPC transport shape for v1 while exposing only the
 /// analyzer workflows that remain in product scope.
 /// </summary>
 public static class Program

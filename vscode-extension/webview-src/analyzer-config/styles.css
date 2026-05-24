@@ -331,3 +331,149 @@ a {
     width: 100%;
   }
 }
+
+.preset-card {
+  background: color-mix(in srgb, var(--panel-accent) 4%, transparent);
+}
+
+.preset-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 28rem;
+}
+
+.preset-control > span {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preset-select {
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font: inherit;
+}
+
+.preset-description {
+  margin: 12px 0 0;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+}
+
+/* Visual Audit Provider */
+.audit-provider-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.audit-provider-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+  transition: border-color 0.15s;
+}
+
+.audit-provider-selected {
+  border-color: color-mix(in srgb, var(--panel-accent) 55%, var(--panel-border));
+  background: color-mix(in srgb, var(--panel-accent) 6%, var(--vscode-editor-background));
+}
+
+.audit-provider-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.audit-provider-name {
+  font-weight: 600;
+}
+
+.audit-provider-model {
+  font-size: 12px;
+  color: var(--panel-muted);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.audit-provider-badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+
+.audit-badge-configured {
+  color: var(--panel-success);
+  background: color-mix(in srgb, var(--panel-success) 10%, transparent);
+}
+
+.audit-badge-none {
+  color: var(--panel-muted);
+  background: transparent;
+}
+
+.audit-delete-button {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--panel-danger) 45%, var(--panel-border));
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--panel-danger);
+  background: transparent;
+}
+
+.audit-delete-button:hover {
+  background: color-mix(in srgb, var(--panel-danger) 10%, transparent);
+}
+
+.audit-key-field {
+  display: grid;
+  gap: 8px;
+}
+
+.audit-key-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.audit-key-row {
+  display: flex;
+  gap: 10px;
+}
+
+.audit-key-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+}
+
+.audit-key-status {
+  margin: 0;
+  font-size: 13px;
+}
+
+.audit-key-status-ok {
+  color: var(--panel-success);
+}
+
+.audit-key-status-error {
+  color: var(--panel-danger);
+}

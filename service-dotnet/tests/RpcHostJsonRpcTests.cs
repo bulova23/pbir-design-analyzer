@@ -8,7 +8,7 @@ using Xunit;
 
 namespace ServiceDotnet.Tests
 {
-    public class LspHostJsonRpcTests
+    public class RpcHostJsonRpcTests
     {
         [Fact]
         public void SendResponse_WithNullResult_SerializesValidJsonRpc()
@@ -26,7 +26,7 @@ namespace ServiceDotnet.Tests
         [Fact]
         public async Task HandleDefinitionAsync_WithNullParams_ReturnsErrorResponseAsync()
         {
-            var handler = new FakeLspHandler();
+            var handler = new FakeRpcHandler();
             var response = await handler.HandleDefinitionAsync(null);
             Assert.NotNull(response);
             // When params are null, handler returns null result (valid JSON-RPC with { "result": null })
@@ -36,7 +36,7 @@ namespace ServiceDotnet.Tests
         [Fact]
         public async Task HandleDefinitionAsync_ServiceReturnsNull_ReturnsValidResponseAsync()
         {
-            var handler = new FakeLspHandler(returnNull:true);
+            var handler = new FakeRpcHandler(returnNull:true);
             var response = await handler.HandleDefinitionAsync(new JsonElement?());
             Assert.NotNull(response);
             Assert.True(response is JsonRpcResponse);
@@ -52,7 +52,7 @@ namespace ServiceDotnet.Tests
         [Fact]
         public async Task HandleHoverAsync_ThrowsException_ReturnsErrorResponseAsync()
         {
-            var handler = new FakeLspHandler(throwOnHover:true);
+            var handler = new FakeRpcHandler(throwOnHover:true);
             var response = await handler.HandleHoverAsync(new JsonElement?());
             Assert.NotNull(response);
             Assert.True(response is JsonRpcErrorResponse);
@@ -67,7 +67,7 @@ namespace ServiceDotnet.Tests
         }
 
         [Fact]
-        public void ScoreResult_SerializesInCamelCase_ForLspHostContract()
+        public void ScoreResult_SerializesInCamelCase_ForRpcHostContract()
         {
             var options = new JsonSerializerOptions
             {
@@ -92,9 +92,33 @@ namespace ServiceDotnet.Tests
                 ReportPath = "/tmp/Sales.Report",
                 Recommendations = new List<string> { "[High] Layout: Snap visuals to grid" },
                 FrameworkWeights = new Dictionary<string, double> { ["gestalt"] = 25.0 },
+                VisualMetadata = new PageVisualMetadataSummary
+                {
+                    PageName = "Overview",
+                    VisiblePageTitle = "Sales Overview",
+                    VisualCount = 1,
+                    VisibleTitleVisualCount = 1,
+                    TextVisualCount = 0,
+                    SlicerCount = 0,
+                    LegendVisualCount = 1,
+                    AxisLabelVisualCount = 1,
+                    DataLabelVisualCount = 0,
+                    FormattedVisualCount = 1,
+                    Visuals = new List<VisualMetadataItem>
+                    {
+                        new()
+                        {
+                            VisualId = "v1",
+                            VisualType = "barChart",
+                            HasVisibleTitleIntent = true,
+                            Width = 320,
+                            Height = 180,
+                        },
+                    },
+                },
                 Feedback = new Dictionary<string, List<FrameworkFeedbackItem>>
                 {
-                    ["gestalt"] = new() { new FrameworkFeedbackItem(true, "Aligned.") }
+                    ["gestalt"] = new() { new FrameworkFeedbackItem(true, "Aligned.", FindingType: FindingTypes.StrongHeuristic) }
                 },
             };
 
@@ -103,9 +127,14 @@ namespace ServiceDotnet.Tests
             Assert.Contains("\"recommendations\":[", json);
             Assert.Contains("\"frameworkWeights\":{", json);
             Assert.Contains("\"reportPath\":\"/tmp/Sales.Report\"", json);
+            Assert.Contains("\"visualMetadata\":{", json);
+            Assert.Contains("\"visiblePageTitle\":\"Sales Overview\"", json);
+            Assert.Contains("\"findingType\":\"strongHeuristic\"", json);
             Assert.DoesNotContain("\"Recommendations\"", json);
             Assert.DoesNotContain("\"FrameworkWeights\"", json);
             Assert.DoesNotContain("\"ReportPath\"", json);
+            Assert.DoesNotContain("\"VisualMetadata\"", json);
+            Assert.DoesNotContain("\"FindingType\"", json);
         }
 
         // Minimal stubs for test
@@ -124,11 +153,11 @@ namespace ServiceDotnet.Tests
             public int Code { get; set; } = -32603;
             public string? Message { get; set; } = "error";
         }
-        public class FakeLspHandler
+        public class FakeRpcHandler
         {
             private readonly bool _returnNull;
             private readonly bool _throwOnHover;
-            public FakeLspHandler(bool returnNull = false, bool throwOnHover = false)
+            public FakeRpcHandler(bool returnNull = false, bool throwOnHover = false)
             {
                 _returnNull = returnNull;
                 _throwOnHover = throwOnHover;

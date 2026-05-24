@@ -224,18 +224,30 @@ export const extensions = {
   getExtension: jest.fn(),
 };
 
+export const env = {
+  isTelemetryEnabled: true,
+  machineId: 'test-machine-id',
+  sessionId: 'test-session-id',
+  language: 'en',
+  appName: 'VS Code Test',
+  appRoot: '/test',
+  uriScheme: 'vscode',
+  clipboard: { readText: jest.fn(), writeText: jest.fn() },
+  openExternal: jest.fn(),
+};
+
 export const authentication = {
   getSession: jest.fn().mockResolvedValue(null),
 };
 
-export default { 
-  window, 
-  workspace, 
-  commands, 
-  ProgressLocation, 
-  Uri, 
-  ConfigurationTarget, 
-  EventEmitter, 
+export default {
+  window,
+  workspace,
+  commands,
+  ProgressLocation,
+  Uri,
+  ConfigurationTarget,
+  EventEmitter,
   StatusBarAlignment,
   TreeItem,
   TreeItemCollapsibleState,
@@ -244,4 +256,5 @@ export default {
   CompletionItemKind,
   extensions,
   authentication,
+  env,
 };

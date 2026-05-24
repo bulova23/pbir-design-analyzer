@@ -23,7 +23,7 @@ node_modules/**
 out/**
 out/**/*.map
 backend/**
-!backend/lsp/**
+!backend/rpc/**
 backend/**/*.pdb
 backend/**/*.xml
 webview-dist/**/*.map

@@ -1,17 +1,23 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import type {
+  AuditProviderChoice,
   ConfigPanelHostToWebviewMessage,
   ConfigPanelStatus,
   ConfigPanelWebviewToHostMessage,
 } from '../analyzer/contracts/configPanel';
 import {
   getGovernanceDefaultsPath,
+  loadAudiencePresets,
   loadDesignAnalyzerConfig,
   resetDesignAnalyzerConfig,
   saveDesignAnalyzerConfig,
 } from '../analyzer/config/store';
 import { resolveWebviewAssets } from './webviewAssets';
+
+const ACTIVE_PROVIDER_KEY = 'pbir-audit.active-provider';
+const ANTHROPIC_SECRET_KEY = 'pbir-audit.anthropic-api-key';
+const OPENAI_SECRET_KEY = 'pbir-audit.openai-api-key';
 
 export class PbirConfigPanel {
   private static instance: PbirConfigPanel | undefined;
@@ -61,7 +67,12 @@ export class PbirConfigPanel {
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
-      (message) => this.handleMessage(message as ConfigPanelWebviewToHostMessage),
+      (message) => {
+        this.handleMessage(message as ConfigPanelWebviewToHostMessage).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Design Analyzer config error: ${msg}`);
+        });
+      },
       null,
       this.disposables,
     );
@@ -80,6 +91,7 @@ export class PbirConfigPanel {
           this.postMessage({
             type: 'configState',
             config,
+            presets: loadAudiencePresets(this.context),
             status: {
               level: 'success',
               message: 'Analyzer configuration saved.',
@@ -95,6 +107,7 @@ export class PbirConfigPanel {
           this.postMessage({
             type: 'configState',
             config,
+            presets: loadAudiencePresets(this.context),
             status: {
               level: 'success',
               message: 'Analyzer configuration reset to defaults.',
@@ -107,6 +120,12 @@ export class PbirConfigPanel {
       case 'openGovernanceJson':
         await this.openGovernanceJson();
         return;
+      case 'saveAuditProvider':
+        await this.handleSaveAuditProvider(message.provider, message.apiKey);
+        return;
+      case 'deleteAuditProviderKey':
+        await this.handleDeleteAuditProviderKey(message.provider);
+        return;
     }
   }
 
@@ -116,10 +135,54 @@ export class PbirConfigPanel {
       this.postMessage({
         type: 'configState',
         config,
+        presets: loadAudiencePresets(this.context),
         status,
       });
+      await this.postAuditProviderState();
     } catch (error) {
       this.postError(error);
+    }
+  }
+
+  private async postAuditProviderState(saveStatus?: ConfigPanelStatus): Promise<void> {
+    const activeProvider = (this.context.globalState.get<AuditProviderChoice>(ACTIVE_PROVIDER_KEY) ?? 'anthropic');
+    const anthropicKey = await this.context.secrets.get(ANTHROPIC_SECRET_KEY);
+    const openaiKey = await this.context.secrets.get(OPENAI_SECRET_KEY);
+    this.postMessage({
+      type: 'auditProviderState',
+      activeProvider,
+      anthropicConfigured: Boolean(anthropicKey?.trim()),
+      openaiConfigured: Boolean(openaiKey?.trim()),
+      saveStatus,
+    });
+  }
+
+  private async handleDeleteAuditProviderKey(provider: AuditProviderChoice): Promise<void> {
+    try {
+      const secretKey = provider === 'openai' ? OPENAI_SECRET_KEY : ANTHROPIC_SECRET_KEY;
+      await this.context.secrets.delete(secretKey);
+      const label = provider === 'openai' ? 'OpenAI GPT-4o Vision' : 'Anthropic Claude Vision';
+      await this.postAuditProviderState({ level: 'success', message: `${label} API key removed.` });
+    } catch (error) {
+      await this.postAuditProviderState({
+        level: 'error',
+        message: error instanceof Error ? error.message : 'Failed to remove API key.',
+      });
+    }
+  }
+
+  private async handleSaveAuditProvider(provider: AuditProviderChoice, apiKey: string): Promise<void> {
+    try {
+      await this.context.globalState.update(ACTIVE_PROVIDER_KEY, provider);
+      const secretKey = provider === 'openai' ? OPENAI_SECRET_KEY : ANTHROPIC_SECRET_KEY;
+      await this.context.secrets.store(secretKey, apiKey.trim());
+      const label = provider === 'openai' ? 'OpenAI GPT-4o Vision' : 'Anthropic Claude Vision';
+      await this.postAuditProviderState({ level: 'success', message: `${label} API key saved.` });
+    } catch (error) {
+      await this.postAuditProviderState({
+        level: 'error',
+        message: error instanceof Error ? error.message : 'Failed to save API key.',
+      });
     }
   }
 
