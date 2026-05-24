@@ -219,7 +219,8 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/Executive Overview/i)).toBeInTheDocument();
     expect(screen.getByText(/Detail Comparison/i)).toBeInTheDocument();
     expect(screen.getByText(/Score Breakdown - Grid alignment 35\/35, Figure\/ground 30\/30, Similarity 0\/20, Visual presence 15\/15\./i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Gestalt Principles'));
+    // Framework labels appear in both the summary mini-list and the framework cards; click the card title
+    fireEvent.click(screen.getAllByText('Gestalt Principles').find((el) => el.classList.contains('framework-title'))!);
     expect(screen.getAllByText('35/35').length).toBeGreaterThan(0);
     expect(screen.getAllByText('0/20').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Improve:/i).length).toBeGreaterThan(0);
@@ -235,7 +236,8 @@ describe('Analyzer Score App', () => {
       pageIndex: 2,
     });
     expect(screen.getByText(/Detail Comparison/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Cognitive Load'));
+    // Framework labels appear in both the summary mini-list and the framework cards; click the card title
+    fireEvent.click(screen.getAllByText('Cognitive Load').find((el) => el.classList.contains('framework-title'))!);
     expect(screen.getAllByText('74/100').length).toBeGreaterThan(0);
     expect(screen.getByText(/Details density is acceptable\./i)).toBeInTheDocument();
   });
@@ -254,7 +256,8 @@ describe('Analyzer Score App', () => {
       );
     });
 
-    fireEvent.click(screen.getByText('Cognitive Load'));
+    // Framework labels appear in both the summary mini-list and the framework cards; click the card title
+    fireEvent.click(screen.getAllByText('Cognitive Load').find((el) => el.classList.contains('framework-title'))!);
     fireEvent.click(screen.getByText(/show affected visuals/i));
     fireEvent.click(screen.getByRole('button', { name: /actionbutton/i }));
 

@@ -339,35 +339,40 @@ function renderMetadataOverview(pageScores: PageScore[]): React.ReactNode {
   }
 
   return (
-    <section className="panel-card">
-      <h2>Parsed Visual Metadata</h2>
-      <p className="empty-text">
-        Page-level parser coverage snapshot across the report. Open a page tab for per-visual detail.
-      </p>
-      <div className="metadata-overview-grid">
-        {pagesWithMetadata.map((page) => {
-          const summary = page.visualMetadata!;
-          return (
-            <article className="metadata-overview-card" key={page.pageName}>
-              <div className="metadata-overview-head">
-                <div>
-                  <p className="metadata-overview-page">{summary.pageName}</p>
-                  <p className="metadata-overview-title">
-                    {summary.visiblePageTitle ?? 'No visible page title detected'}
-                  </p>
+    <details className="panel-card collapsible-panel">
+      <summary className="collapsible-summary">
+        <span>Parsed Visual Metadata</span>
+        <span className="collapsible-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div className="collapsible-body">
+        <p className="empty-text">
+          Page-level parser coverage snapshot across the report. Open a page tab for per-visual detail.
+        </p>
+        <div className="metadata-overview-grid">
+          {pagesWithMetadata.map((page) => {
+            const summary = page.visualMetadata!;
+            return (
+              <article className="metadata-overview-card" key={page.pageName}>
+                <div className="metadata-overview-head">
+                  <div>
+                    <p className="metadata-overview-page">{summary.pageName}</p>
+                    <p className="metadata-overview-title">
+                      {summary.visiblePageTitle ?? 'No visible page title detected'}
+                    </p>
+                  </div>
+                  <strong>{summary.visualCount}</strong>
                 </div>
-                <strong>{summary.visualCount}</strong>
-              </div>
-              <p className="metadata-overview-copy">
-                {summary.visibleTitleVisualCount} title-bearing visual(s), {summary.legendVisualCount} with legends,
-                {' '}
-                {summary.axisLabelVisualCount} with axis labels, {summary.dataLabelVisualCount} with data labels.
-              </p>
-            </article>
-          );
-        })}
+                <p className="metadata-overview-copy">
+                  {summary.visibleTitleVisualCount} title-bearing visual(s), {summary.legendVisualCount} with legends,
+                  {' '}
+                  {summary.axisLabelVisualCount} with axis labels, {summary.dataLabelVisualCount} with data labels.
+                </p>
+              </article>
+            );
+          })}
+        </div>
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -376,106 +381,111 @@ function renderVisualMetadataDetail(
   onRevealVisual: (visual: AffectedVisualReference) => void,
 ): React.ReactNode {
   return (
-    <section className="panel-card">
-      <h2>Parsed Visual Metadata</h2>
-      <p className="empty-text">
-        {summary.visiblePageTitle
-          ? `Visible page title: ${summary.visiblePageTitle}.`
-          : 'No visible page title was detected on this page.'}
-        {' '}
-        {summary.canvasWidth && summary.canvasHeight
-          ? `Canvas ${Math.round(summary.canvasWidth)} × ${Math.round(summary.canvasHeight)}.`
-          : 'Canvas size not exposed by PBIR.'}
-      </p>
-      <div className="metadata-stat-grid">
-        <div className="metadata-stat-card">
-          <strong>{summary.visualCount}</strong>
-          <span>Total visuals</span>
+    <details className="panel-card collapsible-panel">
+      <summary className="collapsible-summary">
+        <span>Parsed Visual Metadata</span>
+        <span className="collapsible-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div className="collapsible-body">
+        <p className="empty-text">
+          {summary.visiblePageTitle
+            ? `Visible page title: ${summary.visiblePageTitle}.`
+            : 'No visible page title was detected on this page.'}
+          {' '}
+          {summary.canvasWidth && summary.canvasHeight
+            ? `Canvas ${Math.round(summary.canvasWidth)} × ${Math.round(summary.canvasHeight)}.`
+            : 'Canvas size not exposed by PBIR.'}
+        </p>
+        <div className="metadata-stat-grid">
+          <div className="metadata-stat-card">
+            <strong>{summary.visualCount}</strong>
+            <span>Total visuals</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.visibleTitleVisualCount}</strong>
+            <span>Title-bearing</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.slicerCount}</strong>
+            <span>Slicers</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.legendVisualCount}</strong>
+            <span>Legends</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.axisLabelVisualCount}</strong>
+            <span>Axis labels</span>
+          </div>
+          <div className="metadata-stat-card">
+            <strong>{summary.formattedVisualCount}</strong>
+            <span>Formatting facts</span>
+          </div>
         </div>
-        <div className="metadata-stat-card">
-          <strong>{summary.visibleTitleVisualCount}</strong>
-          <span>Title-bearing</span>
-        </div>
-        <div className="metadata-stat-card">
-          <strong>{summary.slicerCount}</strong>
-          <span>Slicers</span>
-        </div>
-        <div className="metadata-stat-card">
-          <strong>{summary.legendVisualCount}</strong>
-          <span>Legends</span>
-        </div>
-        <div className="metadata-stat-card">
-          <strong>{summary.axisLabelVisualCount}</strong>
-          <span>Axis labels</span>
-        </div>
-        <div className="metadata-stat-card">
-          <strong>{summary.formattedVisualCount}</strong>
-          <span>Formatting facts</span>
-        </div>
-      </div>
-      {summary.visuals.length > 0 ? (
-        <ul className="metadata-visual-list">
-          {summary.visuals.map((item) => {
-            const tags = buildMetadataTags(item);
-            const roleHints = buildRoleHints(item);
-            const visibleText = item.bestVisibleText ?? item.visibleTitleText ?? item.textBoxText ?? item.visibleSubtitleText;
+        {summary.visuals.length > 0 ? (
+          <ul className="metadata-visual-list">
+            {summary.visuals.map((item) => {
+              const tags = buildMetadataTags(item);
+              const roleHints = buildRoleHints(item);
+              const visibleText = item.bestVisibleText ?? item.visibleTitleText ?? item.textBoxText ?? item.visibleSubtitleText;
 
-            return (
-              <li className="metadata-visual-card" key={`${summary.pageName}-${item.visualId}`}>
-                <div className="metadata-visual-head">
-                  <div>
-                    <p className="metadata-visual-title">
-                      {visibleText ?? `${item.visualType} ${shortenVisualId(item.visualId)}`}
-                    </p>
-                    <p className="metadata-visual-meta">
-                      {item.visualType} · {item.visualId} · {Math.round(item.width)} × {Math.round(item.height)} at {Math.round(item.x)},{' '}
-                      {Math.round(item.y)}
-                    </p>
+              return (
+                <li className="metadata-visual-card" key={`${summary.pageName}-${item.visualId}`}>
+                  <div className="metadata-visual-head">
+                    <div>
+                      <p className="metadata-visual-title">
+                        {visibleText ?? `${item.visualType} ${shortenVisualId(item.visualId)}`}
+                      </p>
+                      <p className="metadata-visual-meta">
+                        {item.visualType} · {item.visualId} · {Math.round(item.width)} × {Math.round(item.height)} at {Math.round(item.x)},{' '}
+                        {Math.round(item.y)}
+                      </p>
+                    </div>
+                    <button
+                      className="secondary-button metadata-reveal-button"
+                      onClick={() => onRevealVisual({
+                        pageName: summary.pageName,
+                        visualId: item.visualId,
+                        visualType: item.visualType,
+                      })}
+                      type="button"
+                    >
+                      Reveal
+                    </button>
                   </div>
-                  <button
-                    className="secondary-button metadata-reveal-button"
-                    onClick={() => onRevealVisual({
-                      pageName: summary.pageName,
-                      visualId: item.visualId,
-                      visualType: item.visualType,
-                    })}
-                    type="button"
-                  >
-                    Reveal
-                  </button>
-                </div>
-                {item.visibleSubtitleText && item.visibleSubtitleText !== visibleText ? (
-                  <p className="metadata-visual-copy">
-                    <strong>Subtitle:</strong> {item.visibleSubtitleText}
-                  </p>
-                ) : null}
-                {item.textBoxText && item.textBoxText !== visibleText ? (
-                  <p className="metadata-visual-copy">
-                    <strong>Text:</strong> {item.textBoxText}
-                  </p>
-                ) : null}
-                {roleHints.length > 0 ? (
-                  <p className="metadata-visual-copy">
-                    <strong>Role hints:</strong> {roleHints.join(' · ')}
-                  </p>
-                ) : null}
-                {tags.length > 0 ? (
-                  <div className="metadata-tag-row">
-                    {tags.map((tag) => (
-                      <span className="metadata-tag" key={`${item.visualId}-${tag}`}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="empty-text">No per-visual metadata was exposed for this page.</p>
-      )}
-    </section>
+                  {item.visibleSubtitleText && item.visibleSubtitleText !== visibleText ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Subtitle:</strong> {item.visibleSubtitleText}
+                    </p>
+                  ) : null}
+                  {item.textBoxText && item.textBoxText !== visibleText ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Text:</strong> {item.textBoxText}
+                    </p>
+                  ) : null}
+                  {roleHints.length > 0 ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Role hints:</strong> {roleHints.join(' · ')}
+                    </p>
+                  ) : null}
+                  {tags.length > 0 ? (
+                    <div className="metadata-tag-row">
+                      {tags.map((tag) => (
+                        <span className="metadata-tag" key={`${item.visualId}-${tag}`}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="empty-text">No per-visual metadata was exposed for this page.</p>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -496,7 +506,10 @@ function FrameworkSection(props: {
             <summary className="framework-summary">
               <div className="framework-heading">
                 <span className="framework-title">{framework.label}</span>
-                <span className="framework-weight">{framework.weightLabel}</span>
+                <div className="framework-heading-right">
+                  <span className="framework-weight">{framework.weightLabel}</span>
+                  <span className="framework-caret" aria-hidden="true">▾</span>
+                </div>
               </div>
               {breakdown ? <p className="framework-breakdown">{breakdown}</p> : null}
               <div className="framework-meter">
@@ -744,7 +757,7 @@ export default function App(): JSX.Element {
   const [activeTab, setActiveTab] = React.useState(0);
   const [analyzingCaptureId, setAnalyzingCaptureId] = React.useState<string | undefined>(undefined);
   const vscodeApiRef = React.useRef<ScoreVsCodeApi | null>(null);
-  const recommendationsSectionRef = React.useRef<HTMLElement | null>(null);
+  const recommendationsSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   if (!vscodeApiRef.current) {
     vscodeApiRef.current = acquireVsCodeApi();
@@ -940,31 +953,70 @@ export default function App(): JSX.Element {
       ) : null}
 
       <section className="summary-card">
-        <div className={`score-chip ${getScoreTone(scoreValue)}`}>
-          <span>{Math.round(scoreValue)}</span>
-          <small>/100</small>
-        </div>
-        <div className="summary-copy">
-          <h2>{selectedPage ? `${selectedPage.pageName} Score` : 'Composite Score'}</h2>
-          <p>
-            {selectedPage
-              ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks on this page.`
-              : multiPage
-                ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks across all pages.`
-                : `Weighted average of ${enabledFrameworks.length} enabled design frameworks.`}
-          </p>
-          {typeof visualMix.data === 'number' &&
-          typeof visualMix.navigation === 'number' &&
-          typeof visualMix.hidden === 'number' ? (
+        <div className="summary-top-row">
+          <div className={`score-chip ${getScoreTone(scoreValue)}`}>
+            <span>{Math.round(scoreValue)}</span>
+            <small>/100</small>
+          </div>
+          <div className="summary-copy">
+            <h2>{selectedPage ? `${selectedPage.pageName} Score` : 'Composite Score'}</h2>
             <p>
-              Visual mix: {visualMix.data} data, {visualMix.navigation} navigation, {visualMix.hidden} hidden.
-              {' '}
-              {config.navigationScoring.enabled
-                ? `Navigation controls count at ${config.navigationScoring.weight}% weight.`
-                : 'Navigation controls use legacy full-weight treatment.'}
+              {selectedPage
+                ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks on this page.`
+                : multiPage
+                  ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks across all pages.`
+                  : `Weighted average of ${enabledFrameworks.length} enabled design frameworks.`}
             </p>
-          ) : null}
+            {typeof visualMix.data === 'number' &&
+            typeof visualMix.navigation === 'number' &&
+            typeof visualMix.hidden === 'number' ? (
+              <p>
+                Visual mix: {visualMix.data} data, {visualMix.navigation} navigation, {visualMix.hidden} hidden.
+                {' '}
+                {config.navigationScoring.enabled
+                  ? `Navigation controls count at ${config.navigationScoring.weight}% weight.`
+                  : 'Navigation controls use legacy full-weight treatment.'}
+              </p>
+            ) : null}
+          </div>
         </div>
+
+        {!allZero && frameworkValues.length > 0 ? (
+          <div className="summary-framework-list">
+            {frameworkValues.map((fw) => (
+              <div className="summary-framework-row" key={fw.key}>
+                <span className="summary-framework-label">{fw.label}</span>
+                <div className="summary-framework-bar-track">
+                  <span
+                    className={`summary-framework-bar-fill ${getScoreTone(fw.score)}`}
+                    style={{ width: `${Math.round(fw.score)}%` }}
+                  />
+                </div>
+                <span className={`summary-framework-score ${getScoreTone(fw.score)}`}>
+                  {Math.round(fw.score)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {groupedRecommendations.length > 0 ? (
+          <div
+            aria-label="Recommendations"
+            className="summary-recommendations"
+            ref={recommendationsSectionRef}
+            tabIndex={-1}
+          >
+            <p className="summary-recommendations-heading">Recommendations</p>
+            <ul className="recommendation-list">
+              {groupedRecommendations.map((recommendation, index) => (
+                <li className={`recommendation-item ${recommendation.cls}`} key={`${recommendation.text}-${index}`}>
+                  {recommendation.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {selectedPage?.scoringError ? (
@@ -993,26 +1045,6 @@ export default function App(): JSX.Element {
           </ul>
         </section>
       ) : null}
-
-      <section
-        aria-label="Recommendations"
-        className="panel-card"
-        ref={recommendationsSectionRef}
-        tabIndex={-1}
-      >
-        <h2>Recommendations</h2>
-        {groupedRecommendations.length === 0 ? (
-          <p className="empty-text">No issues found.</p>
-        ) : (
-          <ul className="recommendation-list">
-            {groupedRecommendations.map((recommendation, index) => (
-              <li className={`recommendation-item ${recommendation.cls}`} key={`${recommendation.text}-${index}`}>
-                {recommendation.text}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       {quickFixes.length > 0 ? (
         <section aria-label="Quick fixes" className="panel-card quick-fix-card">

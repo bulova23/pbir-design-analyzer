@@ -168,10 +168,13 @@ button {
 }
 
 .summary-card {
+  padding: 20px;
+}
+
+.summary-top-row {
   display: flex;
   gap: 18px;
   align-items: center;
-  padding: 20px;
 }
 
 .score-chip {
@@ -656,7 +659,7 @@ button {
   }
 
   .hero-card,
-  .summary-card,
+  .summary-top-row,
   .criterion-head,
   .metadata-overview-head,
   .metadata-visual-head,
@@ -749,4 +752,121 @@ button {
 
 .quick-fix-visual-button:hover {
   background: color-mix(in srgb, var(--panel-accent) 12%, transparent);
+}
+
+/* Collapsible panel */
+.collapsible-panel {
+  padding: 0;
+}
+
+.collapsible-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  padding: 18px;
+  font-size: 1.1em;
+  font-weight: 700;
+  gap: 12px;
+}
+
+.collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-caret {
+  font-size: 14px;
+  color: var(--score-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+details[open] .collapsible-caret {
+  transform: rotate(180deg);
+}
+
+.collapsible-body {
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--score-border);
+}
+
+/* Framework caret */
+.framework-heading-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.framework-caret {
+  font-size: 12px;
+  color: var(--score-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+details[open] .framework-caret {
+  transform: rotate(180deg);
+}
+
+/* Summary framework list */
+.summary-framework-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--score-border);
+  padding-top: 14px;
+}
+
+.summary-framework-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.summary-framework-label {
+  width: 180px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.summary-framework-bar-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--score-border) 78%, transparent);
+  overflow: hidden;
+}
+
+.summary-framework-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+}
+
+.summary-framework-score {
+  width: 30px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Inline recommendations */
+.summary-recommendations {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--score-border);
+  outline: none;
+}
+
+.summary-recommendations-heading {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--score-muted);
 }
