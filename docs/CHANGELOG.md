@@ -2,7 +2,7 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
-## Unreleased
+## 0.1.13 — 2026-05-24
 
 - Technical debt: renamed `LspHost/` → `RpcHost/` and `LSPModelService`/`LSPState` → `AnalyzerBridgeService`/`BridgeState` throughout — the transport is JSON-RPC over stdio, not Language Server Protocol.
 - Technical debt: renamed `LspHostJsonRpcTests.cs` → `RpcHostJsonRpcTests.cs` and `ScoreResultModelTests.cs` (was a duplicate name for the data-model contract test file).
