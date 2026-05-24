@@ -1,5 +1,6 @@
 import React from 'react';
 import type {
+  AuditProviderChoice,
   ConfigPanelHostToWebviewMessage,
   ConfigPanelStatus,
   ConfigPanelWebviewToHostMessage,
@@ -168,10 +169,20 @@ function renderGovernanceInput(
   );
 }
 
+type AuditProviderState = {
+  activeProvider: AuditProviderChoice;
+  anthropicConfigured: boolean;
+  openaiConfigured: boolean;
+};
+
 export default function App(): JSX.Element {
   const [config, setConfig] = React.useState<DesignAnalyzerConfig | null>(null);
   const [presets, setPresets] = React.useState<AudiencePreset[]>([]);
   const [status, setStatus] = React.useState<ConfigPanelStatus | undefined>();
+  const [auditProviderState, setAuditProviderState] = React.useState<AuditProviderState | null>(null);
+  const [selectedAuditProvider, setSelectedAuditProvider] = React.useState<AuditProviderChoice>('anthropic');
+  const [apiKeyDraft, setApiKeyDraft] = React.useState('');
+  const [auditSaveStatus, setAuditSaveStatus] = React.useState<ConfigPanelStatus | null>(null);
   const vscodeApiRef = React.useRef<ConfigVsCodeApi | null>(null);
 
   if (!vscodeApiRef.current) {
@@ -190,6 +201,17 @@ export default function App(): JSX.Element {
         setStatus(message.status);
         if (message.presets) {
           setPresets(message.presets);
+        }
+      } else if (message.type === 'auditProviderState') {
+        setAuditProviderState({
+          activeProvider: message.activeProvider,
+          anthropicConfigured: message.anthropicConfigured,
+          openaiConfigured: message.openaiConfigured,
+        });
+        setSelectedAuditProvider(message.activeProvider);
+        if (message.saveStatus) {
+          setAuditSaveStatus(message.saveStatus);
+          setTimeout(() => setAuditSaveStatus(null), 4000);
         }
       } else if (message.type === 'error') {
         setStatus({
@@ -554,6 +576,110 @@ export default function App(): JSX.Element {
                   )}
                 </article>
               ))}
+            </div>
+          </section>
+
+          <section className="section-card">
+            <div className="section-header">
+              <div>
+                <p className="section-kicker">Visual Audit</p>
+                <h2>AI Analysis Provider</h2>
+              </div>
+              <p className="section-caption">
+                Provide an API key to enable AI-assisted screenshot analysis. Keys are stored in VS Code SecretStorage and never written to disk.
+              </p>
+            </div>
+
+            <div className="audit-provider-list">
+              {(
+                [
+                  { id: 'anthropic' as AuditProviderChoice, name: 'Anthropic Claude Vision', model: 'claude-haiku-4-5', configured: auditProviderState?.anthropicConfigured },
+                  { id: 'openai' as AuditProviderChoice, name: 'OpenAI GPT-4o Vision', model: 'gpt-4o', configured: auditProviderState?.openaiConfigured },
+                ] as const
+              ).map((provider) => (
+                <label
+                  className={`audit-provider-card ${selectedAuditProvider === provider.id ? 'audit-provider-selected' : ''}`}
+                  key={provider.id}
+                >
+                  <input
+                    checked={selectedAuditProvider === provider.id}
+                    name="auditProvider"
+                    onChange={() => {
+                      setSelectedAuditProvider(provider.id);
+                      setApiKeyDraft('');
+                      setAuditSaveStatus(null);
+                    }}
+                    type="radio"
+                  />
+                  <div className="audit-provider-info">
+                    <span className="audit-provider-name">{provider.name}</span>
+                    <span className="audit-provider-model">{provider.model}</span>
+                  </div>
+                  <span className={`audit-provider-badge ${provider.configured ? 'audit-badge-configured' : 'audit-badge-none'}`}>
+                    {provider.configured ? '✓ Key saved' : 'No key'}
+                  </span>
+                  {provider.configured ? (
+                    <button
+                      className="audit-delete-button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        vscodeApiRef.current?.postMessage({
+                          type: 'deleteAuditProviderKey',
+                          provider: provider.id,
+                        });
+                      }}
+                      title={`Remove ${provider.name} API key`}
+                      type="button"
+                    >
+                      Remove key
+                    </button>
+                  ) : null}
+                </label>
+              ))}
+            </div>
+
+            <div className="audit-key-field">
+              <label className="audit-key-label" htmlFor="auditApiKey">
+                {selectedAuditProvider === 'anthropic' ? 'Anthropic API Key' : 'OpenAI API Key'}
+              </label>
+              <div className="audit-key-row">
+                <input
+                  autoComplete="off"
+                  className="audit-key-input"
+                  id="auditApiKey"
+                  onChange={(e) => {
+                    setApiKeyDraft(e.target.value);
+                    setAuditSaveStatus(null);
+                  }}
+                  placeholder={
+                    (selectedAuditProvider === 'anthropic' ? auditProviderState?.anthropicConfigured : auditProviderState?.openaiConfigured)
+                      ? 'Paste new key to replace existing'
+                      : 'Paste API key'
+                  }
+                  type="password"
+                  value={apiKeyDraft}
+                />
+                <button
+                  className="primary-button"
+                  disabled={!apiKeyDraft.trim()}
+                  onClick={() => {
+                    vscodeApiRef.current?.postMessage({
+                      type: 'saveAuditProvider',
+                      provider: selectedAuditProvider,
+                      apiKey: apiKeyDraft,
+                    });
+                    setApiKeyDraft('');
+                  }}
+                  type="button"
+                >
+                  Save Key
+                </button>
+              </div>
+              {auditSaveStatus ? (
+                <p className={`audit-key-status ${auditSaveStatus.level === 'success' ? 'audit-key-status-ok' : 'audit-key-status-error'}`}>
+                  {auditSaveStatus.message}
+                </p>
+              ) : null}
             </div>
           </section>
 

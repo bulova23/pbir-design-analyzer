@@ -185,7 +185,7 @@ export type ScorePanelWebviewToHostMessage =
   | { type: 'removeScreenshot'; captureId: string }
   | { type: 'assignCapture'; captureId: string; targetPageName: string }
   | { type: 'analyzeCapture'; captureId: string; pageName: string }
-  | { type: 'configureAuditProvider' };
+  | { type: 'openSettings' };
 
 export type ScorePanelHostToWebviewMessage =
   | { type: 'loading' }

@@ -505,11 +505,11 @@ function FrameworkSection(props: {
           <details className="framework-card" key={framework.key}>
             <summary className="framework-summary">
               <div className="framework-heading">
-                <span className="framework-title">{framework.label}</span>
-                <div className="framework-heading-right">
-                  <span className="framework-weight">{framework.weightLabel}</span>
+                <div className="framework-title-group">
+                  <span className="framework-title">{framework.label}</span>
                   <span className="framework-caret" aria-hidden="true">▾</span>
                 </div>
+                <span className="framework-weight">{framework.weightLabel}</span>
               </div>
               {breakdown ? <p className="framework-breakdown">{breakdown}</p> : null}
               <div className="framework-meter">
@@ -568,16 +568,14 @@ function renderAuditCoverageCard(
           >
             Upload Screenshots
           </button>
-          {!providerConfigured ? (
-            <button
-              className="secondary-button"
-              onClick={() => vscode.postMessage({ type: 'configureAuditProvider' })}
-              type="button"
-              title={`Configure ${providerName ?? 'AI provider'} to enable analysis`}
-            >
-              Configure AI Provider
-            </button>
-          ) : null}
+          <button
+            className="secondary-button"
+            onClick={() => vscode.postMessage({ type: 'openSettings' })}
+            title="Open Design Analyzer Configuration to set up an AI provider"
+            type="button"
+          >
+            Configure AI Provider
+          </button>
         </div>
       </div>
 
@@ -645,11 +643,11 @@ function renderAuditCoverageCard(
 
       {!providerConfigured ? (
         <p className="audit-provider-note">
-          AI analysis requires an Anthropic API key. Click "Configure AI Provider" to add one.
+          No AI provider configured. Click "Configure AI Provider" to open settings and add your key.
         </p>
       ) : (
         <p className="audit-provider-note">
-          AI provider: {providerName}. Open a page tab to analyze individual screenshots.
+          AI provider: {providerName}. Open a page tab to analyze individual screenshots. Use "Configure AI Provider" to change the provider or rotate your key.
         </p>
       )}
     </section>

@@ -492,24 +492,11 @@ export function registerPbirCommands(
         })
     );
 
-    // pbir.configureAuditProvider — prompts for Anthropic API key, stored in SecretStorage
+    // pbir.configureAuditProvider — provider picker + key entry, stored in SecretStorage
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.configureAuditProvider, async () => {
-            const { AnthropicVisualAuditProvider } = await import('../analyzer/audit/providers/AnthropicVisualAuditProvider');
-            const provider = new AnthropicVisualAuditProvider(context);
-
-            const key = await vscode.window.showInputBox({
-                title: 'Configure Anthropic API Key for Visual Audit',
-                prompt: 'Enter your Anthropic API key. It is stored securely in VS Code SecretStorage and never written to disk or logs.',
-                password: true,
-                ignoreFocusOut: true,
-                validateInput: (v) => v.trim().length > 0 ? undefined : 'API key is required.',
-            });
-
-            if (!key) return;
-
-            await provider.setApiKey(key);
-            vscode.window.showInformationMessage('Anthropic API key saved. Visual Audit is now ready.');
+            const { runProviderSetupFlow } = await import('../analyzer/audit/providers/providerSetup');
+            await runProviderSetupFlow(context);
         })
     );
 

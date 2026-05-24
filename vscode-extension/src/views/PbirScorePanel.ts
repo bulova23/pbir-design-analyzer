@@ -15,7 +15,8 @@ import type {
 } from '../analyzer/contracts/scorePanel';
 import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture, saveSession } from '../analyzer/audit/session';
 import type { VisualAuditSession } from '../analyzer/audit/types';
-import { AnthropicVisualAuditProvider } from '../analyzer/audit/providers/AnthropicVisualAuditProvider';
+import type { VisualAuditProvider } from '../analyzer/audit/providers/VisualAuditProvider';
+import { createActiveProvider } from '../analyzer/audit/providers/providerSetup';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { resolveWebviewAssets } from './webviewAssets';
@@ -38,7 +39,7 @@ export class PbirScorePanel {
   private savedConfig: DesignAnalyzerConfig | null = null;
   private selectedPageIndex = 0;
   private auditSession: VisualAuditSession | undefined;
-  private auditProvider: AnthropicVisualAuditProvider;
+  private auditProvider: VisualAuditProvider;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -84,7 +85,7 @@ export class PbirScorePanel {
     this.bridge = bridge;
     this.reportPath = reportPath;
     this.pageName = pageName;
-    this.auditProvider = new AnthropicVisualAuditProvider(context);
+    this.auditProvider = createActiveProvider(context);
     this.panel.webview.html = this.getReactHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -131,8 +132,8 @@ export class PbirScorePanel {
       case 'analyzeCapture':
         await this.handleAnalyzeCapture(message.captureId, message.pageName);
         return;
-      case 'configureAuditProvider':
-        await this.handleConfigureAuditProvider();
+      case 'openSettings':
+        await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
         return;
     }
   }
@@ -247,22 +248,6 @@ export class PbirScorePanel {
       );
       this.postAuditState();
     }
-  }
-
-  private async handleConfigureAuditProvider(): Promise<void> {
-    const key = await vscode.window.showInputBox({
-      title: 'Configure Anthropic API Key for Visual Audit',
-      prompt: 'Enter your Anthropic API key (stored in VS Code SecretStorage)',
-      password: true,
-      ignoreFocusOut: true,
-      validateInput: (v) => v.trim().length > 0 ? undefined : 'API key is required.',
-    });
-
-    if (!key) return;
-
-    await this.auditProvider.setApiKey(key);
-    void vscode.window.showInformationMessage('Anthropic API key saved. Visual Audit is now configured.');
-    this.postAuditState();
   }
 
   private async loadAuditSession(): Promise<VisualAuditSession> {
@@ -383,6 +368,7 @@ export class PbirScorePanel {
 
       // Load audit session and push state to webview alongside score
       try {
+        this.auditProvider = createActiveProvider(this.context);
         this.auditSession = await loadSession(this.context, this.reportPath);
         const providerConfigured = await this.auditProvider.isConfigured();
         const auditState = this.buildAuditState(this.auditSession, providerConfigured);
