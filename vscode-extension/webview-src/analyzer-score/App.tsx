@@ -1,6 +1,10 @@
 import React from 'react';
 import type {
   AffectedVisualReference,
+  AuditCaptureSummary,
+  AuditFindingDisplay,
+  AuditPageState,
+  AuditState,
   FindingType,
   FrameworkFeedbackItem,
   PageVisualMetadataSummary,
@@ -29,7 +33,7 @@ declare function acquireVsCodeApi(): ScoreVsCodeApi;
 type ViewState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; state: ScorePanelState };
+  | { kind: 'ready'; state: ScorePanelState; audit?: AuditState };
 
 function isZeroScore(result: ScoreResult): boolean {
   return (
@@ -519,9 +523,226 @@ function FrameworkSection(props: {
   );
 }
 
+function getSeverityClass(severity: AuditFindingDisplay['severity']): string {
+  if (severity === 'critical') return 'audit-finding-critical';
+  if (severity === 'info') return 'audit-finding-info';
+  return 'audit-finding-warning';
+}
+
+function getConfidenceLabel(confidence: AuditFindingDisplay['confidence']): string {
+  if (confidence === 'high') return 'High confidence';
+  if (confidence === 'low') return 'Low confidence';
+  return 'Medium confidence';
+}
+
+function renderAuditCoverageCard(
+  audit: AuditState,
+  pageNames: string[],
+  vscode: ScoreVsCodeApi,
+): React.ReactNode {
+  const { coverage, unmatchedCaptures, providerConfigured, providerName } = audit;
+  const missingPages = coverage.totalPages - coverage.pagesWithCaptures;
+
+  return (
+    <section className="panel-card audit-coverage-card">
+      <div className="audit-coverage-head">
+        <h2>Visual Audit Coverage</h2>
+        <div className="audit-coverage-actions">
+          <button
+            className="secondary-button"
+            onClick={() => vscode.postMessage({ type: 'uploadScreenshots' })}
+            type="button"
+          >
+            Upload Screenshots
+          </button>
+          {!providerConfigured ? (
+            <button
+              className="secondary-button"
+              onClick={() => vscode.postMessage({ type: 'configureAuditProvider' })}
+              type="button"
+              title={`Configure ${providerName ?? 'AI provider'} to enable analysis`}
+            >
+              Configure AI Provider
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="audit-coverage-stats">
+        <div className="audit-stat">
+          <strong>{coverage.pagesWithCaptures}</strong>
+          <span>of {coverage.totalPages} pages covered</span>
+        </div>
+        <div className="audit-stat">
+          <strong>{coverage.pagesWithFindings}</strong>
+          <span>pages with findings</span>
+        </div>
+        {coverage.unmatchedCaptures > 0 ? (
+          <div className="audit-stat audit-stat-warn">
+            <strong>{coverage.unmatchedCaptures}</strong>
+            <span>unmatched screenshots</span>
+          </div>
+        ) : null}
+        {missingPages > 0 ? (
+          <div className="audit-stat audit-stat-missing">
+            <strong>{missingPages}</strong>
+            <span>pages without screenshots</span>
+          </div>
+        ) : null}
+      </div>
+
+      {unmatchedCaptures.length > 0 ? (
+        <div className="audit-unmatched">
+          <p className="audit-unmatched-label">Unmatched screenshots — assign to a page:</p>
+          <ul className="audit-unmatched-list">
+            {unmatchedCaptures.map((capture) => (
+              <li className="audit-unmatched-item" key={capture.captureId}>
+                <span className="audit-capture-filename">{capture.fileName}</span>
+                <select
+                  className="audit-assign-select"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      vscode.postMessage({
+                        type: 'assignCapture',
+                        captureId: capture.captureId,
+                        targetPageName: e.target.value,
+                      });
+                    }
+                  }}
+                >
+                  <option value="" disabled>Assign to page…</option>
+                  {pageNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <button
+                  className="audit-remove-button"
+                  onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                  title="Remove screenshot"
+                  type="button"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {!providerConfigured ? (
+        <p className="audit-provider-note">
+          AI analysis requires an Anthropic API key. Click "Configure AI Provider" to add one.
+        </p>
+      ) : (
+        <p className="audit-provider-note">
+          AI provider: {providerName}. Open a page tab to analyze individual screenshots.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function renderAuditPageSection(
+  pageName: string,
+  auditPageState: AuditPageState | undefined,
+  analyzingCaptureId: string | undefined,
+  providerConfigured: boolean,
+  vscode: ScoreVsCodeApi,
+): React.ReactNode {
+  return (
+    <section className="panel-card audit-page-section">
+      <div className="audit-page-head">
+        <h2>Visual Audit — {pageName}</h2>
+        <button
+          className="secondary-button"
+          onClick={() => vscode.postMessage({ type: 'attachScreenshot', pageName })}
+          type="button"
+        >
+          {auditPageState?.captures.length ? 'Replace / Add Screenshot' : 'Attach Screenshot'}
+        </button>
+      </div>
+
+      {!auditPageState || auditPageState.captures.length === 0 ? (
+        <p className="empty-text">No screenshots attached to this page.</p>
+      ) : (
+        <>
+          <div className="audit-captures">
+            {auditPageState.captures.map((capture) => {
+              const isAnalyzing = capture.captureId === analyzingCaptureId;
+              return (
+                <div className="audit-capture-card" key={capture.captureId}>
+                  <div className="audit-capture-head">
+                    <span className="audit-capture-filename">{capture.fileName}</span>
+                    {capture.stateName ? (
+                      <span className="audit-capture-state">{capture.stateName}</span>
+                    ) : null}
+                    <div className="audit-capture-actions">
+                      {providerConfigured ? (
+                        <button
+                          className="primary-button audit-analyze-button"
+                          disabled={isAnalyzing}
+                          onClick={() => vscode.postMessage({ type: 'analyzeCapture', captureId: capture.captureId, pageName })}
+                          type="button"
+                        >
+                          {isAnalyzing ? 'Analyzing…' : 'Analyze'}
+                        </button>
+                      ) : null}
+                      <button
+                        className="audit-remove-button"
+                        onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                        title="Remove screenshot"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  <p className="audit-capture-meta">{capture.findingCount} finding(s)</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {auditPageState.findings.length > 0 ? (
+            <ul className="audit-findings-list">
+              {auditPageState.findings.map((finding) => (
+                <li className={`audit-finding-item ${getSeverityClass(finding.severity)}`} key={finding.findingId}>
+                  <div className="audit-finding-head">
+                    <span className="audit-finding-type">{finding.findingType}</span>
+                    <span className="audit-finding-confidence">{getConfidenceLabel(finding.confidence)}</span>
+                  </div>
+                  <p className="audit-finding-text">{finding.text}</p>
+                  {finding.recommendation ? (
+                    <p className="audit-finding-rec">
+                      <strong>Fix:</strong> {finding.recommendation}
+                    </p>
+                  ) : null}
+                  {finding.regionHint ? (
+                    <p className="audit-finding-region">
+                      <strong>Region:</strong> {finding.regionHint}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty-text">
+              {auditPageState.captures.length > 0 && providerConfigured
+                ? 'No findings yet. Click "Analyze" to run AI-assisted review.'
+                : 'Attach a screenshot and configure the AI provider to run analysis.'}
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function App(): JSX.Element {
   const [viewState, setViewState] = React.useState<ViewState>({ kind: 'loading' });
   const [activeTab, setActiveTab] = React.useState(0);
+  const [analyzingCaptureId, setAnalyzingCaptureId] = React.useState<string | undefined>(undefined);
   const vscodeApiRef = React.useRef<ScoreVsCodeApi | null>(null);
   const recommendationsSectionRef = React.useRef<HTMLElement | null>(null);
 
@@ -547,8 +768,24 @@ export default function App(): JSX.Element {
         return;
       }
 
-      setViewState({ kind: 'ready', state: message.state });
-      setActiveTab(message.state.selectedPageIndex);
+      if (message.type === 'scoreState') {
+        setViewState({ kind: 'ready', state: message.state });
+        setActiveTab(message.state.selectedPageIndex);
+        return;
+      }
+
+      if (message.type === 'auditState') {
+        setViewState((prev) =>
+          prev.kind === 'ready' ? { ...prev, audit: message.audit } : prev,
+        );
+        setAnalyzingCaptureId(undefined);
+        return;
+      }
+
+      if (message.type === 'auditAnalyzing') {
+        setAnalyzingCaptureId(message.captureId);
+        return;
+      }
     };
 
     window.addEventListener('message', handleMessage);
@@ -588,7 +825,7 @@ export default function App(): JSX.Element {
     );
   }
 
-  const { state } = viewState;
+  const { state, audit } = viewState;
   const { config, result } = state;
   const pageScores = result.pageScores ?? [];
   const multiPage = pageScores.length > 1;
@@ -812,6 +1049,20 @@ export default function App(): JSX.Element {
           </ul>
         </section>
       ) : null}
+
+      {audit && overallView
+        ? renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!)
+        : null}
+
+      {audit && selectedPage
+        ? renderAuditPageSection(
+            selectedPage.pageName,
+            audit.pages.find((p) => p.pageName === selectedPage.pageName),
+            analyzingCaptureId,
+            audit.providerConfigured,
+            vscodeApiRef.current!,
+          )
+        : null}
     </main>
   );
 }

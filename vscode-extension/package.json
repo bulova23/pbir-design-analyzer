@@ -35,7 +35,9 @@
     "onCommand:pbirAnalyzer.scoreReport",
     "onCommand:pbirAnalyzer.configureScoring",
     "onCommand:pbirAnalyzer.checkGovernance",
-    "onCommand:pbirAnalyzer.exportGovernanceReport"
+    "onCommand:pbirAnalyzer.exportGovernanceReport",
+    "onCommand:pbirAnalyzer.uploadScreenshots",
+    "onCommand:pbirAnalyzer.configureAuditProvider"
   ],
   "contributes": {
     "viewsContainers": {
@@ -77,6 +79,16 @@
         "command": "pbirAnalyzer.exportGovernanceReport",
         "title": "PBIR Design Analyzer: Export Governance Report",
         "icon": "$(export)"
+      },
+      {
+        "command": "pbirAnalyzer.uploadScreenshots",
+        "title": "PBIR Design Analyzer: Upload Report Screenshots",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "pbirAnalyzer.configureAuditProvider",
+        "title": "PBIR Design Analyzer: Configure Visual Audit Provider",
+        "icon": "$(key)"
       }
     ],
     "configuration": {

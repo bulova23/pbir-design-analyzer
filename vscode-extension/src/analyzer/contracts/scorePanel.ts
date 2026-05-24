@@ -1,6 +1,9 @@
 import type { DesignAnalyzerConfig } from '../config/types';
 
 export type FindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
+export type AuditFindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
+export type AuditSeverity = 'critical' | 'warning' | 'info';
+export type AuditConfidence = 'high' | 'medium' | 'low';
 
 export interface FrameworkFeedbackItem {
   ok: boolean;
@@ -118,6 +121,48 @@ export interface ScoreResult {
   visualMetadata?: PageVisualMetadataSummary;
 }
 
+export interface AuditCaptureSummary {
+  captureId: string;
+  pageName: string;
+  stateName?: string;
+  fileName: string;
+  storedPath: string;
+  findingCount: number;
+}
+
+export interface AuditFindingDisplay {
+  findingId: string;
+  captureId: string;
+  findingType: AuditFindingType;
+  severity: AuditSeverity;
+  confidence: AuditConfidence;
+  text: string;
+  recommendation?: string;
+  regionHint?: string;
+}
+
+export interface AuditPageState {
+  pageName: string;
+  captures: AuditCaptureSummary[];
+  findings: AuditFindingDisplay[];
+}
+
+export interface AuditCoverage {
+  totalPages: number;
+  pagesWithCaptures: number;
+  unmatchedCaptures: number;
+  pagesWithFindings: number;
+}
+
+export interface AuditState {
+  coverage: AuditCoverage;
+  pages: AuditPageState[];
+  unmatchedCaptures: AuditCaptureSummary[];
+  isAnalyzing: boolean;
+  providerName?: string;
+  providerConfigured: boolean;
+}
+
 export interface ScoreRequestPayload {
   reportPath: string;
   config: DesignAnalyzerConfig;
@@ -134,9 +179,17 @@ export type ScorePanelWebviewToHostMessage =
   | { type: 'webviewReady' }
   | { type: 'refresh' }
   | { type: 'selectTab'; pageIndex: number }
-  | { type: 'revealVisual'; pageName: string; visualId: string };
+  | { type: 'revealVisual'; pageName: string; visualId: string }
+  | { type: 'uploadScreenshots' }
+  | { type: 'attachScreenshot'; pageName: string }
+  | { type: 'removeScreenshot'; captureId: string }
+  | { type: 'assignCapture'; captureId: string; targetPageName: string }
+  | { type: 'analyzeCapture'; captureId: string; pageName: string }
+  | { type: 'configureAuditProvider' };
 
 export type ScorePanelHostToWebviewMessage =
   | { type: 'loading' }
   | { type: 'scoreState'; state: ScorePanelState }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'auditState'; audit: AuditState }
+  | { type: 'auditAnalyzing'; captureId: string };

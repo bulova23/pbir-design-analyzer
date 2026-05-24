@@ -1,12 +1,22 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
 import type { DesignAnalyzerConfig } from '../analyzer/config/types';
 import type {
+  AuditCaptureSummary,
+  AuditFindingDisplay,
+  AuditPageState,
+  AuditState,
   ScorePanelHostToWebviewMessage,
   ScorePanelWebviewToHostMessage,
   ScoreRequestPayload,
   ScoreResult,
 } from '../analyzer/contracts/scorePanel';
+import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture, saveSession } from '../analyzer/audit/session';
+import type { VisualAuditSession } from '../analyzer/audit/types';
+import { AnthropicVisualAuditProvider } from '../analyzer/audit/providers/AnthropicVisualAuditProvider';
+import { telemetry, bucketScore } from '../telemetry/reporter';
 import { LSPModelService } from '../services/lsp/LSPModelService';
 import { resolveWebviewAssets } from './webviewAssets';
 import { normalizeScoreResultPayload } from './scoreResultPayload';
@@ -27,6 +37,8 @@ export class PbirScorePanel {
   private currentResult: ScoreResult | undefined;
   private savedConfig: DesignAnalyzerConfig | null = null;
   private selectedPageIndex = 0;
+  private auditSession: VisualAuditSession | undefined;
+  private auditProvider: AnthropicVisualAuditProvider;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -72,6 +84,7 @@ export class PbirScorePanel {
     this.bridge = bridge;
     this.reportPath = reportPath;
     this.pageName = pageName;
+    this.auditProvider = new AnthropicVisualAuditProvider(context);
     this.panel.webview.html = this.getReactHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -103,12 +116,218 @@ export class PbirScorePanel {
         }
         return;
       }
+      case 'uploadScreenshots':
+        await this.handleUploadScreenshots();
+        return;
+      case 'attachScreenshot':
+        await this.handleAttachScreenshot(message.pageName);
+        return;
+      case 'removeScreenshot':
+        await this.handleRemoveScreenshot(message.captureId);
+        return;
+      case 'assignCapture':
+        await this.handleAssignCapture(message.captureId, message.targetPageName);
+        return;
+      case 'analyzeCapture':
+        await this.handleAnalyzeCapture(message.captureId, message.pageName);
+        return;
+      case 'configureAuditProvider':
+        await this.handleConfigureAuditProvider();
+        return;
     }
+  }
+
+  private pageNamesFromResult(): string[] {
+    const result = this.currentResult;
+    if (!result) return [];
+    if (result.pageScores && result.pageScores.length > 0) {
+      return result.pageScores.map((p) => p.pageName);
+    }
+    if (result.scoredPageName) return [result.scoredPageName];
+    return [];
+  }
+
+  private async handleUploadScreenshots(): Promise<void> {
+    const uris = await vscode.window.showOpenDialog({
+      title: 'Select Report Screenshots',
+      canSelectMany: true,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      filters: { Images: ['png', 'jpg', 'jpeg', 'webp'] },
+      openLabel: 'Add Screenshots',
+    });
+
+    if (!uris || uris.length === 0) return;
+
+    const session = await this.loadAuditSession();
+    const pageNames = this.pageNamesFromResult();
+    await addCaptures(this.context, session, uris.map((u) => u.fsPath), pageNames);
+    await saveSession(this.context, session);
+    this.auditSession = session;
+    this.postAuditState();
+  }
+
+  private async handleAttachScreenshot(pageName: string): Promise<void> {
+    const uris = await vscode.window.showOpenDialog({
+      title: `Attach Screenshot to "${pageName}"`,
+      canSelectMany: false,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      filters: { Images: ['png', 'jpg', 'jpeg', 'webp'] },
+      openLabel: 'Attach',
+    });
+
+    if (!uris || uris.length === 0) return;
+
+    const session = await this.loadAuditSession();
+    await addCaptures(this.context, session, [uris[0].fsPath], [pageName]);
+    await saveSession(this.context, session);
+    this.auditSession = session;
+    this.postAuditState();
+  }
+
+  private async handleRemoveScreenshot(captureId: string): Promise<void> {
+    const session = await this.loadAuditSession();
+    const allCaptures = [
+      ...session.pages.flatMap((p) => p.captures),
+      ...session.unmatchedCaptures,
+    ];
+    const capture = allCaptures.find((c) => c.captureId === captureId);
+
+    removeCapture(session, captureId);
+
+    if (capture?.storedPath && fs.existsSync(capture.storedPath)) {
+      try {
+        fs.unlinkSync(capture.storedPath);
+      } catch {
+        // Non-fatal: asset cleanup failure
+      }
+    }
+
+    await saveSession(this.context, session);
+    this.auditSession = session;
+    this.postAuditState();
+  }
+
+  private async handleAssignCapture(captureId: string, targetPageName: string): Promise<void> {
+    const session = await this.loadAuditSession();
+    assignCapture(session, captureId, targetPageName);
+    await saveSession(this.context, session);
+    this.auditSession = session;
+    this.postAuditState();
+  }
+
+  private async handleAnalyzeCapture(captureId: string, pageName: string): Promise<void> {
+    const session = await this.loadAuditSession();
+    const page = session.pages.find((p) => p.pageName === pageName);
+    const capture = page?.captures.find((c) => c.captureId === captureId);
+
+    if (!capture) {
+      void vscode.window.showErrorMessage(`Capture ${captureId} not found for page "${pageName}".`);
+      return;
+    }
+
+    this.postMessage({ type: 'auditAnalyzing', captureId });
+
+    try {
+      const pageScore = this.currentResult?.pageScores?.find((p) => p.pageName === pageName);
+      const findings = await this.auditProvider.analyzeCapture({ capture, pageName, pageScore });
+
+      if (page) {
+        page.findings = page.findings.filter((f) => f.captureId !== captureId);
+        page.findings.push(...findings);
+      }
+
+      await saveSession(this.context, session);
+      this.auditSession = session;
+      this.postAuditState();
+    } catch (err) {
+      void vscode.window.showErrorMessage(
+        `Audit analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      this.postAuditState();
+    }
+  }
+
+  private async handleConfigureAuditProvider(): Promise<void> {
+    const key = await vscode.window.showInputBox({
+      title: 'Configure Anthropic API Key for Visual Audit',
+      prompt: 'Enter your Anthropic API key (stored in VS Code SecretStorage)',
+      password: true,
+      ignoreFocusOut: true,
+      validateInput: (v) => v.trim().length > 0 ? undefined : 'API key is required.',
+    });
+
+    if (!key) return;
+
+    await this.auditProvider.setApiKey(key);
+    void vscode.window.showInformationMessage('Anthropic API key saved. Visual Audit is now configured.');
+    this.postAuditState();
+  }
+
+  private async loadAuditSession(): Promise<VisualAuditSession> {
+    if (!this.auditSession) {
+      this.auditSession = await loadSession(this.context, this.reportPath);
+    }
+    return this.auditSession;
+  }
+
+  private buildAuditState(session: VisualAuditSession, providerConfigured: boolean): AuditState {
+    const pageNames = this.pageNamesFromResult();
+    const coverage = computeCoverage(session, pageNames);
+
+    const pages: AuditPageState[] = session.pages.map((p) => ({
+      pageName: p.pageName,
+      captures: p.captures.map((c) => ({
+        captureId: c.captureId,
+        pageName: c.pageName,
+        stateName: c.stateName,
+        fileName: c.fileName,
+        storedPath: c.storedPath,
+        findingCount: p.findings.filter((f) => f.captureId === c.captureId).length,
+      })),
+      findings: p.findings.map((f): AuditFindingDisplay => ({
+        findingId: f.findingId,
+        captureId: f.captureId,
+        findingType: f.findingType,
+        severity: f.severity,
+        confidence: f.confidence,
+        text: f.text,
+        recommendation: f.recommendation,
+        regionHint: f.regionHint,
+      })),
+    }));
+
+    const unmatchedCaptures: AuditCaptureSummary[] = session.unmatchedCaptures.map((c) => ({
+      captureId: c.captureId,
+      pageName: c.pageName,
+      stateName: c.stateName,
+      fileName: c.fileName,
+      storedPath: c.storedPath,
+      findingCount: 0,
+    }));
+
+    return {
+      coverage,
+      pages,
+      unmatchedCaptures,
+      isAnalyzing: false,
+      providerName: this.auditProvider.providerName,
+      providerConfigured,
+    };
+  }
+
+  private async postAuditState(): Promise<void> {
+    const session = await this.loadAuditSession();
+    const providerConfigured = await this.auditProvider.isConfigured();
+    const auditState = this.buildAuditState(session, providerConfigured);
+    this.postMessage({ type: 'auditState', audit: auditState });
   }
 
   private async refresh(): Promise<void> {
     this.selectedPageIndex = 0;
     this.postMessage({ type: 'loading' });
+    const scoringStartMs = Date.now();
 
     try {
       if (!this.bridge) {
@@ -146,6 +365,13 @@ export class PbirScorePanel {
 
       const normalizedResult = normalizeScoreResultPayload(response.data);
       this.currentResult = normalizedResult;
+
+      telemetry.sendEvent('scoring.completed', {
+        pageCount: normalizedResult.pageCount,
+        durationMs: Date.now() - scoringStartMs,
+        compositeScoreBucket: bucketScore(normalizedResult.compositeScore),
+      });
+
       this.postMessage({
         type: 'scoreState',
         state: {
@@ -154,6 +380,16 @@ export class PbirScorePanel {
           selectedPageIndex: this.selectedPageIndex,
         },
       });
+
+      // Load audit session and push state to webview alongside score
+      try {
+        this.auditSession = await loadSession(this.context, this.reportPath);
+        const providerConfigured = await this.auditProvider.isConfigured();
+        const auditState = this.buildAuditState(this.auditSession, providerConfigured);
+        this.postMessage({ type: 'auditState', audit: auditState });
+      } catch {
+        // Non-fatal: audit state failure should not break scoring
+      }
     } catch (error) {
       this.postMessage({
         type: 'error',

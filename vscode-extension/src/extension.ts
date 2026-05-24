@@ -6,6 +6,7 @@ import { initializeDesignAnalyzerConfig } from './analyzer/config/store';
 import { createAnalyzerBackendClient, stopAnalyzerBackendClient } from './languageServer/analyzerBackendClient';
 import { LSPModelService, LSPState } from './services/lsp/LSPModelService';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { telemetry } from './telemetry/reporter';
 
 let lspModelService: LSPModelService | undefined;
 let daemonStatusBar: vscode.StatusBarItem | undefined;
@@ -18,6 +19,9 @@ export async function activate(context: vscode.ExtensionContext) {
   extensionOutput.appendLine('PBIR Design Analyzer is activating...');
   extensionOutput.appendLine(`Extension id: ${context.extension.id}`);
   extensionOutput.appendLine(`Extension path: ${context.extensionPath}`);
+
+  telemetry.initialize(context);
+  context.subscriptions.push({ dispose: () => telemetry.dispose() });
 
   await initializeDesignAnalyzerConfig(context);
 

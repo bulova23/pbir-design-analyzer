@@ -6,6 +6,7 @@ import { PbirTreeItem, PbirTreeProvider } from '../providers/PbirTreeProvider';
 import { PbirScorePanel } from '../views/PbirScorePanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
+import { telemetry } from '../telemetry/reporter';
 import {
   buildGovernanceExportData,
   exportAsJson,
@@ -21,6 +22,9 @@ export const PBIR_COMMANDS = {
     scoreReport: 'pbir.scoreReport',
     governanceCheck: 'pbir.governanceCheck',
     exportGovernanceReport: 'pbir.exportGovernanceReport',
+    uploadScreenshots: 'pbir.uploadScreenshots',
+    attachScreenshot: 'pbir.attachScreenshot',
+    configureAuditProvider: 'pbir.configureAuditProvider',
 } as const;
 
 /** Shared provider instance (exported so register.ts can pass it to the treeview). */
@@ -186,6 +190,7 @@ export function registerPbirCommands(
      */
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.scoreReport, async (target?: PbirCommandTarget, pageNameArg?: string) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.scoreReport });
             try {
                 const bridge = getBridge();
                 const resolvedTarget = resolveCommandTarget(target, pageNameArg);
@@ -253,6 +258,7 @@ export function registerPbirCommands(
     // pbir.governanceCheck — score first, then evaluate policy (T035)
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.governanceCheck, async (target?: PbirCommandTarget) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.governanceCheck });
             const bridge = getBridge();
             let reportPath = resolveCommandTarget(target).reportPath;
             if (!reportPath) {
@@ -317,6 +323,11 @@ export function registerPbirCommands(
 
                 const result = response.data;
                 if (!result) return;
+
+                telemetry.sendEvent('governance.evaluated', {
+                    blocked: result.blocked,
+                    reasonCount: result.reasons?.length ?? 0,
+                });
 
                 if (result.policyState === 'notConfigured' || result.policyState === 'disabled') {
                     vscode.window.showInformationMessage(
@@ -461,6 +472,44 @@ export function registerPbirCommands(
                     }
                 },
             );
+        })
+    );
+
+    // pbir.uploadScreenshots — opens score panel then triggers screenshot upload via the active panel
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.uploadScreenshots, async (target?: PbirCommandTarget) => {
+            const reportPath = resolveCommandTarget(target).reportPath ?? resolveCommandTarget(pbirTreeProvider ? await pbirTreeProvider.getChildren().then((items) => items?.[0]).catch(() => undefined) : undefined).reportPath;
+            if (!reportPath) {
+                vscode.window.showErrorMessage('Open a report in the score panel before uploading screenshots.');
+                return;
+            }
+            // Open the score panel so the upload dialog has context
+            const bridge = getBridge();
+            const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
+            void panel;
+            // Trigger upload via command to the panel's active session
+            await vscode.commands.executeCommand('pbir.scoreReport', reportPath);
+        })
+    );
+
+    // pbir.configureAuditProvider — prompts for Anthropic API key, stored in SecretStorage
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.configureAuditProvider, async () => {
+            const { AnthropicVisualAuditProvider } = await import('../analyzer/audit/providers/AnthropicVisualAuditProvider');
+            const provider = new AnthropicVisualAuditProvider(context);
+
+            const key = await vscode.window.showInputBox({
+                title: 'Configure Anthropic API Key for Visual Audit',
+                prompt: 'Enter your Anthropic API key. It is stored securely in VS Code SecretStorage and never written to disk or logs.',
+                password: true,
+                ignoreFocusOut: true,
+                validateInput: (v) => v.trim().length > 0 ? undefined : 'API key is required.',
+            });
+
+            if (!key) return;
+
+            await provider.setApiKey(key);
+            vscode.window.showInformationMessage('Anthropic API key saved. Visual Audit is now ready.');
         })
     );
 
