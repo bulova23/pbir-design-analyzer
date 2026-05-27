@@ -104,6 +104,29 @@ namespace ServiceDotnet.Tests
                     AxisLabelVisualCount = 1,
                     DataLabelVisualCount = 0,
                     FormattedVisualCount = 1,
+                    SemanticColors = new List<SemanticColorSummary>
+                    {
+                        new()
+                        {
+                            SemanticKey = "revenue",
+                            DisplayName = "Revenue",
+                            ColorHex = "#00AA55",
+                            SemanticRole = "positive",
+                            VisualIds = new List<string> { "v1" },
+                        },
+                    },
+                    ChartIntents = new List<ChartIntentSummary>
+                    {
+                        new()
+                        {
+                            VisualId = "v1",
+                            Intent = "comparison",
+                            Confidence = "high",
+                            FitQuality = "good",
+                            Reasons = new List<string> { "Bar chart compares categories." },
+                            SuggestedVisualTypes = new List<string> { "barChart", "columnChart" },
+                        },
+                    },
                     Visuals = new List<VisualMetadataItem>
                     {
                         new()
@@ -113,6 +136,24 @@ namespace ServiceDotnet.Tests
                             HasVisibleTitleIntent = true,
                             Width = 320,
                             Height = 180,
+                        },
+                    },
+                },
+                ReportConsistency = new ReportConsistencySummary
+                {
+                    Score = 88,
+                    Findings = new List<ReportConsistencyFinding>
+                    {
+                        new()
+                        {
+                            Rule = "semanticColorConsistency",
+                            Severity = "warning",
+                            Message = "Revenue uses multiple semantic colors across pages.",
+                            AffectedPages = new List<string> { "Overview", "Details" },
+                            AffectedVisuals = new List<AffectedVisualReference>
+                            {
+                                new("Overview", "v1", "barChart"),
+                            },
                         },
                     },
                 },
@@ -129,11 +170,20 @@ namespace ServiceDotnet.Tests
             Assert.Contains("\"reportPath\":\"/tmp/Sales.Report\"", json);
             Assert.Contains("\"visualMetadata\":{", json);
             Assert.Contains("\"visiblePageTitle\":\"Sales Overview\"", json);
+            Assert.Contains("\"semanticColors\":[", json);
+            Assert.Contains("\"semanticKey\":\"revenue\"", json);
+            Assert.Contains("\"chartIntents\":[", json);
+            Assert.Contains("\"intent\":\"comparison\"", json);
+            Assert.Contains("\"reportConsistency\":{", json);
+            Assert.Contains("\"affectedPages\":[\"Overview\",\"Details\"]", json);
             Assert.Contains("\"findingType\":\"strongHeuristic\"", json);
             Assert.DoesNotContain("\"Recommendations\"", json);
             Assert.DoesNotContain("\"FrameworkWeights\"", json);
             Assert.DoesNotContain("\"ReportPath\"", json);
             Assert.DoesNotContain("\"VisualMetadata\"", json);
+            Assert.DoesNotContain("\"SemanticColors\"", json);
+            Assert.DoesNotContain("\"ChartIntents\"", json);
+            Assert.DoesNotContain("\"ReportConsistency\"", json);
             Assert.DoesNotContain("\"FindingType\"", json);
         }
 

@@ -50,8 +50,59 @@ public sealed class PageVisualMetadataSummary
     /// <summary>Gets or sets the count of visuals with any parsed surface formatting metadata.</summary>
     public int FormattedVisualCount { get; init; }
 
+    /// <summary>Gets or sets the semantic color assignments inferred for the page.</summary>
+    public List<SemanticColorSummary> SemanticColors { get; init; } = [];
+
+    /// <summary>Gets or sets the inferred chart intents for visuals on the page.</summary>
+    public List<ChartIntentSummary> ChartIntents { get; init; } = [];
+
     /// <summary>Gets or sets the list of per-visual metadata records for the page.</summary>
     public List<VisualMetadataItem> Visuals { get; init; } = [];
+}
+
+/// <summary>
+/// Summarizes an inferred semantic color assignment across one or more visuals.
+/// </summary>
+public sealed class SemanticColorSummary
+{
+    /// <summary>Gets or sets the stable semantic key for the repeated meaning.</summary>
+    public required string SemanticKey { get; init; }
+
+    /// <summary>Gets or sets the user-facing semantic label, when available.</summary>
+    public string? DisplayName { get; init; }
+
+    /// <summary>Gets or sets the normalized color hex value, when available.</summary>
+    public string? ColorHex { get; init; }
+
+    /// <summary>Gets or sets the inferred semantic role (for example positive, negative, or neutral).</summary>
+    public string? SemanticRole { get; init; }
+
+    /// <summary>Gets or sets the visuals that participate in this semantic color assignment.</summary>
+    public List<string> VisualIds { get; init; } = [];
+}
+
+/// <summary>
+/// Summarizes the inferred analytical intent and fit for a visual.
+/// </summary>
+public sealed class ChartIntentSummary
+{
+    /// <summary>Gets or sets the stable PBIR visual identifier.</summary>
+    public required string VisualId { get; init; }
+
+    /// <summary>Gets or sets the inferred analytical intent class.</summary>
+    public string? Intent { get; init; }
+
+    /// <summary>Gets or sets the qualitative confidence label for the inferred intent.</summary>
+    public string? Confidence { get; init; }
+
+    /// <summary>Gets or sets the qualitative fit assessment for the current visual choice.</summary>
+    public string? FitQuality { get; init; }
+
+    /// <summary>Gets or sets the evidence supporting the inferred intent.</summary>
+    public List<string> Reasons { get; init; } = [];
+
+    /// <summary>Gets or sets alternative chart families that may better fit the inferred task.</summary>
+    public List<string> SuggestedVisualTypes { get; init; } = [];
 }
 
 /// <summary>

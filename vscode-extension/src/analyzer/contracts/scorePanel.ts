@@ -50,6 +50,23 @@ export interface VisualMetadataItem {
   hasShadow?: boolean;
 }
 
+export interface SemanticColorSummary {
+  semanticKey: string;
+  displayName?: string;
+  colorHex?: string;
+  semanticRole?: string;
+  visualIds: string[];
+}
+
+export interface ChartIntentSummary {
+  visualId: string;
+  intent?: string;
+  confidence?: string;
+  fitQuality?: string;
+  reasons: string[];
+  suggestedVisualTypes: string[];
+}
+
 export interface PageVisualMetadataSummary {
   pageName: string;
   visiblePageTitle?: string;
@@ -63,7 +80,22 @@ export interface PageVisualMetadataSummary {
   axisLabelVisualCount: number;
   dataLabelVisualCount: number;
   formattedVisualCount: number;
+  semanticColors: SemanticColorSummary[];
+  chartIntents: ChartIntentSummary[];
   visuals: VisualMetadataItem[];
+}
+
+export interface ReportConsistencyFinding {
+  rule: string;
+  severity?: string;
+  message?: string;
+  affectedPages: string[];
+  affectedVisuals: AffectedVisualReference[];
+}
+
+export interface ReportConsistencySummary {
+  score?: number;
+  findings: ReportConsistencyFinding[];
 }
 
 export interface PageScore {
@@ -88,6 +120,7 @@ export interface PageScore {
   scoringError?: string;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
+  reportConsistency?: ReportConsistencySummary;
 }
 
 export interface ScoreResult {
@@ -119,6 +152,7 @@ export interface ScoreResult {
   governanceScore?: number;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
+  reportConsistency?: ReportConsistencySummary;
 }
 
 export interface AuditCaptureSummary {

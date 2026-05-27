@@ -38,6 +38,25 @@ describe('normalizeScoreResultPayload', () => {
         AxisLabelVisualCount: 1,
         DataLabelVisualCount: 0,
         FormattedVisualCount: 1,
+        SemanticColors: [
+          {
+            SemanticKey: 'revenue',
+            DisplayName: 'Revenue',
+            ColorHex: '#00AA55',
+            SemanticRole: 'positive',
+            VisualIds: ['v1'],
+          },
+        ],
+        ChartIntents: [
+          {
+            VisualId: 'v1',
+            Intent: 'comparison',
+            Confidence: 'high',
+            FitQuality: 'good',
+            Reasons: ['Bar chart compares categories.'],
+            SuggestedVisualTypes: ['barChart', 'columnChart'],
+          },
+        ],
         Visuals: [
           {
             VisualId: 'v1',
@@ -68,6 +87,24 @@ describe('normalizeScoreResultPayload', () => {
           },
         ],
       },
+      ReportConsistency: {
+        Score: 88,
+        Findings: [
+          {
+            Rule: 'semanticColorConsistency',
+            Severity: 'warning',
+            Message: 'Revenue uses multiple semantic colors across pages.',
+            AffectedPages: ['Overview', 'Details'],
+            AffectedVisuals: [
+              {
+                PageName: 'Overview',
+                VisualId: 'v1',
+                VisualType: 'barChart',
+              },
+            ],
+          },
+        ],
+      },
       FrameworkWeights: {
         gestalt: 60,
         cognitiveLoad: 40,
@@ -94,6 +131,17 @@ describe('normalizeScoreResultPayload', () => {
           FrameworkWeights: {
             gestalt: 60,
             cognitiveLoad: 40,
+          },
+          ReportConsistency: {
+            Score: 88,
+            Findings: [
+              {
+                Rule: 'semanticColorConsistency',
+                Severity: 'warning',
+                Message: 'Revenue uses multiple semantic colors across pages.',
+                AffectedPages: ['Overview', 'Details'],
+              },
+            ],
           },
           VisualMetadata: {
             PageName: 'Overview',
@@ -148,7 +196,56 @@ describe('normalizeScoreResultPayload', () => {
       categoryHints: ['Region'],
       hasBorder: true,
     });
+    expect(normalized.visualMetadata?.semanticColors).toEqual([
+      {
+        semanticKey: 'revenue',
+        displayName: 'Revenue',
+        colorHex: '#00AA55',
+        semanticRole: 'positive',
+        visualIds: ['v1'],
+      },
+    ]);
+    expect(normalized.visualMetadata?.chartIntents).toEqual([
+      {
+        visualId: 'v1',
+        intent: 'comparison',
+        confidence: 'high',
+        fitQuality: 'good',
+        reasons: ['Bar chart compares categories.'],
+        suggestedVisualTypes: ['barChart', 'columnChart'],
+      },
+    ]);
     expect(normalized.pageScores?.[0].visualMetadata?.visiblePageTitle).toBe('Sales Overview');
+    expect(normalized.pageScores?.[0].reportConsistency).toEqual({
+      score: 88,
+      findings: [
+        {
+          rule: 'semanticColorConsistency',
+          severity: 'warning',
+          message: 'Revenue uses multiple semantic colors across pages.',
+          affectedPages: ['Overview', 'Details'],
+          affectedVisuals: [],
+        },
+      ],
+    });
+    expect(normalized.reportConsistency).toEqual({
+      score: 88,
+      findings: [
+        {
+          rule: 'semanticColorConsistency',
+          severity: 'warning',
+          message: 'Revenue uses multiple semantic colors across pages.',
+          affectedPages: ['Overview', 'Details'],
+          affectedVisuals: [
+            {
+              pageName: 'Overview',
+              visualId: 'v1',
+              visualType: 'barChart',
+            },
+          ],
+        },
+      ],
+    });
     expect(normalized.scoringErrors).toEqual({
       Intro: 'Hidden visual parse failed.',
     });
@@ -176,5 +273,38 @@ describe('normalizeScoreResultPayload', () => {
         findingType: 'strongHeuristic',
       },
     ]);
+  });
+
+  it('defaults missing semantic and consistency collections to empty arrays', () => {
+    const normalized = normalizeScoreResultPayload({
+      VisualMetadata: {
+        PageName: 'Overview',
+      },
+      ReportConsistency: {
+        Score: 91,
+      },
+      PageScores: [
+        {
+          PageName: 'Overview',
+          ReportConsistency: {},
+          VisualMetadata: {
+            PageName: 'Overview',
+          },
+        },
+      ],
+    });
+
+    expect(normalized.visualMetadata?.semanticColors).toEqual([]);
+    expect(normalized.visualMetadata?.chartIntents).toEqual([]);
+    expect(normalized.reportConsistency).toEqual({
+      score: 91,
+      findings: [],
+    });
+    expect(normalized.pageScores?.[0].reportConsistency).toEqual({
+      score: undefined,
+      findings: [],
+    });
+    expect(normalized.pageScores?.[0].visualMetadata?.semanticColors).toEqual([]);
+    expect(normalized.pageScores?.[0].visualMetadata?.chartIntents).toEqual([]);
   });
 });

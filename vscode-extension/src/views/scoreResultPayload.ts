@@ -1,9 +1,13 @@
 import type {
   AffectedVisualReference,
+  ChartIntentSummary,
   FindingType,
   FrameworkFeedbackItem,
   PageVisualMetadataSummary,
   PageScore,
+  ReportConsistencyFinding,
+  ReportConsistencySummary,
+  SemanticColorSummary,
   ScoreResult,
   VisualMetadataItem,
 } from '../analyzer/contracts/scorePanel';
@@ -198,6 +202,87 @@ function normalizeVisualMetadataItem(value: unknown): VisualMetadataItem | undef
   };
 }
 
+function normalizeSemanticColorSummary(value: unknown): SemanticColorSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const semanticKey = readOptionalString(value, 'semanticKey');
+  if (!semanticKey) {
+    return undefined;
+  }
+
+  return {
+    semanticKey,
+    displayName: readOptionalString(value, 'displayName'),
+    colorHex: readOptionalString(value, 'colorHex'),
+    semanticRole: readOptionalString(value, 'semanticRole'),
+    visualIds: readStringArray(value, 'visualIds'),
+  };
+}
+
+function normalizeChartIntentSummary(value: unknown): ChartIntentSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const visualId = readOptionalString(value, 'visualId');
+  if (!visualId) {
+    return undefined;
+  }
+
+  return {
+    visualId,
+    intent: readOptionalString(value, 'intent'),
+    confidence: readOptionalString(value, 'confidence'),
+    fitQuality: readOptionalString(value, 'fitQuality'),
+    reasons: readStringArray(value, 'reasons'),
+    suggestedVisualTypes: readStringArray(value, 'suggestedVisualTypes'),
+  };
+}
+
+function normalizeReportConsistencyFinding(value: unknown): ReportConsistencyFinding | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const rule = readOptionalString(value, 'rule');
+  if (!rule) {
+    return undefined;
+  }
+
+  const affectedVisualsValue = readProperty(value, 'affectedVisuals');
+
+  return {
+    rule,
+    severity: readOptionalString(value, 'severity'),
+    message: readOptionalString(value, 'message'),
+    affectedPages: readStringArray(value, 'affectedPages'),
+    affectedVisuals: Array.isArray(affectedVisualsValue)
+      ? affectedVisualsValue
+          .map((entry) => normalizeAffectedVisual(entry))
+          .filter((entry): entry is AffectedVisualReference => Boolean(entry))
+      : [],
+  };
+}
+
+function normalizeReportConsistencySummary(value: unknown): ReportConsistencySummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const findingsValue = readProperty(value, 'findings');
+
+  return {
+    score: readOptionalNumber(value, 'score'),
+    findings: Array.isArray(findingsValue)
+      ? findingsValue
+          .map((entry) => normalizeReportConsistencyFinding(entry))
+          .filter((entry): entry is ReportConsistencyFinding => Boolean(entry))
+      : [],
+  };
+}
+
 function normalizePageVisualMetadata(value: unknown): PageVisualMetadataSummary | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -209,6 +294,8 @@ function normalizePageVisualMetadata(value: unknown): PageVisualMetadataSummary 
   }
 
   const visualsValue = readProperty(value, 'visuals');
+  const semanticColorsValue = readProperty(value, 'semanticColors');
+  const chartIntentsValue = readProperty(value, 'chartIntents');
 
   return {
     pageName,
@@ -223,6 +310,16 @@ function normalizePageVisualMetadata(value: unknown): PageVisualMetadataSummary 
     axisLabelVisualCount: readRequiredNumber(value, 'axisLabelVisualCount'),
     dataLabelVisualCount: readRequiredNumber(value, 'dataLabelVisualCount'),
     formattedVisualCount: readRequiredNumber(value, 'formattedVisualCount'),
+    semanticColors: Array.isArray(semanticColorsValue)
+      ? semanticColorsValue
+          .map((entry) => normalizeSemanticColorSummary(entry))
+          .filter((entry): entry is SemanticColorSummary => Boolean(entry))
+      : [],
+    chartIntents: Array.isArray(chartIntentsValue)
+      ? chartIntentsValue
+          .map((entry) => normalizeChartIntentSummary(entry))
+          .filter((entry): entry is ChartIntentSummary => Boolean(entry))
+      : [],
     visuals: Array.isArray(visualsValue)
       ? visualsValue
           .map((entry) => normalizeVisualMetadataItem(entry))
@@ -256,6 +353,7 @@ function normalizePageScore(value: unknown): PageScore {
     scoringError: readOptionalString(candidate, 'scoringError'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
+    reportConsistency: normalizeReportConsistencySummary(readProperty(candidate, 'reportConsistency')),
   };
 }
 
@@ -294,5 +392,6 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     governanceScore: readOptionalNumber(candidate, 'governanceScore'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
+    reportConsistency: normalizeReportConsistencySummary(readProperty(candidate, 'reportConsistency')),
   };
 }

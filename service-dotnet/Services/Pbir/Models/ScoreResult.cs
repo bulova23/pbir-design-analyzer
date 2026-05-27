@@ -36,6 +36,39 @@ public sealed record FrameworkFeedbackItem(
 public sealed record AffectedVisualReference(string PageName, string VisualId, string VisualType);
 
 /// <summary>
+/// Report-level consistency summary for repeated conventions, semantics, and layout language.
+/// </summary>
+public sealed class ReportConsistencySummary
+{
+    /// <summary>Gets or sets the aggregate report consistency score, when computed.</summary>
+    public double? Score { get; init; }
+
+    /// <summary>Gets or sets the findings that explain report-level consistency drift.</summary>
+    public List<ReportConsistencyFinding> Findings { get; init; } = [];
+}
+
+/// <summary>
+/// A single report-level consistency finding that can cite pages and visuals.
+/// </summary>
+public sealed class ReportConsistencyFinding
+{
+    /// <summary>Gets or sets the normalized consistency rule identifier.</summary>
+    public required string Rule { get; init; }
+
+    /// <summary>Gets or sets the qualitative severity label.</summary>
+    public string? Severity { get; init; }
+
+    /// <summary>Gets or sets the user-facing explanation of the consistency finding.</summary>
+    public string? Message { get; init; }
+
+    /// <summary>Gets or sets the affected page display names.</summary>
+    public List<string> AffectedPages { get; init; } = [];
+
+    /// <summary>Gets or sets the affected visuals that illustrate the drift.</summary>
+    public List<AffectedVisualReference> AffectedVisuals { get; init; } = [];
+}
+
+/// <summary>
 /// Holds the scoring dimensions and final composite score produced by <see cref="PbirScoringService"/>.
 /// All sub-scores are clamped to [0, 100]. The composite score is a weighted sum of the
 /// enabled frameworks using the normalized weights supplied in <see cref="FrameworkWeights"/>.
@@ -199,6 +232,12 @@ public sealed class ScoreResult
     /// <c>null</c> for full-report scoring where page-level metadata is carried on <see cref="PageScores"/>.
     /// </summary>
     public PageVisualMetadataSummary? VisualMetadata { get; set; }
+
+    /// <summary>
+    /// Gets or sets the report-level consistency summary spanning multiple pages, when available.
+    /// <c>null</c> when consistency analysis has not been produced.
+    /// </summary>
+    public ReportConsistencySummary? ReportConsistency { get; set; }
 
     // ── Per-Page Scores (Feature 003: Per-Page Scoring) ───────────────────────
 

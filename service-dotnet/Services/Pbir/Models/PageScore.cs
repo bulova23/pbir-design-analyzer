@@ -147,4 +147,10 @@ public sealed class PageScore
     /// When populated, the page's top-level framework scores are the per-state averages.
     /// </summary>
     public Dictionary<string, double>? PerStateScores { get; init; }
+
+    /// <summary>
+    /// Gets or sets the report-level consistency findings that affect this page, when available.
+    /// <c>null</c> when no cross-page consistency summary has been attached.
+    /// </summary>
+    public ReportConsistencySummary? ReportConsistency { get; init; }
 }
