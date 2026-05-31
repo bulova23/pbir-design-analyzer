@@ -10,3 +10,7 @@
 - Reviewed the current analyzer implementation against that research plus a chart-selection reference image and produced a prioritized next-feature recommendation list focused on semantic color consistency, chart-fit analysis, cross-page consistency, and decision-support depth.
 - Added inferred story plus user intent confirmation to the strategy and created a concrete phased implementation backlog at `docs/2026-05-26_concrete_implementation_backlog.md`.
 - Created isolated worktree `.worktrees/feat-semantic-color-chart-intent` on branch `feat/semantic-color-chart-intent` and verified a clean backend baseline with 101 passing tests.
+
+## 2026-05-30
+
+- Fixed a GitHub push rejection on root `main` by removing an unpublished local commit that had accidentally tracked `.vscode-test/` and exceeded GitHub's 100 MB limit, then added `.vscode-test/` ignore rules and pushed `fix(git): ignore vscode test bundles`.
