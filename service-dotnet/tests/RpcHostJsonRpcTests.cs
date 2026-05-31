@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -20,6 +22,46 @@ namespace ServiceDotnet.Tests
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
             var json = JsonSerializer.Serialize(response, options);
+            Assert.Contains("\"result\":null", json);
+        }
+
+        [Fact]
+        public void RpcHostSerializer_WithShutdownStyleNullResult_EmitsResultProperty()
+        {
+            var rpcHostAssemblyPath = Path.GetFullPath(Path.Combine(
+                AppContext.BaseDirectory,
+                "..",
+                "..",
+                "..",
+                "..",
+                "RpcHost",
+                "bin",
+                "Release",
+                "net8.0",
+                "ModelingLanguageServer.dll"));
+
+            Assert.True(File.Exists(rpcHostAssemblyPath), $"RpcHost assembly not found at {rpcHostAssemblyPath}");
+
+            var rpcHostAssembly = Assembly.LoadFrom(rpcHostAssemblyPath);
+            var responseType = rpcHostAssembly.GetType("PowerBIModelingService.RpcHost.JsonRpcSuccessResponse");
+            var optionsFactory = rpcHostAssembly
+                .GetType("PowerBIModelingService.RpcHost.SimpleJsonRpcServer")?
+                .GetMethod("CreateJsonSerializerOptions", BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.NotNull(responseType);
+            Assert.NotNull(optionsFactory);
+
+            var options = optionsFactory!.Invoke(null, null) as JsonSerializerOptions;
+            var response = Activator.CreateInstance(responseType!);
+
+            Assert.NotNull(options);
+            Assert.NotNull(response);
+
+            responseType!.GetProperty("Id")!.SetValue(response, JsonDocument.Parse("1").RootElement.Clone());
+            responseType.GetProperty("Result")!.SetValue(response, null);
+
+            var json = JsonSerializer.Serialize(response, responseType, options);
+
             Assert.Contains("\"result\":null", json);
         }
 
@@ -96,6 +138,25 @@ namespace ServiceDotnet.Tests
                 {
                     PageName = "Overview",
                     VisiblePageTitle = "Sales Overview",
+                    SemanticColorMap = new List<SemanticColorAssignment>
+                    {
+                        new()
+                        {
+                            SemanticKey = "region:north",
+                            DisplayLabel = "North",
+                            Color = "#3366CC",
+                            SourceVisualId = "v1",
+                            SourcePageName = "Overview",
+                        },
+                    },
+                    ChartIntentSummary = new ChartIntentSummary
+                    {
+                        Intent = "comparison",
+                        Confidence = "high",
+                        Evidence = new List<string> { "bar chart", "category axis" },
+                        FitStatus = "good",
+                        RecommendedAlternatives = new List<string> { "columnChart" },
+                    },
                     VisualCount = 1,
                     VisibleTitleVisualCount = 1,
                     TextVisualCount = 0,
@@ -113,12 +174,58 @@ namespace ServiceDotnet.Tests
                             HasVisibleTitleIntent = true,
                             Width = 320,
                             Height = 180,
+                            SemanticColors = new List<SemanticColorAssignment>
+                            {
+                                new()
+                                {
+                                    SemanticKey = "region:north",
+                                    DisplayLabel = "North",
+                                    Color = "#3366CC",
+                                    SourceVisualId = "v1",
+                                    SourcePageName = "Overview",
+                                },
+                            },
+                            ChartIntent = new ChartIntentSummary
+                            {
+                                Intent = "comparison",
+                                Confidence = "high",
+                                Evidence = new List<string> { "bar chart" },
+                                FitStatus = "good",
+                                RecommendedAlternatives = new List<string>(),
+                            },
                         },
                     },
+                },
+                ReportConsistencySummary = new ReportConsistencySummary
+                {
+                    ConsistentTitleAnchors = true,
+                    ConsistentFilterBand = true,
+                    ConsistentMetricLabels = false,
+                    ConsistentSemanticColors = true,
+                    Findings = new List<string> { "Metric labels drift across overview pages." },
                 },
                 Feedback = new Dictionary<string, List<FrameworkFeedbackItem>>
                 {
                     ["gestalt"] = new() { new FrameworkFeedbackItem(true, "Aligned.", FindingType: FindingTypes.StrongHeuristic) }
+                },
+                PageScores = new List<PageScore>
+                {
+                    new()
+                    {
+                        PageName = "Overview",
+                        GestaltScore = 80,
+                        CognitiveLoadScore = 70,
+                        DataInkScore = 75,
+                        AccessibilityScore = 72,
+                        VisualBestPracticesScore = 78,
+                        StephenFewScore = 68,
+                        EnterpriseGovernanceScore = 74,
+                        TufteScore = 66,
+                        GraphicalPerceptionScore = 69,
+                        DensityScore = 64,
+                        NarrativeScore = 67,
+                        ReportConsistencyNotes = new List<string> { "Metric labels drift across overview pages." },
+                    },
                 },
             };
 
@@ -129,11 +236,23 @@ namespace ServiceDotnet.Tests
             Assert.Contains("\"reportPath\":\"/tmp/Sales.Report\"", json);
             Assert.Contains("\"visualMetadata\":{", json);
             Assert.Contains("\"visiblePageTitle\":\"Sales Overview\"", json);
+            Assert.Contains("\"semanticColorMap\":[", json);
+            Assert.Contains("\"semanticColors\":[", json);
+            Assert.Contains("\"chartIntentSummary\":{", json);
+            Assert.Contains("\"chartIntent\":{", json);
+            Assert.Contains("\"reportConsistencySummary\":{", json);
+            Assert.Contains("\"reportConsistencyNotes\":[", json);
+            Assert.Contains("\"semanticKey\":\"region:north\"", json);
+            Assert.Contains("\"consistentMetricLabels\":false", json);
             Assert.Contains("\"findingType\":\"strongHeuristic\"", json);
             Assert.DoesNotContain("\"Recommendations\"", json);
             Assert.DoesNotContain("\"FrameworkWeights\"", json);
             Assert.DoesNotContain("\"ReportPath\"", json);
             Assert.DoesNotContain("\"VisualMetadata\"", json);
+            Assert.DoesNotContain("\"SemanticColorMap\"", json);
+            Assert.DoesNotContain("\"ChartIntentSummary\"", json);
+            Assert.DoesNotContain("\"ReportConsistencySummary\"", json);
+            Assert.DoesNotContain("\"ReportConsistencyNotes\"", json);
             Assert.DoesNotContain("\"FindingType\"", json);
         }
 

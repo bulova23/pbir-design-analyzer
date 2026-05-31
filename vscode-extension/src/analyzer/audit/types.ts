@@ -2,6 +2,7 @@ export type VisualAuditFindingType = 'objective' | 'strongHeuristic' | 'stylePre
 export type VisualAuditSeverity = 'critical' | 'warning' | 'info';
 export type VisualAuditConfidence = 'high' | 'medium' | 'low';
 export type VisualCaptureSource = 'upload' | 'browser';
+export type VisualAuditIssueSource = 'renderedLayout' | 'metadataModel';
 
 export interface VisualCapture {
   captureId: string;
@@ -21,6 +22,7 @@ export interface VisualAuditFinding {
   findingType: VisualAuditFindingType;
   severity: VisualAuditSeverity;
   confidence: VisualAuditConfidence;
+  issueSource?: VisualAuditIssueSource;
   text: string;
   recommendation?: string;
   regionHint?: string;

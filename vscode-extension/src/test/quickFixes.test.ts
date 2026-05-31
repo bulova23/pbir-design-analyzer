@@ -1,5 +1,5 @@
 import { buildQuickFixList } from '../analyzer/score/quickFixes';
-import type { FrameworkFeedbackItem } from '../analyzer/contracts/scorePanel';
+import type { FrameworkFeedbackItem, PageScore } from '../analyzer/contracts/scorePanel';
 
 function feedback(
   text: string,
@@ -9,6 +9,27 @@ function feedback(
     ok: false,
     text,
     findingType: 'strongHeuristic',
+    ...overrides,
+  };
+}
+
+function page(overrides: Partial<PageScore> = {}): PageScore {
+  return {
+    pageName: 'Overview',
+    gestaltScore: 80,
+    cognitiveLoadScore: 70,
+    dataInkScore: 75,
+    accessibilityScore: 70,
+    visualBestPracticesScore: 80,
+    stephenFewScore: 70,
+    enterpriseGovernanceScore: 75,
+    tufteScore: 68,
+    graphicalPerceptionScore: 70,
+    densityScore: 66,
+    narrativeScore: 67,
+    compositeScore: 74,
+    feedback: {},
+    recommendations: [],
     ...overrides,
   };
 }
@@ -126,5 +147,39 @@ describe('buildQuickFixList', () => {
     );
 
     expect(fixes.filter((fix) => fix.operation === 'ConsolidateFilters')).toHaveLength(1);
+  });
+
+  it('emits actionability-driven fixes for missing KPI context and overview/detail support', () => {
+    const fixes = buildQuickFixList([], [], page({
+      actionabilityBreakdown: {
+        score: 20,
+        targetBenchmarkPresent: false,
+        exceptionVisibility: false,
+        urgencySignaling: false,
+        priorPeriodContext: false,
+        drillPathPresent: false,
+        expectationLevel: 'high',
+        strengths: [],
+        gaps: ['Add target context'],
+        summary: 'Weak decision support.',
+      },
+    }));
+
+    expect(fixes.some((fix) => fix.operation === 'AddKpiContext')).toBe(true);
+    expect(fixes.some((fix) => fix.operation === 'AddOverviewDetailSeparation')).toBe(true);
+  });
+
+  it('emits title and chart replacement fixes from richer backlog findings', () => {
+    const fixes = buildQuickFixList(
+      [],
+      [
+        feedback('Visible page purpose: Overview uses a vague visible title.'),
+        feedback('Sequential fit: The line chart is categorical rather than sequential.'),
+      ],
+      page(),
+    );
+
+    expect(fixes.some((fix) => fix.operation === 'RewritePageTitle')).toBe(true);
+    expect(fixes.some((fix) => fix.operation === 'ReplaceChartForIntent')).toBe(true);
   });
 });

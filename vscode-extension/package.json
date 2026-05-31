@@ -1,8 +1,8 @@
 {
   "name": "pbir-design-analyzer",
   "displayName": "PBIR Design Analyzer",
-  "description": "Analyze layout, navigation, accessibility, storytelling, and governance for local Power BI PBIP/PBIR reports in VS Code.",
-  "version": "0.1.13",
+  "description": "Review local Power BI PBIP/PBIR reports in an issue-centric workspace for layout, storytelling, accessibility, consistency, and governance.",
+  "version": "0.2.0",
   "publisher": "bcrowell",
   "icon": "resources/icon.png",
   "repository": {
@@ -79,6 +79,11 @@
         "command": "pbirAnalyzer.exportGovernanceReport",
         "title": "PBIR Design Analyzer: Export Governance Report",
         "icon": "$(export)"
+      },
+      {
+        "command": "pbirAnalyzer.exportReviewWorkflow",
+        "title": "PBIR Design Analyzer: Export Review Workflow Summary",
+        "icon": "$(notebook-template)"
       },
       {
         "command": "pbirAnalyzer.uploadScreenshots",
@@ -203,6 +208,7 @@
     "@types/jest": "^30.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.10.0",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/sinon": "^17.0.2",
@@ -224,6 +230,7 @@
     "vite": "^6.4.2"
   },
   "dependencies": {
+    "pdfkit": "^0.18.0",
     "vscode-languageclient": "^9.0.0"
   }
 }

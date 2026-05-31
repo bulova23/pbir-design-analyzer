@@ -314,24 +314,22 @@ internal sealed class SimpleJsonRpcServer
             return;
         }
 
-        await WriteMessageAsync(new
+        await WriteMessageAsync(new JsonRpcSuccessResponse
         {
-            jsonrpc = "2.0",
-            id = id,
-            result,
+            Id = id,
+            Result = result,
         }).ConfigureAwait(false);
     }
 
     private async Task WriteErrorAsync(JsonElement? id, int code, string message)
     {
-        await WriteMessageAsync(new
+        await WriteMessageAsync(new JsonRpcErrorEnvelope
         {
-            jsonrpc = "2.0",
-            id = id,
-            error = new
+            Id = id,
+            Error = new JsonRpcErrorPayload
             {
-                code,
-                message,
+                Code = code,
+                Message = message,
             },
         }).ConfigureAwait(false);
     }
@@ -415,4 +413,30 @@ internal sealed class JsonRpcRequest
     public string Method { get; set; } = string.Empty;
 
     public JsonElement? Params { get; set; }
+}
+
+internal sealed class JsonRpcSuccessResponse
+{
+    public string Jsonrpc { get; set; } = "2.0";
+
+    public JsonElement? Id { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public object? Result { get; set; }
+}
+
+internal sealed class JsonRpcErrorEnvelope
+{
+    public string Jsonrpc { get; set; } = "2.0";
+
+    public JsonElement? Id { get; set; }
+
+    public JsonRpcErrorPayload Error { get; set; } = new();
+}
+
+internal sealed class JsonRpcErrorPayload
+{
+    public int Code { get; set; }
+
+    public string Message { get; set; } = string.Empty;
 }

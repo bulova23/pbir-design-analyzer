@@ -7,8 +7,10 @@ export const window = {
   showInformationMessage: jest.fn(),
   showWarningMessage: jest.fn(),
   showOpenDialog: jest.fn().mockResolvedValue(undefined),
+  showSaveDialog: jest.fn().mockResolvedValue(undefined),
   showQuickPick: jest.fn().mockResolvedValue(undefined),
   showInputBox: jest.fn().mockResolvedValue(undefined),
+  showTextDocument: jest.fn().mockResolvedValue(undefined),
   setStatusBarMessage: jest.fn(),
   createStatusBarItem: jest.fn(() => ({
     show: jest.fn(),

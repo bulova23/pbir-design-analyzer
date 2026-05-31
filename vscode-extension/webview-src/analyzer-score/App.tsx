@@ -1,14 +1,26 @@
 import React from 'react';
 import type {
   AffectedVisualReference,
+  ActionabilityBreakdown,
   AuditCaptureSummary,
   AuditFindingDisplay,
   AuditPageState,
   AuditState,
+  BenchmarkComparisonSummary,
   FindingType,
   FrameworkFeedbackItem,
+  IntentFeedbackConfirmation,
+  IntentFeedbackEntry,
+  NormalizedFinding,
+  NormalizedFindingSeverity,
+  OverviewSummary,
+  PageIntentProfile,
+  PageIntentProfileType,
   PageVisualMetadataSummary,
   PageScore,
+  ReviewPresentationPersona,
+  ReviewPresentationPersonaProfile,
+  ReviewerPersona,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
   ScorePanelWebviewToHostMessage,
@@ -20,9 +32,9 @@ import {
   getEnabledFrameworks,
   getPageScore,
   getResultScore,
-  groupRecommendations,
 } from '../../src/analyzer/score/presentation';
-import { buildQuickFixList } from '../../src/analyzer/score/quickFixes';
+import { applyPersonaPresentation, getReviewPresentationPersonaProfiles } from '../../src/analyzer/score/personaPresentation';
+import { buildReviewerComments } from '../../src/analyzer/score/reviewerComments';
 
 interface ScoreVsCodeApi {
   postMessage(message: ScorePanelWebviewToHostMessage): void;
@@ -34,6 +46,29 @@ type ViewState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ready'; state: ScorePanelState; audit?: AuditState };
+
+type ReviewStatus = 'confirmed' | 'partial' | 'mismatch' | 'unreviewed';
+type IssueGroupingMode = 'severity' | 'impactArea';
+
+interface PageReviewEntry {
+  pageName: string;
+  status: ReviewStatus;
+  summary?: PageScore['inferredStorySummary'];
+}
+
+interface IntentFeedbackState {
+  confirmation?: IntentFeedbackConfirmation;
+  note?: string;
+}
+
+interface IssueFilterState {
+  severity: NormalizedFindingSeverity | 'all';
+  pageName: string | 'all';
+  dimension: 'layout' | 'story' | 'accessibility' | 'consistency' | 'navigation' | 'actionability' | 'all';
+  impactArea: NormalizedFinding['impactArea'] | 'all';
+  scope: NormalizedFinding['scope'] | 'all';
+  detectionType: NormalizedFinding['detectionType'] | 'all';
+}
 
 function isZeroScore(result: ScoreResult): boolean {
   return (
@@ -174,6 +209,494 @@ function splitFeedbackDetail(text: string): {
   };
 }
 
+function getNormalizedFindingSeverityOrder(severity: NormalizedFindingSeverity): number {
+  switch (severity) {
+    case 'high':
+      return 0;
+    case 'medium':
+      return 1;
+    case 'low':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+function getNormalizedFindingSeverityLabel(severity: NormalizedFindingSeverity): string {
+  switch (severity) {
+    case 'high':
+      return 'High severity';
+    case 'medium':
+      return 'Medium severity';
+    case 'low':
+      return 'Low severity';
+    default:
+      return 'Informational';
+  }
+}
+
+function getNormalizedFindingSeverityClassName(severity: NormalizedFindingSeverity): string {
+  switch (severity) {
+    case 'high':
+      return 'issue-severity-high';
+    case 'medium':
+      return 'issue-severity-medium';
+    case 'low':
+      return 'issue-severity-low';
+    default:
+      return 'issue-severity-info';
+  }
+}
+
+function getDetectionTypeLabel(detectionType: NormalizedFinding['detectionType']): string {
+  switch (detectionType) {
+    case 'aiAssisted':
+      return 'AI-assisted';
+    case 'mixed':
+      return 'Mixed';
+    default:
+      return 'Deterministic';
+  }
+}
+
+function getScopeLabel(scope: NormalizedFinding['scope']): string {
+  switch (scope) {
+    case 'crossPage':
+      return 'Cross-page';
+    default:
+      return scope[0].toUpperCase() + scope.slice(1);
+  }
+}
+
+function getImpactAreaLabel(impactArea: NormalizedFinding['impactArea']): string {
+  switch (impactArea) {
+    case 'kpiEffectiveness':
+      return 'KPI effectiveness';
+    default:
+      return impactArea[0].toUpperCase() + impactArea.slice(1);
+  }
+}
+
+function getDimensionLabel(dimension: IssueFilterState['dimension']): string {
+  if (dimension === 'all') {
+    return 'All dimensions';
+  }
+
+  return dimension[0].toUpperCase() + dimension.slice(1);
+}
+
+function getMatrixStatusClassName(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
+  switch (status) {
+    case 'weak':
+      return 'matrix-status-weak';
+    case 'watch':
+      return 'matrix-status-watch';
+    case 'strong':
+      return 'matrix-status-strong';
+    default:
+      return 'matrix-status-unknown';
+  }
+}
+
+function mapDimensionToImpactAreas(dimension: Exclude<IssueFilterState['dimension'], 'all'>): NormalizedFinding['impactArea'][] {
+  switch (dimension) {
+    case 'layout':
+      return ['layout', 'density'];
+    case 'story':
+      return ['storytelling', 'kpiEffectiveness', 'benchmark'];
+    case 'consistency':
+      return ['governance', 'metadata'];
+    default:
+      return [dimension];
+  }
+}
+
+function buildPersonaDefaultFilters(profile: ReviewPresentationPersonaProfile | undefined): IssueFilterState {
+  if (!profile) {
+    return {
+      severity: 'all',
+      pageName: 'all',
+      dimension: 'all',
+      impactArea: 'all',
+      scope: 'all',
+      detectionType: 'all',
+    };
+  }
+
+  const impactArea = profile.emphasizedImpactAreas[0] ?? 'all';
+  return {
+    severity: profile.defaultSeverityFilter?.includes('high') ? 'high' : 'all',
+    pageName: 'all',
+    dimension: impactArea === 'actionability'
+      ? 'actionability'
+      : impactArea === 'accessibility'
+        ? 'accessibility'
+        : impactArea === 'governance' || impactArea === 'metadata'
+          ? 'consistency'
+          : impactArea === 'navigation'
+            ? 'navigation'
+            : impactArea === 'storytelling' || impactArea === 'kpiEffectiveness' || impactArea === 'benchmark'
+              ? 'story'
+              : impactArea === 'layout' || impactArea === 'density'
+                ? 'layout'
+                : 'all',
+    impactArea,
+    scope: profile.id === 'governance' ? 'crossPage' : 'all',
+    detectionType: profile.defaultDetectionTypes?.[0] ?? 'all',
+  };
+}
+
+function summarizeActiveIssueFilters(filters: IssueFilterState): string[] {
+  const items: string[] = [];
+  if (filters.severity !== 'all') {
+    items.push(`Severity: ${getNormalizedFindingSeverityLabel(filters.severity)}`);
+  }
+  if (filters.pageName !== 'all') {
+    items.push(`Page: ${filters.pageName}`);
+  }
+  if (filters.dimension !== 'all') {
+    items.push(`Dimension: ${getDimensionLabel(filters.dimension)}`);
+  }
+  if (filters.impactArea !== 'all') {
+    items.push(`Impact: ${getImpactAreaLabel(filters.impactArea)}`);
+  }
+  if (filters.scope !== 'all') {
+    items.push(`Scope: ${getScopeLabel(filters.scope)}`);
+  }
+  if (filters.detectionType !== 'all') {
+    items.push(`Detection: ${getDetectionTypeLabel(filters.detectionType)}`);
+  }
+  return items;
+}
+
+function buildVisibleFindings(
+  findings: NormalizedFinding[] | undefined,
+  selectedPageName: string | undefined,
+): NormalizedFinding[] {
+  if (!findings || findings.length === 0) {
+    return [];
+  }
+
+  if (!selectedPageName) {
+    return findings;
+  }
+
+  return findings.filter((finding) => {
+    if (finding.scope === 'report') {
+      return true;
+    }
+
+    if (finding.affectedPages.length === 0) {
+      return true;
+    }
+
+    return finding.affectedPages.includes(selectedPageName);
+  });
+}
+
+function applyIssueFilters(
+  findings: NormalizedFinding[],
+  filters: IssueFilterState,
+): NormalizedFinding[] {
+  return findings.filter((finding) => {
+    if (filters.severity !== 'all' && finding.severity !== filters.severity) {
+      return false;
+    }
+
+    if (filters.pageName !== 'all' && !finding.affectedPages.includes(filters.pageName)) {
+      return false;
+    }
+
+    if (filters.dimension !== 'all' && !mapDimensionToImpactAreas(filters.dimension).includes(finding.impactArea)) {
+      return false;
+    }
+
+    if (filters.impactArea !== 'all' && finding.impactArea !== filters.impactArea) {
+      return false;
+    }
+
+    if (filters.scope !== 'all' && finding.scope !== filters.scope) {
+      return false;
+    }
+
+    if (filters.detectionType !== 'all' && finding.detectionType !== filters.detectionType) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function buildIssueGroups(
+  findings: NormalizedFinding[],
+  groupingMode: IssueGroupingMode,
+): Array<{ key: string; label: string; findings: NormalizedFinding[]; defaultOpen: boolean }> {
+  if (groupingMode === 'impactArea') {
+    const groups = findings.reduce<Record<string, NormalizedFinding[]>>((acc, finding) => {
+      const key = finding.impactArea;
+      acc[key] = acc[key] ?? [];
+      acc[key].push(finding);
+      return acc;
+    }, {});
+
+    return Object.entries(groups)
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .map(([key, items]) => ({
+        key,
+        label: getImpactAreaLabel(key as NormalizedFinding['impactArea']),
+        findings: items.sort((left, right) => {
+          const severityDiff = getNormalizedFindingSeverityOrder(left.severity) - getNormalizedFindingSeverityOrder(right.severity);
+          return severityDiff !== 0 ? severityDiff : right.confidence - left.confidence;
+        }),
+        defaultOpen: key === 'actionability' || key === 'benchmark',
+      }));
+  }
+
+  const grouped = findings.reduce<Record<NormalizedFindingSeverity, NormalizedFinding[]>>(
+    (groups, finding) => {
+      groups[finding.severity].push(finding);
+      return groups;
+    },
+    {
+      high: [],
+      medium: [],
+      low: [],
+      info: [],
+    },
+  );
+
+  return (Object.keys(grouped) as NormalizedFindingSeverity[])
+    .filter((severity) => grouped[severity].length > 0)
+    .sort((left, right) => (
+      getNormalizedFindingSeverityOrder(left) - getNormalizedFindingSeverityOrder(right)
+    ))
+    .map((severity) => ({
+      key: severity,
+      label: getNormalizedFindingSeverityLabel(severity),
+      findings: grouped[severity],
+      defaultOpen: severity === 'high',
+    }));
+}
+
+function renderIssuesWorkspace(
+  props: {
+    findings: NormalizedFinding[];
+    filters: IssueFilterState;
+    groupingMode: IssueGroupingMode;
+    pageOptions: string[];
+    activeFilterSummary: string[];
+    onFilterChange: (key: keyof IssueFilterState, value: string) => void;
+    onGroupingModeChange: (value: IssueGroupingMode) => void;
+    onClearFilters: () => void;
+    onResetToPersonaDefaults: () => void;
+  },
+): React.ReactNode {
+  const {
+    findings,
+    filters,
+    groupingMode,
+    pageOptions,
+    activeFilterSummary,
+    onFilterChange,
+    onGroupingModeChange,
+    onClearFilters,
+    onResetToPersonaDefaults,
+  } = props;
+  if (findings.length === 0) {
+    return (
+      <section aria-label="Issues workspace" className="panel-card issues-card">
+        <div className="issues-section-head">
+          <div>
+            <p className="section-kicker">Primary review surface</p>
+            <h2>Issues</h2>
+          </div>
+        </div>
+        <p className="empty-text">No normalized issues were generated for this view.</p>
+      </section>
+    );
+  }
+
+  const filteredFindings = applyIssueFilters(findings, filters);
+  const groups = buildIssueGroups(filteredFindings, groupingMode);
+
+  return (
+    <section aria-label="Issues workspace" className="panel-card issues-card">
+      <div className="issues-section-head">
+        <div>
+          <p className="section-kicker">Primary review surface</p>
+          <h2>Issues</h2>
+        </div>
+        <p className="issues-section-copy">
+          Review the highest-priority problems first, then expand evidence only when needed.
+        </p>
+      </div>
+      <div className="issues-toolbar">
+        <label>
+          Severity
+          <select aria-label="Issue severity filter" onChange={(event) => onFilterChange('severity', event.target.value)} value={filters.severity}>
+            <option value="all">All</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+            <option value="info">Info</option>
+          </select>
+        </label>
+        <label>
+          Page
+          <select aria-label="Issue page filter" onChange={(event) => onFilterChange('pageName', event.target.value)} value={filters.pageName}>
+            <option value="all">All</option>
+            {pageOptions.map((pageName) => (
+              <option key={pageName} value={pageName}>{pageName}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Dimension
+          <select aria-label="Issue dimension filter" onChange={(event) => onFilterChange('dimension', event.target.value)} value={filters.dimension}>
+            <option value="all">All</option>
+            <option value="layout">Layout</option>
+            <option value="story">Story</option>
+            <option value="accessibility">Accessibility</option>
+            <option value="consistency">Consistency</option>
+            <option value="navigation">Navigation</option>
+            <option value="actionability">Actionability</option>
+          </select>
+        </label>
+        <label>
+          Impact
+          <select aria-label="Issue impact filter" onChange={(event) => onFilterChange('impactArea', event.target.value)} value={filters.impactArea}>
+            <option value="all">All</option>
+            <option value="actionability">Actionability</option>
+            <option value="accessibility">Accessibility</option>
+            <option value="benchmark">Benchmark</option>
+            <option value="density">Density</option>
+            <option value="governance">Governance</option>
+            <option value="kpiEffectiveness">KPI effectiveness</option>
+            <option value="layout">Layout</option>
+            <option value="metadata">Metadata</option>
+            <option value="navigation">Navigation</option>
+            <option value="storytelling">Storytelling</option>
+          </select>
+        </label>
+        <label>
+          Scope
+          <select aria-label="Issue scope filter" onChange={(event) => onFilterChange('scope', event.target.value)} value={filters.scope}>
+            <option value="all">All</option>
+            <option value="visual">Visual</option>
+            <option value="page">Page</option>
+            <option value="crossPage">Cross-page</option>
+            <option value="report">Report</option>
+          </select>
+        </label>
+        <label>
+          Detection
+          <select aria-label="Issue detection filter" onChange={(event) => onFilterChange('detectionType', event.target.value)} value={filters.detectionType}>
+            <option value="all">All</option>
+            <option value="deterministic">Deterministic</option>
+            <option value="aiAssisted">AI-assisted</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </label>
+        <label>
+          Group by
+          <select aria-label="Issue grouping mode" onChange={(event) => onGroupingModeChange(event.target.value as IssueGroupingMode)} value={groupingMode}>
+            <option value="severity">Severity</option>
+            <option value="impactArea">Category</option>
+          </select>
+        </label>
+      </div>
+      {activeFilterSummary.length > 0 ? (
+        <div className="active-filter-summary" aria-label="Active issue filters">
+          <p>{activeFilterSummary.join(' · ')}</p>
+          <div className="active-filter-actions">
+            <button className="link-button" onClick={onResetToPersonaDefaults} type="button">Use review mode defaults</button>
+            <button className="link-button" onClick={onClearFilters} type="button">Clear filters</button>
+          </div>
+        </div>
+      ) : null}
+      <p className="issues-results-copy">
+        Showing {filteredFindings.length} of {findings.length} finding(s).
+      </p>
+      <div className="issues-group-list">
+        {groups.map((group) => (
+          <details
+            className="issue-group"
+            key={group.key}
+            open={group.defaultOpen}
+          >
+            <summary className="issue-group-summary">
+              <span>{group.label}</span>
+              <span>{group.findings.length}</span>
+            </summary>
+            <div className="issue-card-list">
+              {group.findings.map((finding) => (
+                <details className="issue-card" key={finding.id}>
+                  <summary className="issue-card-summary">
+                    <div className="issue-card-head">
+                      <div>
+                        <h3>{finding.title}</h3>
+                        <p className="issue-card-copy">{finding.summary}</p>
+                      </div>
+                      <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(finding.severity)}`}>
+                        {finding.severity}
+                      </span>
+                    </div>
+                    <dl className="issue-meta-grid">
+                      <div>
+                        <dt>Confidence</dt>
+                        <dd>{finding.confidence}</dd>
+                      </div>
+                      <div>
+                        <dt>Scope</dt>
+                        <dd>{getScopeLabel(finding.scope)}</dd>
+                      </div>
+                      <div>
+                        <dt>Detection</dt>
+                        <dd>{getDetectionTypeLabel(finding.detectionType)}</dd>
+                      </div>
+                      <div>
+                        <dt>Impact</dt>
+                        <dd>{getImpactAreaLabel(finding.impactArea)}</dd>
+                      </div>
+                    </dl>
+                    <p className="issue-recommendation-lead">
+                      <strong>Fix first:</strong> {finding.recommendation}
+                    </p>
+                  </summary>
+                  <div className="issue-card-body">
+                    <div className="issue-detail-block">
+                      <p className="issue-detail-label">Affected pages</p>
+                      <p>{finding.affectedPages.length > 0 ? finding.affectedPages.join(', ') : 'Report-wide'}</p>
+                    </div>
+                    <div className="issue-detail-block">
+                      <p className="issue-detail-label">Framework impact</p>
+                      <p>{finding.frameworkImpact.length > 0 ? finding.frameworkImpact.join(', ') : 'Not mapped'}</p>
+                    </div>
+                    {finding.evidence.length > 0 ? (
+                      <div className="issue-detail-block">
+                        <p className="issue-detail-label">Evidence references</p>
+                        <ul className="issue-evidence-list">
+                          {finding.evidence.map((evidence, index) => (
+                            <li className="issue-evidence-item" key={`${finding.id}-evidence-${index}`}>
+                              <strong>{evidence.label}</strong>
+                              {evidence.pageName ? ` · ${evidence.pageName}` : ''}
+                              {evidence.detail ? ` — ${evidence.detail}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function renderEvidence(
   affectedVisuals: AffectedVisualReference[],
   currentPageName: string | undefined,
@@ -210,6 +733,216 @@ function renderEvidence(
         ))}
       </ul>
     </details>
+  );
+}
+
+function renderOverviewWorkspace(
+  overviewSummary: OverviewSummary | undefined,
+  frameworkValues: Array<{ key: string; label: string; score: number; weightLabel: string }>,
+  scoreValue: number,
+  visualMix: { data?: number; navigation?: number; hidden?: number },
+  crossPageMatrix: ScoreResult['crossPageMatrix'],
+  workspacePersona: ReviewPresentationPersona,
+  personaProfiles: ReviewPresentationPersonaProfile[],
+  onWorkspacePersonaChange: (persona: ReviewPresentationPersona) => void,
+  onMatrixCellClick: (pageName: string, dimension: Exclude<IssueFilterState['dimension'], 'all'>) => void,
+): React.ReactNode {
+  if (!overviewSummary) {
+    return null;
+  }
+
+  return (
+    <section aria-label="Overview workspace" className="panel-card overview-card">
+      <div className="overview-head">
+        <div>
+          <p className="section-kicker">Executive summary</p>
+          <h2>Overview</h2>
+          <p className="overview-summary-copy">{overviewSummary.executiveSummary}</p>
+          <label className="overview-persona-picker" htmlFor="workspace-persona">
+            <span>Review mode</span>
+            <select
+              aria-label="Workspace review mode"
+              id="workspace-persona"
+              onChange={(event) => onWorkspacePersonaChange(event.target.value as ReviewPresentationPersona)}
+              value={workspacePersona}
+            >
+              {personaProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>{profile.label}</option>
+              ))}
+            </select>
+          </label>
+          <p className="overview-helper-copy">
+            Review modes change how findings are prioritized and explained. They do not change the underlying score.
+          </p>
+        </div>
+        <div className={`score-chip ${getScoreTone(scoreValue)}`}>
+          <span>{Math.round(scoreValue)}</span>
+          <small>/100</small>
+        </div>
+      </div>
+      <div className="overview-badges">
+        <span className="overview-badge">Maturity: {overviewSummary.maturityBand}</span>
+        <span className="overview-badge">Risk: {overviewSummary.riskBand}</span>
+        <span className="overview-badge">High issues: {overviewSummary.severityDistribution.high}</span>
+        <span className="overview-badge">Medium issues: {overviewSummary.severityDistribution.medium}</span>
+      </div>
+      <p className="overview-copy">
+        Benchmark summary: {overviewSummary.benchmarkSummary}
+      </p>
+      <p className="overview-copy">
+        Cross-page summary: {overviewSummary.crossPageSummary.headline}
+      </p>
+      {typeof visualMix.data === 'number' &&
+      typeof visualMix.navigation === 'number' &&
+      typeof visualMix.hidden === 'number' ? (
+        <p className="overview-copy">
+          Visual mix: {visualMix.data} data, {visualMix.navigation} navigation, {visualMix.hidden} hidden.
+        </p>
+      ) : null}
+      {frameworkValues.length > 0 ? (
+        <div className="summary-framework-list">
+          {frameworkValues.map((fw) => (
+            <div className="summary-framework-row" key={fw.key}>
+              <span className="summary-framework-label">{fw.label}</span>
+              <div className="summary-framework-bar-track">
+                <span
+                  className={`summary-framework-bar-fill ${getScoreTone(fw.score)}`}
+                  style={{ width: `${Math.round(fw.score)}%` }}
+                />
+              </div>
+              <span className={`summary-framework-score ${getScoreTone(fw.score)}`}>
+                {Math.round(fw.score)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="overview-grid">
+        <div className="overview-list-card">
+          <h3>Top strengths</h3>
+          <ul>
+            {overviewSummary.topStrengths.map((item) => (
+              <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="overview-list-card">
+          <h3>Top weaknesses</h3>
+          <ul>
+            {overviewSummary.topWeaknesses.map((item) => (
+              <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="overview-list-card">
+          <h3>Top issues</h3>
+          <ul>
+            {overviewSummary.topIssues.map((item) => (
+              <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="overview-list-card">
+          <h3>Top actions</h3>
+          <ol>
+            {overviewSummary.topActions.map((item) => (
+              <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
+            ))}
+          </ol>
+        </div>
+      </div>
+      {crossPageMatrix ? (
+        <div className="overview-matrix">
+          <h3>Cross-page matrix</h3>
+          <div className="matrix-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Page</th>
+                  {crossPageMatrix.dimensions.map((dimension) => (
+                    <th key={dimension}>{getDimensionLabel(dimension)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {crossPageMatrix.rows.map((row) => (
+                  <tr key={row.pageName}>
+                    <th>{row.pageName}</th>
+                    {row.cells.map((cell) => (
+                      <td key={`${row.pageName}-${cell.dimension}`}>
+                        <button
+                          aria-label={`Filter issues for ${cell.pageName} ${getDimensionLabel(cell.dimension)}`}
+                          className={`matrix-cell-button ${getMatrixStatusClassName(cell.status)} ${cell.severity ? getNormalizedFindingSeverityClassName(cell.severity) : ''}`}
+                          onClick={() => onMatrixCellClick(cell.pageName, cell.dimension)}
+                          title={cell.summary}
+                          type="button"
+                        >
+                          <strong>{cell.findingCount}</strong>
+                          <span>{cell.status}</span>
+                          {cell.highSeverityCount > 0 ? <small>{cell.highSeverityCount} high</small> : null}
+                        </button>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function renderFixPlanSection(
+  fixPlan: ScoreResult['fixPlan'],
+): React.ReactNode {
+  if (!fixPlan || fixPlan.length === 0) {
+    return null;
+  }
+
+  return (
+    <section aria-label="Fix plan" className="panel-card fix-plan-card">
+      <div className="issues-section-head">
+        <div>
+          <p className="section-kicker">Consultant workflow</p>
+          <h2>Fix Plan</h2>
+        </div>
+        <p className="issues-section-copy">
+          Convert the highest-priority findings into a sequenced remediation queue.
+        </p>
+      </div>
+      <ol className="fix-plan-list">
+        {fixPlan.map((item) => (
+          <li className="fix-plan-item" key={item.id}>
+            <div className="fix-plan-head">
+              <h3>{item.title}</h3>
+              <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(item.severity)}`}>{item.severity}</span>
+            </div>
+            <p>{item.detail}</p>
+            <p className="fix-plan-recommendation"><strong>Recommended action:</strong> {item.recommendedAction}</p>
+            <dl className="issue-meta-grid">
+              <div>
+                <dt>Effort</dt>
+                <dd>{item.effort}</dd>
+              </div>
+              <div>
+                <dt>Scope</dt>
+                <dd>{getScopeLabel(item.scope)}</dd>
+              </div>
+              <div>
+                <dt>Affected pages</dt>
+                <dd>{item.affectedPages.length > 0 ? item.affectedPages.join(', ') : 'Report-wide'}</dd>
+              </div>
+              <div>
+                <dt>Source findings</dt>
+                <dd>{item.sourceFindingIds.join(', ')}</dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -332,6 +1065,816 @@ function buildRoleHints(item: VisualMetadataItem): string[] {
     .map(([label, values]) => `${label}: ${values.join(', ')}`);
 }
 
+function formatChartIntent(intent: string | undefined): string | undefined {
+  if (!intent) {
+    return undefined;
+  }
+
+  return intent
+    .split(/[-_\s]+/g)
+    .filter(Boolean)
+    .map((token, index) => {
+      const lower = token.toLowerCase();
+      return index === 0 ? lower : lower;
+    })
+    .join(' ');
+}
+
+function renderSemanticAssignments(assignments: PageVisualMetadataSummary['semanticColorMap']): React.ReactNode {
+  if (assignments.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="semantic-assignment-list">
+      {assignments.map((assignment, index) => (
+        <div className="semantic-assignment-card" key={`${assignment.sourcePageName}-${assignment.sourceVisualId}-${assignment.semanticKey}-${index}`}>
+          <span aria-hidden="true" className="semantic-color-swatch" style={{ backgroundColor: assignment.color }} />
+          <div>
+            <p className="semantic-assignment-key">{assignment.displayLabel ?? assignment.semanticKey}</p>
+            <p className="semantic-assignment-meta">{assignment.semanticKey} · {assignment.color}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function renderChartIntentSummary(summary: VisualMetadataItem['chartIntent'] | PageVisualMetadataSummary['chartIntentSummary']): React.ReactNode {
+  if (!summary) {
+    return null;
+  }
+
+  const intent = formatChartIntent(summary.intent);
+  return (
+    <div className="chart-intent-card">
+      <p className="chart-intent-title">
+        Page intent: {intent ?? summary.intent}
+        {summary.confidence ? <span className="chart-intent-confidence">{summary.confidence} confidence</span> : null}
+      </p>
+      {summary.fitStatus ? <p className="chart-intent-copy">Fit status: {summary.fitStatus}</p> : null}
+      {summary.evidence.length > 0 ? (
+        <p className="chart-intent-copy">
+          <strong>Evidence:</strong> {summary.evidence.join(' · ')}
+        </p>
+      ) : null}
+      {summary.recommendedAlternatives.length > 0 ? (
+        <p className="chart-intent-copy">
+          <strong>Alternatives:</strong> {summary.recommendedAlternatives.join(', ')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function renderPageStorySummary(summary: ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']): React.ReactNode {
+  if (!summary) {
+    return null;
+  }
+
+  return (
+    <section className="panel-card chart-intent-card">
+      <h2>Inferred Page Story</h2>
+      <p className="chart-intent-title">{summary.inferredStory}</p>
+      <p className="chart-intent-copy"><strong>Intent profile:</strong> {summary.intentProfile}</p>
+      <p className="chart-intent-copy"><strong>Story archetype:</strong> {summary.storyArchetype}</p>
+      <p className="chart-intent-copy"><strong>Confidence:</strong> {summary.confidence}</p>
+      {summary.evidence.length > 0 ? (
+        <p className="chart-intent-copy">
+          <strong>Evidence:</strong> {summary.evidence.join(' · ')}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function formatPageIntentProfile(profile: PageIntentProfileType): string {
+  switch (profile) {
+    case 'executive':
+      return 'Executive';
+    case 'operational':
+      return 'Operational';
+    case 'appendix':
+      return 'Appendix';
+    default:
+      return 'Analytical';
+  }
+}
+
+function normalizeLegacyIntentProfile(intentProfile: string | undefined): PageIntentProfileType {
+  switch (intentProfile) {
+    case 'executiveOverview':
+      return 'executive';
+    case 'operationalMonitoring':
+      return 'operational';
+    case 'detailReference':
+      return 'appendix';
+    default:
+      return 'analytical';
+  }
+}
+
+function renderPageIntentProfileSummary(
+  summary: PageIntentProfile | undefined,
+  selectedProfile: PageIntentProfileType,
+  onProfileChange: (next: PageIntentProfileType) => void,
+): React.ReactNode {
+  if (!summary) {
+    return null;
+  }
+
+  return (
+    <section className="panel-card chart-intent-card">
+      <h2>Page Intent Profile</h2>
+      <p className="chart-intent-copy"><strong>Inferred profile:</strong> {formatPageIntentProfile(summary.inferredProfile)}</p>
+      <p className="chart-intent-copy"><strong>Selected profile:</strong> {formatPageIntentProfile(selectedProfile)}</p>
+      <p className="chart-intent-copy"><strong>Actionability expectation:</strong> {summary.actionabilityExpectation}</p>
+      <label className="story-note-label" htmlFor="page-intent-override">Manual override</label>
+      <select
+        aria-label="Page intent profile override"
+        className="audit-assign-select"
+        id="page-intent-override"
+        onChange={(event) => onProfileChange(event.target.value as PageIntentProfileType)}
+        value={selectedProfile}
+      >
+        <option value="executive">Executive</option>
+        <option value="operational">Operational</option>
+        <option value="analytical">Analytical</option>
+        <option value="appendix">Appendix</option>
+      </select>
+      {summary.reviewGuidance.length > 0 ? (
+        <ul className="recommendation-list">
+          {summary.reviewGuidance.map((guidance) => (
+            <li className="recommendation-item rec-low" key={guidance}>{guidance}</li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+function renderActionabilityBreakdown(summary: ActionabilityBreakdown | undefined): React.ReactNode {
+  if (!summary) {
+    return null;
+  }
+
+  const checks = [
+    { label: 'Target / benchmark', ok: summary.targetBenchmarkPresent },
+    { label: 'Exception visibility', ok: summary.exceptionVisibility },
+    { label: 'Urgency signaling', ok: summary.urgencySignaling },
+    { label: 'Prior-period context', ok: summary.priorPeriodContext },
+    { label: 'Drill / evidence path', ok: summary.drillPathPresent },
+  ];
+
+  return (
+    <section className="panel-card consistency-card">
+      <h2>Actionability</h2>
+      <p className="consistency-summary-copy">{summary.summary}</p>
+      <p className="chart-intent-copy"><strong>Actionability score:</strong> {summary.score.toFixed(1)} / 100</p>
+      <p className="chart-intent-copy"><strong>Expectation level:</strong> {summary.expectationLevel}</p>
+      <div className="consistency-check-grid">
+        {checks.map((check) => (
+          <div className={`consistency-check ${check.ok ? 'consistency-check-pass' : 'consistency-check-fail'}`} key={check.label}>
+            <strong>{check.ok ? 'Present' : 'Missing'}</strong>
+            <span>{check.label}</span>
+          </div>
+        ))}
+      </div>
+      {summary.gaps.length > 0 ? (
+        <ul className="recommendation-list">
+          {summary.gaps.map((gap) => (
+            <li className="recommendation-item rec-medium" key={gap}>{gap}</li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+function renderBenchmarkComparison(summary: BenchmarkComparisonSummary | undefined): React.ReactNode {
+  if (!summary) {
+    return null;
+  }
+
+  return (
+    <section className="panel-card consistency-card">
+      <h2>Benchmark and Archetype</h2>
+      <p className="chart-intent-copy"><strong>Archetype:</strong> {summary.archetype}</p>
+      <p className="chart-intent-copy"><strong>Benchmark:</strong> {summary.benchmarkLabel}</p>
+      <p className="consistency-summary-copy">{summary.insight}</p>
+      {summary.beautifulButUseless ? (
+        <p className="story-review-note story-review-note-warn">
+          Beautiful but useless risk detected: the page polish is outpacing its decision support.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function renderReviewerCommentGenerator(
+  page: PageScore,
+  selectedProfile: PageIntentProfileType,
+  persona: ReviewerPersona,
+  onPersonaChange: (next: ReviewerPersona) => void,
+): React.ReactNode {
+  const generated = buildReviewerComments(page, { selectedProfile, persona });
+
+  return (
+    <section className="panel-card story-review-card">
+      <h2>Reviewer Comment Generator</h2>
+      <label className="story-note-label" htmlFor="reviewer-persona">Persona</label>
+      <select
+        aria-label="Reviewer persona"
+        className="audit-assign-select"
+        id="reviewer-persona"
+        onChange={(event) => onPersonaChange(event.target.value as ReviewerPersona)}
+        value={persona}
+      >
+        <option value="coach">Coach</option>
+        <option value="consultant">Consultant</option>
+        <option value="executiveReviewer">Executive reviewer</option>
+        <option value="strictDesignCritic">Strict design critic</option>
+      </select>
+      <p className="chart-intent-copy"><strong>{generated.headline}</strong></p>
+      <ul className="recommendation-list">
+        {generated.comments.map((comment) => (
+          <li className="recommendation-item rec-low" key={comment}>{comment}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function buildStoryConfirmationKey(
+  pageName: string | undefined,
+  summary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>,
+): string {
+  const scope = pageName ?? 'report';
+  return `${scope}:${summary.intentProfile}:${summary.storyArchetype}`;
+}
+
+function buildIntentFeedbackLookup(entries: IntentFeedbackEntry[]): Record<string, IntentFeedbackState> {
+  return entries.reduce<Record<string, IntentFeedbackState>>((lookup, entry) => {
+    const key = `${entry.pageName}:${entry.inferredIntent}:${entry.storyArchetype ?? 'unknown'}`;
+    lookup[key] = {
+      confirmation: entry.userConfirmation,
+      note: entry.note,
+    };
+    return lookup;
+  }, {});
+}
+
+function getReviewStatus(
+  confirmation: IntentFeedbackConfirmation | undefined,
+): ReviewStatus {
+  switch (confirmation) {
+    case 'yes':
+      return 'confirmed';
+    case 'partial':
+      return 'partial';
+    case 'no':
+      return 'mismatch';
+    default:
+      return 'unreviewed';
+  }
+}
+
+function getReviewStatusLabel(status: ReviewStatus): string {
+  switch (status) {
+    case 'confirmed':
+      return 'Confirmed';
+    case 'partial':
+      return 'Partial / Needs clarification';
+    case 'mismatch':
+      return 'Mismatch / Needs review';
+    default:
+      return 'Not reviewed';
+  }
+}
+
+function getReviewStatusShortLabel(status: ReviewStatus): string {
+  switch (status) {
+    case 'confirmed':
+      return 'Confirmed';
+    case 'partial':
+      return 'Partial';
+    case 'mismatch':
+      return 'Mismatch';
+    default:
+      return 'Unreviewed';
+  }
+}
+
+function getReviewStatusClassName(status: ReviewStatus): string {
+  switch (status) {
+    case 'confirmed':
+      return 'review-status-good';
+    case 'partial':
+      return 'review-status-warn';
+    case 'mismatch':
+      return 'review-status-bad';
+    default:
+      return 'review-status-muted';
+  }
+}
+
+function buildPageReviewEntries(
+  pageScores: PageScore[],
+  result: ScoreResult,
+  lookup: Record<string, IntentFeedbackState>,
+): PageReviewEntry[] {
+  if (pageScores.length > 0) {
+    return pageScores.map((page) => {
+      const summary = page.inferredStorySummary;
+      const key = summary ? buildStoryConfirmationKey(page.pageName, summary) : undefined;
+      return {
+        pageName: page.pageName,
+        status: getReviewStatus(key ? lookup[key]?.confirmation : undefined),
+        summary,
+      };
+    });
+  }
+
+  if (result.inferredStorySummary || result.scoredPageName) {
+    const pageName = result.scoredPageName ?? 'Report';
+    const summary = result.inferredStorySummary;
+    const key = summary ? buildStoryConfirmationKey(pageName, summary) : undefined;
+    return [
+      {
+        pageName,
+        status: getReviewStatus(key ? lookup[key]?.confirmation : undefined),
+        summary,
+      },
+    ];
+  }
+
+  return [];
+}
+
+function renderReviewSummary(props: {
+  entries: PageReviewEntry[];
+  activeFilter: ReviewStatus | 'all';
+  onFilterChange: (next: ReviewStatus | 'all') => void;
+  onSelectPage: (pageName: string) => void;
+  onExport: () => void;
+}): React.ReactNode {
+  const { entries, activeFilter, onFilterChange, onSelectPage, onExport } = props;
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const counts = {
+    confirmed: entries.filter((entry) => entry.status === 'confirmed').length,
+    partial: entries.filter((entry) => entry.status === 'partial').length,
+    mismatch: entries.filter((entry) => entry.status === 'mismatch').length,
+    unreviewed: entries.filter((entry) => entry.status === 'unreviewed').length,
+  };
+  const reviewedCount = counts.confirmed + counts.partial + counts.mismatch;
+  const filters: Array<{ value: ReviewStatus | 'all'; label: string; count: number }> = [
+    { value: 'all', label: 'All statuses', count: entries.length },
+    { value: 'confirmed', label: 'Confirmed', count: counts.confirmed },
+    { value: 'partial', label: 'Partial / Needs clarification', count: counts.partial },
+    { value: 'mismatch', label: 'Mismatch / Needs review', count: counts.mismatch },
+    { value: 'unreviewed', label: 'Not reviewed', count: counts.unreviewed },
+  ];
+  const groups: ReviewStatus[] = activeFilter === 'all'
+    ? ['confirmed', 'partial', 'mismatch', 'unreviewed']
+    : [activeFilter];
+
+  return (
+    <section className="panel-card review-summary-card">
+      <div className="review-summary-head">
+        <div>
+          <h2>Review Summary</h2>
+          <p className="review-summary-copy">
+            Track which pages have confirmed intent, which remain ambiguous, and which need review before sharing the report more broadly.
+          </p>
+          <button
+            className="secondary-button review-summary-export"
+            onClick={onExport}
+            type="button"
+          >
+            Export Review Summary
+          </button>
+        </div>
+        <div className="review-summary-stats">
+          <div className="review-stat-card">
+            <strong>{entries.length}</strong>
+            <span>Total pages</span>
+          </div>
+          <div className="review-stat-card">
+            <strong>{reviewedCount}</strong>
+            <span>Pages reviewed</span>
+          </div>
+          <div className="review-stat-card">
+            <strong>{counts.confirmed}</strong>
+            <span>Confirmed</span>
+          </div>
+          <div className="review-stat-card">
+            <strong>{counts.partial}</strong>
+            <span>Partial</span>
+          </div>
+          <div className="review-stat-card">
+            <strong>{counts.mismatch}</strong>
+            <span>Mismatch</span>
+          </div>
+          <div className="review-stat-card">
+            <strong>{counts.unreviewed}</strong>
+            <span>Unreviewed</span>
+          </div>
+        </div>
+      </div>
+      <div aria-label="Review status filters" className="review-filter-row" role="group">
+        {filters.map((filter) => (
+          <button
+            className={`review-filter-chip ${activeFilter === filter.value ? 'review-filter-chip-active' : ''}`}
+            key={filter.value}
+            onClick={() => onFilterChange(filter.value)}
+            type="button"
+          >
+            {filter.label} ({filter.count})
+          </button>
+        ))}
+      </div>
+      <div className="review-group-list">
+        {groups.map((status) => {
+          const matchingEntries = entries.filter((entry) => entry.status === status);
+          if (matchingEntries.length === 0) {
+            return null;
+          }
+
+          return (
+            <section className="review-group-card" key={status}>
+              <div className="review-group-head">
+                <h3>{getReviewStatusLabel(status)}</h3>
+                <span className={`review-status-pill ${getReviewStatusClassName(status)}`}>
+                  {matchingEntries.length}
+                </span>
+              </div>
+              {status === 'mismatch' ? (
+                <p className="review-group-copy">
+                  Tighten the title, lead KPI band, or supporting visuals before treating these pages as review-ready.
+                </p>
+              ) : null}
+              <div className="review-page-list">
+                {matchingEntries.map((entry) => (
+                  <button
+                    aria-label={`Review page ${entry.pageName}`}
+                    className="review-page-button"
+                    key={`${status}-${entry.pageName}`}
+                    onClick={() => onSelectPage(entry.pageName)}
+                    type="button"
+                  >
+                    <span className="review-page-name">{entry.pageName}</span>
+                    <span className="review-page-meta">
+                      {entry.summary?.intentProfile ?? 'No inferred story'}{entry.summary?.storyArchetype ? ` · ${entry.summary.storyArchetype}` : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function renderReviewPacketPreview(
+  preview: ScorePanelState['reviewPacketPreview'],
+  previewHtml: ScorePanelState['reviewPacketPreviewHtml'],
+  previewProfile: NonNullable<ScorePanelState['reviewPacketPreviewProfile']>,
+  previewTemplateVariant: NonNullable<ScorePanelState['reviewPacketPreviewTemplateVariant']>,
+  onProfileChange: (profile: NonNullable<ScorePanelState['reviewPacketPreviewProfile']>) => void,
+  onTemplateVariantChange: (variant: NonNullable<ScorePanelState['reviewPacketPreviewTemplateVariant']>) => void,
+  onOpenFullPacket: () => void,
+): React.ReactNode {
+  if (!preview) {
+    return null;
+  }
+
+  return (
+    <section className="panel-card review-packet-card">
+      <div className="review-packet-head">
+        <div>
+          <h2>Review Packet Preview</h2>
+          <p className="review-summary-copy">
+            This is the same downstream review packet structure currently used for export, shown here so you can validate it before sharing.
+          </p>
+        </div>
+        <div className={`review-packet-status review-packet-status-${preview.executiveSummary.overallStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+          <strong>{preview.executiveSummary.overallStatus}</strong>
+          <span>Review coverage: {preview.executiveSummary.reviewCoveragePercent}%</span>
+        </div>
+      </div>
+
+      <div className="review-packet-grid">
+        <article className="review-packet-section">
+          <h3>Executive Summary</h3>
+          <p>{preview.executiveSummary.headline}</p>
+          <p className="review-packet-meta">
+            Composite score {preview.compositeScore} / 100 across {preview.pageCount} page(s).
+          </p>
+        </article>
+
+        <article className="review-packet-section">
+          <h3>Intent Validation Summary</h3>
+          <ul className="review-packet-list">
+            <li>Confirmed: {preview.intentValidationSummary.confirmedPages.length}</li>
+            <li>Partial: {preview.intentValidationSummary.partialPages.length}</li>
+            <li>Mismatch: {preview.intentValidationSummary.mismatchPages.length}</li>
+            <li>Unreviewed: {preview.intentValidationSummary.unreviewedPages.length}</li>
+          </ul>
+        </article>
+      </div>
+
+      {previewHtml ? (
+        <div className="review-packet-preview-shell">
+          <div className="review-packet-preview-toolbar">
+            <div className="review-packet-preview-toolbar-main">
+              <span>
+                {previewProfile === 'consultant' && previewTemplateVariant === 'brandedConsultant'
+                  ? 'Branded consultant packet preview'
+                  : `${previewProfile.charAt(0).toUpperCase()}${previewProfile.slice(1)} packet preview`}
+              </span>
+              <span className="review-packet-meta">Read-only HTML renderer</span>
+            </div>
+            <div className="review-packet-preview-controls">
+              <label className="review-packet-control">
+                <span>Preview profile</span>
+                <select
+                  aria-label="Preview profile"
+                  onChange={(event) => onProfileChange(event.target.value as NonNullable<ScorePanelState['reviewPacketPreviewProfile']>)}
+                  value={previewProfile}
+                >
+                  <option value="consultant">Consultant</option>
+                  <option value="executive">Executive</option>
+                  <option value="governance">Governance</option>
+                </select>
+              </label>
+              {previewProfile === 'consultant' ? (
+                <label className="review-packet-control">
+                  <span>Consultant template</span>
+                  <select
+                    aria-label="Consultant template"
+                    onChange={(event) => onTemplateVariantChange(event.target.value as NonNullable<ScorePanelState['reviewPacketPreviewTemplateVariant']>)}
+                    value={previewTemplateVariant}
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="brandedConsultant">Branded consultant</option>
+                  </select>
+                </label>
+              ) : null}
+              <button className="secondary-button" onClick={onOpenFullPacket} type="button">
+                Open Full Packet
+              </button>
+            </div>
+          </div>
+          <iframe
+            className="review-packet-preview-frame"
+            sandbox="allow-same-origin"
+            srcDoc={previewHtml}
+            title="Review packet HTML preview"
+          />
+        </div>
+      ) : (
+        <>
+          {preview.remediationQueue.length > 0 ? (
+            <article className="review-packet-section">
+              <h3>Remediation Queue</h3>
+              <ul className="review-packet-list">
+                {preview.remediationQueue.map((item) => (
+                  <li key={`${item.pageName}-${item.reviewStatus}`}>
+                    <strong>{item.pageName}</strong>: {item.reason}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
+
+          {preview.topRecommendations.length > 0 ? (
+            <article className="review-packet-section">
+              <h3>Top Recommendations</h3>
+              <ul className="review-packet-list">
+                {preview.topRecommendations.map((recommendation) => (
+                  <li key={recommendation}>{recommendation}</li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
+
+          {preview.crossPageConsistencyRollup ? (
+            <article className="review-packet-section">
+              <h3>Cross-Page Consistency Rollup</h3>
+              {preview.crossPageConsistencyRollup.overallFinding ? (
+                <p>{preview.crossPageConsistencyRollup.overallFinding}</p>
+              ) : null}
+              <ul className="review-packet-list">
+                {preview.crossPageConsistencyRollup.issuesByCategory.map(([category, count]) => (
+                  <li key={category}>{category}: {count}</li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+function renderStoryIntentReview(
+  summary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>,
+  confirmation: IntentFeedbackConfirmation | undefined,
+  note: string,
+  onConfirm: (next: IntentFeedbackConfirmation) => void,
+  onNoteChange: (next: string) => void,
+  onSaveNote: () => void,
+  noteSaved: boolean,
+): React.ReactNode {
+  const options: Array<{ value: IntentFeedbackConfirmation; label: string }> = [
+    { value: 'yes', label: 'Yes' },
+    { value: 'partial', label: 'Partially' },
+    { value: 'no', label: 'No' },
+  ];
+  const status = getReviewStatus(confirmation);
+
+  return (
+    <div className="story-review-block">
+      <h2>Intent Feedback</h2>
+      <p className="story-review-status">
+        <strong>Review status:</strong>{' '}
+        <span className={`review-status-pill ${getReviewStatusClassName(status)}`}>
+          {getReviewStatusLabel(status)}
+        </span>
+      </p>
+      <p className="story-review-title">Does this match your intent?</p>
+      <div aria-label="Intent confirmation" className="story-review-actions" role="group">
+        {options.map((option) => (
+          <button
+            className={`story-review-button ${confirmation === option.value ? 'story-review-button-active' : ''}`}
+            key={option.value}
+            onClick={() => onConfirm(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {confirmation === 'yes' ? (
+        <p className="story-review-note story-review-note-good">
+          Confirmed by you during this session.
+        </p>
+      ) : null}
+      {confirmation === undefined ? (
+        <p className="story-review-note story-review-note-neutral">
+          Not reviewed yet. Confirm the inferred story before using it as review evidence.
+        </p>
+      ) : null}
+      {confirmation === 'partial' ? (
+        <p className="story-review-note story-review-note-warn">
+          Partially aligned with your intent. The page reads as {summary.intentProfile} with a {summary.storyArchetype} structure.
+        </p>
+      ) : null}
+      {confirmation === 'no' ? (
+        <div className="story-review-note story-review-note-bad">
+          <p><strong>Intent mismatch detected.</strong></p>
+          <p>The page currently reads as {summary.intentProfile} with a {summary.storyArchetype} structure.</p>
+          <p>Consider tightening the title, lead KPI band, or supporting visuals so the page communicates the intended story more clearly.</p>
+        </div>
+      ) : null}
+      <div className="story-note-block">
+        <label className="story-note-label" htmlFor="story-review-note">
+          Reviewer note
+        </label>
+        <textarea
+          aria-label="Reviewer note"
+          className="story-note-input"
+          disabled={!confirmation}
+          id="story-review-note"
+          onChange={(event) => onNoteChange(event.target.value)}
+          placeholder={confirmation
+            ? 'Optional note for this review state.'
+            : 'Choose Yes, Partially, or No before saving a reviewer note.'}
+          rows={3}
+          value={note}
+        />
+        <div className="story-note-actions">
+          <button
+            className="secondary-button"
+            disabled={!confirmation}
+            onClick={onSaveNote}
+            type="button"
+          >
+            Save Note
+          </button>
+          {!confirmation ? (
+            <p className="story-note-hint">
+              Select a review status first so the note is attached to a specific review outcome.
+            </p>
+          ) : noteSaved ? (
+            <p className="story-note-hint story-note-hint-saved">
+              Reviewer note saved for this page review.
+            </p>
+          ) : (
+            <p className="story-note-hint">
+              Notes persist with the current review status and stay out of scoring.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatConsistencyCategory(category: string): string {
+  switch (category) {
+    case 'metricGovernance':
+      return 'Metric Governance';
+    case 'semanticColors':
+      return 'Semantic Colors';
+    default:
+      return category
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (match) => match.toUpperCase());
+  }
+}
+
+function renderReportConsistencySummary(summary: ScoreResult['reportConsistencySummary']): React.ReactNode {
+  if (!summary) {
+    return null;
+  }
+
+  const checks = [
+    { label: 'Title anchors', ok: summary.consistentTitleAnchors },
+    { label: 'Filter band', ok: summary.consistentFilterBand },
+    { label: 'Metric labels', ok: summary.consistentMetricLabels },
+    { label: 'Semantic colors', ok: summary.consistentSemanticColors },
+  ];
+
+  return (
+    <section className="panel-card consistency-card">
+      <h2>Cross-Page Consistency</h2>
+      {summary.overallFinding ? <p className="consistency-summary-copy">{summary.overallFinding}</p> : null}
+      <div className="consistency-check-grid">
+        {checks.map((check) => (
+          <div className={`consistency-check ${check.ok ? 'consistency-check-pass' : 'consistency-check-fail'}`} key={check.label}>
+            <strong>{check.ok ? 'Consistent' : 'Needs review'}</strong>
+            <span>{check.label}</span>
+          </div>
+        ))}
+      </div>
+      {summary.issues.length > 0 ? (
+        <div className="consistency-issue-groups">
+          {summary.issues.map((issue, index) => (
+            <article className={`consistency-issue-card severity-${issue.severity}`} key={`${issue.issueCategory}-${index}`}>
+              <div className="consistency-issue-header">
+                <h3>{formatConsistencyCategory(issue.category)}</h3>
+                <span className={`consistency-severity-chip severity-${issue.severity}`}>{issue.severity}</span>
+              </div>
+              <p className="consistency-issue-copy">{issue.overallFinding}</p>
+              {issue.affectedPages.length > 0 ? (
+                <p className="consistency-issue-meta">Affected pages: {issue.affectedPages.join(', ')}</p>
+              ) : null}
+              <p className="consistency-issue-meta">Confidence: {issue.confidence}</p>
+              <p className="consistency-issue-remediation">{issue.recommendedRemediation}</p>
+            </article>
+          ))}
+        </div>
+      ) : summary.findings.length > 0 ? (
+        <ul className="recommendation-list consistency-finding-list">
+          {summary.findings.map((finding, index) => (
+            <li className="recommendation-item rec-medium" key={`${finding}-${index}`}>
+              {finding}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-text">No cross-page consistency issues detected.</p>
+      )}
+    </section>
+  );
+}
+
+function renderPageConsistencyNotes(notes: string[] | undefined): React.ReactNode {
+  if (!notes || notes.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="panel-card consistency-card">
+      <h2>Page Consistency Notes</h2>
+      <ul className="recommendation-list consistency-finding-list">
+        {notes.map((note, index) => (
+          <li className="recommendation-item rec-low" key={`${note}-${index}`}>
+            {note}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function renderMetadataOverview(pageScores: PageScore[]): React.ReactNode {
   const pagesWithMetadata = pageScores.filter((page) => page.visualMetadata);
   if (pagesWithMetadata.length === 0) {
@@ -367,6 +1910,11 @@ function renderMetadataOverview(pageScores: PageScore[]): React.ReactNode {
                   {' '}
                   {summary.axisLabelVisualCount} with axis labels, {summary.dataLabelVisualCount} with data labels.
                 </p>
+                {summary.chartIntentSummary ? (
+                  <p className="metadata-overview-copy">
+                    <strong>Page intent:</strong> {formatChartIntent(summary.chartIntentSummary.intent)}
+                  </p>
+                ) : null}
               </article>
             );
           })}
@@ -422,6 +1970,13 @@ function renderVisualMetadataDetail(
             <span>Formatting facts</span>
           </div>
         </div>
+        {renderChartIntentSummary(summary.chartIntentSummary)}
+        {summary.semanticColorMap.length > 0 ? (
+          <div className="metadata-section">
+            <p className="metadata-section-title">Semantic colors</p>
+            {renderSemanticAssignments(summary.semanticColorMap)}
+          </div>
+        ) : null}
         {summary.visuals.length > 0 ? (
           <ul className="metadata-visual-list">
             {summary.visuals.map((item) => {
@@ -467,6 +2022,18 @@ function renderVisualMetadataDetail(
                     <p className="metadata-visual-copy">
                       <strong>Role hints:</strong> {roleHints.join(' · ')}
                     </p>
+                  ) : null}
+                  {item.chartIntent ? (
+                    <p className="metadata-visual-copy">
+                      <strong>Chart intent:</strong> {formatChartIntent(item.chartIntent.intent)}
+                      {item.chartIntent.fitStatus ? ` · ${item.chartIntent.fitStatus}` : ''}
+                    </p>
+                  ) : null}
+                  {item.semanticColors.length > 0 ? (
+                    <div className="metadata-section">
+                      <p className="metadata-section-title">Semantic colors</p>
+                      {renderSemanticAssignments(item.semanticColors)}
+                    </div>
                   ) : null}
                   {tags.length > 0 ? (
                     <div className="metadata-tag-row">
@@ -546,6 +2113,10 @@ function getConfidenceLabel(confidence: AuditFindingDisplay['confidence']): stri
   if (confidence === 'high') return 'High confidence';
   if (confidence === 'low') return 'Low confidence';
   return 'Medium confidence';
+}
+
+function getIssueSourceLabel(issueSource: AuditFindingDisplay['issueSource']): string {
+  return issueSource === 'metadataModel' ? 'Metadata / model' : 'Rendered / layout';
 }
 
 function renderAuditCoverageCard(
@@ -723,6 +2294,9 @@ function renderAuditPageSection(
                     <span className="audit-finding-type">{finding.findingType}</span>
                     <span className="audit-finding-confidence">{getConfidenceLabel(finding.confidence)}</span>
                   </div>
+                  <p className="audit-finding-region">
+                    <strong>Issue source:</strong> {getIssueSourceLabel(finding.issueSource)}
+                  </p>
                   <p className="audit-finding-text">{finding.text}</p>
                   {finding.recommendation ? (
                     <p className="audit-finding-rec">
@@ -754,8 +2328,25 @@ export default function App(): JSX.Element {
   const [viewState, setViewState] = React.useState<ViewState>({ kind: 'loading' });
   const [activeTab, setActiveTab] = React.useState(0);
   const [analyzingCaptureId, setAnalyzingCaptureId] = React.useState<string | undefined>(undefined);
+  const [storyIntentFeedback, setStoryIntentFeedback] = React.useState<Record<string, IntentFeedbackState>>({});
+  const [savedStoryNoteKey, setSavedStoryNoteKey] = React.useState<string | undefined>(undefined);
+  const [intentProfileOverrides, setIntentProfileOverrides] = React.useState<Record<string, PageIntentProfileType>>({});
+  const [reviewerPersonaByPage, setReviewerPersonaByPage] = React.useState<Record<string, ReviewerPersona>>({});
+  const [workspacePersona, setWorkspacePersona] = React.useState<ReviewPresentationPersona>('default');
+  const [reviewStatusFilter, setReviewStatusFilter] = React.useState<ReviewStatus | 'all'>('all');
+  const [issueFilters, setIssueFilters] = React.useState<IssueFilterState>({
+    severity: 'all',
+    pageName: 'all',
+    dimension: 'all',
+    impactArea: 'all',
+    scope: 'all',
+    detectionType: 'all',
+  });
+  const [issueFiltersDirty, setIssueFiltersDirty] = React.useState(false);
+  const [issueGroupingMode, setIssueGroupingMode] = React.useState<IssueGroupingMode>('severity');
   const vscodeApiRef = React.useRef<ScoreVsCodeApi | null>(null);
-  const recommendationsSectionRef = React.useRef<HTMLDivElement | null>(null);
+  const issuesSectionRef = React.useRef<HTMLElement | null>(null);
+  const fixPlanSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   if (!vscodeApiRef.current) {
     vscodeApiRef.current = acquireVsCodeApi();
@@ -771,6 +2362,22 @@ export default function App(): JSX.Element {
       if (message.type === 'loading') {
         setViewState({ kind: 'loading' });
         setActiveTab(0);
+        setReviewStatusFilter('all');
+        setStoryIntentFeedback({});
+        setSavedStoryNoteKey(undefined);
+        setIntentProfileOverrides({});
+        setReviewerPersonaByPage({});
+        setWorkspacePersona('default');
+        setIssueFilters({
+          severity: 'all',
+          pageName: 'all',
+          dimension: 'all',
+          impactArea: 'all',
+          scope: 'all',
+          detectionType: 'all',
+        });
+        setIssueFiltersDirty(false);
+        setIssueGroupingMode('severity');
         return;
       }
 
@@ -782,6 +2389,14 @@ export default function App(): JSX.Element {
       if (message.type === 'scoreState') {
         setViewState({ kind: 'ready', state: message.state });
         setActiveTab(message.state.selectedPageIndex);
+        setReviewStatusFilter('all');
+        setStoryIntentFeedback(buildIntentFeedbackLookup(message.state.intentFeedback ?? []));
+        setSavedStoryNoteKey(undefined);
+        const availableProfiles = message.state.result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
+        const nextPersona = message.state.result.personaPresentation?.activePersona ?? 'default';
+        setWorkspacePersona(nextPersona);
+        setIssueFilters(buildPersonaDefaultFilters(availableProfiles.find((profile) => profile.id === nextPersona)));
+        setIssueFiltersDirty(false);
         return;
       }
 
@@ -843,7 +2458,6 @@ export default function App(): JSX.Element {
   const tabs = multiPage ? ['Overall', ...pageScores.map((page) => page.pageName)] : [];
   const selectedPage = multiPage && activeTab > 0 ? pageScores[activeTab - 1] : undefined;
   const overallView = !selectedPage;
-  const displayedRecommendations = selectedPage?.recommendations ?? result.recommendations;
   const frameworkWeights = selectedPage?.frameworkWeights ?? result.frameworkWeights ?? {};
   const enabledFrameworks = getEnabledFrameworks(config, frameworkWeights);
   const frameworkValues = enabledFrameworks.map((framework) => ({
@@ -856,16 +2470,43 @@ export default function App(): JSX.Element {
         : getResultScore(result, framework.normalizedKey),
     weightLabel: framework.weightLabel,
   }));
-  const groupedRecommendations = groupRecommendations(displayedRecommendations);
-  const recommendationCount = groupedRecommendations.length;
-  const feedbackForQuickFixes = selectedPage?.feedback ?? result.feedback ?? {};
-  const flatFeedback = Object.values(feedbackForQuickFixes).flat();
-  const quickFixes = buildQuickFixList(displayedRecommendations, flatFeedback);
   const allZero = isZeroScore(result);
   const scoredAt = new Date(result.scoredAt).toLocaleString();
   const scoreValue = selectedPage ? selectedPage.compositeScore : result.compositeScore;
+  const storySummary = selectedPage?.inferredStorySummary
+    ?? (!multiPage ? (result.inferredStorySummary ?? pageScores[0]?.inferredStorySummary) : undefined);
+  const rawIntentProfile = selectedPage?.pageIntentProfile?.inferredProfile
+    ?? result.pageIntentProfile?.inferredProfile
+    ?? normalizeLegacyIntentProfile(storySummary?.intentProfile);
+  const intentProfileKey = selectedPage?.pageName ?? result.scoredPageName ?? '__overall';
+  const selectedIntentProfile = intentProfileOverrides[intentProfileKey] ?? rawIntentProfile;
+  const selectedReviewerPersona = reviewerPersonaByPage[intentProfileKey] ?? 'consultant';
+  const storyConfirmationKey = storySummary
+    ? buildStoryConfirmationKey(selectedPage?.pageName, storySummary)
+    : undefined;
+  const storyFeedback = storyConfirmationKey ? storyIntentFeedback[storyConfirmationKey] : undefined;
+  const storyConfirmation = storyFeedback?.confirmation;
+  const storyNote = storyFeedback?.note ?? '';
   const pageMetadata = selectedPage?.visualMetadata
     ?? (!multiPage ? (result.visualMetadata ?? pageScores[0]?.visualMetadata) : undefined);
+  const reviewEntries = buildPageReviewEntries(pageScores, result, storyIntentFeedback);
+  const personaProfiles = result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
+  const personaPresentation = result.overviewSummary
+    ? applyPersonaPresentation({
+        persona: workspacePersona,
+        findings: result.normalizedFindings ?? [],
+        overviewSummary: result.overviewSummary,
+        fixPlan: result.fixPlan ?? [],
+      })
+    : undefined;
+  const visibleFindings = buildVisibleFindings(personaPresentation?.findings ?? result.normalizedFindings, selectedPage?.pageName);
+  const filteredFixPlan = (personaPresentation?.fixPlan ?? result.fixPlan ?? []).filter((item) => {
+    if (!selectedPage) {
+      return true;
+    }
+
+    return item.affectedPages.length === 0 || item.affectedPages.includes(selectedPage.pageName);
+  });
   const visualMix = selectedPage
     ? {
         data: selectedPage.dataVisualCount,
@@ -889,9 +2530,15 @@ export default function App(): JSX.Element {
     });
   };
   const focusRecommendations = () => {
-    recommendationsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    recommendationsSectionRef.current?.focus({ preventScroll: true });
+    fixPlanSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    fixPlanSectionRef.current?.focus({ preventScroll: true });
   };
+  const focusIssues = () => {
+    issuesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    issuesSectionRef.current?.focus({ preventScroll: true });
+  };
+  const personaDefaults = buildPersonaDefaultFilters(personaProfiles.find((profile) => profile.id === workspacePersona));
+  const activeFilterSummary = summarizeActiveIssueFilters(issueFilters);
 
   return (
     <main className="page-shell">
@@ -914,13 +2561,13 @@ export default function App(): JSX.Element {
           >
             Refresh
           </button>
-          {recommendationCount > 0 ? (
+          {filteredFixPlan.length > 0 ? (
             <button
               className="primary-button"
               onClick={focusRecommendations}
               type="button"
             >
-              Review Recommendations ({recommendationCount})
+              Review Fix Plan ({filteredFixPlan.length})
             </button>
           ) : null}
         </div>
@@ -950,149 +2597,339 @@ export default function App(): JSX.Element {
         </nav>
       ) : null}
 
-      <section className="summary-card">
-        <div className="summary-top-row">
-          <div className={`score-chip ${getScoreTone(scoreValue)}`}>
-            <span>{Math.round(scoreValue)}</span>
-            <small>/100</small>
-          </div>
-          <div className="summary-copy">
-            <h2>{selectedPage ? `${selectedPage.pageName} Score` : 'Composite Score'}</h2>
-            <p>
-              {selectedPage
-                ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks on this page.`
-                : multiPage
-                  ? `Weighted average of ${enabledFrameworks.length} enabled design frameworks across all pages.`
-                  : `Weighted average of ${enabledFrameworks.length} enabled design frameworks.`}
-            </p>
-            {typeof visualMix.data === 'number' &&
-            typeof visualMix.navigation === 'number' &&
-            typeof visualMix.hidden === 'number' ? (
-              <p>
-                Visual mix: {visualMix.data} data, {visualMix.navigation} navigation, {visualMix.hidden} hidden.
-                {' '}
-                {config.navigationScoring.enabled
-                  ? `Navigation controls count at ${config.navigationScoring.weight}% weight.`
-                  : 'Navigation controls use legacy full-weight treatment.'}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        {!allZero && frameworkValues.length > 0 ? (
-          <div className="summary-framework-list">
-            {frameworkValues.map((fw) => (
-              <div className="summary-framework-row" key={fw.key}>
-                <span className="summary-framework-label">{fw.label}</span>
-                <div className="summary-framework-bar-track">
-                  <span
-                    className={`summary-framework-bar-fill ${getScoreTone(fw.score)}`}
-                    style={{ width: `${Math.round(fw.score)}%` }}
-                  />
-                </div>
-                <span className={`summary-framework-score ${getScoreTone(fw.score)}`}>
-                  {Math.round(fw.score)}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {groupedRecommendations.length > 0 ? (
-          <div
-            aria-label="Recommendations"
-            className="summary-recommendations"
-            ref={recommendationsSectionRef}
-            tabIndex={-1}
-          >
-            <p className="summary-recommendations-heading">Recommendations</p>
-            <ul className="recommendation-list">
-              {groupedRecommendations.map((recommendation, index) => (
-                <li className={`recommendation-item ${recommendation.cls}`} key={`${recommendation.text}-${index}`}>
-                  {recommendation.text}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </section>
+      {renderOverviewWorkspace(
+        personaPresentation?.overviewSummary ?? result.overviewSummary,
+        frameworkValues,
+        scoreValue,
+        visualMix,
+        result.crossPageMatrix,
+        workspacePersona,
+        personaProfiles,
+        (nextPersona) => {
+          setWorkspacePersona(nextPersona);
+          if (!issueFiltersDirty) {
+            const profile = personaProfiles.find((item) => item.id === nextPersona);
+            setIssueFilters(buildPersonaDefaultFilters(profile));
+          }
+        },
+        (pageName, dimension) => {
+          setIssueFilters((prev) => ({
+            ...prev,
+            pageName,
+            dimension,
+            impactArea: 'all',
+          }));
+          setIssueFiltersDirty(true);
+          focusIssues();
+        },
+      )}
 
       {selectedPage?.scoringError ? (
         <section className="status-card status-card-warn">{selectedPage.scoringError}</section>
       ) : null}
 
-      <FrameworkSection
-        currentPageName={selectedPage?.pageName}
-        feedbackForKey={feedbackForKey}
-        frameworkValues={frameworkValues}
-        onRevealVisual={revealVisual}
-      />
+      {overallView && multiPage ? renderReviewSummary({
+        entries: reviewEntries,
+        activeFilter: reviewStatusFilter,
+        onFilterChange: setReviewStatusFilter,
+        onSelectPage: (pageName) => {
+          const pageIndex = pageScores.findIndex((page) => page.pageName === pageName);
+          if (pageIndex < 0) {
+            return;
+          }
 
-      {overallView && multiPage ? renderMetadataOverview(pageScores) : null}
-      {pageMetadata ? renderVisualMetadataDetail(pageMetadata, revealVisual) : null}
+          const nextTab = pageIndex + 1;
+          setActiveTab(nextTab);
+          vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: nextTab });
+        },
+        onExport: () => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' }),
+      }) : null}
 
-      {overallView && result.scoringErrors && Object.keys(result.scoringErrors).length > 0 ? (
-        <section className="panel-card">
-          <h2>Page Errors</h2>
-          <ul className="recommendation-list">
-            {Object.entries(result.scoringErrors).map(([page, message]) => (
-              <li className="recommendation-item rec-high" key={page}>
-                <strong>{page}:</strong> {message}
-              </li>
-            ))}
-          </ul>
-        </section>
+      {storySummary ? (
+        <>
+          {renderPageStorySummary(storySummary)}
+          {renderPageIntentProfileSummary(
+            selectedPage?.pageIntentProfile ?? result.pageIntentProfile,
+            selectedIntentProfile,
+            (next) => setIntentProfileOverrides((prev) => ({ ...prev, [intentProfileKey]: next })),
+          )}
+          {renderActionabilityBreakdown(selectedPage?.actionabilityBreakdown ?? result.actionabilityBreakdown)}
+          {renderBenchmarkComparison(selectedPage?.benchmarkComparison ?? result.benchmarkComparison)}
+          <section className="panel-card story-review-card">
+            {renderStoryIntentReview(
+              storySummary,
+              storyConfirmation,
+              storyNote,
+              (next) => {
+                if (!storyConfirmationKey) {
+                  return;
+                }
+
+                setStoryIntentFeedback((prev) => ({
+                  ...prev,
+                  [storyConfirmationKey]: {
+                    confirmation: next,
+                    note: prev[storyConfirmationKey]?.note ?? '',
+                  },
+                }));
+                setSavedStoryNoteKey(undefined);
+                const note = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
+                vscodeApiRef.current?.postMessage({
+                  type: 'setIntentFeedback',
+                  pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
+                  inferredIntent: storySummary.intentProfile,
+                  storyArchetype: storySummary.storyArchetype,
+                  userConfirmation: next,
+                  inferenceConfidence: storySummary.confidence,
+                  note: note ? note : undefined,
+                });
+              },
+              (nextNote) => {
+                if (!storyConfirmationKey) {
+                  return;
+                }
+
+                setStoryIntentFeedback((prev) => ({
+                  ...prev,
+                  [storyConfirmationKey]: {
+                    confirmation: prev[storyConfirmationKey]?.confirmation,
+                    note: nextNote,
+                  },
+                }));
+                setSavedStoryNoteKey(undefined);
+              },
+              () => {
+                if (!storyConfirmationKey || !storyConfirmation) {
+                  return;
+                }
+
+                const noteToSave = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
+                vscodeApiRef.current?.postMessage({
+                  type: 'setIntentFeedback',
+                  pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
+                  inferredIntent: storySummary.intentProfile,
+                  storyArchetype: storySummary.storyArchetype,
+                  userConfirmation: storyConfirmation,
+                  inferenceConfidence: storySummary.confidence,
+                  note: noteToSave ? noteToSave : undefined,
+                });
+                setSavedStoryNoteKey(storyConfirmationKey);
+              },
+              savedStoryNoteKey === storyConfirmationKey,
+            )}
+          </section>
+        </>
+      ) : null}
+      <section ref={issuesSectionRef} tabIndex={-1}>
+        {renderIssuesWorkspace({
+          findings: visibleFindings,
+          filters: issueFilters,
+          groupingMode: issueGroupingMode,
+          pageOptions: pageScores.map((page) => page.pageName),
+          activeFilterSummary,
+          onFilterChange: (key, value) => {
+            setIssueFiltersDirty(true);
+            setIssueFilters((prev) => ({ ...prev, [key]: value as never }));
+          },
+          onGroupingModeChange: setIssueGroupingMode,
+          onClearFilters: () => {
+            setIssueFiltersDirty(false);
+            setIssueFilters({
+              severity: 'all',
+              pageName: 'all',
+              dimension: 'all',
+              impactArea: 'all',
+              scope: 'all',
+              detectionType: 'all',
+            });
+          },
+          onResetToPersonaDefaults: () => {
+            setIssueFiltersDirty(false);
+            setIssueFilters(personaDefaults);
+          },
+        })}
+      </section>
+
+      <div ref={fixPlanSectionRef} tabIndex={-1}>
+        {renderFixPlanSection(filteredFixPlan)}
+      </div>
+      {selectedPage ? renderReviewerCommentGenerator(
+        selectedPage,
+        selectedIntentProfile,
+        selectedReviewerPersona,
+        (next) => setReviewerPersonaByPage((prev) => ({ ...prev, [intentProfileKey]: next })),
       ) : null}
 
-      {quickFixes.length > 0 ? (
-        <section aria-label="Quick fixes" className="panel-card quick-fix-card">
-          <h2>Quick Fixes</h2>
-          <p className="quick-fix-intro">
-            Advisory next steps derived from the findings above. Each fix is a manual action — no
-            visuals are modified automatically.
-          </p>
-          <ul className="quick-fix-list">
-            {quickFixes.map((fix) => (
-              <li className="quick-fix-item" key={fix.operation}>
-                <div className="quick-fix-header">
-                  <span className="quick-fix-label">{fix.label}</span>
-                  <span className="quick-fix-operation">{fix.operation}</span>
-                </div>
-                {fix.detail ? <p className="quick-fix-detail">{fix.detail}</p> : null}
-                {fix.affectedVisuals && fix.affectedVisuals.length > 0 ? (
-                  <ul className="quick-fix-visual-list">
-                    {fix.affectedVisuals.map((visual) => (
-                      <li className="quick-fix-visual" key={`${visual.pageName}|${visual.visualId}`}>
-                        <button
-                          className="quick-fix-visual-button"
-                          onClick={() => revealVisual(visual)}
-                          type="button"
-                        >
-                          {visual.pageName} · {visual.visualType} ({shortenVisualId(visual.visualId)})
-                        </button>
+      <details className="panel-card evidence-section">
+        <summary className="collapsible-summary">
+          <span>Evidence</span>
+          <span className="collapsible-caret" aria-hidden="true">▾</span>
+        </summary>
+        <div className="collapsible-body evidence-stack">
+          {overallView && multiPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Review Packet Preview</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderReviewPacketPreview(
+                  state.reviewPacketPreview,
+                  state.reviewPacketPreviewHtml,
+                  state.reviewPacketPreviewProfile ?? 'consultant',
+                  state.reviewPacketPreviewTemplateVariant ?? 'brandedConsultant',
+                  (profile) => vscodeApiRef.current?.postMessage({ type: 'setReviewPacketPreviewProfile', profile }),
+                  (templateVariant) => vscodeApiRef.current?.postMessage({ type: 'setReviewPacketPreviewTemplateVariant', templateVariant }),
+                  () => vscodeApiRef.current?.postMessage({ type: 'openReviewPacketPreview' }),
+                )}
+              </div>
+            </details>
+          ) : null}
+
+          <details className="evidence-subsection">
+            <summary className="collapsible-summary">
+                <span>Design Framework Analysis</span>
+              <span className="collapsible-caret" aria-hidden="true">▾</span>
+            </summary>
+            <div className="collapsible-body">
+              <FrameworkSection
+                currentPageName={selectedPage?.pageName}
+                feedbackForKey={feedbackForKey}
+                frameworkValues={frameworkValues}
+                onRevealVisual={revealVisual}
+              />
+            </div>
+          </details>
+
+          {overallView && multiPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Cross-Page Consistency</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderReportConsistencySummary(result.reportConsistencySummary)}
+              </div>
+            </details>
+          ) : null}
+
+          {selectedPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Page Consistency Notes</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderPageConsistencyNotes(selectedPage.reportConsistencyNotes)}
+              </div>
+            </details>
+          ) : null}
+
+          {overallView && multiPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Metadata Overview</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderMetadataOverview(pageScores)}
+              </div>
+            </details>
+          ) : null}
+
+          {pageMetadata ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Parsed Metadata</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderVisualMetadataDetail(pageMetadata, revealVisual)}
+              </div>
+            </details>
+          ) : null}
+
+          {overallView && result.scoringErrors && Object.keys(result.scoringErrors).length > 0 ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Scoring Internals</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                <section className="panel-card">
+                  <h2>Page Errors</h2>
+                  <ul className="recommendation-list">
+                    {Object.entries(result.scoringErrors).map(([page, message]) => (
+                      <li className="recommendation-item rec-high" key={page}>
+                        <strong>{page}:</strong> {message}
                       </li>
                     ))}
                   </ul>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+                </section>
+              </div>
+            </details>
+          ) : null}
 
-      {audit && overallView
-        ? renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!)
-        : null}
+          {audit && overallView ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>AI Screenshot Audit</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!)}
+              </div>
+            </details>
+          ) : null}
 
-      {audit && selectedPage
-        ? renderAuditPageSection(
-            selectedPage.pageName,
-            audit.pages.find((p) => p.pageName === selectedPage.pageName),
-            analyzingCaptureId,
-            audit.providerConfigured,
-            vscodeApiRef.current!,
-          )
-        : null}
+          {audit && selectedPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>AI Screenshot Audit</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderAuditPageSection(
+                  selectedPage.pageName,
+                  audit.pages.find((p) => p.pageName === selectedPage.pageName),
+                  analyzingCaptureId,
+                  audit.providerConfigured,
+                  vscodeApiRef.current!,
+                )}
+              </div>
+            </details>
+          ) : null}
+        </div>
+      </details>
+      <section aria-label="Export actions" className="panel-card export-card">
+        <div className="issues-section-head">
+          <div>
+            <p className="section-kicker">Downstream artifact</p>
+            <h2>Export</h2>
+          </div>
+          <p className="issues-section-copy">
+            Generate a review packet after you have worked through the overview, issues, fix plan, and evidence.
+          </p>
+        </div>
+        <div className="export-actions">
+          <button
+            className="primary-button"
+            onClick={() => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' })}
+            type="button"
+          >
+            Export Review Summary
+          </button>
+          {state.reviewPacketPreviewHtml ? (
+            <button
+              className="secondary-button"
+              onClick={() => vscodeApiRef.current?.postMessage({ type: 'openReviewPacketPreview' })}
+              type="button"
+            >
+              Open Packet Preview
+            </button>
+          ) : null}
+        </div>
+      </section>
     </main>
   );
 }

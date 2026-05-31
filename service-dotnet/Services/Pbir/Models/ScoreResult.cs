@@ -36,6 +36,168 @@ public sealed record FrameworkFeedbackItem(
 public sealed record AffectedVisualReference(string PageName, string VisualId, string VisualType);
 
 /// <summary>
+/// Structured cross-page consistency finding shown in the score panel.
+/// </summary>
+public sealed class ReportConsistencyFinding
+{
+    /// <summary>Gets or sets the high-level grouping category such as layout, navigation, or semanticColors.</summary>
+    public required string Category { get; init; }
+
+    /// <summary>Gets or sets the concrete issue category within the grouping.</summary>
+    public required string IssueCategory { get; init; }
+
+    /// <summary>Gets or sets the human-readable description of the report-level inconsistency.</summary>
+    public required string OverallFinding { get; init; }
+
+    /// <summary>Gets or sets the affected report pages.</summary>
+    public List<string> AffectedPages { get; init; } = [];
+
+    /// <summary>Gets or sets the relative severity for the finding.</summary>
+    public required string Severity { get; init; }
+
+    /// <summary>Gets or sets the scorer confidence for the finding.</summary>
+    public required string Confidence { get; init; }
+
+    /// <summary>Gets or sets the recommended remediation text.</summary>
+    public required string RecommendedRemediation { get; init; }
+}
+
+/// <summary>
+/// Deterministic story hypothesis inferred for a page from its visible structure and chart mix.
+/// </summary>
+public sealed class PageStorySummary
+{
+    /// <summary>Gets or sets the inferred page-intent profile.</summary>
+    public required string IntentProfile { get; init; }
+
+    /// <summary>Gets or sets the inferred story archetype.</summary>
+    public required string StoryArchetype { get; init; }
+
+    /// <summary>Gets or sets the natural-language story hypothesis shown to users.</summary>
+    public required string InferredStory { get; init; }
+
+    /// <summary>Gets or sets the confidence for the hypothesis.</summary>
+    public required string Confidence { get; init; }
+
+    /// <summary>Gets or sets the evidence used to infer the story.</summary>
+    public List<string> Evidence { get; init; } = [];
+}
+
+/// <summary>
+/// Deterministic page-intent profile used to adjust review expectations.
+/// </summary>
+public sealed class PageIntentProfileSummary
+{
+    /// <summary>Gets or sets the inferred profile for the page.</summary>
+    public required string InferredProfile { get; init; }
+
+    /// <summary>Gets or sets how demanding actionability expectations should be for this profile.</summary>
+    public required string ActionabilityExpectation { get; init; }
+
+    /// <summary>Gets or sets concrete reviewer guidance tied to this profile.</summary>
+    public List<string> ReviewGuidance { get; init; } = [];
+
+    /// <summary>Gets or sets the evidence used to infer the profile.</summary>
+    public List<string> Evidence { get; init; } = [];
+}
+
+/// <summary>
+/// Explains whether a page supports action and decision-making.
+/// </summary>
+public sealed class ActionabilityBreakdown
+{
+    /// <summary>Gets or sets the 0-100 actionability score.</summary>
+    public double Score { get; init; }
+
+    /// <summary>Gets or sets whether the page exposes a target, budget, benchmark, or similar anchor.</summary>
+    public bool TargetBenchmarkPresent { get; init; }
+
+    /// <summary>Gets or sets whether the page surfaces exceptions or outliers clearly.</summary>
+    public bool ExceptionVisibility { get; init; }
+
+    /// <summary>Gets or sets whether urgency or recency cues are visible.</summary>
+    public bool UrgencySignaling { get; init; }
+
+    /// <summary>Gets or sets whether prior-period or delta context is visible.</summary>
+    public bool PriorPeriodContext { get; init; }
+
+    /// <summary>Gets or sets whether the page offers a drill or supporting-evidence path.</summary>
+    public bool DrillPathPresent { get; init; }
+
+    /// <summary>Gets or sets the expectation level implied by the page profile.</summary>
+    public required string ExpectationLevel { get; init; }
+
+    /// <summary>Gets or sets actionability strengths that the page already demonstrates.</summary>
+    public List<string> Strengths { get; init; } = [];
+
+    /// <summary>Gets or sets the highest-priority decision-support gaps.</summary>
+    public List<string> Gaps { get; init; } = [];
+
+    /// <summary>Gets or sets the concise narrative summary shown in the UI.</summary>
+    public required string Summary { get; init; }
+}
+
+/// <summary>
+/// Compares the page against a recognizable dashboard archetype and benchmark expectation.
+/// </summary>
+public sealed class BenchmarkComparisonSummary
+{
+    /// <summary>Gets or sets the nearest matching dashboard archetype.</summary>
+    public required string Archetype { get; init; }
+
+    /// <summary>Gets or sets the benchmark label used for comparison messaging.</summary>
+    public required string BenchmarkLabel { get; init; }
+
+    /// <summary>Gets or sets the broad comparison outcome relative to the benchmark.</summary>
+    public required string ComparativePosition { get; init; }
+
+    /// <summary>Gets or sets whether the page looks polished but still fails to support decisions.</summary>
+    public bool BeautifulButUseless { get; init; }
+
+    /// <summary>Gets or sets the primary comparative insight for the reviewer.</summary>
+    public required string Insight { get; init; }
+
+    /// <summary>Gets or sets the notable comparative strengths.</summary>
+    public List<string> Strengths { get; init; } = [];
+
+    /// <summary>Gets or sets the notable comparative gaps.</summary>
+    public List<string> Gaps { get; init; } = [];
+}
+
+/// <summary>
+/// Summarizes cross-page consistency findings for a scored report.
+/// </summary>
+public sealed class ReportConsistencySummary
+{
+    /// <summary>Gets or sets a value indicating whether title anchors are consistent across pages.</summary>
+    public bool ConsistentTitleAnchors { get; init; }
+
+    /// <summary>Gets or sets a value indicating whether filter bands are consistently positioned across pages.</summary>
+    public bool ConsistentFilterBand { get; init; }
+
+    /// <summary>Gets or sets a value indicating whether metric labels remain consistent across pages.</summary>
+    public bool ConsistentMetricLabels { get; init; }
+
+    /// <summary>Gets or sets a value indicating whether semantic color mappings remain consistent across pages.</summary>
+    public bool ConsistentSemanticColors { get; init; }
+
+    /// <summary>Gets or sets an overall report-level summary of the cross-page findings.</summary>
+    public string? OverallFinding { get; init; }
+
+    /// <summary>Gets or sets the unique pages affected by one or more cross-page findings.</summary>
+    public List<string> AffectedPages { get; init; } = [];
+
+    /// <summary>Gets or sets the count of structured cross-page findings.</summary>
+    public int IssueCount { get; init; }
+
+    /// <summary>Gets or sets the structured cross-page findings for UI grouping and remediation.</summary>
+    public List<ReportConsistencyFinding> Issues { get; init; } = [];
+
+    /// <summary>Gets or sets the human-readable consistency findings for the report.</summary>
+    public List<string> Findings { get; init; } = [];
+}
+
+/// <summary>
 /// Holds the scoring dimensions and final composite score produced by <see cref="PbirScoringService"/>.
 /// All sub-scores are clamped to [0, 100]. The composite score is a weighted sum of the
 /// enabled frameworks using the normalized weights supplied in <see cref="FrameworkWeights"/>.
@@ -199,6 +361,21 @@ public sealed class ScoreResult
     /// <c>null</c> for full-report scoring where page-level metadata is carried on <see cref="PageScores"/>.
     /// </summary>
     public PageVisualMetadataSummary? VisualMetadata { get; set; }
+
+    /// <summary>Gets or sets the inferred page story summary for single-page scoring.</summary>
+    public PageStorySummary? InferredStorySummary { get; set; }
+
+    /// <summary>Gets or sets the deterministic page-intent profile for single-page scoring.</summary>
+    public PageIntentProfileSummary? PageIntentProfile { get; set; }
+
+    /// <summary>Gets or sets the actionability breakdown for single-page scoring.</summary>
+    public ActionabilityBreakdown? ActionabilityBreakdown { get; set; }
+
+    /// <summary>Gets or sets the archetype and benchmark comparison for single-page scoring.</summary>
+    public BenchmarkComparisonSummary? BenchmarkComparison { get; set; }
+
+    /// <summary>Gets or sets the report-level cross-page consistency summary when full-report scoring is used.</summary>
+    public ReportConsistencySummary? ReportConsistencySummary { get; set; }
 
     // ── Per-Page Scores (Feature 003: Per-Page Scoring) ───────────────────────
 

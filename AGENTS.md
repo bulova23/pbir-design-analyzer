@@ -3,6 +3,44 @@
 ## Project Structure & Module Organization
 `vscode-extension/` contains the shipped VS Code extension. Put extension runtime code in `src/`, React webviews in `webview-src/`, static assets in `resources/`, and Jest mocks in `tests/__mocks__/`. `service-dotnet/` contains the .NET 8 backend: `RpcHost/` is the packaged entrypoint, `Services/Pbir/` holds scoring, governance, and tree logic, and `tests/` holds xUnit coverage. Long-form specs, release notes, and troubleshooting live in `docs/`.
 
+## Current Product Architecture
+
+The `0.2.0` release centers on a modernized score-panel workspace:
+
+- `Overview`
+- `Issues`
+- `Fix Plan`
+- `Evidence`
+- secondary `Export`
+
+Key architecture layers:
+
+- scoring layer: backend `ScoreResult` and page-score outputs remain authoritative
+- findings layer: normalized findings unify issue rendering across multiple source systems
+- presentation layer: overview summaries, fix-plan sequencing, workspace personas, and cross-page matrix navigation remain presentation-only
+
+### Important Boundaries
+
+- normalized findings are the shared issue model
+- workspace personas are separate from reviewer-comment personas
+- cross-page matrix navigation is presentation-only and finding-driven
+- review/export workflows remain downstream from scoring
+
+## Roadmap References
+
+Deferred next-epic roadmap after `0.2.0`:
+
+1. Consultant Deliverables & Export Platform
+2. Visual Intelligence & Screenshot Analysis
+3. Enterprise Governance & Advanced Review
+
+See:
+
+- `docs/ROADMAP.md`
+- `docs/superpowers/specs/2026-05-31-consultant-deliverables-export-platform-design.md`
+- `docs/superpowers/specs/2026-05-31-visual-intelligence-screenshot-analysis-design.md`
+- `docs/superpowers/specs/2026-05-31-enterprise-governance-advanced-review-design.md`
+
 ## Build, Test, and Development Commands
 From `vscode-extension/`:
 
@@ -37,6 +75,7 @@ From the repo root:
 - Finalize the active session note in `.agent-memory/sessions/`.
 - Update `.agent-memory/current-focus.md` with the next recommended step.
 - Append a concise summary to `.agent-memory/session-summaries.md`.
+- Prefer compact durable memory over a large raw session trail when preparing release merges.
 
 ## Coding Style & Naming Conventions
 Follow the existing file style: TypeScript and JSON use 2-space indentation, single quotes, and `camelCase` symbols; React components use `PascalCase`; test files use `*.test.ts` or `*.test.tsx`. C# uses 4-space indentation, file-scoped namespaces, `PascalCase` public members, and `_camelCase` private readonly fields. There is no Prettier config here, so rely on the current formatting and `npm run lint`.

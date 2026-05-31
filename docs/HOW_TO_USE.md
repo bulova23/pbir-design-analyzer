@@ -1,495 +1,167 @@
 # How To Use PBIR Design Analyzer
 
-PBIR Design Analyzer is a local review tool for Power BI PBIP/PBIR reports. It helps report authors inspect report structure, score design quality, tune scoring rules, and optionally run workspace governance checks before a report is shared or published.
+PBIR Design Analyzer is a local review tool for Power BI PBIP/PBIR reports. In `0.2.0`, the main experience is a review workspace:
+
+1. Overview
+2. Issues
+3. Fix Plan
+4. Evidence
+5. Export
 
 ## Prerequisites
 
-- VS Code 1.93 or later
-- .NET 8 installed on the machine
-- a local Power BI PBIP workspace or direct `.Report` folder
+- VS Code 1.93+
+- .NET 8 on the machine
+- a local PBIP project or `.Report` folder
 
-## Core Workflow
+## Run The Analyzer
 
-### 1. Open A Project
+1. Open the PBIP project or report folder in VS Code.
+2. Use **PBIR Design Analyzer: Score Report**.
+3. Wait for the **PBIR Optimization Report** webview to open.
+4. Start in **Overview**.
 
-Use the **Open PBIP Project** toolbar button in the PBIR Design Analyzer sidecar.
+## Overview
 
-You can point the extension at:
+Overview is the landing summary.
 
-- a `.pbip` project file
-- a report workspace that already contains a `.Report` folder
+Use it to answer:
 
-After selection, the sidecar loads the report tree so you can browse reports, pages, and visuals.
+- how healthy is the report overall
+- what is wrong first
+- what should be fixed first
+- which pages look weak by dimension
 
-### 2. Refresh The Sidecar
+Overview includes:
 
-Use **Refresh Reports** after:
+- overall score
+- maturity/risk language
+- top strengths and weaknesses
+- top issues
+- top actions
+- cross-page summary
+- cross-page matrix
 
-- saving the report from Power BI Desktop
-- editing PBIR JSON files manually
-- switching branches or updating report files outside VS Code
+## Issues
 
-This re-reads the local report metadata and rebuilds the explorer tree.
+Issues is the primary review surface.
 
-### 3. Score The Report
+Each normalized finding carries:
 
-Use **Score Report** from the toolbar or from a report or page context menu.
+- severity
+- confidence
+- scope
+- detection type
+- affected pages
+- impact area
+- framework impact
+- recommendation
+- evidence references
 
-Scoring supports two modes:
+Use filters to narrow by:
 
-- full-report scoring when you run the command on a report
-- page-only scoring when you run the command on a specific page
+- severity
+- page
+- dimension
+- impact area
+- scope
+- detection type
 
-The score panel opens beside the explorer and shows:
+## Fix Plan
 
-- the report name and score timestamp
-- the composite score for the selected scope
-- visual mix counts for data, navigation, and hidden visuals
-- framework score cards for each enabled design principle
-- recommendations sorted by severity
+Fix Plan is the remediation queue.
 
-## How To Read The Optimization Report
+Use it when you want:
 
-### Full Report vs Page Score
+- prioritized next steps
+- severity/effort framing
+- affected-page context
+- consultant-friendly action sequencing
 
-When you score a full multi-page report, the score panel shows:
+## Evidence
 
-- an `Overall` tab
-- one tab per page
+Evidence is the secondary drilldown layer.
 
-Use `Overall` to review the report-wide composite score and overall recommendations. Use a page tab when you want the score, findings, and recommendations for only that page.
+It contains:
 
-When you score a single page directly, the panel opens in page-only mode and does not show page tabs.
+- Design Framework Analysis
+- metadata explorer/detail
+- AI Screenshot Audit
+- scoring internals
+- review packet preview
 
-### Score Drill-Down Path
+The point of Evidence is to preserve transparency without forcing every user through dense detail first.
 
-The score drill-down is hierarchical. Use it in this order:
+## Review Modes
 
-1. Start with the top-level composite score for the report or page.
-2. If you scored a full report, switch from `Overall` to a page tab to see how that specific page scored.
-3. Expand a framework card to see how that framework contributed to the score.
-4. Review the criterion-level findings, points, and improvement guidance inside that framework.
-5. Open **Show affected visuals** when you need to locate the exact visuals that contributed to the finding.
+The workspace review modes are:
 
-The top-level numeric score is a summary indicator. The detailed score explanation is in the page tabs and expanded framework cards, not in a separate clickable score widget.
+- Default
+- Executive
+- Consultant
+- Governance
+- Accessibility
 
-### Summary Card
+These modes change prioritization and emphasis only. They do **not** change:
 
-The summary card near the top of the panel shows:
+- score values
+- finding severity
+- finding confidence
+- framework outputs
 
-- the current composite score
-- whether you are looking at the full report or a single page
-- the current visual mix
-- the active navigation-treatment mode
+## Cross-Page Matrix Navigation
 
-If navigation scoring is enabled, navigation controls count at the configured reduced weight instead of counting like full data visuals.
+The Overview matrix shows:
 
-### How The Composite Score Is Calculated
+- page rows
+- dimension columns
+- status per cell
+- finding count
+- high-severity count
 
-The composite score is a weighted average of the enabled scoring frameworks for the current scope.
+Click a matrix cell to:
 
-- each enabled framework contributes according to its configured weight
-- disabled frameworks contribute `0`
-- enabled framework weights must total `100`
+1. set the page filter
+2. set the dimension filter
+3. jump your attention back into Issues
 
-Example:
+You can then clear filters or reset back to the current review-mode defaults.
 
-- if `Gestalt Principles` is weighted at `30%`, it contributes 30 percent of the composite score
-- if `Visual Best Practices` is weighted at `20%`, it contributes 20 percent of the composite score
-- if `Enterprise Governance` is disabled, it does not affect the composite score at all
+## Intent Confirmation And Review Feedback
 
-To understand why the composite score changed, look at:
+When story/intent inference is available, the score panel lets you confirm whether the inferred page story matches your intent.
 
-- which frameworks are enabled
-- the weight shown on each framework card
-- the score inside each expanded framework card
-- the page tab you are currently viewing
+Use this workflow to:
 
-In practice, the fastest way to explain a low composite score is:
+- confirm page story
+- mark mismatches or partial alignment
+- add reviewer notes
 
-1. identify the lowest-scoring framework cards
-2. check their weights
-3. expand those frameworks to inspect the detailed criteria and recommendations
+This workflow improves review usability and export context. It does not mutate scores.
 
-### Framework Cards
+## Export
 
-Each enabled framework appears as a collapsible card with:
+Export remains downstream from review in `0.2.0`.
 
-- the framework name
-- its scoring weight
-- a score bar
-- a short score breakdown when criterion-level points are available
+Current behavior:
 
-Expand a framework card to drill into that part of the score.
+- review packet preview remains available
+- review workflow export remains available
+- Export is intentionally secondary to Overview, Issues, Fix Plan, and Evidence
 
-In full-report mode:
+Future versions will expand export/deliverables further, but that work is not part of `0.2.0`.
 
-- `Overall` helps you identify which frameworks are weakest across the report
-- a page tab shows that same framework breakdown for one page only
+## Current Limitations
 
-This is the main way to answer questions like:
+- persona defaults are heuristic, not a second scoring system
+- matrix dimension filters map to grouped impact areas in the UI
+- Export remains downstream rather than a first-class workspace
+- visual overlays and advanced enterprise-governance workflows are planned, not shipped
 
-- why did this page score lower than the rest of the report
-- which framework pulled the score down
-- what specific rule or heuristic caused the framework score to drop
+## What Is Planned Next
 
-### Findings, Points, And Improvements
+See [ROADMAP.md](./ROADMAP.md) for the next deferred epics:
 
-Inside an expanded framework card, the analyzer shows criterion-level entries such as:
-
-- the criterion name
-- whether the page is meeting expectation or needs improvement
-- earned points versus possible points
-- a `Finding` statement that explains what was detected
-- an `Improve` statement when the analyzer has a direct recommendation
-
-This is the main drill-down view for understanding why a framework scored the way it did.
-
-### Recommendations
-
-The **Review Recommendations** button jumps to the recommendations section. Recommendations are grouped by severity using the built-in `[High]`, `[Medium]`, and `[Low]` prefixes.
-
-Many users get the best results by fixing the highest-severity recommendations first, then rescoring.
-
-### Refresh Inside The Score Panel
-
-Use the **Refresh** button in the score panel after making report changes. This re-runs scoring for the same report or page target without closing the panel.
-
-## Drill Down To Affected Visuals
-
-Some findings include a **Show affected visuals** expander.
-
-Use it when you want to move from a framework finding to the actual PBIR visual that contributed to that score.
-
-The drill-down shows:
-
-- the visual type
-- a shortened visual ID for readability
-- the page name when the evidence spans more than one page
-
-Click a listed visual to reveal that visual in the PBIR explorer sidecar. This lets you move from summary to page to framework to exact visual without searching manually through raw PBIR JSON.
-
-## Configure Scoring
-
-Use **Configure Scoring** to open the Design Analyzer Configuration panel.
-
-### Enabled And Optional Frameworks
-
-The configuration panel separates frameworks into:
-
-- enabled frameworks that currently contribute to the composite score
-- disabled frameworks that can be enabled when they add useful signal for your team
-
-Enabled framework weights must total `100` before the configuration can be saved.
-
-### Navigation Treatment
-
-The **Navigation Treatment** section controls how buttons, slicers, and other navigation controls affect complexity-oriented scoring.
-
-When enabled:
-
-- navigation elements count at a reduced percentage of a normal data visual
-- navigation elements are excluded from Data-Ink Ratio
-
-Use this when your reports rely heavily on tabs, buttons, or bookmark-driven navigation and you do not want navigation controls to distort the score.
-
-### Analyzer Governance Defaults
-
-The **Analyzer Governance Defaults** section controls the local settings used by the optional **Enterprise Governance** scoring framework.
-
-Important:
-
-- these settings affect scoring only
-- they do not turn on corporate publish blocking
-- they are stored in VS Code `globalState`, not in your PBIP repo
-
-That means they are local to the current VS Code profile or user environment unless you deliberately copy them elsewhere.
-
-Use **Open Defaults JSON** if you want to inspect the built-in defaults template that seeds new analyzer configurations.
-
-### Save And Reset
-
-- **Save Configuration** stores the current analyzer config in VS Code local state
-- **Reset to Defaults** restores the built-in default scoring profile
-
-## No Corporate Governance
-
-Corporate governance is disabled by default.
-
-If your team does not use a shared governance policy:
-
-- leave workspace governance settings unset
-- or keep `powerbi-modeling.governance.enabled` set to `false`
-
-In that mode:
-
-- `Score Report` still works normally
-- `Configure Scoring` still works normally
-- the **Enterprise Governance** scoring framework remains off by default
-- **Check Governance** returns an informational result instead of a blocking pass/fail decision
-
-You do not need to upload a JSON policy file just to use the analyzer.
-
-## Enable Workspace Governance
-
-Use workspace governance only when you want a shared, corporate publish-readiness rule set for everyone working in that repo or workspace.
-
-Configure it in `.vscode/settings.json`.
-
-Example:
-
-```json
-{
-  "powerbi-modeling.governance.enabled": true,
-  "powerbi-modeling.governance.minimumCompositeScore": 80,
-  "powerbi-modeling.governance.approvedThemeIds": [
-    "CorporateBlue",
-    "Executive"
-  ]
-}
-```
-
-Current blocking behavior is intentionally narrow:
-
-- score below `minimumCompositeScore` blocks
-- theme not in `approvedThemeIds` blocks when the approved list is not empty
-
-If approved themes are configured, **Check Governance** prompts for the report theme name before running the theme validation step.
-
-## Corporate Requirements: Scoring vs Publish Blocking
-
-There are two separate governance paths in the product.
-
-### 1. Local Enterprise Governance Scoring
-
-Use this when you want the analyzer score itself to reflect corporate design expectations.
-
-This is controlled from **Configure Scoring** and is local to the user profile unless shared manually.
-
-Today, the Enterprise Governance scoring framework directly affects score results for:
-
-- maximum visuals per page
-- pie and donut chart allowance
-- page title requirement
-
-Other governance fields visible in the defaults template are currently template or advisory settings and should not be treated as fully enforced score logic yet.
-
-### 2. Workspace Publish Governance
-
-Use this when you want a repo or workspace to enforce a shared publish gate.
-
-This is controlled from `.vscode/settings.json` and is intended to be shared with the workspace.
-
-Today, the workspace governance check primarily enforces:
-
-- minimum composite score threshold
-- approved theme list
-
-Advanced rule metadata can exist in workspace settings, but dynamic publish-rule evaluation is still limited in the current implementation.
-
-## Typical Review Pattern
-
-Many authors get the best results from this cycle:
-
-1. Open the PBIP project.
-2. Score the full report.
-3. Review the `Overall` tab first.
-4. Move to the lowest-scoring page tabs.
-5. Expand the weakest framework cards.
-6. Use **Show affected visuals** to locate exact contributors.
-7. Make layout, chart, theme, or navigation changes.
-8. Refresh the score panel and confirm the improvement.
-9. Run **Check Governance** only if your workspace actually uses shared governance.
-
-## Sidecar Toolbar Guide
-
-- **Folder icon**: Open a PBIP project or `.Report` folder
-- **Refresh icon**: Re-scan local PBIR report files
-- **Chart icon**: Run the design analysis for the current report or page
-- **Gear icon**: Open scoring and local analyzer configuration
-- **Shield icon**: Run the workspace governance evaluation
-
-## Design Principles
-
-### Gestalt Principles
-
-Evaluates whether layout and grouping choices help users understand the page as a coherent visual system. This includes alignment, proximity, similarity, and figure-ground separation.
-
-### Cognitive Load
-
-Measures how much mental effort is required to interpret a page. Pages with too many visuals, too many controls, or too many competing signals generally score lower.
-
-### Data-Ink Ratio
-
-Rewards visuals that maximize information and minimize decorative or redundant elements. Borders, shapes, images, and non-essential labels can reduce this score.
-
-### Graphical Perception
-
-Checks whether the chart type and encoding fit how people compare values accurately. Simple length and position comparisons generally score better than angle, area, or stacked clutter.
-
-### Accessibility (WCAG)
-
-Looks at readability and contrast-related signals that affect accessibility coverage, especially theme color contrast and choices that make the report harder to read.
-
-### Visual Best Practices
-
-Applies practical dashboard guidance around labeling, chart choice, consistency, and reducing avoidable friction in the page design.
-
-### Enterprise Governance
-
-An optional scoring framework for organization-specific standards such as page-title expectations, pie-chart policy, or visual-density limits. This is separate from workspace publish blocking.
-
-### Stephen Few Principles
-
-Uses dashboard design ideas associated with Stephen Few, such as emphasizing important KPIs, keeping comparisons readable, and avoiding dashboard crowding.
-
-### Tufte Minimalism
-
-Measures how well the report avoids chart junk and unnecessary decoration while preserving precision and clarity in the underlying data presentation.
-
-### Dashboard Density
-
-Evaluates whether a page contains a healthy amount of information without becoming crowded, overwhelming, or visually compressed.
-
-### Narrative Design
-
-Scores how well the report guides the user through a story, including page sequence, emphasis, supporting detail, and the flow from headline insights to supporting analysis.
-
-## Visual Audit Coverage
-
-Visual Audit Coverage lets you attach screenshots of report pages and run AI-assisted design analysis on them. Findings appear alongside the PBIR scoring results as a non-scored evidence layer — they do not change the composite score, but they surface visual issues that the static parser cannot detect, such as clipped labels, overlapping visuals, or layout imbalance.
-
-### Supported AI Providers
-
-Two providers are supported. Both send the screenshot to a vision-capable model and receive structured findings in return. Neither provider stores or trains on your screenshots.
-
-| Provider | Model | Key source |
-|---|---|---|
-| Anthropic Claude Vision | claude-haiku-4-5 | [console.anthropic.com](https://console.anthropic.com) |
-| OpenAI GPT-4o Vision | gpt-4o | [platform.openai.com](https://platform.openai.com) |
-
-### Step 1 — Configure The AI Provider
-
-Before you can analyze screenshots you must provide an API key for one of the supported providers.
-
-**From the score panel:**
-
-1. Score a report to open the score panel.
-2. Scroll to the **Visual Audit Coverage** card at the bottom of the panel.
-3. Click **Configure AI Provider**.
-4. Select your preferred provider from the quick-pick list.
-5. Paste your API key into the input box and press Enter.
-
-**From the command palette:**
-
-1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
-2. Run **PBIR Design Analyzer: Configure Visual Audit Provider**.
-3. Select a provider and enter your API key.
-
-The API key is stored in VS Code `SecretStorage`. It is never written to disk, logged, or included in any extension output. SecretStorage maps to the OS-level credential manager on each platform:
-
-- **macOS**: system Keychain
-- **Windows**: Windows Credential Manager
-- **Linux**: libsecret / gnome-keyring
-
-The active provider choice (`Anthropic` or `OpenAI`) is saved to VS Code `globalState` and remembered across sessions — this is just a label, not a key.
-
-To switch providers later, run the configure command again and select a different provider. The previous key for the old provider is retained in SecretStorage in case you switch back.
-
-### Step 2 — Attach Screenshots
-
-You can attach one or more screenshots per report page.
-
-**Upload multiple screenshots at once:**
-
-1. Click **Upload Screenshots** in the Visual Audit Coverage card.
-2. Select one or more image files (`PNG`, `JPG`, `JPEG`, `WEBP`).
-
-The extension attempts to match each filename to a report page automatically. A filename like `01 - Executive Summary.png` will be matched against the page named `Executive Summary`. Unmatched screenshots appear in a review queue at the top of the coverage card where you can assign them to the correct page using the drop-down.
-
-**Attach a screenshot to a specific page:**
-
-1. Navigate to a page tab in the score panel.
-2. Scroll to the **Visual Audit** section for that page.
-3. Click **Attach Screenshot** and select one image file.
-
-Attached screenshots are copied to extension storage and persist across VS Code reloads and report re-scores.
-
-### Step 3 — Analyze A Screenshot
-
-Once a screenshot is attached and an AI provider is configured:
-
-1. Navigate to the page tab in the score panel.
-2. Locate the screenshot in the **Visual Audit** section.
-3. Click **Analyze**.
-
-The extension sends the screenshot to the configured AI provider. While analysis is in progress, the button shows **Analyzing…**. When complete, findings appear below the screenshot list.
-
-### Understanding Audit Findings
-
-Each finding includes:
-
-- **Finding type** — `Objective` (clearly visible defect), `Heuristic` (design best-practice concern), or `Style` (polish and consistency observation)
-- **Severity** — `Critical`, `Warning`, or `Info`
-- **Confidence** — `High`, `Medium`, or `Low`
-- **Description** — what was detected in the screenshot
-- **Recommendation** — a suggested corrective action
-- **Region hint** — the approximate area of the screenshot where the issue was observed (when available)
-
-Audit findings are not incorporated into the composite score. They are supplemental evidence intended to be reviewed alongside the framework findings.
-
-### How The Audit Prompt Works
-
-When you click **Analyze**, the extension sends the screenshot to the configured AI provider along with a structured prompt. Understanding what is in that prompt helps you interpret the findings and their confidence levels.
-
-**What the model receives**
-
-Each request includes:
-
-- the screenshot as a base64-encoded image
-- the page name
-- the PBIR composite score for that page, when one is available
-
-The composite score gives the model relevant context — for example, a page already scoring 57 on Gestalt Principles is more likely to have layout or grouping issues than a page scoring 95.
-
-**What the model is asked to produce**
-
-The prompt instructs the model to act as a Power BI report design auditor and identify up to five visual design issues. It must return each finding as a single JSON line with no surrounding prose — the extension parses each line individually and discards any line that is not valid JSON or is missing required fields.
-
-The five-finding cap is intentional. A short list of high-signal issues is more actionable than an exhaustive inventory of everything the model can observe.
-
-**How finding types are defined**
-
-The classification rules are embedded in the prompt itself, not inferred by the model:
-
-- `objective` — clearly visible defects: clipped text, overlapping visuals, error states, cut-off labels
-- `strongHeuristic` — hierarchy, scan path, spacing, density, or visual balance problems
-- `stylePreference` — polish and consistency observations
-
-This means the type field reflects whether the issue is something measurable and visible (`objective`), a design principle concern (`strongHeuristic`), or a subjective consistency note (`stylePreference`). If the model returns an unrecognised type, the extension defaults it to `strongHeuristic`.
-
-**Both providers use the same prompt**
-
-Anthropic Claude Vision and OpenAI GPT-4o Vision receive identical prompt text. The only difference is the API format used to deliver the image and text. This means findings from the two providers are directly comparable, and switching providers for the same screenshot will often produce similar but not identical results.
-
-**Why findings are not scored**
-
-The composite score is produced by deterministic rule evaluation against the PBIR JSON structure. AI audit findings are produced by a vision model observing a rendered screenshot — they are probabilistic, not reproducible. Including them in the composite score would make the score unstable across re-runs and across provider choices. The findings are kept as a separate evidence layer so they inform your review without changing the numeric score.
-
-### Coverage Card
-
-The **Visual Audit Coverage** card on the `Overall` tab shows a summary across the whole report:
-
-- how many pages have at least one screenshot attached
-- how many pages have findings from at least one analysis run
-- how many pages are still missing screenshots
-- any screenshots that could not be matched to a page automatically
-
-### Removing Screenshots
-
-To remove a screenshot, click the **×** button beside it in the page audit section. The screenshot file is deleted from extension storage and the associated findings are removed from the session.
-
-## Troubleshooting And Feedback
-
-- For setup or runtime issues, start with [PBIR Troubleshooting](PBIR_TROUBLESHOOTING.md).
-- For bugs, feature requests, or support questions, use the [GitHub issue forms](https://github.com/bulova23/pbir-design-analyzer/issues/new/choose).
+1. Consultant Deliverables & Export Platform
+2. Visual Intelligence & Screenshot Analysis
+3. Enterprise Governance & Advanced Review

@@ -1,35 +1,51 @@
 # <img src="vscode-extension/resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
 
-PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI PBIP/PBIR report projects before they are shared, governed, or published.
+PBIR Design Analyzer is a VS Code extension for reviewing local Power BI PBIP/PBIR reports before they are shared, governed, or published. It analyzes report structure, layout, storytelling, accessibility, consistency, and review readiness, then presents the results in a modernized review workspace.
 
-This repository contains only the public PBIR analyzer product surface:
+## 0.2.0 Highlights
 
-- the VS Code extension in `vscode-extension/`
-- the packaged .NET backend host in `service-dotnet/RpcHost/`
-- the PBIR scoring, governance, and analyzer support services in `service-dotnet/Services/Pbir/`
-- PBIR-focused tests and public docs
+- modernized score-panel workspace
+- Overview workspace for executive triage
+- Issues workspace built on normalized findings
+- Fix Plan workspace for remediation sequencing
+- Evidence workspace for framework, metadata, and audit drilldown
+- smart collapse defaults to reduce information overload
+- intent confirmation and review feedback workflow
+- review packet preview and export kept downstream from analysis
+- workspace review modes: Default, Executive, Consultant, Governance, Accessibility
+- cross-page matrix navigation into filtered Issues
 
-## Product Scope
+## Core Concepts
 
-Included:
+### Overview
 
-- open a local PBIP project or `.Report` folder
-- inspect the PBIR tree for reports, pages, visuals, and theme references
-- score a full report or a single page
-- tune analyzer scoring and governance settings
-- run governance checks against enterprise thresholds and rules when workspace governance is explicitly enabled
+The landing summary. Use it to answer:
 
-Not included in this public repo:
+- how healthy is the report overall
+- what is wrong first
+- what should be fixed first
+- which pages look weak by review dimension
 
-- TMDL authoring workflows
-- Fabric live connection workflows
-- AI/copilot features
-- translation management
-- monitoring dashboards
-- PBIR report creation
-- automated theme import or report-theme application workflows
+### Issues
 
-## Build
+The main working surface. Issues are normalized across multiple scoring/evidence systems so the user can triage by:
+
+- severity
+- confidence
+- page
+- dimension
+- scope
+- detection type
+
+### Fix Plan
+
+The consultant-facing remediation queue. It converts findings into action-oriented next steps with severity, effort, scope, and affected-page context.
+
+### Evidence
+
+The secondary drilldown layer. Framework analysis, metadata, screenshot audit, scoring internals, and packet preview still exist, but they no longer dominate the default reading path.
+
+## Installation
 
 Prerequisites:
 
@@ -37,7 +53,7 @@ Prerequisites:
 - .NET 8 SDK
 - VS Code 1.93+
 
-Build and package the extension:
+Build and package locally:
 
 ```bash
 cd vscode-extension
@@ -46,28 +62,62 @@ npm run build
 npm run package
 ```
 
-Run the PBIR-focused backend tests:
+Run backend tests:
 
 ```bash
-dotnet test service-dotnet/tests/Tests.csproj
+dotnet test service-dotnet/tests/Tests.csproj -c Release
 ```
 
-## Docs
+## Getting Started
 
-- [How To Use PBIR Design Analyzer](docs/HOW_TO_USE.md)
-- [PBIR Analyzer V1 Spec](docs/PBIR_ANALYZER_V1_SPEC.md)
-- [Reddit-Informed Design Feedback Backlog](docs/REDDIT_DESIGN_FEEDBACK_BACKLOG.md)
-- [PBIR Analyzer V1 Testing](docs/PBIR_ANALYZER_V1_TESTING.md)
-- [PBIR Troubleshooting](docs/PBIR_TROUBLESHOOTING.md)
+1. Open a PBIP project or `.Report` folder in VS Code.
+2. Run **PBIR Design Analyzer: Score Report**.
+3. Start in **Overview** for executive triage.
+4. Use **Issues** to inspect prioritized findings.
+5. Use **Fix Plan** to sequence remediation.
+6. Use **Evidence** only when you need deeper proof or source details.
+7. Export or preview review packets after the review is complete.
+
+## Review Modes
+
+The workspace supports presentation-only review modes:
+
+- Default
+- Executive
+- Consultant
+- Governance
+- Accessibility
+
+These modes change how findings and actions are prioritized and explained. They do **not** change scores, severities, confidences, or backend scoring.
+
+## Cross-Page Matrix Navigation
+
+The Overview workspace includes a page-by-dimension matrix. Clicking a cell filters the Issues workspace directly to the relevant page and review dimension while preserving the active review mode.
+
+## Documentation
+
+- [Detailed How-To Guide](docs/HOW_TO_USE.md)
+- [Extension README](vscode-extension/README.md)
 - [Changelog](docs/CHANGELOG.md)
+- [Roadmap](docs/ROADMAP.md)
 - [Release Guide](docs/RELEASING.md)
+
+## Roadmap Summary
+
+The next planned epics after `0.2.0` are:
+
+1. Consultant Deliverables & Export Platform
+2. Visual Intelligence & Screenshot Analysis
+3. Enterprise Governance & Advanced Review
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for order, value, risk, complexity, and linked specs/plans.
+
+## Repository Layout
+
+- `vscode-extension/` — shipped extension
+- `service-dotnet/` — backend host and PBIR scoring services
+- `docs/` — release notes, how-to guidance, roadmap, and supporting documentation
 
 ## License
 
-This project is distributed under the MIT License. See [LICENSE](LICENSE) for the full text.
-
-## Feedback
-
-Public bugs, feature requests, support questions, and documentation fixes should be submitted through the repository issue forms. See [CONTRIBUTING.md](CONTRIBUTING.md) for the intake and tracking workflow.
-
-[Submit an issue or feature request](https://github.com/bulova23/pbir-design-analyzer/issues/new/choose)
+MIT. See [LICENSE](LICENSE).

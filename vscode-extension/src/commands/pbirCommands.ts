@@ -22,6 +22,7 @@ export const PBIR_COMMANDS = {
     scoreReport: 'pbir.scoreReport',
     governanceCheck: 'pbir.governanceCheck',
     exportGovernanceReport: 'pbir.exportGovernanceReport',
+    exportReviewWorkflow: 'pbir.exportReviewWorkflow',
     uploadScreenshots: 'pbir.uploadScreenshots',
     attachScreenshot: 'pbir.attachScreenshot',
     configureAuditProvider: 'pbir.configureAuditProvider',
@@ -472,6 +473,56 @@ export function registerPbirCommands(
                     }
                 },
             );
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.exportReviewWorkflow, async (target?: PbirCommandTarget) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.exportReviewWorkflow });
+            try {
+                const bridge = getBridge();
+                let reportPath = resolveCommandTarget(target).reportPath;
+
+                if (!reportPath && pbirTreeProvider) {
+                    try {
+                        const rootItems = await pbirTreeProvider.getChildren();
+                        if (rootItems && rootItems.length > 0) {
+                            reportPath = resolveCommandTarget(rootItems[0]).reportPath;
+                        }
+                    } catch {
+                        // Silently fail and fall back to file picker.
+                    }
+                }
+
+                if (!reportPath) {
+                    const uris = await vscode.window.showOpenDialog({
+                        title: 'Select PBIR Report',
+                        filters: { 'PBIR Reports': ['pbir'], 'All Files': ['*'] },
+                        canSelectMany: false,
+                        canSelectFolders: false,
+                        openLabel: 'Export Review Summary',
+                    });
+                    reportPath = uris?.[0]?.fsPath;
+                }
+
+                if (!reportPath) {
+                    return;
+                }
+
+                if (!fs.existsSync(reportPath)) {
+                    vscode.window.showErrorMessage(`Report not found: ${reportPath}`);
+                    return;
+                }
+
+                const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
+                await panel.exportReviewWorkflow();
+            } catch (error: unknown) {
+                const message = error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while exporting review workflow';
+                console.error('[pbir.exportReviewWorkflow] Error:', error);
+                vscode.window.showErrorMessage(`Failed to export review workflow: ${message}`);
+            }
         })
     );
 

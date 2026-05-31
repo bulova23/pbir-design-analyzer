@@ -1,11 +1,18 @@
 # Session Summaries
 
-## 2026-05-15
+## 2026-05-26 to 2026-05-31
 
-- Initialized `.agent-memory/` scaffolding for this repo. Add concise session summaries here as work progresses.
+- Built the `0.2.0` score-panel release foundation: semantic consistency analysis, chart-intent analysis, cross-page consistency, inferred page story and intent review, persisted review feedback, review packet preview/export, and packaging hardening.
+- Modernized the score panel into a workspace with `Overview`, `Issues`, `Fix Plan`, `Evidence`, and secondary `Export`, using normalized findings as the shared issue model and presentation-only overview/fix-plan builders.
+- Added workspace personas and a navigation-aware cross-page matrix without changing scoring, severity, or confidence semantics.
+- Improved inferred story wording/confidence and clarified evidence labels with `Design Framework Analysis` and `AI Screenshot Audit`.
+- Wrote deferred-roadmap specs and plans for:
+  - Consultant Deliverables & Export Platform
+  - Visual Intelligence & Screenshot Analysis
+  - Enterprise Governance & Advanced Review
 
-## 2026-05-26
+## Durable References
 
-- Researched critique-request comment threads from `r/PowerBIdashboards` with supplementary `r/PowerBI` calibration threads and translated repeated reviewer behavior into an implementation-oriented PBIR Design Analyzer strategy doc at `docs/2026-05-26_reddit_comment_review_research.md`.
-- Reviewed the current analyzer implementation against that research plus a chart-selection reference image and produced a prioritized next-feature recommendation list focused on semantic color consistency, chart-fit analysis, cross-page consistency, and decision-support depth.
-- Added inferred story plus user intent confirmation to the strategy and created a concrete phased implementation backlog at `docs/2026-05-26_concrete_implementation_backlog.md`.
+- Release summary: `.agent-memory/sessions/2026-05-31-0-2-0-release-summary.md`
+- Roadmap summary: `.agent-memory/sessions/2026-05-31-roadmap-next-epics-summary.md`
+- Roadmap docs: `docs/ROADMAP.md` and `docs/superpowers/specs|plans/2026-05-31-*`

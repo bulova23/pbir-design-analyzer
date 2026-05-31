@@ -2,6 +2,55 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.2.0 — 2026-05-31
+
+### Workspace Modernization
+
+- Rebuilt the score panel into a review workspace with:
+  - Overview
+  - Issues
+  - Fix Plan
+  - Evidence
+  - secondary Export
+- Added smart collapse behavior so dense supporting sections do not dominate the default reading path.
+
+### Normalized Findings And Review Workflow
+
+- Added a normalized findings model so issues from multiple scoring/evidence subsystems render through a consistent triage contract.
+- Made Issues the primary review surface with filtering and grouping controls.
+- Added intent confirmation and review feedback workflows without mutating scores.
+
+### Overview, Fix Plan, And Evidence
+
+- Added presentation-only overview summaries, strengths/weaknesses rollups, top issues, and top actions.
+- Added Fix Plan remediation sequencing from existing findings and recommendations.
+- Moved framework analysis, metadata, screenshot audit, scoring internals, and packet preview into Evidence-oriented drilldown.
+
+### Personas And Cross-Page Navigation
+
+- Added workspace review modes: Default, Executive, Consultant, Governance, Accessibility.
+- Kept workspace review modes presentation-only; they do not change scores, severity, or confidence.
+- Replaced the lightweight count grid with a page-by-dimension cross-page matrix that filters Issues directly.
+
+### Export And Review Packet Positioning
+
+- Preserved review packet preview and export workflows while keeping Export downstream from the main review path.
+- Continued support for current Markdown/HTML/PDF/JSON review export flows and consultant-style packet rendering.
+
+### Known Limitations
+
+- Persona defaults are heuristic and single-value rather than a second scoring model.
+- Matrix dimension filters map to grouped impact areas in the UI layer.
+- Export remains downstream rather than a dedicated top-level workspace.
+- Screenshot overlays, AI-generated executive narrative, and advanced enterprise-governance workflows are planned for future versions, not implemented in `0.2.0`.
+
+### Roadmap References
+
+- `docs/ROADMAP.md`
+- `docs/superpowers/specs/2026-05-31-consultant-deliverables-export-platform-design.md`
+- `docs/superpowers/specs/2026-05-31-visual-intelligence-screenshot-analysis-design.md`
+- `docs/superpowers/specs/2026-05-31-enterprise-governance-advanced-review-design.md`
+
 ## 0.1.13 — 2026-05-24
 
 - Technical debt: renamed `LspHost/` → `RpcHost/` and `LSPModelService`/`LSPState` → `AnalyzerBridgeService`/`BridgeState` throughout — the transport is JSON-RPC over stdio, not Language Server Protocol.

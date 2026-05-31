@@ -409,6 +409,207 @@ public sealed class PbirScoringServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ScoreAsync_VisualMetadata_CapturesRepeatedStatusSemanticColors()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"card","x":0,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Orders"},
+               "font":{"color":"#ff0000"}},
+              {"id":"v2","type":"card","x":200,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Margin"},
+               "font":{"color":"#ff0000"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var semanticAssignments = result.VisualMetadata!.SemanticColorMap;
+        Assert.Equal(2, semanticAssignments.Count);
+        Assert.All(semanticAssignments, assignment =>
+        {
+            Assert.Equal("status:at-risk", assignment.SemanticKey);
+            Assert.Equal("#FF0000", assignment.Color);
+        });
+        Assert.All(result.VisualMetadata!.Visuals, visual =>
+        {
+            var assignment = Assert.Single(visual.SemanticColors);
+            Assert.Equal("status:at-risk", assignment.SemanticKey);
+            Assert.Equal("#FF0000", assignment.Color);
+        });
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualMetadata_CapturesSameSemanticKeyWithDifferentColors()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"card","x":0,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Orders"},
+               "font":{"color":"#ff0000"}},
+              {"id":"v2","type":"card","x":200,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Margin"},
+               "font":{"color":"#ff8800"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var semanticAssignments = result.VisualMetadata!.SemanticColorMap
+            .Where(assignment => assignment.SemanticKey == "status:at-risk")
+            .Select(assignment => assignment.Color)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Assert.Equal(2, semanticAssignments.Count);
+        Assert.Contains("#FF0000", semanticAssignments);
+        Assert.Contains("#FF8800", semanticAssignments);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualMetadata_CapturesRoleAnchoredSemanticColors()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":0,"width":320,"height":180,
+               "title":{"visible":true,"text":"North Revenue"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"]},
+               "background":{"color":"#3366cc"}},
+              {"id":"v2","type":"barChart","x":340,"y":0,"width":320,"height":180,
+               "title":{"visible":true,"text":"South Revenue"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"]},
+               "background":{"color":"#ff9900"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var semanticAssignments = result.VisualMetadata!.SemanticColorMap;
+        Assert.Contains(semanticAssignments, assignment =>
+            assignment.SemanticKey == "region:north" &&
+            assignment.Color == "#3366CC");
+        Assert.Contains(semanticAssignments, assignment =>
+            assignment.SemanticKey == "region:south" &&
+            assignment.Color == "#FF9900");
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualBestPractices_FlagsSemanticColorDrift()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"card","x":0,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Orders"},
+               "font":{"color":"#ff0000"}},
+              {"id":"v2","type":"card","x":200,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Margin"},
+               "font":{"color":"#ff8800"}},
+              {"id":"s1","type":"slicer","x":0,"y":160,"width":220,"height":120}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var semanticFeedback = Assert.Single(result.Feedback["visualBestPractices"].Where(item =>
+            item.Text.StartsWith("Semantic color consistency:", StringComparison.Ordinal)));
+        Assert.False(semanticFeedback.Ok);
+        Assert.Contains("multiple colors", semanticFeedback.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(semanticFeedback.AffectedVisuals);
+        Assert.Equal(2, semanticFeedback.AffectedVisuals!.Count);
+        Assert.Contains(result.Recommendations, recommendation =>
+            recommendation.Contains("same category or status meaning on the same color", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_Accessibility_FlagsContradictoryStatusColors()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"card","x":0,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"At Risk Orders"},
+               "font":{"color":"#00aa00"}},
+              {"id":"v2","type":"card","x":200,"y":0,"width":180,"height":120,
+               "title":{"visible":true,"text":"On Track Margin"},
+               "font":{"color":"#cc0000"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var semanticFeedback = Assert.Single(result.Feedback["accessibility"].Where(item =>
+            item.Text.StartsWith("Status color semantics:", StringComparison.Ordinal)));
+        Assert.False(semanticFeedback.Ok);
+        Assert.Contains("Reserve red/green", semanticFeedback.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(semanticFeedback.AffectedVisuals);
+        Assert.Equal(2, semanticFeedback.AffectedVisuals!.Count);
+        Assert.Contains(result.Recommendations, recommendation =>
+            recommendation.Contains("Reserve red/green for consistent bad/good status semantics only", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualMetadata_InferTrendChartIntent()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"lineChart","x":0,"y":0,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        Assert.NotNull(result.VisualMetadata!.ChartIntentSummary);
+        Assert.Equal("trend", result.VisualMetadata.ChartIntentSummary!.Intent);
+        Assert.Equal("high", result.VisualMetadata.ChartIntentSummary.Confidence);
+
+        var visualIntent = Assert.Single(result.VisualMetadata.Visuals).ChartIntent;
+        Assert.NotNull(visualIntent);
+        Assert.Equal("trend", visualIntent!.Intent);
+        Assert.Equal("good", visualIntent.FitStatus);
+        Assert.Empty(visualIntent.RecommendedAlternatives);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualMetadata_InferWeakFitForCategoricalLineChart()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"lineChart","x":0,"y":0,"width":420,"height":220,
+               "title":{"visible":true,"text":"Sales by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Sales"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var visualIntent = Assert.Single(result.VisualMetadata!.Visuals).ChartIntent;
+        Assert.NotNull(visualIntent);
+        Assert.Equal("comparison", visualIntent!.Intent);
+        Assert.Equal("weak", visualIntent.FitStatus);
+        Assert.Contains("clusteredColumnChart", visualIntent.RecommendedAlternatives);
+    }
+
+    [Fact]
     public async Task ScoreAsync_MalformedFormattingMetadata_DoesNotFailScoring()
     {
         var tempDir = CreateTempPbirFolderFromPageJson(
@@ -848,6 +1049,449 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Contains("filter conventions shift", conventionFeedback.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(result.Recommendations, recommendation =>
             recommendation.Contains("title alignment and filter-band conventions stable", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReportConsistencySummary_CapturesCrossPageConsistencySignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("section-1",
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Overview"}},
+              {"id":"s1","type":"slicer","x":0,"y":220,"width":180,"height":180,
+               "title":{"visible":true,"text":"Region"}},
+              {"id":"k1","type":"card","x":220,"y":40,"width":180,"height":120,
+               "title":{"visible":true,"text":"YTD Sales"}},
+              {"id":"status1","type":"card","x":420,"y":40,"width":180,"height":80,
+               "title":{"visible":true,"text":"On Track"},
+               "font":{"color":"#00AA00"}},
+              {"id":"v1","type":"barChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"}}
+            ]}
+            """),
+            ("section-2",
+            """
+            {"displayName":"Overview Detail","visuals":[
+              {"id":"t2","type":"textbox","x":360,"y":0,"width":500,"height":40,
+               "textbox":{"visible":true,"text":"Overview Detail"}},
+              {"id":"s2","type":"slicer","x":280,"y":0,"width":220,"height":80,
+               "title":{"visible":true,"text":"Segment"}},
+              {"id":"k2","type":"card","x":540,"y":40,"width":180,"height":120,
+               "title":{"visible":true,"text":"Sales YTD"}},
+              {"id":"status2","type":"card","x":740,"y":40,"width":180,"height":80,
+               "title":{"visible":true,"text":"On Track"},
+               "font":{"color":"#CC3333"}},
+              {"id":"v2","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Margin by Segment"}}
+            ]}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.ReportConsistencySummary);
+        Assert.False(result.ReportConsistencySummary!.ConsistentTitleAnchors);
+        Assert.False(result.ReportConsistencySummary.ConsistentFilterBand);
+        Assert.False(result.ReportConsistencySummary.ConsistentMetricLabels);
+        Assert.False(result.ReportConsistencySummary.ConsistentSemanticColors);
+        Assert.Contains(result.ReportConsistencySummary.Findings, finding =>
+            finding.Contains("title anchors", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.ReportConsistencySummary.Findings, finding =>
+            finding.Contains("filter", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.ReportConsistencySummary.Findings, finding =>
+            finding.Contains("metric label", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.ReportConsistencySummary.Findings, finding =>
+            finding.Contains("semantic color", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(result.PageScores);
+        var overview = Assert.Single(result.PageScores!.Where(page => page.PageName == "Overview"));
+        var detail = Assert.Single(result.PageScores.Where(page => page.PageName == "Overview Detail"));
+        Assert.Contains(overview.ReportConsistencyNotes, note =>
+            note.Contains("title anchor", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(overview.ReportConsistencyNotes, note =>
+            note.Contains("semantic color", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(detail.ReportConsistencyNotes, note =>
+            note.Contains("metric label", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(detail.ReportConsistencyNotes, note =>
+            note.Contains("semantic color", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReportConsistencySummary_GroupsLayoutAndNavigationIssues()
+    {
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("section-1",
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Overview"}},
+              {"id":"home1","type":"actionButton","x":1120,"y":20,"width":120,"height":40,
+               "title":{"visible":true,"text":"Home"}},
+              {"id":"reset1","type":"actionButton","x":1120,"y":72,"width":120,"height":40,
+               "title":{"visible":true,"text":"Reset Filters"}},
+              {"id":"filter1","type":"slicer","x":0,"y":120,"width":180,"height":180,
+               "title":{"visible":true,"text":"Region"}},
+              {"id":"kpi1","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"YTD Revenue"}},
+              {"id":"chart1","type":"barChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"}}
+            ]}
+            """),
+            ("section-2",
+            """
+            {"displayName":"Detail","visuals":[
+              {"id":"title2","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Detail"}},
+              {"id":"home2","type":"actionButton","x":1120,"y":20,"width":120,"height":40,
+               "title":{"visible":true,"text":"Home"}},
+              {"id":"reset2","type":"actionButton","x":1120,"y":72,"width":120,"height":40,
+               "title":{"visible":true,"text":"Reset Filters"}},
+              {"id":"filter2","type":"slicer","x":0,"y":120,"width":180,"height":180,
+               "title":{"visible":true,"text":"Segment"}},
+              {"id":"kpi2","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"YTD Revenue"}},
+              {"id":"chart2","type":"barChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"}}
+            ]}
+            """),
+            ("section-3",
+            """
+            {"displayName":"Exceptions","visuals":[
+              {"id":"title3","type":"textbox","x":360,"y":0,"width":560,"height":40,
+               "textbox":{"visible":true,"text":"Exceptions"}},
+              {"id":"filter3","type":"slicer","x":280,"y":0,"width":220,"height":80,
+               "title":{"visible":true,"text":"Business Unit"}},
+              {"id":"kpi3","type":"card","x":560,"y":180,"width":180,"height":100,
+               "title":{"visible":true,"text":"YTD Revenue"}},
+              {"id":"chart3","type":"barChart","x":120,"y":300,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Exceptions"}}
+            ]}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.ReportConsistencySummary);
+        var summary = result.ReportConsistencySummary!;
+        var layoutIssue = Assert.Single(summary!.Issues.Where(issue =>
+            issue.IssueCategory == "layoutPattern"));
+        Assert.Contains("Exceptions", layoutIssue.AffectedPages);
+        Assert.Equal("medium", layoutIssue.Severity);
+        Assert.Equal("high", layoutIssue.Confidence);
+        Assert.Contains("layout pattern", layoutIssue.RecommendedRemediation, StringComparison.OrdinalIgnoreCase);
+
+        var navigationIssue = Assert.Single(summary.Issues.Where(issue =>
+            issue.Category == "navigation"));
+        Assert.Contains("Exceptions", navigationIssue.AffectedPages);
+        Assert.Contains("partially detectable", navigationIssue.OverallFinding, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("medium", navigationIssue.Confidence);
+
+        var exceptionPage = Assert.Single(result.PageScores!.Where(page => page.PageName == "Exceptions"));
+        Assert.Contains(exceptionPage.ReportConsistencyNotes, note =>
+            note.Contains("navigation", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(exceptionPage.ReportConsistencyNotes, note =>
+            note.Contains("layout", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReportConsistencySummary_FlagsFuzzyMetricLabelDriftWithCanonicalSuggestion()
+    {
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("section-1",
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Overview"}},
+              {"id":"kpi1","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"CY Sales"}},
+              {"id":"kpi2","type":"card","x":420,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Margin %"}}
+            ]}
+            """),
+            ("section-2",
+            """
+            {"displayName":"Finance Detail","visuals":[
+              {"id":"title2","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Finance Detail"}},
+              {"id":"kpi3","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Current Year Sales"}},
+              {"id":"kpi4","type":"card","x":420,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Gross Margin %"}}
+            ]}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.ReportConsistencySummary);
+        var summary = result.ReportConsistencySummary!;
+        var metricIssue = Assert.Single(summary!.Issues.Where(issue =>
+            issue.Category == "metricGovernance"));
+        Assert.Equal("low", metricIssue.Severity);
+        Assert.Equal("medium", metricIssue.Confidence);
+        Assert.Contains("Current Year Sales", metricIssue.RecommendedRemediation, StringComparison.Ordinal);
+        Assert.Contains("CY Sales", metricIssue.OverallFinding, StringComparison.Ordinal);
+        Assert.Contains("Current Year Sales", metricIssue.OverallFinding, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReportConsistencySummary_FlagsExtendedSemanticRoleColorDrift()
+    {
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("section-1",
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Overview"}},
+              {"id":"actual1","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Actual"},
+               "font":{"color":"#0055CC"}},
+              {"id":"budget1","type":"card","x":420,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Budget"},
+               "font":{"color":"#999999"}}
+            ]}
+            """),
+            ("section-2",
+            """
+            {"displayName":"Variance","visuals":[
+              {"id":"title2","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Variance"}},
+              {"id":"actual2","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Actual"},
+               "font":{"color":"#FF9900"}},
+              {"id":"budget2","type":"card","x":420,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Budget"},
+               "font":{"color":"#555555"}}
+            ]}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.ReportConsistencySummary);
+        var summary = result.ReportConsistencySummary!;
+        var semanticIssue = Assert.Single(summary!.Issues.Where(issue =>
+            issue.Category == "semanticColors"));
+        Assert.Equal("medium", semanticIssue.Severity);
+        Assert.Equal("high", semanticIssue.Confidence);
+        Assert.Contains("Actual", semanticIssue.OverallFinding, StringComparison.Ordinal);
+        Assert.Contains("Budget", semanticIssue.OverallFinding, StringComparison.Ordinal);
+        Assert.Contains("same semantic roles", semanticIssue.RecommendedRemediation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InferredStorySummary_DetectsExecutiveOverviewTrendStory()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Overview"}},
+              {"id":"kpi1","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"kpi2","type":"card","x":420,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Margin"}},
+              {"id":"trend1","type":"lineChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Month"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}},
+              {"id":"comp1","type":"barChart","x":680,"y":180,"width":360,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.InferredStorySummary);
+        Assert.Equal("executiveOverview", result.InferredStorySummary!.IntentProfile);
+        Assert.Equal("executive overview + trend + comparison", result.InferredStorySummary.StoryArchetype);
+        Assert.Equal("high", result.InferredStorySummary.Confidence);
+        Assert.Contains("Revenue", result.InferredStorySummary.InferredStory, StringComparison.Ordinal);
+        Assert.Contains("region", result.InferredStorySummary.InferredStory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(result.InferredStorySummary.Evidence, evidence =>
+            evidence.Contains("2 KPI cards", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.InferredStorySummary.Evidence, evidence =>
+            evidence.Contains("lineChart", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InferredStorySummary_PrefersBusinessLabelsFromRoleMetadata()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Overview"}},
+              {"id":"trend1","type":"lineChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Trend"},
+               "fieldRoles":{
+                 "category":[{"queryRef":"dimRegion[RegionKey]","displayName":"Sales Region","synonyms":["Region"],"description":"Regional business grouping"}],
+                 "value":[{"queryRef":"factSales[RevVar]","displayName":"Revenue Variance","synonyms":["Revenue Gap"],"description":"Difference between actual revenue and target revenue"}],
+                 "measure":[{"queryRef":"factSales[RevVar]","displayName":"Revenue Variance","synonyms":["Revenue Gap"],"description":"Difference between actual revenue and target revenue"}]
+               }}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.InferredStorySummary);
+        Assert.Contains("Revenue Variance", result.InferredStorySummary!.InferredStory, StringComparison.Ordinal);
+        Assert.DoesNotContain("factSales", result.InferredStorySummary.InferredStory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sales region", result.InferredStorySummary.InferredStory, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("medium", result.InferredStorySummary.Confidence);
+        Assert.Contains(result.InferredStorySummary.Evidence, evidence =>
+            evidence.Contains("semantic metadata", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.InferredStorySummary.Evidence, evidence =>
+            evidence.Contains("Revenue Variance", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InferredStorySummary_AvoidsRepeatedPerformancePhrasing()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Executive Overview"}},
+              {"id":"kpi1","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Performance"}},
+              {"id":"comp1","type":"barChart","x":680,"y":180,"width":360,"height":220,
+               "title":{"visible":true,"text":"Performance by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Performance"],"measure":["Performance"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.InferredStorySummary);
+        Assert.DoesNotContain("performance performance", result.InferredStorySummary!.InferredStory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_PageScores_IncludeDetailReferenceStorySummary()
+    {
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("section-1",
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Overview"}},
+              {"id":"kpi1","type":"card","x":220,"y":40,"width":180,"height":100,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"trend1","type":"lineChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Month"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """),
+            ("section-2",
+            """
+            {"displayName":"Transaction Detail","visuals":[
+              {"id":"title2","type":"textbox","x":0,"y":0,"width":460,"height":40,
+               "textbox":{"visible":true,"text":"Transaction Detail"}},
+              {"id":"table1","type":"table","x":0,"y":80,"width":980,"height":420,
+               "title":{"visible":true,"text":"Transaction Detail Table"},
+               "fieldRoles":{"category":["Customer","Order Date"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var detail = Assert.Single(result.PageScores!.Where(page => page.PageName == "Transaction Detail"));
+        Assert.NotNull(detail.InferredStorySummary);
+        Assert.Equal("detailReference", detail.InferredStorySummary!.IntentProfile);
+        Assert.Equal("detail reference", detail.InferredStorySummary.StoryArchetype);
+        Assert.Contains("detailed reference", detail.InferredStorySummary.InferredStory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(detail.InferredStorySummary.Evidence, evidence =>
+            evidence.Contains("table", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReviewIntelligence_ProducesExecutiveActionabilityProfileAndBenchmark()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Executive Review","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"kpi1","type":"card","x":40,"y":60,"width":180,"height":100,
+               "title":{"visible":true,"text":"Revenue vs Budget"}},
+              {"id":"kpi2","type":"card","x":250,"y":60,"width":180,"height":100,
+               "title":{"visible":true,"text":"Margin YoY"}},
+              {"id":"trend1","type":"lineChart","x":40,"y":200,"width":460,"height":220,
+               "title":{"visible":true,"text":"Revenue by Month"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}},
+              {"id":"comp1","type":"barChart","x":540,"y":200,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue at Risk by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}},
+              {"id":"table1","type":"table","x":40,"y":460,"width":920,"height":220,
+               "title":{"visible":true,"text":"Driver Detail"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue Variance"],"measure":["Revenue Variance"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.PageIntentProfile);
+        Assert.Equal("executive", result.PageIntentProfile!.InferredProfile);
+        Assert.Equal("high", result.PageIntentProfile.ActionabilityExpectation);
+        Assert.Contains(result.PageIntentProfile.ReviewGuidance, guidance =>
+            guidance.Contains("target", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(result.ActionabilityBreakdown);
+        Assert.True(result.ActionabilityBreakdown!.TargetBenchmarkPresent);
+        Assert.True(result.ActionabilityBreakdown.ExceptionVisibility);
+        Assert.True(result.ActionabilityBreakdown.PriorPeriodContext);
+        Assert.True(result.ActionabilityBreakdown.DrillPathPresent);
+        Assert.True(result.ActionabilityBreakdown.Score >= 80.0);
+
+        Assert.NotNull(result.BenchmarkComparison);
+        Assert.Equal("executive scorecard", result.BenchmarkComparison!.Archetype);
+        Assert.False(result.BenchmarkComparison.BeautifulButUseless);
+        Assert.Contains("decision", result.BenchmarkComparison.Insight, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_ReviewIntelligence_FlagsBeautifulButUselessExecutivePage()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Executive Review","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Executive Review"}},
+              {"id":"kpi1","type":"card","x":40,"y":60,"width":180,"height":100,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"kpi2","type":"card","x":250,"y":60,"width":180,"height":100,
+               "title":{"visible":true,"text":"Margin"}},
+              {"id":"comp1","type":"clusteredColumnChart","x":40,"y":200,"width":460,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.PageIntentProfile);
+        Assert.Equal("executive", result.PageIntentProfile!.InferredProfile);
+
+        Assert.NotNull(result.ActionabilityBreakdown);
+        Assert.False(result.ActionabilityBreakdown!.TargetBenchmarkPresent);
+        Assert.False(result.ActionabilityBreakdown.PriorPeriodContext);
+        Assert.True(result.ActionabilityBreakdown.DrillPathPresent);
+        Assert.True(result.ActionabilityBreakdown.Score < 50.0);
+        Assert.Contains(result.ActionabilityBreakdown.Gaps, gap =>
+            gap.Contains("target", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(result.BenchmarkComparison);
+        Assert.True(result.BenchmarkComparison!.BeautifulButUseless);
+        Assert.Contains("beautiful but useless", result.BenchmarkComparison.Insight, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

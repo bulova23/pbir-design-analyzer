@@ -247,6 +247,8 @@ Suggested implementation phases:
 
 ### P4. Actionability and Decision-Support Scoring
 
+Status: implemented on `2026-05-30`
+
 Why fifth:
 
 - The strongest Reddit criticism is still “what decision does this support?”
@@ -270,12 +272,24 @@ Acceptance criteria:
 - KPI pages without context receive specific actionability findings
 - executive overview pages receive stronger decision-support expectations than analyst pages
 
+Implementation notes:
+
+- Added deterministic `ActionabilityBreakdown` output with score, strengths, and gaps for:
+  - target / benchmark presence
+  - exception visibility
+  - urgency signaling
+  - prior-period context
+  - drill / supporting-evidence path
+- Surfaced the actionability score and narrative gaps directly in the score panel.
+
 Dependencies:
 
 - page-intent profiles
 - story inference
 
 ### P5. Page-Intent Profiles
+
+Status: implemented on `2026-05-30`
 
 Why sixth:
 
@@ -297,11 +311,23 @@ Acceptance criteria:
 - page intent can be inferred or manually overridden
 - framework weighting or thresholds can vary by page intent
 
+Implementation notes:
+
+- Added deterministic `PageIntentProfile` output normalized to:
+  - `executive`
+  - `operational`
+  - `analytical`
+  - `appendix`
+- Score panel now shows inferred and manually selected profile states.
+- Manual override is currently a score-panel-local review control; backend scoring remains deterministic on inferred intent until persisted page-level override config is introduced.
+
 Dependencies:
 
 - story inference
 
 ### P6. Reviewer Workflow and Comment Generation
+
+Status: implemented on `2026-05-30`
 
 Why seventh:
 
@@ -328,12 +354,24 @@ Acceptance criteria:
 - users can generate human-readable review comments from findings
 - comments clearly separate objective findings from heuristics and style preferences
 
+Implementation notes:
+
+- Left the consultant-style export flow intact.
+- Added a deterministic reviewer comment generator panel with persona overlays for:
+  - coach
+  - consultant
+  - executive reviewer
+  - strict design critic
+- Comment generation is grounded in current page findings, actionability gaps, and benchmark insight rather than generic prompts.
+
 Dependencies:
 
 - finding classification already exists
 - stronger story and actionability model improves quality
 
 ### P7. Screenshot Audit Grounding Upgrade
+
+Status: implemented on `2026-05-30`
 
 Why eighth:
 
@@ -354,12 +392,27 @@ Acceptance criteria:
 - screenshot findings can reference page-story context
 - screenshot audit and deterministic findings can be shown side-by-side without duplication
 
+Implementation notes:
+
+- Visual audit providers now receive richer grounding context including:
+  - page intent profile
+  - inferred story
+  - actionability summary
+  - benchmark/archetype context
+  - page chart-intent metadata
+- Screenshot findings now distinguish:
+  - `renderedLayout`
+  - `metadataModel`
+- The score panel surfaces that distinction in the page-level audit output.
+
 Dependencies:
 
 - story inference
 - chart-intent analyzer
 
 ### P8. Quick-Fix Expansion
+
+Status: implemented on `2026-05-30`
 
 Why ninth:
 
@@ -382,11 +435,23 @@ Acceptance criteria:
 - new fix types are generated for top high-frequency findings
 - fixes can reference affected visuals and pages
 
+Implementation notes:
+
+- Expanded score-panel quick fixes for:
+  - semantic color normalization
+  - chart replacement suggestions
+  - KPI context fixes
+  - title rewrite suggestions
+  - overview/detail separation suggestions
+- New fixes are derived from specific findings or actionability gaps rather than vague generic advice.
+
 Dependencies:
 
 - all higher-priority semantic analyzers
 
 ### P9. Benchmark and Archetype Comparison
+
+Status: implemented on `2026-05-30`
 
 Why tenth:
 
@@ -401,6 +466,12 @@ Scope:
 - archetype matching
 - benchmark messaging
 - “beautiful but useless” insight
+
+Implementation notes:
+
+- Added deterministic archetype matching and benchmark messaging to the scoring result.
+- Added explicit “beautiful but useless” detection when page polish reads stronger than decision support.
+- Surfaced comparative insight in the score panel alongside actionability and reviewer comments.
 
 Dependencies:
 

@@ -1,12 +1,26 @@
 import type {
+  ActionabilityBreakdown,
   AffectedVisualReference,
+  BenchmarkComparisonSummary,
+  ChartIntentConfidence,
+  ChartIntentSummary,
   FindingType,
   FrameworkFeedbackItem,
+  PageIntentProfile,
+  PageStorySummary,
   PageVisualMetadataSummary,
   PageScore,
+  ReportConsistencyFinding,
+  ReportConsistencySummary,
+  SemanticColorAssignment,
   ScoreResult,
   VisualMetadataItem,
 } from '../analyzer/contracts/scorePanel';
+import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
+import { buildFixPlan } from '../analyzer/score/fixPlan';
+import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
+import { buildOverviewSummary } from '../analyzer/score/overviewSummary';
+import { getReviewPresentationPersonaProfiles } from '../analyzer/score/personaPresentation';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -61,6 +75,234 @@ function readStringArray(source: Record<string, unknown>, key: string): string[]
   }
 
   return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function normalizeSemanticColorAssignment(value: unknown): SemanticColorAssignment | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const semanticKey = readOptionalString(value, 'semanticKey');
+  const color = readOptionalString(value, 'color');
+  const sourceVisualId = readOptionalString(value, 'sourceVisualId');
+  const sourcePageName = readOptionalString(value, 'sourcePageName');
+  if (!semanticKey || !color || !sourceVisualId || !sourcePageName) {
+    return undefined;
+  }
+
+  return {
+    semanticKey,
+    displayLabel: readOptionalString(value, 'displayLabel'),
+    color,
+    sourceVisualId,
+    sourcePageName,
+  };
+}
+
+function normalizeChartIntentSummary(value: unknown): ChartIntentSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const intent = readOptionalString(value, 'intent');
+  if (!intent) {
+    return undefined;
+  }
+
+  return {
+    intent,
+    confidence: normalizeChartIntentConfidence(readProperty(value, 'confidence')),
+    evidence: readStringArray(value, 'evidence'),
+    fitStatus: readOptionalString(value, 'fitStatus'),
+    recommendedAlternatives: readStringArray(value, 'recommendedAlternatives'),
+  };
+}
+
+function normalizeReportConsistencySummary(value: unknown): ReportConsistencySummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const consistentTitleAnchors = readOptionalBoolean(value, 'consistentTitleAnchors');
+  const consistentFilterBand = readOptionalBoolean(value, 'consistentFilterBand');
+  const consistentMetricLabels = readOptionalBoolean(value, 'consistentMetricLabels');
+  const consistentSemanticColors = readOptionalBoolean(value, 'consistentSemanticColors');
+  if (
+    consistentTitleAnchors === undefined ||
+    consistentFilterBand === undefined ||
+    consistentMetricLabels === undefined ||
+    consistentSemanticColors === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    consistentTitleAnchors,
+    consistentFilterBand,
+    consistentMetricLabels,
+    consistentSemanticColors,
+    overallFinding: readOptionalString(value, 'overallFinding'),
+    affectedPages: readStringArray(value, 'affectedPages'),
+    issueCount: readRequiredNumber(value, 'issueCount'),
+    issues: Array.isArray(readProperty(value, 'issues'))
+      ? (readProperty(value, 'issues') as unknown[])
+          .map((entry) => normalizeReportConsistencyFinding(entry))
+          .filter((entry): entry is ReportConsistencyFinding => Boolean(entry))
+      : [],
+    findings: readStringArray(value, 'findings'),
+  };
+}
+
+function normalizeReportConsistencyFinding(value: unknown): ReportConsistencyFinding | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const category = readOptionalString(value, 'category');
+  const issueCategory = readOptionalString(value, 'issueCategory');
+  const overallFinding = readOptionalString(value, 'overallFinding');
+  const severity = readOptionalString(value, 'severity');
+  const confidence = readOptionalString(value, 'confidence');
+  const recommendedRemediation = readOptionalString(value, 'recommendedRemediation');
+  if (!category || !issueCategory || !overallFinding || !recommendedRemediation) {
+    return undefined;
+  }
+
+  if (
+    (severity !== 'high' && severity !== 'medium' && severity !== 'low') ||
+    (confidence !== 'high' && confidence !== 'medium' && confidence !== 'low')
+  ) {
+    return undefined;
+  }
+
+  return {
+    category,
+    issueCategory,
+    overallFinding,
+    affectedPages: readStringArray(value, 'affectedPages'),
+    severity,
+    confidence,
+    recommendedRemediation,
+  };
+}
+
+function normalizeChartIntentConfidence(value: unknown): ChartIntentConfidence | undefined {
+  return value === 'high' || value === 'medium' || value === 'low'
+    ? value
+    : undefined;
+}
+
+function normalizeStoryConfidence(value: unknown): PageStorySummary['confidence'] | undefined {
+  return value === 'high' || value === 'medium' || value === 'low'
+    ? value
+    : undefined;
+}
+
+function normalizePageStorySummary(value: unknown): PageStorySummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const intentProfile = readOptionalString(value, 'intentProfile');
+  const storyArchetype = readOptionalString(value, 'storyArchetype');
+  const inferredStory = readOptionalString(value, 'inferredStory');
+  const confidence = normalizeStoryConfidence(readProperty(value, 'confidence'));
+  if (!intentProfile || !storyArchetype || !inferredStory || !confidence) {
+    return undefined;
+  }
+
+  return {
+    intentProfile,
+    storyArchetype,
+    inferredStory,
+    confidence,
+    evidence: readStringArray(value, 'evidence'),
+  };
+}
+
+function normalizePageIntentProfileType(value: unknown): PageIntentProfile['inferredProfile'] | undefined {
+  return value === 'executive' || value === 'operational' || value === 'analytical' || value === 'appendix'
+    ? value
+    : undefined;
+}
+
+function normalizePageIntentProfile(value: unknown): PageIntentProfile | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const inferredProfile = normalizePageIntentProfileType(readProperty(value, 'inferredProfile'));
+  const actionabilityExpectation = readProperty(value, 'actionabilityExpectation');
+  if (
+    !inferredProfile ||
+    (actionabilityExpectation !== 'high' && actionabilityExpectation !== 'medium' && actionabilityExpectation !== 'low')
+  ) {
+    return undefined;
+  }
+
+  return {
+    inferredProfile,
+    actionabilityExpectation,
+    reviewGuidance: readStringArray(value, 'reviewGuidance'),
+    evidence: readStringArray(value, 'evidence'),
+  };
+}
+
+function normalizeActionabilityBreakdown(value: unknown): ActionabilityBreakdown | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const expectationLevel = readProperty(value, 'expectationLevel');
+  const summary = readOptionalString(value, 'summary');
+  if (
+    !summary ||
+    (expectationLevel !== 'high' && expectationLevel !== 'medium' && expectationLevel !== 'low')
+  ) {
+    return undefined;
+  }
+
+  return {
+    score: readRequiredNumber(value, 'score'),
+    targetBenchmarkPresent: readRequiredBoolean(value, 'targetBenchmarkPresent'),
+    exceptionVisibility: readRequiredBoolean(value, 'exceptionVisibility'),
+    urgencySignaling: readRequiredBoolean(value, 'urgencySignaling'),
+    priorPeriodContext: readRequiredBoolean(value, 'priorPeriodContext'),
+    drillPathPresent: readRequiredBoolean(value, 'drillPathPresent'),
+    expectationLevel,
+    strengths: readStringArray(value, 'strengths'),
+    gaps: readStringArray(value, 'gaps'),
+    summary,
+  };
+}
+
+function normalizeBenchmarkComparison(value: unknown): BenchmarkComparisonSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const archetype = readOptionalString(value, 'archetype');
+  const benchmarkLabel = readOptionalString(value, 'benchmarkLabel');
+  const comparativePosition = readProperty(value, 'comparativePosition');
+  const insight = readOptionalString(value, 'insight');
+  if (
+    !archetype ||
+    !benchmarkLabel ||
+    !insight ||
+    (comparativePosition !== 'above' && comparativePosition !== 'mixed' && comparativePosition !== 'below')
+  ) {
+    return undefined;
+  }
+
+  return {
+    archetype,
+    benchmarkLabel,
+    comparativePosition,
+    beautifulButUseless: readRequiredBoolean(value, 'beautifulButUseless'),
+    insight,
+    strengths: readStringArray(value, 'strengths'),
+    gaps: readStringArray(value, 'gaps'),
+  };
 }
 
 function normalizeAffectedVisual(value: unknown): AffectedVisualReference | undefined {
@@ -195,6 +437,12 @@ function normalizeVisualMetadataItem(value: unknown): VisualMetadataItem | undef
     hasBorder: readOptionalBoolean(value, 'hasBorder'),
     cornerRadius: readOptionalNumber(value, 'cornerRadius'),
     hasShadow: readOptionalBoolean(value, 'hasShadow'),
+    semanticColors: Array.isArray(readProperty(value, 'semanticColors'))
+      ? (readProperty(value, 'semanticColors') as unknown[])
+          .map((entry) => normalizeSemanticColorAssignment(entry))
+          .filter((entry): entry is SemanticColorAssignment => Boolean(entry))
+      : [],
+    chartIntent: normalizeChartIntentSummary(readProperty(value, 'chartIntent')),
   };
 }
 
@@ -213,8 +461,15 @@ function normalizePageVisualMetadata(value: unknown): PageVisualMetadataSummary 
   return {
     pageName,
     visiblePageTitle: readOptionalString(value, 'visiblePageTitle'),
+    strictVisiblePageTitle: readOptionalString(value, 'strictVisiblePageTitle'),
     canvasWidth: readOptionalNumber(value, 'canvasWidth'),
     canvasHeight: readOptionalNumber(value, 'canvasHeight'),
+    semanticColorMap: Array.isArray(readProperty(value, 'semanticColorMap'))
+      ? (readProperty(value, 'semanticColorMap') as unknown[])
+          .map((entry) => normalizeSemanticColorAssignment(entry))
+          .filter((entry): entry is SemanticColorAssignment => Boolean(entry))
+      : [],
+    chartIntentSummary: normalizeChartIntentSummary(readProperty(value, 'chartIntentSummary')),
     visualCount: readRequiredNumber(value, 'visualCount'),
     visibleTitleVisualCount: readRequiredNumber(value, 'visibleTitleVisualCount'),
     textVisualCount: readRequiredNumber(value, 'textVisualCount'),
@@ -253,6 +508,11 @@ function normalizePageScore(value: unknown): PageScore {
     compositeScore: readRequiredNumber(candidate, 'compositeScore'),
     feedback: normalizeFeedback(readProperty(candidate, 'feedback')),
     recommendations: readStringArray(candidate, 'recommendations'),
+    reportConsistencyNotes: readStringArray(candidate, 'reportConsistencyNotes'),
+    inferredStorySummary: normalizePageStorySummary(readProperty(candidate, 'inferredStorySummary')),
+    pageIntentProfile: normalizePageIntentProfile(readProperty(candidate, 'pageIntentProfile')),
+    actionabilityBreakdown: normalizeActionabilityBreakdown(readProperty(candidate, 'actionabilityBreakdown')),
+    benchmarkComparison: normalizeBenchmarkComparison(readProperty(candidate, 'benchmarkComparison')),
     scoringError: readOptionalString(candidate, 'scoringError'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
@@ -262,8 +522,7 @@ function normalizePageScore(value: unknown): PageScore {
 export function normalizeScoreResultPayload(value: unknown): ScoreResult {
   const candidate = isRecord(value) ? value : {};
   const pageScoresValue = readProperty(candidate, 'pageScores');
-
-  return {
+  const normalized: ScoreResult = {
     gestaltScore: readRequiredNumber(candidate, 'gestaltScore'),
     cognitiveLoadScore: readRequiredNumber(candidate, 'cognitiveLoadScore'),
     dataInkScore: readRequiredNumber(candidate, 'dataInkScore'),
@@ -289,10 +548,25 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
       : undefined,
     scoredPageName: readOptionalString(candidate, 'scoredPageName'),
     scoringErrors: readStringRecord(candidate, 'scoringErrors'),
+    reportConsistencySummary: normalizeReportConsistencySummary(readProperty(candidate, 'reportConsistencySummary')),
+    inferredStorySummary: normalizePageStorySummary(readProperty(candidate, 'inferredStorySummary')),
+    pageIntentProfile: normalizePageIntentProfile(readProperty(candidate, 'pageIntentProfile')),
+    actionabilityBreakdown: normalizeActionabilityBreakdown(readProperty(candidate, 'actionabilityBreakdown')),
+    benchmarkComparison: normalizeBenchmarkComparison(readProperty(candidate, 'benchmarkComparison')),
     layoutScore: readOptionalNumber(candidate, 'layoutScore'),
     themeScore: readOptionalNumber(candidate, 'themeScore'),
     governanceScore: readOptionalNumber(candidate, 'governanceScore'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
   };
+
+  normalized.normalizedFindings = buildNormalizedFindings(normalized);
+  normalized.fixPlan = buildFixPlan(normalized.normalizedFindings);
+  normalized.overviewSummary = buildOverviewSummary(normalized);
+  normalized.crossPageMatrix = buildCrossPageMatrix(normalized.normalizedFindings, normalized.pageScores);
+  normalized.personaPresentation = {
+    activePersona: 'default',
+    availablePersonas: getReviewPresentationPersonaProfiles(),
+  };
+  return normalized;
 }

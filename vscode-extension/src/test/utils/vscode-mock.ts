@@ -26,6 +26,14 @@ export const resetVscodeMocks = () => {
   if (vscode.window.showInformationMessage && jest.isMockFunction(vscode.window.showInformationMessage)) {
     (vscode.window.showInformationMessage as jest.Mock).mockClear();
   }
+  if (vscode.window.showSaveDialog && jest.isMockFunction(vscode.window.showSaveDialog)) {
+    (vscode.window.showSaveDialog as jest.Mock).mockClear();
+    (vscode.window.showSaveDialog as jest.Mock).mockResolvedValue(undefined);
+  }
+  if (vscode.window.showTextDocument && jest.isMockFunction(vscode.window.showTextDocument)) {
+    (vscode.window.showTextDocument as jest.Mock).mockClear();
+    (vscode.window.showTextDocument as jest.Mock).mockResolvedValue(undefined);
+  }
   if (vscode.window.setStatusBarMessage && jest.isMockFunction(vscode.window.setStatusBarMessage)) {
     (vscode.window.setStatusBarMessage as jest.Mock).mockClear();
   }
@@ -70,4 +78,3 @@ export const resetVscodeMocks = () => {
     });
   }
 };
-

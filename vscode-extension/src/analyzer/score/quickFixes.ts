@@ -1,4 +1,4 @@
-import type { AffectedVisualReference, FrameworkFeedbackItem } from '../contracts/scorePanel';
+import type { AffectedVisualReference, FrameworkFeedbackItem, PageScore } from '../contracts/scorePanel';
 
 export interface QuickFixOption {
   label: string;
@@ -32,6 +32,7 @@ export interface QuickFixFeedbackItem {
 export function buildQuickFixList(
   recommendations: string[],
   feedback?: ReadonlyArray<QuickFixFeedbackItem | FrameworkFeedbackItem>,
+  page?: Pick<PageScore, 'actionabilityBreakdown' | 'benchmarkComparison'>,
 ): QuickFixOption[] {
   const fixes: QuickFixOption[] = [];
 
@@ -103,7 +104,56 @@ export function buildQuickFixList(
         });
         continue;
       }
+
+      if (item.text.startsWith('Visible page purpose:')) {
+        fixes.push({
+          label: 'Rewrite the page title around the decision or question',
+          operation: 'RewritePageTitle',
+          detail:
+            'Replace vague titles with a decision-led headline so users know what this page should answer in the first scan.',
+          affectedVisuals: item.affectedVisuals,
+        });
+        continue;
+      }
+
+      if (item.text.startsWith('Sequential fit:') || item.text.startsWith('Relationship fit:') || item.text.startsWith('Composition fit:')) {
+        fixes.push({
+          label: 'Replace the chart with a better analytical fit',
+          operation: 'ReplaceChartForIntent',
+          detail:
+            'Swap the current visual for a chart family that matches the task more directly, then keep the supporting fields unchanged.',
+          affectedVisuals: item.affectedVisuals,
+        });
+        continue;
+      }
     }
+  }
+
+  if (page?.actionabilityBreakdown && !page.actionabilityBreakdown.targetBenchmarkPresent) {
+    fixes.push({
+      label: 'Add target, benchmark, or prior-period context to the KPI layer',
+      operation: 'AddKpiContext',
+      detail:
+        'Pair each headline KPI with a target, budget, variance, or prior-period reference so the value can drive a decision.',
+    });
+  }
+
+  if (page?.actionabilityBreakdown && !page.actionabilityBreakdown.drillPathPresent) {
+    fixes.push({
+      label: 'Separate overview from detail with a supporting evidence path',
+      operation: 'AddOverviewDetailSeparation',
+      detail:
+        'Keep the headline message in the first scan path, then add one supporting chart or detail table that explains why the KPI moved.',
+    });
+  }
+
+  if (page?.benchmarkComparison?.beautifulButUseless) {
+    fixes.push({
+      label: 'Normalize semantic colors around action states',
+      operation: 'NormalizeSemanticColors',
+      detail:
+        'Use one stable status palette so the page does not rely on polish alone to imply meaning.',
+    });
   }
 
   return fixes.filter(

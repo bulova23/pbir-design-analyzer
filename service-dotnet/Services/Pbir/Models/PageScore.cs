@@ -131,6 +131,21 @@ public sealed class PageScore
     /// <summary>Gets or sets actionable recommendations for improving this page's score.</summary>
     public List<string> Recommendations { get; init; } = [];
 
+    /// <summary>Gets or sets page-level notes about cross-page consistency checks.</summary>
+    public List<string> ReportConsistencyNotes { get; init; } = [];
+
+    /// <summary>Gets or sets the inferred page story summary when deterministic evidence is sufficient.</summary>
+    public PageStorySummary? InferredStorySummary { get; init; }
+
+    /// <summary>Gets or sets the deterministic page-intent profile.</summary>
+    public PageIntentProfileSummary? PageIntentProfile { get; init; }
+
+    /// <summary>Gets or sets the actionability breakdown for the page.</summary>
+    public ActionabilityBreakdown? ActionabilityBreakdown { get; init; }
+
+    /// <summary>Gets or sets the archetype and benchmark comparison for the page.</summary>
+    public BenchmarkComparisonSummary? BenchmarkComparison { get; init; }
+
     /// <summary>
     /// Gets or sets an error message if scoring failed for this page.
     /// <c>null</c> if page scored successfully. Non-null indicates partial failure.

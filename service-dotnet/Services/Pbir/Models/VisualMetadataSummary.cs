@@ -1,5 +1,41 @@
 namespace PowerBIModelingService.Services.Pbir.Models;
 
+public sealed class SemanticColorAssignment
+{
+    /// <summary>Gets or sets the stable semantic key inferred for the color usage.</summary>
+    public required string SemanticKey { get; init; }
+
+    /// <summary>Gets or sets the user-facing label that produced the semantic color assignment.</summary>
+    public string? DisplayLabel { get; init; }
+
+    /// <summary>Gets or sets the normalized hex color associated with the semantic meaning.</summary>
+    public required string Color { get; init; }
+
+    /// <summary>Gets or sets the source visual identifier where the assignment was detected.</summary>
+    public required string SourceVisualId { get; init; }
+
+    /// <summary>Gets or sets the source page name where the assignment was detected.</summary>
+    public required string SourcePageName { get; init; }
+}
+
+public sealed class ChartIntentSummary
+{
+    /// <summary>Gets or sets the inferred analytical intent for the visual or page.</summary>
+    public required string Intent { get; init; }
+
+    /// <summary>Gets or sets the confidence label for the inferred intent.</summary>
+    public string? Confidence { get; init; }
+
+    /// <summary>Gets or sets the evidence supporting the inferred intent.</summary>
+    public List<string> Evidence { get; init; } = [];
+
+    /// <summary>Gets or sets the current chart fit status.</summary>
+    public string? FitStatus { get; init; }
+
+    /// <summary>Gets or sets the suggested alternative chart types when fit is weak.</summary>
+    public List<string> RecommendedAlternatives { get; init; } = [];
+}
+
 /// <summary>
 /// Summarizes the richer visual metadata extracted for a scored page.
 /// Exposed to the VS Code UI so users can inspect what the parser actually detected.
@@ -25,6 +61,12 @@ public sealed class PageVisualMetadataSummary
 
     /// <summary>Gets or sets the parsed canvas height for the page, when PBIR provided it.</summary>
     public double? CanvasHeight { get; init; }
+
+    /// <summary>Gets or sets the rolled-up semantic color assignments detected on the page.</summary>
+    public List<SemanticColorAssignment> SemanticColorMap { get; init; } = [];
+
+    /// <summary>Gets or sets the inferred chart intent summary for the page, when available.</summary>
+    public ChartIntentSummary? ChartIntentSummary { get; init; }
 
     /// <summary>Gets or sets the total visual count on the page, including hidden visuals.</summary>
     public int VisualCount { get; init; }
@@ -139,4 +181,10 @@ public sealed class VisualMetadataItem
 
     /// <summary>Gets or sets whether a shadow/elevation treatment was detected.</summary>
     public bool? HasShadow { get; init; }
+
+    /// <summary>Gets or sets semantic color assignments detected for this visual.</summary>
+    public List<SemanticColorAssignment> SemanticColors { get; init; } = [];
+
+    /// <summary>Gets or sets the inferred chart intent summary for this visual, when available.</summary>
+    public ChartIntentSummary? ChartIntent { get; init; }
 }

@@ -2,40 +2,28 @@
 
 ## Active Branch
 
-- Branch: `main`
+- Branch: `feat/semantic-color-chart-intent`
 
 ## Current Objective
 
-- Maintain the implementation planning baseline for the next PBIR Design Analyzer feature wave, including inferred story and intent confirmation.
+- Finalize the `0.2.0` release by curating the feature worktree, preserving only durable repo memory, validating the curated payload, merging into `main`, and packaging the final VSIX from `main`.
 
-## In Progress
+## Release Boundaries
 
-- Planning artifacts complete. No active implementation work in progress.
+- Keep completed product code, tests, docs, roadmap specs/plans, and compact durable memory.
+- Do not implement deferred roadmap epics in this release.
+- Keep scoring authoritative and unchanged.
+- Keep Evidence and Export secondary in the shipped workspace UX.
 
-## Blockers
+## Remaining Steps
 
-- None recorded.
-
-## Validation Status
-
-- Planning artifacts updated. No build/test execution was applicable.
+1. Prune transient `.agent-memory` session clutter and generated test-host artifacts.
+2. Validate the feature worktree with compile and test commands.
+3. Commit the curated `0.2.0` payload on the feature branch.
+4. Merge into `main` and re-run validation there.
+5. Package `pbir-design-analyzer-0.2.0.vsix` from `main`.
+6. Record final package path, validation results, and deferred roadmap references.
 
 ## Next Recommended Step
 
-- Start implementation with semantic color consistency, chart-intent/chart-fit scoring, and cross-page consistency, then add inferred story and user intent confirmation on top of those semantic primitives.
-
-## Relevant Files
-
-- `AGENTS.md`
-- `.agent-memory/repo-map.md`
-- `.agent-memory/session-summaries.md`
-- `docs/`
-- `docs/2026-05-26_reddit_comment_review_research.md`
-- `docs/2026-05-26_concrete_implementation_backlog.md`
-- `service-dotnet/Services/Pbir/PbirScoringService.cs`
-- `vscode-extension/src/views/PbirScorePanel.ts`
-
-## Last Updated
-
-- Date: `2026-05-26`
-- By: `Codex`
+- Finish release-payload curation first; do not merge until `.agent-memory`, docs, and generated artifacts have been cleaned.

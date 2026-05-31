@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
@@ -8,7 +9,10 @@ import type {
   AuditFindingDisplay,
   AuditPageState,
   AuditState,
+  ReviewWorkflowExportProfile,
+  ReviewWorkflowMarkdownRenderOptions,
   ScorePanelHostToWebviewMessage,
+  ScorePanelState,
   ScorePanelWebviewToHostMessage,
   ScoreRequestPayload,
   ScoreResult,
@@ -22,6 +26,24 @@ import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { resolveWebviewAssets } from './webviewAssets';
 import { normalizeScoreResultPayload } from './scoreResultPayload';
 import { revealVisualInPbirExplorer } from './pbirExplorerReveal';
+import { loadIntentFeedbackSession, saveIntentFeedbackSession, upsertIntentFeedback } from '../analyzer/intentFeedback/store';
+import {
+  buildReviewWorkflowExportData,
+  exportReviewWorkflowAsHtml,
+  exportReviewWorkflowAsJson,
+  exportReviewWorkflowAsMarkdown,
+  exportReviewWorkflowAsPdf,
+} from '../analyzer/score/reviewWorkflowExport';
+import {
+  buildReviewPacketPreviewHtml,
+  defaultReviewPacketPreviewOptions,
+  normalizeReviewPacketPreviewOptions,
+} from '../analyzer/score/reviewPacketPreview';
+import {
+  loadReviewPacketPreviewOptions,
+  saveReviewPacketPreviewOptions,
+} from '../analyzer/score/reviewPacketPreviewStore';
+import { chooseProfiledDocumentExportOptions } from '../analyzer/score/reviewWorkflowExportPrompts';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -38,6 +60,7 @@ export class PbirScorePanel {
   private currentResult: ScoreResult | undefined;
   private savedConfig: DesignAnalyzerConfig | null = null;
   private selectedPageIndex = 0;
+  private reviewPacketPreviewOptions = defaultReviewPacketPreviewOptions;
   private auditSession: VisualAuditSession | undefined;
   private auditProvider: VisualAuditProvider;
 
@@ -108,6 +131,9 @@ export class PbirScorePanel {
       case 'selectTab':
         this.selectedPageIndex = message.pageIndex;
         return;
+      case 'setIntentFeedback':
+        await this.handleSetIntentFeedback(message);
+        return;
       case 'revealVisual': {
         const revealed = await revealVisualInPbirExplorer(message.pageName, message.visualId);
         if (!revealed) {
@@ -131,6 +157,18 @@ export class PbirScorePanel {
         return;
       case 'analyzeCapture':
         await this.handleAnalyzeCapture(message.captureId, message.pageName);
+        return;
+      case 'exportReviewWorkflow':
+        await this.handleExportReviewWorkflow();
+        return;
+      case 'setReviewPacketPreviewProfile':
+        await this.handleSetReviewPacketPreviewProfile(message.profile);
+        return;
+      case 'setReviewPacketPreviewTemplateVariant':
+        await this.handleSetReviewPacketPreviewTemplateVariant(message.templateVariant);
+        return;
+      case 'openReviewPacketPreview':
+        await this.handleOpenReviewPacketPreview();
         return;
       case 'openSettings':
         await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
@@ -257,6 +295,207 @@ export class PbirScorePanel {
     return this.auditSession;
   }
 
+  private async handleSetIntentFeedback(
+    message: Extract<ScorePanelWebviewToHostMessage, { type: 'setIntentFeedback' }>,
+  ): Promise<void> {
+    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
+    const analyzerVersion = String(this.context.extension.packageJSON?.version ?? 'unknown');
+    const reportSessionId = `${session.reportKey}:${this.currentResult?.scoredAt ?? new Date().toISOString()}`;
+
+    upsertIntentFeedback(session, {
+      pageName: message.pageName,
+      inferredIntent: message.inferredIntent,
+      storyArchetype: message.storyArchetype,
+      userConfirmation: message.userConfirmation,
+      note: message.note?.trim() ? message.note.trim() : undefined,
+      timestamp: new Date().toISOString(),
+      analyzerVersion,
+      reportSessionId,
+      inferenceConfidence: message.inferenceConfidence,
+    });
+
+    await saveIntentFeedbackSession(this.context, session);
+
+    if (this.currentResult && this.savedConfig) {
+      const reviewPacketPreview = buildReviewWorkflowExportData(this.currentResult, session.entries);
+      this.postScoreState(this.savedConfig, this.currentResult, session.entries, reviewPacketPreview);
+    }
+  }
+
+  private async handleSetReviewPacketPreviewProfile(
+    profile: ReviewWorkflowExportProfile,
+  ): Promise<void> {
+    this.reviewPacketPreviewOptions = normalizeReviewPacketPreviewOptions({
+      ...this.reviewPacketPreviewOptions,
+      profile,
+    });
+    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.reviewPacketPreviewOptions);
+    await this.postCurrentScoreState();
+  }
+
+  private async handleSetReviewPacketPreviewTemplateVariant(
+    templateVariant: ReviewWorkflowMarkdownRenderOptions['templateVariant'],
+  ): Promise<void> {
+    this.reviewPacketPreviewOptions = normalizeReviewPacketPreviewOptions({
+      ...this.reviewPacketPreviewOptions,
+      templateVariant,
+    });
+    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.reviewPacketPreviewOptions);
+    await this.postCurrentScoreState();
+  }
+
+  private async handleOpenReviewPacketPreview(): Promise<void> {
+    if (!this.currentResult) {
+      void vscode.window.showWarningMessage('Score the report before opening the review packet preview.');
+      return;
+    }
+
+    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
+    const reviewPacketPreview = buildReviewWorkflowExportData(this.currentResult, session.entries);
+    const html = buildReviewPacketPreviewHtml(
+      reviewPacketPreview,
+      this.reportPath,
+      this.reviewPacketPreviewOptions,
+    );
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-review-preview-'));
+    const reportName = path.basename(this.reportPath).replace(/\.Report$/i, '');
+    const profileSuffix = this.reviewPacketPreviewOptions.profile.toLowerCase();
+    const tempFilePath = path.join(tempDir, `${reportName}-${profileSuffix}-preview.html`);
+
+    fs.writeFileSync(tempFilePath, html, 'utf8');
+    await vscode.env.openExternal(vscode.Uri.file(tempFilePath));
+  }
+
+  async exportReviewWorkflow(): Promise<void> {
+    if (!this.currentResult) {
+      void vscode.window.showWarningMessage('Score the report before exporting the review summary.');
+      return;
+    }
+
+    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
+    const exportData = buildReviewWorkflowExportData(this.currentResult, session.entries);
+    const formatChoice = await vscode.window.showQuickPick(
+      [
+        { label: 'Markdown', description: 'Human-readable review summary (.md)' },
+        { label: 'HTML', description: 'Styled consultant packet (.html)' },
+        { label: 'PDF', description: 'Fixed-layout consultant packet (.pdf)' },
+        { label: 'JSON', description: 'Machine-readable review workflow snapshot (.json)' },
+      ],
+      { placeHolder: 'Choose review export format' },
+    );
+
+    if (!formatChoice) return;
+
+    const selectedFormat = formatChoice.label.toLowerCase();
+    const isMarkdown = selectedFormat === 'markdown';
+    const isHtml = selectedFormat === 'html';
+    const isPdf = selectedFormat === 'pdf';
+    let markdownProfile: ReviewWorkflowExportProfile = 'consultant';
+    let markdownOptions: ReviewWorkflowMarkdownRenderOptions = {};
+
+    if (isMarkdown || isHtml || isPdf) {
+      const exportSelection = await chooseProfiledDocumentExportOptions(
+        isMarkdown ? 'markdown' : isHtml ? 'html' : 'pdf',
+        this.reviewPacketPreviewOptions,
+      );
+      if (!exportSelection) return;
+      markdownProfile = exportSelection.profile;
+      markdownOptions = {
+        templateVariant: exportSelection.templateVariant,
+        branding: exportSelection.branding,
+      };
+    }
+
+    const saveUri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(
+        path.join(
+          path.dirname(this.reportPath),
+          `review-workflow-summary.${isMarkdown ? 'md' : isHtml ? 'html' : isPdf ? 'pdf' : 'json'}`,
+        ),
+      ),
+      filters: isMarkdown
+        ? { Markdown: ['md'] }
+        : isHtml
+          ? { HTML: ['html'] }
+          : isPdf
+            ? { PDF: ['pdf'] }
+            : { JSON: ['json'] },
+      saveLabel: 'Export',
+    });
+
+    if (!saveUri) return;
+
+    if (isPdf) {
+      const content = await exportReviewWorkflowAsPdf(exportData, markdownProfile, markdownOptions);
+      fs.writeFileSync(saveUri.fsPath, content);
+    } else {
+      const content = isMarkdown
+        ? exportReviewWorkflowAsMarkdown(exportData, markdownProfile, markdownOptions)
+        : isHtml
+          ? exportReviewWorkflowAsHtml(exportData, markdownProfile, markdownOptions)
+          : exportReviewWorkflowAsJson(exportData);
+
+      fs.writeFileSync(saveUri.fsPath, content, 'utf8');
+    }
+
+    const openAction = 'Open File';
+    const choice = await vscode.window.showInformationMessage(
+      `Review workflow summary exported to ${path.basename(saveUri.fsPath)}`,
+      openAction,
+    );
+
+    if (choice === openAction) {
+      if (isPdf) {
+        await vscode.commands.executeCommand('vscode.open', saveUri);
+      } else {
+        await vscode.window.showTextDocument(saveUri);
+      }
+    }
+  }
+
+  private async handleExportReviewWorkflow(): Promise<void> {
+    await this.exportReviewWorkflow();
+  }
+
+  private async postCurrentScoreState(): Promise<void> {
+    if (!this.currentResult || !this.savedConfig) {
+      return;
+    }
+
+    const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
+    const reviewPacketPreview = buildReviewWorkflowExportData(
+      this.currentResult,
+      intentFeedbackSession.entries,
+    );
+
+    this.postScoreState(this.savedConfig, this.currentResult, intentFeedbackSession.entries, reviewPacketPreview);
+  }
+
+  private postScoreState(
+    config: DesignAnalyzerConfig,
+    result: ScoreResult,
+    intentFeedback: ScorePanelState['intentFeedback'],
+    reviewPacketPreview: ReturnType<typeof buildReviewWorkflowExportData>,
+  ): void {
+    this.postMessage({
+      type: 'scoreState',
+      state: {
+        config,
+        result,
+        selectedPageIndex: this.selectedPageIndex,
+        intentFeedback,
+        reviewPacketPreview,
+        reviewPacketPreviewHtml: buildReviewPacketPreviewHtml(
+          reviewPacketPreview,
+          this.reportPath,
+          this.reviewPacketPreviewOptions,
+        ),
+        reviewPacketPreviewProfile: this.reviewPacketPreviewOptions.profile,
+        reviewPacketPreviewTemplateVariant: this.reviewPacketPreviewOptions.templateVariant,
+      },
+    });
+  }
+
   private buildAuditState(session: VisualAuditSession, providerConfigured: boolean): AuditState {
     const pageNames = this.pageNamesFromResult();
     const coverage = computeCoverage(session, pageNames);
@@ -277,6 +516,7 @@ export class PbirScorePanel {
         findingType: f.findingType,
         severity: f.severity,
         confidence: f.confidence,
+        issueSource: f.issueSource,
         text: f.text,
         recommendation: f.recommendation,
         regionHint: f.regionHint,
@@ -325,6 +565,7 @@ export class PbirScorePanel {
 
       const savedConfig = await loadDesignAnalyzerConfig(this.context);
       this.savedConfig = savedConfig;
+      this.reviewPacketPreviewOptions = await loadReviewPacketPreviewOptions(this.context, this.reportPath);
 
       const requestPayload: ScoreRequestPayload = {
         reportPath: this.reportPath,
@@ -350,6 +591,11 @@ export class PbirScorePanel {
 
       const normalizedResult = normalizeScoreResultPayload(response.data);
       this.currentResult = normalizedResult;
+      const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
+      const reviewPacketPreview = buildReviewWorkflowExportData(
+        normalizedResult,
+        intentFeedbackSession.entries,
+      );
 
       telemetry.sendEvent('scoring.completed', {
         pageCount: normalizedResult.pageCount,
@@ -357,14 +603,7 @@ export class PbirScorePanel {
         compositeScoreBucket: bucketScore(normalizedResult.compositeScore),
       });
 
-      this.postMessage({
-        type: 'scoreState',
-        state: {
-          config: savedConfig,
-          result: normalizedResult,
-          selectedPageIndex: this.selectedPageIndex,
-        },
-      });
+      this.postScoreState(savedConfig, normalizedResult, intentFeedbackSession.entries, reviewPacketPreview);
 
       // Load audit session and push state to webview alongside score
       try {

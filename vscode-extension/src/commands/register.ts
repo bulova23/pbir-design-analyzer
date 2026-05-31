@@ -12,6 +12,7 @@ export const PBIR_ANALYZER_COMMANDS = {
   configureScoring: 'pbirAnalyzer.configureScoring',
   checkGovernance: 'pbirAnalyzer.checkGovernance',
   exportGovernanceReport: 'pbirAnalyzer.exportGovernanceReport',
+  exportReviewWorkflow: 'pbirAnalyzer.exportReviewWorkflow',
   uploadScreenshots: 'pbirAnalyzer.uploadScreenshots',
   configureAuditProvider: 'pbirAnalyzer.configureAuditProvider',
 } as const;
@@ -93,6 +94,7 @@ export function registerCommands(
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.scoreReport, 'pbir.scoreReport');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.checkGovernance, 'pbir.governanceCheck');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportGovernanceReport, 'pbir.exportGovernanceReport');
+  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportReviewWorkflow, 'pbir.exportReviewWorkflow');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.uploadScreenshots, 'pbir.uploadScreenshots');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.configureAuditProvider, 'pbir.configureAuditProvider');
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using PowerBIModelingService.Services.Pbir.Models;
 
@@ -27,6 +28,39 @@ public sealed class PbirScoringService
 
     // White is used as the background reference for accessibility contrast checks.
     private const string BackgroundWhite = "#FFFFFF";
+
+    private static readonly (string SemanticKey, string DisplayLabel, string[] Terms)[] _statusSemanticPatterns =
+    [
+        ("status:on-track", "On Track", ["on track", "healthy"]),
+        ("status:at-risk", "At Risk", ["at risk", "warning"]),
+        ("status:off-track", "Off Track", ["off track"]),
+        ("status:critical", "Critical", ["critical"]),
+        ("status:good", "Good", ["good"]),
+        ("status:bad", "Bad", ["bad"]),
+    ];
+
+    private static readonly (string SemanticKey, string DisplayLabel, string[] Terms)[] _directSemanticPatterns =
+    [
+        ("role:actual", "Actual", ["actual"]),
+        ("role:budget", "Budget", ["budget", "plan"]),
+        ("role:target", "Target", ["target", "goal"]),
+        ("role:forecast", "Forecast", ["forecast"]),
+        ("period:current", "Current Year", ["current year", "cy"]),
+        ("period:prior", "Prior Year", ["prior year", "previous year", "last year", "py"]),
+        ("selection:selected", "Selected", ["selected"]),
+        ("selection:unselected", "Unselected", ["unselected", "not selected"]),
+    ];
+
+    private static readonly Dictionary<string, string[]> _roleSemanticValueHints = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["region"] = ["north", "south", "east", "west", "central", "apac", "emea", "amer", "latam"],
+        ["segment"] = ["consumer", "corporate", "enterprise", "commercial", "smb"],
+        ["category"] = ["technology", "furniture", "software", "hardware", "services"],
+        ["productcategory"] = ["technology", "furniture", "software", "hardware", "services"],
+        ["scenario"] = ["actual", "budget", "target", "forecast"],
+        ["version"] = ["actual", "budget", "target", "forecast"],
+        ["period"] = ["current year", "prior year", "selected", "unselected"],
+    };
 
     private readonly PbirProjectService _projectService;
     private readonly ILogger<PbirScoringService> _logger;
@@ -176,6 +210,14 @@ public sealed class PbirScoringService
         var pageVisuals = page.Visuals;
         var pageComposition = BuildVisualComposition(pageVisuals, navigationScoring);
         bool hasDataVisuals = pageComposition.DataVisualCount > 0;
+        var pageStorySummary = InferPageStorySummary(page);
+        var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
+        var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
+            ? null
+            : BuildActionabilityBreakdown(page, pageStorySummary, pageIntentProfile);
+        var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
+            ? null
+            : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
 
         // Zero-visual guard
         if (!hasDataVisuals)
@@ -209,6 +251,10 @@ public sealed class PbirScoringService
                 NavigationVisualCount = pageComposition.NavigationVisualCount,
                 HiddenVisualCount = pageComposition.HiddenVisualCount,
                 VisualMetadata = BuildPageVisualMetadataSummary(page),
+                InferredStorySummary = pageStorySummary,
+                PageIntentProfile = pageIntentProfile,
+                ActionabilityBreakdown = actionabilityBreakdown,
+                BenchmarkComparison = benchmarkComparison,
             };
 #pragma warning restore CS0618
         }
@@ -272,6 +318,10 @@ public sealed class PbirScoringService
             NavigationVisualCount = pageComposition.NavigationVisualCount,
             HiddenVisualCount = pageComposition.HiddenVisualCount,
             VisualMetadata = BuildPageVisualMetadataSummary(page),
+            InferredStorySummary = pageStorySummary,
+            PageIntentProfile = pageIntentProfile,
+            ActionabilityBreakdown = actionabilityBreakdown,
+            BenchmarkComparison = benchmarkComparison,
         };
 #pragma warning restore CS0618
 
@@ -359,6 +409,7 @@ public sealed class PbirScoringService
         var reportJson    = ReadJsonObject(location.ReportJsonPath);
         var themeColors   = ResolveThemeColors(reportJson, location, recommendations);
         var pages         = LoadAllPages(location);
+        var reportConsistencyContext = BuildReportConsistencyContext(pages);
         var frameworkWeights = this.ExtractFrameworkWeights(config);  // Extract framework weights from config
         var navigationScoring = ExtractNavigationScoringSettings(config);
         var reportComposition = BuildVisualComposition(pages.SelectMany(p => p.Visuals), navigationScoring);
@@ -397,6 +448,27 @@ public sealed class PbirScoringService
                 NavigationVisualCount = reportComposition.NavigationVisualCount,
                 HiddenVisualCount = reportComposition.HiddenVisualCount,
                 VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
+                InferredStorySummary = pages.Count == 1 ? InferPageStorySummary(pages[0]) : null,
+                PageIntentProfile = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroStorySummary
+                    ? BuildPageIntentProfileSummary(pages[0], zeroStorySummary)
+                    : null,
+                ActionabilityBreakdown = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroActionStory
+                    ? BuildActionabilityBreakdown(
+                        pages[0],
+                        zeroActionStory,
+                        BuildPageIntentProfileSummary(pages[0], zeroActionStory))
+                    : null,
+                BenchmarkComparison = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroBenchmarkStory
+                    ? BuildBenchmarkComparison(
+                        pages[0],
+                        zeroBenchmarkStory,
+                        BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory),
+                        BuildActionabilityBreakdown(
+                            pages[0],
+                            zeroBenchmarkStory,
+                            BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory)))
+                    : null,
+                ReportConsistencySummary = reportConsistencyContext?.Summary,
             };
 #pragma warning restore CS0618
         }
@@ -456,11 +528,32 @@ public sealed class PbirScoringService
             PageScores      = new(),
             ScoringErrors   = new(),
             ScoredAt        = DateTimeOffset.UtcNow,
-            FrameworkWeights = frameworkWeights,
-            DataVisualCount = reportComposition.DataVisualCount,
-            NavigationVisualCount = reportComposition.NavigationVisualCount,
-            HiddenVisualCount = reportComposition.HiddenVisualCount,
-            VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
+                FrameworkWeights = frameworkWeights,
+                DataVisualCount = reportComposition.DataVisualCount,
+                NavigationVisualCount = reportComposition.NavigationVisualCount,
+                HiddenVisualCount = reportComposition.HiddenVisualCount,
+                VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
+                InferredStorySummary = pages.Count == 1 ? InferPageStorySummary(pages[0]) : null,
+                PageIntentProfile = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleStorySummary
+                    ? BuildPageIntentProfileSummary(pages[0], singleStorySummary)
+                    : null,
+                ActionabilityBreakdown = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleActionStory
+                    ? BuildActionabilityBreakdown(
+                        pages[0],
+                        singleActionStory,
+                        BuildPageIntentProfileSummary(pages[0], singleActionStory))
+                    : null,
+                BenchmarkComparison = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleBenchmarkStory
+                    ? BuildBenchmarkComparison(
+                        pages[0],
+                        singleBenchmarkStory,
+                        BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory),
+                        BuildActionabilityBreakdown(
+                            pages[0],
+                            singleBenchmarkStory,
+                            BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory)))
+                    : null,
+                ReportConsistencySummary = reportConsistencyContext?.Summary,
         };
 #pragma warning restore CS0618
 
@@ -487,6 +580,15 @@ public sealed class PbirScoringService
 
                     if (!pageHasDataVisuals)
                     {
+                        var emptyPageConsistencyNotes = BuildReportConsistencyNotes(page.DisplayName, reportConsistencyContext);
+                        var emptyStorySummary = InferPageStorySummary(page, emptyPageConsistencyNotes);
+                        var emptyIntentProfile = emptyStorySummary is null ? null : BuildPageIntentProfileSummary(page, emptyStorySummary);
+                        var emptyActionability = emptyStorySummary is null || emptyIntentProfile is null
+                            ? null
+                            : BuildActionabilityBreakdown(page, emptyStorySummary, emptyIntentProfile);
+                        var emptyBenchmark = emptyStorySummary is null || emptyIntentProfile is null || emptyActionability is null
+                            ? null
+                            : BuildBenchmarkComparison(page, emptyStorySummary, emptyIntentProfile, emptyActionability);
                         concurrentPageScores.Add((pageIndex, new PageScore
                         {
                             PageName = page.DisplayName,
@@ -521,6 +623,11 @@ public sealed class PbirScoringService
                             NavigationVisualCount = pageComposition.NavigationVisualCount,
                             HiddenVisualCount = pageComposition.HiddenVisualCount,
                             VisualMetadata = BuildPageVisualMetadataSummary(page),
+                            ReportConsistencyNotes = emptyPageConsistencyNotes,
+                            InferredStorySummary = emptyStorySummary,
+                            PageIntentProfile = emptyIntentProfile,
+                            ActionabilityBreakdown = emptyActionability,
+                            BenchmarkComparison = emptyBenchmark,
                         }));
                         return;
                     }
@@ -566,6 +673,15 @@ public sealed class PbirScoringService
                             page.DisplayName, pageOverlay.PerStateScores.Count);
                     }
 
+                    var reportConsistencyNotes = BuildReportConsistencyNotes(page.DisplayName, reportConsistencyContext);
+                    var pageStorySummary = InferPageStorySummary(page, reportConsistencyNotes);
+                    var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
+                    var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
+                        ? null
+                        : BuildActionabilityBreakdown(page, pageStorySummary, pageIntentProfile);
+                    var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
+                        ? null
+                        : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
                     var pageScore = new PageScore
                     {
                         PageName = page.DisplayName,
@@ -600,6 +716,11 @@ public sealed class PbirScoringService
                         NavigationVisualCount = pageComposition.NavigationVisualCount,
                         HiddenVisualCount = pageComposition.HiddenVisualCount,
                         VisualMetadata = BuildPageVisualMetadataSummary(page),
+                        ReportConsistencyNotes = reportConsistencyNotes,
+                        InferredStorySummary = pageStorySummary,
+                        PageIntentProfile = pageIntentProfile,
+                        ActionabilityBreakdown = actionabilityBreakdown,
+                        BenchmarkComparison = benchmarkComparison,
                         PerStateScores = pageOverlay?.PerStateScores,
                     };
                     concurrentPageScores.Add((pageIndex, pageScore));
@@ -1332,6 +1453,7 @@ public sealed class PbirScoringService
 
         // ── Sub 3: Colorblind-safe palette (20 pts) ─────────────────────────
         total += ScoreA11yColorblindPalette(themeColors, feedback, recs);
+        total -= AddSemanticStatusAccessibilityFeedback(feedback, recs, pages);
 
         return (Clamp(total), feedback);
     }
@@ -1858,9 +1980,10 @@ public sealed class PbirScoringService
                 BuildAffectedVisuals(conventionIssue.Visuals)));
         }
 
+        var semanticColorPenalty = AddSemanticColorConsistencyFeedback(feedback, recs, pages);
         AddSurfaceTreatmentFeedback(feedback, pages);
 
-        return (Clamp(sub1 + sub2 + sub3 + sub4 + sub5), feedback);
+        return (Clamp(sub1 + sub2 + sub3 + sub4 + sub5 - semanticColorPenalty), feedback);
     }
 
     // ── 6. Enterprise Governance score ──────────────────────────────────────
@@ -3163,6 +3286,18 @@ public sealed class PbirScoringService
             .ToList();
 
         var visibleVisuals = orderedVisuals.Where(visual => !visual.IsHidden).ToList();
+        var semanticColorAssignments = ExtractSemanticColorAssignments(page);
+        var semanticAssignmentsByVisualId = semanticColorAssignments
+            .GroupBy(assignment => assignment.SourceVisualId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<SemanticColorAssignment>)group.ToList(),
+                StringComparer.OrdinalIgnoreCase);
+        var chartIntentByVisualId = orderedVisuals
+            .ToDictionary(
+                visual => visual.Id,
+                visual => InferChartIntent(visual, page),
+                StringComparer.OrdinalIgnoreCase);
 
         return new PageVisualMetadataSummary
         {
@@ -3171,6 +3306,8 @@ public sealed class PbirScoringService
             StrictVisiblePageTitle = GetStrictVisibleTitleText(page),
             CanvasWidth = page.Canvas?.Width,
             CanvasHeight = page.Canvas?.Height,
+            SemanticColorMap = semanticColorAssignments,
+            ChartIntentSummary = BuildPageChartIntentSummary(page, orderedVisuals, chartIntentByVisualId),
             VisualCount = orderedVisuals.Count,
             VisibleTitleVisualCount = visibleVisuals.Count(visual => visual.HasVisibleTitleIntent),
             TextVisualCount = visibleVisuals.Count(visual => IsTextVisualType(visual.Type)),
@@ -3179,11 +3316,23 @@ public sealed class PbirScoringService
             AxisLabelVisualCount = visibleVisuals.Count(visual => visual.Labels.HasAxisLabels == true),
             DataLabelVisualCount = visibleVisuals.Count(visual => visual.Labels.HasDataLabels == true),
             FormattedVisualCount = visibleVisuals.Count(HasAnyFormattingMetadata),
-            Visuals = orderedVisuals.Select(BuildVisualMetadataItem).ToList(),
+            Visuals = orderedVisuals
+                .Select(visual => BuildVisualMetadataItem(
+                    visual,
+                    semanticAssignmentsByVisualId.TryGetValue(visual.Id, out var assignments)
+                        ? assignments
+                        : [],
+                    chartIntentByVisualId.TryGetValue(visual.Id, out var chartIntent)
+                        ? chartIntent
+                        : null))
+                .ToList(),
         };
     }
 
-    private static VisualMetadataItem BuildVisualMetadataItem(VisualData visual) => new()
+    private static VisualMetadataItem BuildVisualMetadataItem(
+        VisualData visual,
+        IReadOnlyList<SemanticColorAssignment> semanticAssignments,
+        ChartIntentSummary? chartIntent) => new()
     {
         VisualId = visual.Id,
         VisualType = visual.Type,
@@ -3212,7 +3361,1242 @@ public sealed class PbirScoringService
         HasBorder = visual.Formatting.HasBorder,
         CornerRadius = visual.Formatting.CornerRadius,
         HasShadow = visual.Formatting.HasShadow,
+        SemanticColors = semanticAssignments.ToList(),
+        ChartIntent = chartIntent,
     };
+
+    private static List<SemanticColorAssignment> ExtractSemanticColorAssignments(PageData page)
+    {
+        var assignments = new List<SemanticColorAssignment>();
+
+        foreach (var visual in page.Visuals.Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative))
+        {
+            var signalColor = FirstNonBlank(
+                TryNormalizeHex(visual.Formatting.FontColor),
+                TryNormalizeHex(visual.Formatting.BackgroundFillColor));
+            if (string.IsNullOrWhiteSpace(signalColor))
+            {
+                continue;
+            }
+
+            foreach (var descriptor in InferSemanticDescriptors(visual))
+            {
+                assignments.Add(new SemanticColorAssignment
+                {
+                    SemanticKey = descriptor.SemanticKey,
+                    DisplayLabel = descriptor.DisplayLabel,
+                    Color = signalColor!,
+                    SourceVisualId = visual.Id,
+                    SourcePageName = page.DisplayName,
+                });
+            }
+        }
+
+        return assignments;
+    }
+
+    private static List<(string SemanticKey, string DisplayLabel)> InferSemanticDescriptors(VisualData visual)
+    {
+        var descriptors = new List<(string SemanticKey, string DisplayLabel)>();
+        var text = visual.BestVisibleText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return descriptors;
+        }
+
+        var statusDescriptor = TryInferStatusSemanticDescriptor(text);
+        if (statusDescriptor is not null)
+        {
+            descriptors.Add(statusDescriptor.Value);
+        }
+
+        var directDescriptor = TryInferDirectSemanticDescriptor(text);
+        if (directDescriptor is not null &&
+            !descriptors.Any(existing => existing.SemanticKey.Equals(directDescriptor.Value.SemanticKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            descriptors.Add(directDescriptor.Value);
+        }
+
+        var roleHints = visual.FieldRoles.CategoryHints
+            .Concat(visual.FieldRoles.SeriesHints)
+            .Concat(visual.FieldRoles.MeasureHints)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var roleHint in roleHints)
+        {
+            var semanticKey = TryInferSemanticKey(visual, roleHint);
+            if (string.IsNullOrWhiteSpace(semanticKey))
+            {
+                continue;
+            }
+
+            var displayLabel = TryInferSemanticDisplayLabel(text!, roleHint);
+            if (string.IsNullOrWhiteSpace(displayLabel))
+            {
+                continue;
+            }
+
+            if (!descriptors.Any(existing => existing.SemanticKey.Equals(semanticKey, StringComparison.OrdinalIgnoreCase)))
+            {
+                descriptors.Add((semanticKey, displayLabel!));
+            }
+        }
+
+        return descriptors;
+    }
+
+    private static (string SemanticKey, string DisplayLabel)? TryInferStatusSemanticDescriptor(string text)
+    {
+        foreach (var (semanticKey, displayLabel, terms) in _statusSemanticPatterns)
+        {
+            if (terms.Any(term => TextContainsPhrase(text, term)))
+            {
+                return (semanticKey, displayLabel);
+            }
+        }
+
+        return null;
+    }
+
+    private static (string SemanticKey, string DisplayLabel)? TryInferDirectSemanticDescriptor(string text)
+    {
+        foreach (var (semanticKey, displayLabel, terms) in _directSemanticPatterns)
+        {
+            if (terms.Any(term => TextContainsPhrase(text, term)))
+            {
+                return (semanticKey, displayLabel);
+            }
+        }
+
+        return null;
+    }
+
+    private static string? TryInferSemanticKey(VisualData visual, string roleHint)
+    {
+        var text = visual.BestVisibleText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var normalizedRoleHint = NormalizeSemanticKey(roleHint);
+        if (!_roleSemanticValueHints.TryGetValue(normalizedRoleHint.Replace("-", string.Empty, StringComparison.Ordinal), out var candidateValues))
+        {
+            return null;
+        }
+
+        var matchedValue = candidateValues.FirstOrDefault(candidate => TextContainsPhrase(text!, candidate));
+        return matchedValue is null
+            ? null
+            : NormalizeSemanticKey($"{normalizedRoleHint}:{matchedValue}");
+    }
+
+    private static string? TryInferSemanticDisplayLabel(string text, string roleHint)
+    {
+        var normalizedRoleHint = NormalizeSemanticKey(roleHint);
+        if (!_roleSemanticValueHints.TryGetValue(normalizedRoleHint.Replace("-", string.Empty, StringComparison.Ordinal), out var candidateValues))
+        {
+            return null;
+        }
+
+        var matchedValue = candidateValues.FirstOrDefault(candidate => TextContainsPhrase(text, candidate));
+        return matchedValue is null
+            ? null
+            : string.Join(' ', matchedValue.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(ToTitleToken));
+    }
+
+    private static string NormalizeSemanticKey(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return string.Empty;
+        }
+
+        var normalized = raw.Trim().ToLowerInvariant();
+        normalized = normalized.Replace("_", "-", StringComparison.Ordinal);
+        normalized = Regex.Replace(normalized, @"\s+", "-");
+        normalized = Regex.Replace(normalized, @"[^a-z0-9:\-]", string.Empty);
+        normalized = Regex.Replace(normalized, @"-+", "-");
+        return normalized.Trim('-');
+    }
+
+    private static bool TextContainsPhrase(string text, string phrase) =>
+        Regex.IsMatch(
+            text,
+            $@"\b{Regex.Escape(phrase)}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static string ToTitleToken(string token) =>
+        string.IsNullOrWhiteSpace(token)
+            ? string.Empty
+            : char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant();
+
+    private static ChartIntentSummary? InferChartIntent(VisualData visual, PageData page)
+    {
+        if (visual.IsHidden || visual.IsNavigationElement || visual.IsDecorative || visual.IsSlicer)
+        {
+            return null;
+        }
+
+        var intent = ClassifyAnalyticalTask(
+            visual.Type,
+            visual.FieldRoles.CategoryHints,
+            visual.FieldRoles.SeriesHints,
+            visual.FieldRoles.MeasureHints,
+            visual.BestVisibleText);
+        if (string.IsNullOrWhiteSpace(intent))
+        {
+            return null;
+        }
+
+        var evidence = InferChartIntentEvidence(visual, page);
+        var fitStatus = "good";
+        var recommendedAlternatives = new List<string>();
+        if (IsLineLikeVisual(visual) && HasExplicitCategoricalContext(visual) && !HasSequentialContext(visual, page))
+        {
+            fitStatus = "weak";
+            recommendedAlternatives.AddRange(["clusteredColumnChart", "clusteredBarChart"]);
+            intent = "comparison";
+        }
+        else if (IsFunnelVisual(visual) && !HasFunnelContext(visual, page))
+        {
+            fitStatus = "weak";
+            recommendedAlternatives.AddRange(["clusteredBarChart", "waterfallChart"]);
+        }
+
+        return new ChartIntentSummary
+        {
+            Intent = intent,
+            Confidence = InferChartIntentConfidence(visual, evidence),
+            Evidence = evidence,
+            FitStatus = fitStatus,
+            RecommendedAlternatives = recommendedAlternatives,
+        };
+    }
+
+    private static ChartIntentSummary? BuildPageChartIntentSummary(
+        PageData page,
+        IReadOnlyList<VisualData> orderedVisuals,
+        IReadOnlyDictionary<string, ChartIntentSummary?> chartIntentByVisualId)
+    {
+        var visualIntents = orderedVisuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative && !visual.IsSlicer)
+            .Select(visual => chartIntentByVisualId.TryGetValue(visual.Id, out var intent) ? intent : null)
+            .Where(intent => intent is not null)
+            .Cast<ChartIntentSummary>()
+            .ToList();
+        if (visualIntents.Count == 0)
+        {
+            return null;
+        }
+
+        var dominantIntent = visualIntents
+            .GroupBy(intent => intent.Intent, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .First();
+        var leadIntent = visualIntents.First(intent => intent.Intent.Equals(dominantIntent.Key, StringComparison.OrdinalIgnoreCase));
+
+        return new ChartIntentSummary
+        {
+            Intent = dominantIntent.Key,
+            Confidence = visualIntents.Count == 1 || dominantIntent.Count() > visualIntents.Count / 2 ? "high" : "medium",
+            Evidence = leadIntent.Evidence,
+            FitStatus = leadIntent.FitStatus,
+            RecommendedAlternatives = leadIntent.RecommendedAlternatives,
+        };
+    }
+
+    private static PageStorySummary? InferPageStorySummary(
+        PageData page,
+        IReadOnlyList<string>? reportConsistencyNotes = null)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        if (analysis.VisibleDataVisuals.Count == 0)
+        {
+            return null;
+        }
+
+        var visibleDataVisuals = analysis.VisibleDataVisuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        var leadVisual = analysis.SupportingDataVisuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .FirstOrDefault()
+            ?? visibleDataVisuals.FirstOrDefault();
+        var leadIntent = leadVisual is null ? null : InferChartIntent(leadVisual, page);
+        var visualIntents = visibleDataVisuals
+            .Select(visual => InferChartIntent(visual, page))
+            .Where(intent => intent is not null)
+            .Cast<ChartIntentSummary>()
+            .ToList();
+        var dominantIntent = visualIntents
+            .GroupBy(intent => intent.Intent, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Key)
+            .FirstOrDefault();
+
+        var intentProfile = InferPageIntentProfile(analysis, dominantIntent);
+        var storyArchetype = BuildStoryArchetype(intentProfile, analysis, visualIntents);
+        var semanticSignals = AnalyzeSemanticNarrativeSignals(analysis, leadVisual);
+        var primaryMetric = semanticSignals.PrimaryMetric;
+        var primaryDimension = semanticSignals.PrimaryDimension;
+        var confidence = InferStoryConfidence(analysis, leadIntent, semanticSignals, reportConsistencyNotes);
+        var evidence = BuildStoryEvidence(analysis, leadVisual, leadIntent, semanticSignals, reportConsistencyNotes);
+
+        return new PageStorySummary
+        {
+            IntentProfile = intentProfile,
+            StoryArchetype = storyArchetype,
+            InferredStory = BuildStoryHypothesis(intentProfile, primaryMetric, primaryDimension, analysis, visualIntents),
+            Confidence = confidence,
+            Evidence = evidence,
+        };
+    }
+
+    private static PageIntentProfileSummary BuildPageIntentProfileSummary(
+        PageData page,
+        PageStorySummary storySummary)
+    {
+        var inferredProfile = NormalizeIntentProfile(storySummary.IntentProfile);
+        return new PageIntentProfileSummary
+        {
+            InferredProfile = inferredProfile,
+            ActionabilityExpectation = inferredProfile is "executive" or "operational" ? "high" : inferredProfile == "analytical" ? "medium" : "low",
+            ReviewGuidance = BuildIntentProfileGuidance(inferredProfile),
+            Evidence = BuildIntentProfileEvidence(page, storySummary, inferredProfile),
+        };
+    }
+
+    private static ActionabilityBreakdown BuildActionabilityBreakdown(
+        PageData page,
+        PageStorySummary storySummary,
+        PageIntentProfileSummary intentProfile)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        var visibleTexts = analysis.VisibleTexts;
+        bool targetBenchmarkPresent = ContainsAnyNarrativeKeyword(visibleTexts, "target", "budget", "benchmark", "goal", "plan", "actual");
+        bool exceptionVisibility =
+            ContainsAnyNarrativeKeyword(visibleTexts, "variance", "exception", "risk", "alert", "below target", "above target", "at risk")
+            || analysis.ComparisonVisuals.Count > 0;
+        bool urgencySignaling =
+            ContainsAnyNarrativeKeyword(visibleTexts, "today", "daily", "weekly", "now", "urgent", "overdue", "critical")
+            || intentProfile.InferredProfile == "operational";
+        bool priorPeriodContext = ContainsAnyNarrativeKeyword(visibleTexts, "prior", "previous", "yoy", "mom", "qoq", "last month", "last year");
+        bool drillPathPresent = analysis.HasSupportingEvidenceFlow && (
+            analysis.SupportingDataVisuals.Count > 0 ||
+            analysis.VisibleDataVisuals.Any(IsTableLikeVisual));
+
+        double score = 0.0;
+        if (targetBenchmarkPresent) score += 20.0;
+        if (exceptionVisibility) score += 20.0;
+        if (urgencySignaling) score += 20.0;
+        if (priorPeriodContext) score += 20.0;
+        if (drillPathPresent) score += 20.0;
+
+        var strengths = new List<string>();
+        var gaps = new List<string>();
+        AddActionabilitySignal(targetBenchmarkPresent, strengths, gaps,
+            "Targets or benchmarks are visible next to the headline numbers.",
+            "Add a target or benchmark next to the KPI so the value can be interpreted.");
+        AddActionabilitySignal(exceptionVisibility, strengths, gaps,
+            "Exceptions or at-risk conditions are surfaced clearly.",
+            "Call out the main exception or at-risk segment so the page points to a decision.");
+        AddActionabilitySignal(urgencySignaling, strengths, gaps,
+            "Urgency or recency cues help users judge whether action is needed now.",
+            "Add a recency or urgency cue if this page is expected to trigger action.");
+        AddActionabilitySignal(priorPeriodContext, strengths, gaps,
+            "Prior-period or delta context explains movement over time.",
+            "Add prior-period or delta context so users can judge movement, not just the current value.");
+        AddActionabilitySignal(drillPathPresent, strengths, gaps,
+            "A supporting evidence path exists behind the headline result.",
+            "Add a drill path or supporting chart/table so users can investigate why the KPI moved.");
+
+        var summary = score switch
+        {
+            >= 80.0 => $"This {intentProfile.InferredProfile} page supports action well: the decision anchor, context, and supporting evidence are all visible.",
+            >= 50.0 => $"This {intentProfile.InferredProfile} page has partial decision support, but key actionability cues are still missing.",
+            _ => $"This {intentProfile.InferredProfile} page still lacks the decision context needed for confident action."
+        };
+
+        return new ActionabilityBreakdown
+        {
+            Score = score,
+            TargetBenchmarkPresent = targetBenchmarkPresent,
+            ExceptionVisibility = exceptionVisibility,
+            UrgencySignaling = urgencySignaling,
+            PriorPeriodContext = priorPeriodContext,
+            DrillPathPresent = drillPathPresent,
+            ExpectationLevel = intentProfile.ActionabilityExpectation,
+            Strengths = strengths,
+            Gaps = gaps,
+            Summary = summary,
+        };
+    }
+
+    private static BenchmarkComparisonSummary BuildBenchmarkComparison(
+        PageData page,
+        PageStorySummary storySummary,
+        PageIntentProfileSummary intentProfile,
+        ActionabilityBreakdown actionability)
+    {
+        string archetype = intentProfile.InferredProfile switch
+        {
+            "executive" => "executive scorecard",
+            "operational" => "operational watchlist",
+            "appendix" => "appendix reference",
+            _ => "analytical deep dive",
+        };
+
+        string benchmarkLabel = intentProfile.InferredProfile switch
+        {
+            "executive" => "Executive-ready benchmark",
+            "operational" => "Operational monitoring benchmark",
+            "appendix" => "Appendix/reference benchmark",
+            _ => "Analytical deep-dive benchmark",
+        };
+
+        bool beautifulButUseless =
+            intentProfile.InferredProfile is "executive" or "operational"
+            && actionability.Score < 50.0
+            && page.Visuals.Count(visual => !visual.IsHidden) <= 5
+            && storySummary.Confidence is "high" or "medium";
+
+        var strengths = new List<string>();
+        if (storySummary.Confidence == "high")
+        {
+            strengths.Add("The page story reads clearly on the first scan.");
+        }
+
+        if (actionability.Score >= 80.0)
+        {
+            strengths.Add("Decision-support context is stronger than the typical benchmark.");
+        }
+
+        var gaps = actionability.Gaps.Take(2).ToList();
+        string comparativePosition = actionability.Score >= 80.0 ? "above" : actionability.Score >= 50.0 ? "mixed" : "below";
+        string insight = beautifulButUseless
+            ? "Beautiful but useless: the page looks polished, but the decision path is still weak."
+            : comparativePosition switch
+            {
+                "above" => $"Compared with a typical {archetype}, this page supports decisions strongly.",
+                "mixed" => $"Compared with a typical {archetype}, this page is readable but still leaves some decision work to the user.",
+                _ => $"Compared with a typical {archetype}, this page still lacks the decision support expected for this profile.",
+            };
+
+        return new BenchmarkComparisonSummary
+        {
+            Archetype = archetype,
+            BenchmarkLabel = benchmarkLabel,
+            ComparativePosition = comparativePosition,
+            BeautifulButUseless = beautifulButUseless,
+            Insight = insight,
+            Strengths = strengths,
+            Gaps = gaps,
+        };
+    }
+
+    private static string InferPageIntentProfile(
+        NarrativePageAnalysis analysis,
+        string? dominantIntent)
+    {
+        var visibleDataVisuals = analysis.VisibleDataVisuals;
+        int tableCount = visibleDataVisuals.Count(visual => IsTableLikeVisual(visual));
+        if (tableCount > 0 && tableCount >= Math.Max(1, visibleDataVisuals.Count - 1) && analysis.KpiCards.Count == 0)
+        {
+            return "detailReference";
+        }
+
+        if (analysis.KpiCards.Count >= 2 && analysis.SupportingDataVisuals.Count >= 1)
+        {
+            return "executiveOverview";
+        }
+
+        if (analysis.TrendVisuals.Count > 0 && (analysis.KpiCards.Count > 0 || ContainsOperationalMonitoringCue(analysis.VisibleTitle)))
+        {
+            return "operationalMonitoring";
+        }
+
+        if (analysis.Page.Visuals.Count(visual => !visual.IsHidden && visual.IsSlicer) > 0 && visibleDataVisuals.Count >= 2)
+        {
+            return "analyticalDeepDive";
+        }
+
+        if (string.Equals(dominantIntent, "table-reference", StringComparison.OrdinalIgnoreCase))
+        {
+            return "detailReference";
+        }
+
+        return "analyticalDeepDive";
+    }
+
+    private static string NormalizeIntentProfile(string inferredIntentProfile) =>
+        inferredIntentProfile switch
+        {
+            "executiveOverview" => "executive",
+            "operationalMonitoring" => "operational",
+            "detailReference" => "appendix",
+            _ => "analytical",
+        };
+
+    private static List<string> BuildIntentProfileGuidance(string inferredProfile) =>
+        inferredProfile switch
+        {
+            "executive" =>
+            [
+                "Lead with the decision, not just the metric.",
+                "Executive pages should expose the target, exception, and supporting evidence quickly.",
+            ],
+            "operational" =>
+            [
+                "Operational pages should make urgent exceptions easy to spot.",
+                "Use recency, thresholds, or service-level signals so users know what needs intervention now.",
+            ],
+            "appendix" =>
+            [
+                "Appendix pages can trade speed for completeness, but labels and navigation still need to stay explicit.",
+                "Reference pages should support lookup and auditability instead of headline storytelling.",
+            ],
+            _ =>
+            [
+                "Analytical pages should support exploration without hiding the main analytical question.",
+                "Use filters and supporting visuals to explain differences, not just to add density.",
+            ],
+        };
+
+    private static List<string> BuildIntentProfileEvidence(
+        PageData page,
+        PageStorySummary storySummary,
+        string inferredProfile)
+    {
+        var evidence = new List<string>();
+        if (!string.IsNullOrWhiteSpace(storySummary.InferredStory))
+        {
+            evidence.Add(storySummary.InferredStory);
+        }
+
+        var analysis = AnalyzeNarrativePage(page);
+        if (analysis.KpiCards.Count > 0)
+        {
+            evidence.Add($"{analysis.KpiCards.Count} KPI card(s) detected");
+        }
+
+        if (analysis.Page.Visuals.Count(visual => !visual.IsHidden && visual.IsSlicer) > 0)
+        {
+            evidence.Add("Interactive slicers suggest exploratory use");
+        }
+
+        evidence.Add($"Profile normalized as {inferredProfile}");
+        return evidence.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static bool ContainsAnyNarrativeKeyword(IEnumerable<string> texts, params string[] keywords) =>
+        texts.Any(text => keywords.Any(keyword => text.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+
+    private static void AddActionabilitySignal(
+        bool present,
+        List<string> strengths,
+        List<string> gaps,
+        string strength,
+        string gap)
+    {
+        if (present)
+        {
+            strengths.Add(strength);
+        }
+        else
+        {
+            gaps.Add(gap);
+        }
+    }
+
+    private static string BuildStoryArchetype(
+        string intentProfile,
+        NarrativePageAnalysis analysis,
+        IReadOnlyList<ChartIntentSummary> visualIntents)
+    {
+        if (intentProfile == "detailReference")
+        {
+            return "detail reference";
+        }
+
+        var archetypes = new List<string>();
+        if (visualIntents.Any(intent => string.Equals(intent.Intent, "trend", StringComparison.OrdinalIgnoreCase)))
+        {
+            archetypes.Add("trend");
+        }
+
+        if (visualIntents.Any(intent => string.Equals(intent.Intent, "comparison", StringComparison.OrdinalIgnoreCase)))
+        {
+            archetypes.Add("comparison");
+        }
+
+        if (visualIntents.Any(intent => string.Equals(intent.Intent, "composition", StringComparison.OrdinalIgnoreCase)))
+        {
+            archetypes.Add("composition");
+        }
+
+        if (analysis.KpiCards.Count >= 2 && intentProfile == "executiveOverview")
+        {
+            archetypes.Insert(0, "executive overview");
+        }
+
+        return archetypes.Count == 0
+            ? "analysis overview"
+            : string.Join(" + ", archetypes.Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string BuildStoryHypothesis(
+        string intentProfile,
+        string primaryMetric,
+        string? primaryDimension,
+        NarrativePageAnalysis analysis,
+        IReadOnlyList<ChartIntentSummary> visualIntents)
+    {
+        var metricLabel = string.IsNullOrWhiteSpace(primaryMetric) ? "performance" : primaryMetric;
+        var dimensionPhrase = string.IsNullOrWhiteSpace(primaryDimension)
+            ? "supporting breakdowns"
+            : $"{primaryDimension.ToLowerInvariant()} comparison";
+        var executiveHeadlinePhrase = BuildExecutiveHeadlinePhrase(metricLabel);
+        var metricPerformancePhrase = BuildMetricPerformancePhrase(metricLabel);
+
+        return intentProfile switch
+        {
+            "executiveOverview" when visualIntents.Any(intent => string.Equals(intent.Intent, "trend", StringComparison.OrdinalIgnoreCase)) &&
+                                     visualIntents.Any(intent => string.Equals(intent.Intent, "comparison", StringComparison.OrdinalIgnoreCase)) =>
+                $"This page appears to summarize {metricPerformancePhrase} over time, with {dimensionPhrase} as supporting evidence.",
+            "executiveOverview" =>
+                $"This page appears to summarize {executiveHeadlinePhrase} for quick executive review.",
+            "operationalMonitoring" =>
+                $"This page appears to monitor {metricPerformancePhrase} over time and highlight recent movement or exceptions.",
+            "detailReference" =>
+                $"This page appears to be a detailed reference view for {metricLabel}.",
+            _ when analysis.Page.Visuals.Count(visual => !visual.IsHidden && visual.IsSlicer) > 0 =>
+                $"This page appears to support exploratory analysis of {metricLabel}, using multiple views and filters to explain differences.",
+            _ =>
+                $"This page appears to compare {metricLabel} across {dimensionPhrase}.",
+        };
+    }
+
+    private static string ExtractPrimaryStoryMetric(NarrativePageAnalysis analysis, VisualData? leadVisual)
+    {
+        var kpiMetric = analysis.KpiCards
+            .Select(visual => CleanMetricLabel(visual.BestVisibleText))
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+        if (!string.IsNullOrWhiteSpace(kpiMetric))
+        {
+            return kpiMetric!;
+        }
+
+        var measureHint = SelectPreferredSemanticHint(leadVisual?.FieldRoles.MeasureHints)
+            ?? SelectPreferredSemanticHint(analysis.VisibleDataVisuals.SelectMany(visual => visual.FieldRoles.MeasureHints));
+        if (!string.IsNullOrWhiteSpace(measureHint))
+        {
+            return measureHint!;
+        }
+
+        return "performance";
+    }
+
+    private static string? ExtractPrimaryStoryDimension(NarrativePageAnalysis analysis, VisualData? leadVisual)
+    {
+        var categoryHint = SelectPreferredSemanticHint(analysis.ComparisonVisuals.SelectMany(visual => visual.FieldRoles.CategoryHints));
+        categoryHint ??= SelectPreferredSemanticHint(leadVisual?.FieldRoles.CategoryHints);
+        categoryHint ??= SelectPreferredSemanticHint(analysis.VisibleDataVisuals.SelectMany(visual => visual.FieldRoles.CategoryHints));
+        return string.IsNullOrWhiteSpace(categoryHint) ? null : categoryHint;
+    }
+
+    private static string InferStoryConfidence(
+        NarrativePageAnalysis analysis,
+        ChartIntentSummary? leadIntent,
+        SemanticNarrativeSignals semanticSignals,
+        IReadOnlyList<string>? reportConsistencyNotes)
+    {
+        int score = 0;
+        if (analysis.HasMeaningfulVisibleTitle)
+        {
+            score += 2;
+        }
+
+        if (analysis.KpiCards.Count >= 2)
+        {
+            score += 2;
+        }
+
+        if (leadIntent?.Confidence == "high")
+        {
+            score += 2;
+        }
+        else if (leadIntent?.Confidence == "medium")
+        {
+            score += 1;
+        }
+
+        if (analysis.HasSupportingEvidenceFlow)
+        {
+            score += 1;
+        }
+
+        score += semanticSignals.ConfidenceBonus;
+
+        if (reportConsistencyNotes is { Count: > 0 })
+        {
+            score -= 1;
+        }
+
+        return score >= 6 ? "high" : score >= 4 ? "medium" : "low";
+    }
+
+    private static List<string> BuildStoryEvidence(
+        NarrativePageAnalysis analysis,
+        VisualData? leadVisual,
+        ChartIntentSummary? leadIntent,
+        SemanticNarrativeSignals semanticSignals,
+        IReadOnlyList<string>? reportConsistencyNotes)
+    {
+        var evidence = new List<string>();
+        if (!string.IsNullOrWhiteSpace(analysis.VisibleTitle))
+        {
+            evidence.Add($"Visible title: {analysis.VisibleTitle}");
+        }
+
+        if (analysis.KpiCards.Count > 0)
+        {
+            evidence.Add($"{analysis.KpiCards.Count} KPI cards in the top scan path");
+        }
+
+        if (leadVisual is not null)
+        {
+            var leadMetric = leadVisual.FieldRoles.MeasureHints.FirstOrDefault();
+            var leadCategory = leadVisual.FieldRoles.CategoryHints.FirstOrDefault();
+            var leadSummary = $"Lead visual: {leadVisual.Type}";
+            if (!string.IsNullOrWhiteSpace(leadMetric) || !string.IsNullOrWhiteSpace(leadCategory))
+            {
+                leadSummary += $" using {string.Join(" / ", new[] { leadMetric, leadCategory }.Where(text => !string.IsNullOrWhiteSpace(text)))}";
+            }
+
+            evidence.Add(leadSummary);
+        }
+
+        if (leadIntent is not null)
+        {
+            evidence.Add($"Lead chart intent: {leadIntent.Intent}");
+        }
+
+        evidence.AddRange(semanticSignals.Evidence);
+
+        if (analysis.SupportingDataVisuals.Count > 1)
+        {
+            evidence.Add($"{analysis.SupportingDataVisuals.Count} supporting data visuals reinforce the page story");
+        }
+
+        if (reportConsistencyNotes is { Count: > 0 })
+        {
+            evidence.Add("Cross-page inconsistencies may reduce story clarity");
+        }
+
+        return evidence;
+    }
+
+    private static string CleanMetricLabel(string? label)
+    {
+        var normalized = NormalizeSemanticHint(label);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return "performance";
+        }
+
+        normalized = Regex.Replace(normalized, @"^(ytd|mtd|qtd|fy|cy|py)\s+", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(normalized, @"\s+(ytd|mtd|qtd|fy|cy|py)$", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return normalized.Trim();
+    }
+
+    private static SemanticNarrativeSignals AnalyzeSemanticNarrativeSignals(
+        NarrativePageAnalysis analysis,
+        VisualData? leadVisual)
+    {
+        var leadMeasureCandidates = SelectSemanticHintCandidates(leadVisual?.FieldRoles.MeasureHints);
+        var pageMeasureCandidates = SelectSemanticHintCandidates(analysis.VisibleDataVisuals.SelectMany(visual => visual.FieldRoles.MeasureHints));
+        var leadCategoryCandidates = SelectSemanticHintCandidates(leadVisual?.FieldRoles.CategoryHints);
+        var pageCategoryCandidates = SelectSemanticHintCandidates(analysis.VisibleDataVisuals.SelectMany(visual => visual.FieldRoles.CategoryHints));
+
+        var primaryMetric = ExtractPrimaryStoryMetric(analysis, leadVisual);
+        var primaryDimension = ExtractPrimaryStoryDimension(analysis, leadVisual);
+
+        int confidenceBonus = 0;
+        if (!IsGenericStoryMetric(primaryMetric) && !string.IsNullOrWhiteSpace(primaryDimension))
+        {
+            confidenceBonus += 1;
+        }
+
+        if (HasRichSemanticSupport(leadMeasureCandidates, leadVisual?.FieldRoles.MeasureHints) ||
+            HasRichSemanticSupport(leadCategoryCandidates, leadVisual?.FieldRoles.CategoryHints))
+        {
+            confidenceBonus += 1;
+        }
+
+        if (HasSemanticTextAlignment(analysis.VisibleTitle, primaryMetric, primaryDimension) ||
+            HasSemanticTextAlignment(leadVisual?.BestVisibleText, primaryMetric, primaryDimension))
+        {
+            confidenceBonus += 1;
+        }
+
+        confidenceBonus = Math.Min(confidenceBonus, 3);
+
+        var evidence = new List<string>();
+        if (!IsGenericStoryMetric(primaryMetric) || !string.IsNullOrWhiteSpace(primaryDimension))
+        {
+            var semanticSummary = string.IsNullOrWhiteSpace(primaryDimension)
+                ? $"Lead visual semantic metadata emphasizes {primaryMetric}"
+                : $"Lead visual semantic metadata emphasizes {primaryMetric} by {primaryDimension}";
+            evidence.Add(semanticSummary);
+        }
+
+        if (HasRichSemanticSupport(leadMeasureCandidates, leadVisual?.FieldRoles.MeasureHints) ||
+            HasRichSemanticSupport(leadCategoryCandidates, leadVisual?.FieldRoles.CategoryHints))
+        {
+            evidence.Add("Additional semantic metadata aliases and descriptions reinforce the same business concept");
+        }
+
+        return new SemanticNarrativeSignals(
+            primaryMetric,
+            primaryDimension,
+            confidenceBonus,
+            evidence);
+    }
+
+    private static string BuildExecutiveHeadlinePhrase(string metricLabel)
+    {
+        if (string.IsNullOrWhiteSpace(metricLabel) || IsGenericStoryMetric(metricLabel))
+        {
+            return "headline performance";
+        }
+
+        return ContainsPerformanceLikeWord(metricLabel)
+            ? $"headline {metricLabel}"
+            : $"headline {metricLabel} performance";
+    }
+
+    private static string BuildMetricPerformancePhrase(string metricLabel)
+    {
+        if (string.IsNullOrWhiteSpace(metricLabel) || IsGenericStoryMetric(metricLabel))
+        {
+            return "performance";
+        }
+
+        return ContainsPerformanceLikeWord(metricLabel)
+            ? metricLabel
+            : $"{metricLabel} performance";
+    }
+
+    private static bool ContainsPerformanceLikeWord(string metricLabel)
+    {
+        var normalized = NormalizeSemanticHint(metricLabel);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(performance|result|results|variance|gap|forecast|revenue|sales|margin|profit|cost|volume|inventory|pipeline|attainment)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private static List<string> SelectSemanticHintCandidates(IEnumerable<string>? hints, int maxCount = 3)
+    {
+        if (hints is null)
+        {
+            return [];
+        }
+
+        return hints
+            .Select(NormalizeSemanticHint)
+            .Where(hint => !string.IsNullOrWhiteSpace(hint))
+            .Select((hint, index) => new { Hint = hint!, Index = index })
+            .GroupBy(item => item.Hint, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderByDescending(item => ScoreSemanticHint(item.Hint))
+            .ThenBy(item => item.Index)
+            .Take(maxCount)
+            .Select(item => item.Hint)
+            .ToList();
+    }
+
+    private static bool HasRichSemanticSupport(
+        IReadOnlyCollection<string> preferredCandidates,
+        IEnumerable<string>? rawHints)
+    {
+        if (preferredCandidates.Count > 1)
+        {
+            return true;
+        }
+
+        if (rawHints is null)
+        {
+            return false;
+        }
+
+        return rawHints
+            .Select(NormalizeSemanticHint)
+            .Where(hint => !string.IsNullOrWhiteSpace(hint))
+            .Select(hint => hint!)
+            .Any(hint => hint.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 5);
+    }
+
+    private static bool HasSemanticTextAlignment(
+        string? text,
+        params string?[] semanticHints)
+    {
+        var normalizedText = NormalizeSemanticHint(text);
+        if (string.IsNullOrWhiteSpace(normalizedText))
+        {
+            return false;
+        }
+
+        var textKeywords = ExtractSemanticKeywords(normalizedText);
+        if (textKeywords.Count == 0)
+        {
+            return false;
+        }
+
+        return semanticHints
+            .Where(hint => !string.IsNullOrWhiteSpace(hint))
+            .SelectMany(hint => ExtractSemanticKeywords(hint!))
+            .Any(textKeywords.Contains);
+    }
+
+    private static HashSet<string> ExtractSemanticKeywords(string text)
+    {
+        return text
+            .Split([' ', '/', '-', '&'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => token.Trim().ToLowerInvariant())
+            .Where(token => token.Length >= 4)
+            .Where(token => token is not "with" and not "from" and not "into" and not "using" and not "over" and not "view")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool IsGenericStoryMetric(string? metricLabel)
+    {
+        var normalized = NormalizeSemanticHint(metricLabel);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return true;
+        }
+
+        return normalized.Equals("performance", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("metric", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("value", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("amount", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("measure", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("count", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("total", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? SelectPreferredSemanticHint(IEnumerable<string>? hints)
+    {
+        if (hints is null)
+        {
+            return null;
+        }
+
+        return hints
+            .Select(NormalizeSemanticHint)
+            .Where(hint => !string.IsNullOrWhiteSpace(hint))
+            .Select(hint => new { Hint = hint!, Score = ScoreSemanticHint(hint!) })
+            .OrderByDescending(item => item.Score)
+            .Select(item => item.Hint)
+            .FirstOrDefault();
+    }
+
+    private static int ScoreSemanticHint(string hint)
+    {
+        var score = 0;
+
+        if (Regex.IsMatch(hint, @"^[A-Za-z][A-Za-z0-9&/\-\s]{2,60}$", RegexOptions.CultureInvariant))
+        {
+            score += 4;
+        }
+
+        if (hint.Contains(' '))
+        {
+            score += 2;
+        }
+
+        var wordCount = hint.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+        if (wordCount is >= 1 and <= 4)
+        {
+            score += 3;
+        }
+        else if (wordCount <= 8)
+        {
+            score += 1;
+        }
+        else
+        {
+            score -= 4;
+        }
+
+        if (hint.Contains('[') || hint.Contains(']') || hint.Contains('.') || hint.Contains('_'))
+        {
+            score -= 3;
+        }
+
+        if (hint.StartsWith("Sum of ", StringComparison.OrdinalIgnoreCase))
+        {
+            score -= 2;
+        }
+
+        return score;
+    }
+
+    private static string? NormalizeSemanticHint(string? hint)
+    {
+        var normalized = NormalizeText(hint);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var bracketMatch = Regex.Match(normalized, @"(?:.+)?\[(?<label>[^\]]+)\]$", RegexOptions.CultureInvariant);
+        if (bracketMatch.Success)
+        {
+            normalized = bracketMatch.Groups["label"].Value;
+        }
+        else if (normalized.Contains('.', StringComparison.Ordinal))
+        {
+            normalized = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries).Last();
+        }
+
+        normalized = normalized.Trim('\'', '"');
+        normalized = normalized.Replace('_', ' ');
+        normalized = Regex.Replace(normalized, @"\s{2,}", " ", RegexOptions.CultureInvariant);
+        return normalized.Trim();
+    }
+
+    private static bool IsTableLikeVisual(VisualData visual) =>
+        visual.Type is "table" or "matrix";
+
+    private static bool ContainsOperationalMonitoringCue(string? title) =>
+        ContainsTextKeyword(title, "monitor") ||
+        ContainsTextKeyword(title, "operations") ||
+        ContainsTextKeyword(title, "daily") ||
+        ContainsTextKeyword(title, "weekly") ||
+        ContainsTextKeyword(title, "performance");
+
+    private static string ClassifyAnalyticalTask(
+        string visualType,
+        IReadOnlyList<string> categoryHints,
+        IReadOnlyList<string> seriesHints,
+        IReadOnlyList<string> measureHints,
+        string? title)
+    {
+        var normalizedVisualType = visualType?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (normalizedVisualType is "table" or "matrix")
+        {
+            return "table-reference";
+        }
+
+        if (normalizedVisualType is "scatterchart" or "bubblechart")
+        {
+            return "relationship";
+        }
+
+        if (normalizedVisualType is "piechart" or "donutchart" or "stackedcolumnchart" or "stackedbarchart" or "stackedareachart" or "funnel" or "funnelchart")
+        {
+            return "composition";
+        }
+
+        if (normalizedVisualType is "linechart" or "areachart" or "lineandstackedcolumnchart" or "lineandclusteredcolumnchart")
+        {
+            var evidenceTexts = categoryHints
+                .Concat(seriesHints)
+                .Concat(measureHints)
+                .Append(title ?? string.Empty);
+            return evidenceTexts.Any(ContainsSequentialKeywords)
+                ? "trend"
+                : "comparison";
+        }
+
+        if (normalizedVisualType.Contains("bar", StringComparison.Ordinal) ||
+            normalizedVisualType.Contains("column", StringComparison.Ordinal) ||
+            normalizedVisualType is "barchart" or "columnchart" or "waterfallchart" or "card" or "kpivisual" or "multirowcard")
+        {
+            return "comparison";
+        }
+
+        return "comparison";
+    }
+
+    private static List<string> InferChartIntentEvidence(VisualData visual, PageData page)
+    {
+        var evidence = new List<string> { visual.Type };
+        evidence.AddRange(visual.FieldRoles.CategoryHints.Take(1));
+        evidence.AddRange(visual.FieldRoles.SeriesHints.Take(1));
+        evidence.AddRange(visual.FieldRoles.MeasureHints.Take(1));
+        if (!string.IsNullOrWhiteSpace(visual.BestVisibleText))
+        {
+            evidence.Add(visual.BestVisibleText!);
+        }
+        else if (!string.IsNullOrWhiteSpace(GetPageVisibleTitle(page)))
+        {
+            evidence.Add(GetPageVisibleTitle(page)!);
+        }
+
+        return evidence
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string InferChartIntentConfidence(VisualData visual, IReadOnlyCollection<string> evidence)
+    {
+        if (visual.FieldRoles.CategoryHints.Count > 0 || visual.FieldRoles.MeasureHints.Count > 0)
+        {
+            return "high";
+        }
+
+        return evidence.Count >= 2 ? "medium" : "low";
+    }
+
+    private static double AddSemanticColorConsistencyFeedback(
+        List<FrameworkFeedbackItem> feedback,
+        List<string> recs,
+        List<PageData> pages)
+    {
+        var conflicts = BuildSemanticColorConflicts(pages);
+        if (conflicts.Count == 0)
+        {
+            if (HasRepeatedConsistentSemanticMappings(pages))
+            {
+                feedback.Add(FeedbackItem(
+                    true,
+                    "Semantic color consistency: Repeated semantic color mappings remain consistent across the report.",
+                    FindingTypes.StrongHeuristic));
+            }
+
+            return 0.0;
+        }
+
+        var issue = conflicts
+            .OrderByDescending(conflict => conflict.Assignments.Count)
+            .ThenBy(conflict => conflict.PageName, StringComparer.OrdinalIgnoreCase)
+            .First();
+        recs.Add("[High] Semantic Color: Keep the same category or status meaning on the same color across visuals and pages.");
+        feedback.Add(FeedbackItem(
+            false,
+            $"Semantic color consistency: {issue.DisplayLabel} uses multiple colors on {issue.PageName} ({string.Join(", ", issue.Colors)}). Keep repeated meanings visually stable.",
+            FindingTypes.StrongHeuristic,
+            BuildAffectedVisuals(pages, issue.Assignments)));
+
+        return Math.Min(12.0, conflicts.Count * 6.0);
+    }
+
+    private static List<SemanticColorConflict> BuildSemanticColorConflicts(List<PageData> pages)
+    {
+        return pages
+            .SelectMany(ExtractSemanticColorAssignments)
+            .GroupBy(assignment => new { assignment.SourcePageName, assignment.SemanticKey })
+            .Select(group => new
+            {
+                group.Key.SourcePageName,
+                group.Key.SemanticKey,
+                DisplayLabel = group.Select(assignment => assignment.DisplayLabel)
+                    .FirstOrDefault(label => !string.IsNullOrWhiteSpace(label)) ?? group.Key.SemanticKey,
+                Colors = group.Select(assignment => assignment.Color)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(color => color, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                Assignments = group.ToList(),
+            })
+            .Where(group => group.Colors.Count > 1)
+            .Select(group => new SemanticColorConflict(group.SourcePageName, group.SemanticKey, group.DisplayLabel, group.Colors, group.Assignments))
+            .ToList();
+    }
+
+    private static bool HasRepeatedConsistentSemanticMappings(List<PageData> pages) =>
+        pages.SelectMany(ExtractSemanticColorAssignments)
+            .GroupBy(assignment => assignment.SemanticKey, StringComparer.OrdinalIgnoreCase)
+            .Any(group =>
+                group.Count() > 1 &&
+                group.Select(assignment => assignment.Color).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1);
+
+    private static double AddSemanticStatusAccessibilityFeedback(
+        List<FrameworkFeedbackItem> feedback,
+        List<string> recs,
+        List<PageData> pages)
+    {
+        var issues = BuildStatusColorConflicts(pages);
+        if (issues.Count == 0)
+        {
+            return 0.0;
+        }
+
+        var issue = issues
+            .OrderByDescending(item => item.Assignments.Count)
+            .ThenBy(item => item.PageName, StringComparer.OrdinalIgnoreCase)
+            .First();
+        recs.Add("[Medium] Semantic Color: Reserve red/green for consistent bad/good status semantics only.");
+        feedback.Add(FeedbackItem(
+            false,
+            $"Status color semantics: {issue.SemanticKey} uses {issue.Color} on {issue.PageName}. Reserve red/green for consistent bad/good status semantics only.",
+            FindingTypes.StrongHeuristic,
+            BuildAffectedVisuals(pages, issues.SelectMany(item => item.Assignments))));
+
+        return Math.Min(12.0, issues.Count * 6.0);
+    }
+
+    private static List<StatusSemanticIssue> BuildStatusColorConflicts(List<PageData> pages)
+    {
+        return pages
+            .SelectMany(ExtractSemanticColorAssignments)
+            .Where(assignment => assignment.SemanticKey.StartsWith("status:", StringComparison.OrdinalIgnoreCase))
+            .Where(assignment =>
+                (IsNegativeStatusSemanticKey(assignment.SemanticKey) && IsGreenDominant(assignment.Color)) ||
+                (IsPositiveStatusSemanticKey(assignment.SemanticKey) && IsRedDominant(assignment.Color)))
+            .GroupBy(assignment => new { assignment.SourcePageName, assignment.SemanticKey, assignment.Color })
+            .Select(group => new StatusSemanticIssue(group.Key.SourcePageName, group.Key.SemanticKey, group.Key.Color, group.ToList()))
+            .ToList();
+    }
+
+    private static bool IsNegativeStatusSemanticKey(string semanticKey) =>
+        semanticKey is "status:at-risk" or "status:off-track" or "status:bad" or "status:critical";
+
+    private static bool IsPositiveStatusSemanticKey(string semanticKey) =>
+        semanticKey is "status:on-track" or "status:good";
+
+    private static List<AffectedVisualReference> BuildAffectedVisuals(
+        List<PageData> pages,
+        IEnumerable<SemanticColorAssignment> assignments)
+    {
+        var visualTypesByRef = pages
+            .SelectMany(page => page.Visuals.Select(visual => new
+            {
+                PageName = page.DisplayName,
+                VisualId = visual.Id,
+                VisualType = visual.Type,
+            }))
+            .ToDictionary(
+                item => $"{item.PageName}::{item.VisualId}",
+                item => item.VisualType,
+                StringComparer.OrdinalIgnoreCase);
+
+        return assignments
+            .Select(assignment =>
+            {
+                visualTypesByRef.TryGetValue($"{assignment.SourcePageName}::{assignment.SourceVisualId}", out var visualType);
+                return new AffectedVisualReference(
+                    assignment.SourcePageName,
+                    assignment.SourceVisualId,
+                    visualType ?? "visual");
+            })
+            .Distinct()
+            .ToList();
+    }
 
     private static bool HasAnyFormattingMetadata(VisualData visual) =>
         !string.IsNullOrWhiteSpace(visual.Formatting.BackgroundFillColor) ||
@@ -4091,50 +5475,10 @@ public sealed class PbirScoringService
 
     private static ConsistencyIssue? AnalyzeMetricLabelConsistency(IEnumerable<PageData> pages)
     {
-        var metricLabels = pages
-            .SelectMany(page => page.Visuals
-                .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && visual.IsKpiCard && !string.IsNullOrWhiteSpace(visual.BestVisibleText))
-                .Select(visual => new
-                {
-                    PageName = page.DisplayName,
-                    Visual = visual,
-                    Label = visual.BestVisibleText!,
-                    Pattern = ClassifyMetricLabelPattern(visual.BestVisibleText!),
-                }))
-            .ToList();
-        if (metricLabels.Count < 2)
-        {
-            return null;
-        }
-
-        bool hasPrefix = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.PrefixModifier);
-        bool hasSuffix = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.SuffixModifier);
-        bool hasGeneric = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.GenericAggregate);
-        if (!(hasPrefix && hasSuffix) && !hasGeneric)
-        {
-            return null;
-        }
-
-        var messageParts = new List<string>();
-        if (hasPrefix && hasSuffix)
-        {
-            var prefixExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.PrefixModifier).Label;
-            var suffixExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.SuffixModifier).Label;
-            messageParts.Add($"metric labels mix prefix modifiers such as '{prefixExample}' and suffix modifiers such as '{suffixExample}'");
-        }
-
-        if (hasGeneric)
-        {
-            var genericExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.GenericAggregate).Label;
-            messageParts.Add($"generic labels such as '{genericExample}' remain in the KPI layer");
-        }
-
-        return new ConsistencyIssue(
-            string.Join("; ", messageParts),
-            metricLabels
-                .Where(entry => entry.Pattern != MetricLabelPattern.Plain)
-                .Select(entry => (entry.PageName, entry.Visual))
-                .ToList());
+        var analysis = AnalyzeMetricLabelGovernance(pages);
+        return analysis is null
+            ? null
+            : new ConsistencyIssue(analysis.Value.Message, analysis.Value.Visuals);
     }
 
     private static ConsistencyIssue? AnalyzePageStyleLanguageConsistency(IEnumerable<PageData> pages)
@@ -4223,6 +5567,450 @@ public sealed class PbirScoringService
                 DeduplicateAffectedVisualTuples(visuals));
     }
 
+    private static ConsistencyIssue? AnalyzeTitleAlignmentConsistency(IEnumerable<PageData> pages)
+    {
+        var titleProfiles = pages
+            .Select(BuildLayoutConventionProfile)
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.TitleAlignment) && profile.TitleVisual is not null)
+            .ToList();
+        if (titleProfiles.Count < 2)
+        {
+            return null;
+        }
+
+        var distinctTitleAlignments = titleProfiles
+            .Select(profile => profile.TitleAlignment)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinctTitleAlignments.Count < 2)
+        {
+            return null;
+        }
+
+        var first = titleProfiles[0];
+        var second = titleProfiles.First(profile =>
+            !string.Equals(profile.TitleAlignment, first.TitleAlignment, StringComparison.Ordinal));
+        return new ConsistencyIssue(
+            $"title anchors shift between {first.TitleAlignment} and {second.TitleAlignment} alignment",
+            DeduplicateAffectedVisualTuples(
+            [
+                (first.Page.DisplayName, first.TitleVisual!),
+                (second.Page.DisplayName, second.TitleVisual!),
+            ]));
+    }
+
+    private static ConsistencyIssue? AnalyzeFilterConventionConsistency(IEnumerable<PageData> pages)
+    {
+        var filterProfiles = pages
+            .Select(BuildLayoutConventionProfile)
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.FilterConvention) && profile.FilterVisuals.Count > 0)
+            .ToList();
+        if (filterProfiles.Count < 2)
+        {
+            return null;
+        }
+
+        var distinctFilterConventions = filterProfiles
+            .Select(profile => profile.FilterConvention)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinctFilterConventions.Count < 2)
+        {
+            return null;
+        }
+
+        var first = filterProfiles[0];
+        var second = filterProfiles.First(profile =>
+            !string.Equals(profile.FilterConvention, first.FilterConvention, StringComparison.Ordinal));
+        return new ConsistencyIssue(
+            $"filter conventions shift between a {first.FilterConvention} and a {second.FilterConvention}",
+            DeduplicateAffectedVisualTuples(
+                first.FilterVisuals.Take(2).Select(visual => (first.Page.DisplayName, visual))
+                    .Concat(second.FilterVisuals.Take(2).Select(visual => (second.Page.DisplayName, visual)))));
+    }
+
+    private static ConsistencyIssue? AnalyzeCrossPageKpiBandConsistency(IEnumerable<PageData> pages)
+    {
+        var profiles = pages
+            .Select(BuildKpiBandProfile)
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.Convention) && profile.KpiVisuals.Count > 0)
+            .ToList();
+        if (profiles.Count < 2)
+        {
+            return null;
+        }
+
+        var distinctConventions = profiles
+            .Select(profile => profile.Convention)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinctConventions.Count < 2)
+        {
+            return null;
+        }
+
+        var first = profiles[0];
+        var second = profiles.First(profile =>
+            !string.Equals(profile.Convention, first.Convention, StringComparison.Ordinal));
+        return new ConsistencyIssue(
+            $"top-row KPI cards shift between a {first.Convention} pattern on '{first.Page.DisplayName}' and a {second.Convention} pattern on '{second.Page.DisplayName}'",
+            DeduplicateAffectedVisualTuples(
+                first.KpiVisuals.Take(2).Select(visual => (first.Page.DisplayName, visual))
+                    .Concat(second.KpiVisuals.Take(2).Select(visual => (second.Page.DisplayName, visual)))));
+    }
+
+    private static ConsistencyIssue? AnalyzeDominantLayoutPattern(IEnumerable<PageData> pages)
+    {
+        var profiles = pages
+            .Select(page =>
+            {
+                var layout = BuildLayoutConventionProfile(page);
+                var kpi = BuildKpiBandProfile(page);
+                return new
+                {
+                    Page = page,
+                    Layout = layout,
+                    Kpi = kpi,
+                    Signature = $"{layout.TitleAlignment ?? "none"}|{layout.FilterConvention ?? "none"}|{kpi.Convention ?? "none"}",
+                };
+            })
+            .ToList();
+        if (profiles.Count < 3)
+        {
+            return null;
+        }
+
+        var dominant = profiles
+            .GroupBy(profile => profile.Signature, StringComparer.Ordinal)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (dominant is null || dominant.Count() < 2 || dominant.Count() == profiles.Count)
+        {
+            return null;
+        }
+
+        var outliers = profiles
+            .Where(profile => !string.Equals(profile.Signature, dominant.Key, StringComparison.Ordinal))
+            .ToList();
+        if (outliers.Count == 0)
+        {
+            return null;
+        }
+
+        var visuals = outliers
+            .SelectMany(profile =>
+            {
+                var tuples = new List<(string PageName, VisualData Visual)>();
+                if (profile.Layout.TitleVisual is not null)
+                {
+                    tuples.Add((profile.Page.DisplayName, profile.Layout.TitleVisual));
+                }
+
+                tuples.AddRange(profile.Layout.FilterVisuals.Take(1).Select(visual => (profile.Page.DisplayName, visual)));
+                tuples.AddRange(profile.Kpi.KpiVisuals.Take(1).Select(visual => (profile.Page.DisplayName, visual)));
+                return tuples;
+            })
+            .ToList();
+
+        return new ConsistencyIssue(
+            $"{string.Join(", ", outliers.Select(profile => $"'{profile.Page.DisplayName}'"))} break from the dominant layout pattern used on {dominant.Count()} page(s)",
+            DeduplicateAffectedVisualTuples(visuals));
+    }
+
+    private static ReportConsistencyIssueContext? AnalyzeCrossPageNavigationConsistency(IEnumerable<PageData> pages)
+    {
+        var profiles = pages
+            .Select(BuildNavigationProfile)
+            .ToList();
+        var pagesWithNavigation = profiles.Where(profile => profile.Controls.Count > 0).ToList();
+        if (pagesWithNavigation.Count < 2)
+        {
+            return null;
+        }
+
+        var notes = new List<string>();
+        var affectedPages = new HashSet<string>(StringComparer.Ordinal);
+
+        var zones = pagesWithNavigation
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.Zone))
+            .Select(profile => profile.Zone!)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (zones.Count >= 2)
+        {
+            var dominantZone = pagesWithNavigation
+                .Where(profile => !string.IsNullOrWhiteSpace(profile.Zone))
+                .GroupBy(profile => profile.Zone!, StringComparer.Ordinal)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.Ordinal)
+                .First();
+            var outlierPages = pagesWithNavigation
+                .Where(profile => !string.Equals(profile.Zone, dominantZone.Key, StringComparison.Ordinal))
+                .Select(profile => profile.Page.DisplayName)
+                .ToList();
+            if (outlierPages.Count > 0)
+            {
+                notes.Add($"navigation controls shift away from the dominant {dominantZone.Key} zone on {string.Join(", ", outlierPages)}");
+                foreach (var pageName in outlierPages)
+                {
+                    affectedPages.Add(pageName);
+                }
+            }
+        }
+
+        var pagesWithoutNavigation = profiles
+            .Where(profile => profile.Controls.Count == 0)
+            .Select(profile => profile.Page.DisplayName)
+            .ToList();
+        if (pagesWithoutNavigation.Count > 0)
+        {
+            notes.Add($"navigation is missing on {string.Join(", ", pagesWithoutNavigation)} even though peer pages expose report controls");
+            foreach (var pageName in pagesWithoutNavigation)
+            {
+                affectedPages.Add(pageName);
+            }
+        }
+
+        bool hasPartialMetadata = pagesWithNavigation.Any(profile => profile.HasPartialMetadata);
+        if (hasPartialMetadata)
+        {
+            notes.Add("navigation evidence is partially detectable from PBIR metadata because some controls are unlabeled shapes or images");
+            foreach (var pageName in pagesWithNavigation.Where(profile => profile.HasPartialMetadata).Select(profile => profile.Page.DisplayName))
+            {
+                affectedPages.Add(pageName);
+            }
+        }
+
+        if (notes.Count == 0)
+        {
+            return null;
+        }
+
+        return new ReportConsistencyIssueContext(
+            "navigation",
+            "navigationPattern",
+            $"Navigation patterns differ across the report: {string.Join("; ", notes)}. Detection is partially detectable from PBIR metadata.",
+            affectedPages.OrderBy(name => name, StringComparer.Ordinal).ToList(),
+            "medium",
+            "medium",
+            "Keep navigation buttons, back/reset controls, and report-flow affordances in one predictable zone across related pages.",
+            "Report consistency: Navigation controls differ from the broader report flow.");
+    }
+
+    private static ReportConsistencyContext? BuildReportConsistencyContext(List<PageData> pages)
+    {
+        if (pages.Count < 2)
+        {
+            return null;
+        }
+
+        var issues = BuildReportConsistencyIssues(pages);
+        bool consistentTitleAnchors = !issues.Any(issue => issue.IssueCategory == "titleHeader");
+        bool consistentFilterBand = !issues.Any(issue => issue.IssueCategory == "filterPlacement");
+        bool consistentMetricLabels = !issues.Any(issue => issue.Category == "metricGovernance");
+        bool consistentSemanticColors = !issues.Any(issue => issue.Category == "semanticColors");
+        var affectedPages = issues
+            .SelectMany(issue => issue.AffectedPages)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(pageName => pageName, StringComparer.Ordinal)
+            .ToList();
+        var categories = issues
+            .Select(issue => issue.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new ReportConsistencyContext(
+            new ReportConsistencySummary
+            {
+                ConsistentTitleAnchors = consistentTitleAnchors,
+                ConsistentFilterBand = consistentFilterBand,
+                ConsistentMetricLabels = consistentMetricLabels,
+                ConsistentSemanticColors = consistentSemanticColors,
+                OverallFinding = issues.Count == 0
+                    ? "The report follows a stable cross-page pattern."
+                    : $"{issues.Count} cross-page consistency issue(s) detected across {string.Join(", ", categories)}.",
+                AffectedPages = affectedPages,
+                IssueCount = issues.Count,
+                Issues = issues
+                    .Select(issue => new ReportConsistencyFinding
+                    {
+                        Category = issue.Category,
+                        IssueCategory = issue.IssueCategory,
+                        OverallFinding = issue.OverallFinding,
+                        AffectedPages = issue.AffectedPages,
+                        Severity = issue.Severity,
+                        Confidence = issue.Confidence,
+                        RecommendedRemediation = issue.RecommendedRemediation,
+                    })
+                    .ToList(),
+                Findings = issues.Select(issue => issue.OverallFinding).ToList(),
+            },
+            issues);
+    }
+
+    private static List<string> BuildReportConsistencyNotes(
+        string pageName,
+        ReportConsistencyContext? context)
+    {
+        if (context is null)
+        {
+            return [];
+        }
+
+        return context.Issues
+            .Where(issue => issue.AffectedPages.Contains(pageName, StringComparer.Ordinal))
+            .Select(issue => issue.PageNote)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static List<ReportConsistencyIssueContext> BuildReportConsistencyIssues(List<PageData> pages)
+    {
+        var issues = new List<ReportConsistencyIssueContext>();
+
+        if (AnalyzeTitleAlignmentConsistency(pages) is { } titleIssue)
+        {
+            issues.Add(new ReportConsistencyIssueContext(
+                "layout",
+                "titleHeader",
+                $"Title and header zones shift across pages: {titleIssue.Message}.",
+                titleIssue.Visuals.Select(entry => entry.PageName).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToList(),
+                "medium",
+                "high",
+                "Keep page titles in the same header zone and alignment so the report reads like a single product.",
+                "Report consistency: Title anchor placement differs from other pages."));
+        }
+
+        if (AnalyzeFilterConventionConsistency(pages) is { } filterIssue)
+        {
+            issues.Add(new ReportConsistencyIssueContext(
+                "layout",
+                "filterPlacement",
+                $"Slicer and filter placement shifts across pages: {filterIssue.Message}.",
+                filterIssue.Visuals.Select(entry => entry.PageName).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToList(),
+                "medium",
+                "high",
+                "Keep slicers in one stable band or rail unless a page intentionally changes interaction mode.",
+                "Report consistency: Filter-band placement differs from other pages."));
+        }
+
+        if (AnalyzeCrossPageKpiBandConsistency(pages) is { } kpiBandIssue)
+        {
+            issues.Add(new ReportConsistencyIssueContext(
+                "layout",
+                "kpiPlacement",
+                $"KPI card placement shifts across comparable pages: {kpiBandIssue.Message}.",
+                kpiBandIssue.Visuals.Select(entry => entry.PageName).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToList(),
+                "medium",
+                "high",
+                "Keep overview KPI cards in a stable top band so repeated pages share the same entry point.",
+                "Report consistency: KPI placement differs from the report pattern."));
+        }
+
+        if (AnalyzeDominantLayoutPattern(pages) is { } layoutPatternIssue)
+        {
+            issues.Add(new ReportConsistencyIssueContext(
+                "layout",
+                "layoutPattern",
+                layoutPatternIssue.Message,
+                layoutPatternIssue.Visuals.Select(entry => entry.PageName).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToList(),
+                "medium",
+                "high",
+                "Keep repeated pages on the dominant layout pattern or template unless the different layout signals a deliberate mode change.",
+                "Report consistency: This page breaks from the dominant layout pattern."));
+        }
+
+        var navigationIssue = AnalyzeCrossPageNavigationConsistency(pages);
+        if (navigationIssue is not null)
+        {
+            issues.Add(navigationIssue);
+        }
+
+        var metricLabelIssue = AnalyzeMetricLabelGovernance(pages);
+        if (metricLabelIssue is not null)
+        {
+            issues.Add(new ReportConsistencyIssueContext(
+                "metricGovernance",
+                "metricLabels",
+                $"KPI label naming drifts across pages: {metricLabelIssue.Value.Message}.",
+                metricLabelIssue.Value.Visuals.Select(entry => entry.PageName).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToList(),
+                "low",
+                metricLabelIssue.Value.Confidence,
+                string.IsNullOrWhiteSpace(metricLabelIssue.Value.SuggestedCanonicalLabel)
+                    ? "Choose one canonical KPI naming convention and reuse it across pages."
+                    : $"Choose one canonical KPI naming convention and reuse a label such as '{metricLabelIssue.Value.SuggestedCanonicalLabel}' across pages.",
+                "Report consistency: Metric label naming differs from other pages."));
+        }
+
+        var semanticColorIssue = AnalyzeCrossPageSemanticColorConsistency(pages);
+        if (semanticColorIssue is not null)
+        {
+            var affectedPages = semanticColorIssue.Assignments
+                .Select(assignment => assignment.SourcePageName)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToList();
+            var isCategoryIdentity = semanticColorIssue.SemanticKey.StartsWith("region:", StringComparison.OrdinalIgnoreCase) ||
+                semanticColorIssue.SemanticKey.StartsWith("segment:", StringComparison.OrdinalIgnoreCase) ||
+                semanticColorIssue.SemanticKey.StartsWith("category:", StringComparison.OrdinalIgnoreCase);
+            issues.Add(new ReportConsistencyIssueContext(
+                "semanticColors",
+                "semanticColorDrift",
+                $"Semantic color consistency: {semanticColorIssue.Message}.",
+                affectedPages,
+                isCategoryIdentity ? "low" : "medium",
+                isCategoryIdentity ? "medium" : "high",
+                isCategoryIdentity
+                    ? "Review whether category identity colors are meant to stay stable across pages. If so, keep the same categories on the same colors."
+                    : "Keep the same semantic roles on the same colors across pages so users can scan the report without relearning the legend.",
+                isCategoryIdentity
+                    ? "Report consistency: Category colors may differ from the broader report palette."
+                    : "Report consistency: Semantic color meaning differs from other pages."));
+        }
+
+        return issues;
+    }
+
+    private static CrossPageSemanticColorIssue? AnalyzeCrossPageSemanticColorConsistency(List<PageData> pages)
+    {
+        var conflicts = pages
+            .SelectMany(ExtractSemanticColorAssignments)
+            .GroupBy(assignment => assignment.SemanticKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new
+            {
+                SemanticKey = group.Key,
+                DisplayLabel = group.Select(assignment => assignment.DisplayLabel)
+                    .FirstOrDefault(label => !string.IsNullOrWhiteSpace(label)) ?? group.Key,
+                Colors = group.Select(assignment => assignment.Color)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(color => color, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                Pages = group.Select(assignment => assignment.SourcePageName)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList(),
+                Assignments = group.ToList(),
+            })
+            .Where(group => group.Pages.Count > 1 && group.Colors.Count > 1)
+            .OrderByDescending(group => group.Assignments.Count)
+            .ThenBy(group => group.SemanticKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (conflicts.Count == 0)
+        {
+            return null;
+        }
+
+        var primary = conflicts[0];
+        var message = string.Join("; ", conflicts.Select(conflict =>
+            $"{conflict.DisplayLabel} uses multiple colors across pages ({string.Join(", ", conflict.Colors)}) on {string.Join(", ", conflict.Pages)}"));
+        return new CrossPageSemanticColorIssue(
+            primary.SemanticKey,
+            primary.DisplayLabel,
+            message,
+            conflicts.SelectMany(conflict => conflict.Assignments).ToList());
+    }
+
     private static PageStyleProfile BuildPageStyleProfile(PageData page)
     {
         var dataVisuals = page.Visuals
@@ -4303,6 +6091,41 @@ public sealed class PbirScoringService
             filterVisuals);
     }
 
+    private static KpiBandProfile BuildKpiBandProfile(PageData page)
+    {
+        double canvasWidth = GetCanvasWidth(page);
+        double canvasHeight = GetCanvasHeight(page);
+        var kpiVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && visual.IsKpiCard)
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        string? convention = kpiVisuals.Count == 0
+            ? null
+            : ClassifyKpiBandConvention(kpiVisuals, canvasWidth, canvasHeight);
+        return new KpiBandProfile(page, convention, kpiVisuals);
+    }
+
+    private static NavigationProfile BuildNavigationProfile(PageData page)
+    {
+        double canvasWidth = GetCanvasWidth(page);
+        double canvasHeight = GetCanvasHeight(page);
+        var controls = page.Visuals
+            .Where(visual => !visual.IsHidden && IsPotentialNavigationControl(visual))
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        string? zone = controls.Count == 0
+            ? null
+            : ClassifyNavigationZone(controls, canvasWidth, canvasHeight);
+        bool hasPartialMetadata = controls.Any(visual =>
+            string.IsNullOrWhiteSpace(visual.BestVisibleText) &&
+            (visual.Type.Equals("shape", StringComparison.OrdinalIgnoreCase) ||
+             visual.Type.Equals("basicShape", StringComparison.OrdinalIgnoreCase) ||
+             visual.Type.Equals("image", StringComparison.OrdinalIgnoreCase)));
+        return new NavigationProfile(page, zone, controls, hasPartialMetadata);
+    }
+
     private static string ClassifyTitleAlignment(VisualData visual, double canvasWidth)
     {
         double centerX = visual.X + visual.W / 2.0;
@@ -4336,6 +6159,94 @@ public sealed class PbirScoringService
         return "mixed filter placement";
     }
 
+    private static string ClassifyKpiBandConvention(IReadOnlyList<VisualData> kpiVisuals, double canvasWidth, double canvasHeight)
+    {
+        var topBand = kpiVisuals.Where(visual => visual.Y <= canvasHeight * 0.22).ToList();
+        if (topBand.Count == 0)
+        {
+            return "lower band";
+        }
+
+        double minX = topBand.Min(visual => visual.X);
+        if (minX <= canvasWidth * 0.2)
+        {
+            return "top-left band";
+        }
+
+        if (minX <= canvasWidth * 0.45)
+        {
+            return "top-center band";
+        }
+
+        return "top-right band";
+    }
+
+    private static string ClassifyNavigationZone(IReadOnlyList<VisualData> controls, double canvasWidth, double canvasHeight)
+    {
+        double avgX = controls.Average(visual => visual.X + visual.W / 2.0);
+        double avgY = controls.Average(visual => visual.Y + visual.H / 2.0);
+        bool top = avgY <= canvasHeight * 0.25;
+        bool bottom = avgY >= canvasHeight * 0.75;
+        bool left = avgX <= canvasWidth * 0.28;
+        bool right = avgX >= canvasWidth * 0.72;
+
+        if (top && right)
+        {
+            return "top-right";
+        }
+
+        if (top && left)
+        {
+            return "top-left";
+        }
+
+        if (bottom && left)
+        {
+            return "bottom-left";
+        }
+
+        if (bottom && right)
+        {
+            return "bottom-right";
+        }
+
+        if (left)
+        {
+            return "left rail";
+        }
+
+        if (right)
+        {
+            return "right rail";
+        }
+
+        return "mixed";
+    }
+
+    private static bool IsPotentialNavigationControl(VisualData visual)
+    {
+        if (!visual.IsNavigationElement || visual.IsSlicer)
+        {
+            return false;
+        }
+
+        var normalizedType = visual.Type?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (normalizedType is "actionbutton" or "navigationbutton" or "qnavisual")
+        {
+            return true;
+        }
+
+        var text = visual.BestVisibleText;
+        return !string.IsNullOrWhiteSpace(text) && (
+            ContainsTextKeyword(text, "home") ||
+            ContainsTextKeyword(text, "back") ||
+            ContainsTextKeyword(text, "next") ||
+            ContainsTextKeyword(text, "previous") ||
+            ContainsTextKeyword(text, "reset") ||
+            ContainsTextKeyword(text, "clear") ||
+            ContainsTextKeyword(text, "filter"));
+    }
+
     private static MetricLabelPattern ClassifyMetricLabelPattern(string label)
     {
         var normalized = NormalizeNarrativeText(label);
@@ -4361,6 +6272,159 @@ public sealed class PbirScoringService
 
         return MetricLabelPattern.Plain;
     }
+
+    private static MetricLabelGovernanceAnalysis? AnalyzeMetricLabelGovernance(IEnumerable<PageData> pages)
+    {
+        var metricLabels = pages
+            .SelectMany(page => page.Visuals
+                .Where(visual => !visual.IsHidden && !visual.IsNavigationElement && visual.IsKpiCard && !string.IsNullOrWhiteSpace(visual.BestVisibleText))
+                .Select(visual =>
+                {
+                    var label = visual.BestVisibleText!;
+                    var canonical = BuildMetricCanonicalKey(label);
+                    return new MetricLabelEntry(
+                        page.DisplayName,
+                        visual,
+                        label,
+                        ClassifyMetricLabelPattern(label),
+                        canonical.CanonicalKey,
+                        canonical.UsedSemanticAlias);
+                }))
+            .ToList();
+        if (metricLabels.Count < 2)
+        {
+            return null;
+        }
+
+        bool hasPrefix = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.PrefixModifier);
+        bool hasSuffix = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.SuffixModifier);
+        bool hasGeneric = metricLabels.Any(entry => entry.Pattern == MetricLabelPattern.GenericAggregate);
+
+        var messageParts = new List<string>();
+        var affectedVisuals = new List<(string PageName, VisualData Visual)>();
+        string confidence = "high";
+        string? suggestedCanonicalLabel = null;
+
+        if (hasPrefix && hasSuffix)
+        {
+            var prefixExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.PrefixModifier).Label;
+            var suffixExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.SuffixModifier).Label;
+            messageParts.Add($"metric labels mix prefix modifiers such as '{prefixExample}' and suffix modifiers such as '{suffixExample}'");
+            affectedVisuals.AddRange(metricLabels
+                .Where(entry => entry.Pattern is MetricLabelPattern.PrefixModifier or MetricLabelPattern.SuffixModifier)
+                .Select(entry => (entry.PageName, entry.Visual)));
+        }
+
+        if (hasGeneric)
+        {
+            var genericExample = metricLabels.First(entry => entry.Pattern == MetricLabelPattern.GenericAggregate).Label;
+            messageParts.Add($"generic labels such as '{genericExample}' remain in the KPI layer");
+            affectedVisuals.AddRange(metricLabels
+                .Where(entry => entry.Pattern == MetricLabelPattern.GenericAggregate)
+                .Select(entry => (entry.PageName, entry.Visual)));
+        }
+
+        var fuzzyGroups = metricLabels
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.CanonicalKey))
+            .GroupBy(entry => entry.CanonicalKey, StringComparer.Ordinal)
+            .Select(group => new
+            {
+                CanonicalKey = group.Key,
+                Entries = group.ToList(),
+                DistinctLabels = group.Select(entry => entry.Label)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                UsedSemanticAlias = group.Any(entry => entry.UsedSemanticAlias),
+            })
+            .Where(group => group.DistinctLabels.Count > 1)
+            .OrderByDescending(group => group.Entries.Count)
+            .ThenByDescending(group => group.DistinctLabels.Max(label => label.Length))
+            .ToList();
+
+        if (fuzzyGroups.Count > 0)
+        {
+            var group = fuzzyGroups[0];
+            var examples = group.DistinctLabels.Take(2).ToList();
+            suggestedCanonicalLabel = SelectCanonicalMetricLabel(group.Entries);
+            messageParts.Add(
+                $"equivalent KPI labels vary between '{examples[0]}' and '{examples[1]}'" +
+                (string.IsNullOrWhiteSpace(suggestedCanonicalLabel) ? string.Empty : $"; use one canonical label such as '{suggestedCanonicalLabel}'"));
+            affectedVisuals.AddRange(group.Entries.Select(entry => (entry.PageName, entry.Visual)));
+            confidence = group.UsedSemanticAlias ? "medium" : confidence;
+        }
+
+        if (messageParts.Count == 0)
+        {
+            return null;
+        }
+
+        return new MetricLabelGovernanceAnalysis(
+            string.Join("; ", messageParts),
+            DeduplicateAffectedVisualTuples(affectedVisuals),
+            suggestedCanonicalLabel,
+            confidence);
+    }
+
+    private static (string CanonicalKey, bool UsedSemanticAlias) BuildMetricCanonicalKey(string label)
+    {
+        var normalized = NormalizeNarrativeText(label);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return (string.Empty, false);
+        }
+
+        normalized = normalized.Replace("%", " percent ", StringComparison.Ordinal);
+        normalized = Regex.Replace(normalized, @"\bcy\b", "current year", RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(normalized, @"\bpy\b", "prior year", RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(normalized, @"\bgross\s+margin\b", "margin", RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(normalized, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
+
+        bool usedSemanticAlias = false;
+        var canonicalTokens = new List<string>();
+        foreach (var token in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var canonical = token switch
+            {
+                "sales" => "salesrevenue",
+                "revenue" => "salesrevenue",
+                _ => token,
+            };
+
+            if (!string.Equals(canonical, token, StringComparison.Ordinal))
+            {
+                usedSemanticAlias = true;
+            }
+
+            canonicalTokens.Add(canonical);
+        }
+
+        var modifierOrder = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["current"] = 0,
+            ["year"] = 1,
+            ["prior"] = 2,
+            ["ytd"] = 3,
+            ["mtd"] = 4,
+            ["qtd"] = 5,
+            ["fy"] = 6,
+            ["rolling"] = 7,
+        };
+
+        var ordered = canonicalTokens
+            .OrderBy(token => modifierOrder.TryGetValue(token, out var priority) ? priority : 50)
+            .ThenBy(token => token, StringComparer.Ordinal)
+            .ToList();
+
+        return (string.Join(' ', ordered), usedSemanticAlias);
+    }
+
+    private static string? SelectCanonicalMetricLabel(IEnumerable<MetricLabelEntry> entries) =>
+        entries
+            .Select(entry => entry.Label.Trim())
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .OrderByDescending(label => label.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length)
+            .ThenByDescending(label => label.Length)
+            .FirstOrDefault();
 
     private static List<(string PageName, VisualData Visual)> DeduplicateAffectedVisualTuples(
         IEnumerable<(string PageName, VisualData Visual)> visuals) =>
@@ -4910,10 +6974,31 @@ public sealed class PbirScoringService
         if (node is JsonObject obj)
         {
             var values = new List<string>();
-            var direct = ReadFirstString(obj, ["name", "value", "field", "displayName", "queryRef"]);
+            var direct = ReadFirstString(obj, ["displayName", "friendlyName", "name", "value", "field", "label", "queryRef"]);
             if (!string.IsNullOrWhiteSpace(direct))
             {
                 values.Add(direct);
+            }
+
+            var description = ReadFirstString(obj, ["description"]);
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                values.Add(description);
+            }
+
+            if (TryGetPropertyCaseInsensitive(obj, "synonyms", out var synonymsNode))
+            {
+                values.AddRange(ReadStringValues(synonymsNode));
+            }
+
+            if (TryGetPropertyCaseInsensitive(obj, "aliases", out var aliasesNode))
+            {
+                values.AddRange(ReadStringValues(aliasesNode));
+            }
+
+            if (TryGetPropertyCaseInsensitive(obj, "alias", out var aliasNode))
+            {
+                values.AddRange(ReadStringValues(aliasNode));
             }
 
             foreach (var child in obj)
@@ -5415,6 +7500,64 @@ public sealed class PbirScoringService
         string? FilterConvention,
         List<VisualData> FilterVisuals);
 
+    private readonly record struct KpiBandProfile(
+        PageData Page,
+        string? Convention,
+        List<VisualData> KpiVisuals);
+
+    private readonly record struct NavigationProfile(
+        PageData Page,
+        string? Zone,
+        List<VisualData> Controls,
+        bool HasPartialMetadata);
+
+    private readonly record struct MetricLabelEntry(
+        string PageName,
+        VisualData Visual,
+        string Label,
+        MetricLabelPattern Pattern,
+        string CanonicalKey,
+        bool UsedSemanticAlias);
+
+    private readonly record struct MetricLabelGovernanceAnalysis(
+        string Message,
+        List<(string PageName, VisualData Visual)> Visuals,
+        string? SuggestedCanonicalLabel,
+        string Confidence);
+
+    private sealed record SemanticColorConflict(
+        string PageName,
+        string SemanticKey,
+        string DisplayLabel,
+        List<string> Colors,
+        List<SemanticColorAssignment> Assignments);
+
+    private sealed record CrossPageSemanticColorIssue(
+        string SemanticKey,
+        string DisplayLabel,
+        string Message,
+        List<SemanticColorAssignment> Assignments);
+
+    private sealed record StatusSemanticIssue(
+        string PageName,
+        string SemanticKey,
+        string Color,
+        List<SemanticColorAssignment> Assignments);
+
+    private sealed record ReportConsistencyIssueContext(
+        string Category,
+        string IssueCategory,
+        string OverallFinding,
+        List<string> AffectedPages,
+        string Severity,
+        string Confidence,
+        string RecommendedRemediation,
+        string PageNote);
+
+    private sealed record ReportConsistencyContext(
+        ReportConsistencySummary Summary,
+        List<ReportConsistencyIssueContext> Issues);
+
     private enum MetricLabelPattern
     {
         Plain,
@@ -5527,4 +7670,10 @@ public sealed class PbirScoringService
         bool HasHeadlineOutcome,
         bool HasKpiComparisonContext,
         bool HasSupportingEvidenceFlow);
+
+    private sealed record SemanticNarrativeSignals(
+        string PrimaryMetric,
+        string? PrimaryDimension,
+        int ConfidenceBonus,
+        List<string> Evidence);
 }

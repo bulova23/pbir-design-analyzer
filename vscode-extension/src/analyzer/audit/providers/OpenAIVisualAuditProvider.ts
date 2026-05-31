@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VisualAuditFinding } from '../types';
 import type { VisualAuditInput, VisualAuditProvider } from './VisualAuditProvider';
+import { buildVisualAuditContextBlock } from './visualAuditPromptContext';
 
 const SECRET_KEY = 'pbir-audit.openai-api-key';
 const MODEL = 'gpt-4o';
@@ -40,7 +41,7 @@ export class OpenAIVisualAuditProvider implements VisualAuditProvider {
     const imageData = fs.readFileSync(capture.storedPath);
     const base64Image = imageData.toString('base64');
     const mediaType = resolveMediaType(capture.fileName);
-    const contextBlock = buildContextBlock(pageName, pageScore);
+    const contextBlock = buildVisualAuditContextBlock(pageName, pageScore);
 
     const body = JSON.stringify({
       model: MODEL,
@@ -97,16 +98,6 @@ function resolveMediaType(fileName: string): MediaType {
   return 'image/png';
 }
 
-function buildContextBlock(pageName: string, pageScore: unknown): string {
-  const lines = [`Page name: ${pageName}`];
-  if (pageScore && typeof pageScore === 'object' && 'compositeScore' in pageScore) {
-    lines.push(
-      `PBIR composite score: ${(pageScore as { compositeScore: number }).compositeScore.toFixed(1)}`,
-    );
-  }
-  return lines.join('\n');
-}
-
 function buildPrompt(pageName: string, contextBlock: string): string {
   return `You are a Power BI report design auditor. Analyze this screenshot of the report page "${pageName}".
 
@@ -114,12 +105,14 @@ Context:
 ${contextBlock}
 
 Identify up to 5 visual design issues. For each finding, output a JSON object on its own line with no surrounding text:
-{"findingType":"objective|strongHeuristic|stylePreference","severity":"critical|warning|info","confidence":"high|medium|low","text":"<description>","recommendation":"<actionable fix>","regionHint":"<optional area>"}
+{"findingType":"objective|strongHeuristic|stylePreference","severity":"critical|warning|info","confidence":"high|medium|low","issueSource":"renderedLayout|metadataModel","text":"<description>","recommendation":"<actionable fix>","regionHint":"<optional area>"}
 
 Classification rules:
 - objective: clearly visible issues — clipped text, overlapping visuals, error states, cut-off labels
 - strongHeuristic: hierarchy, scan path, spacing, density, or visual balance problems
 - stylePreference: polish and consistency observations
+- renderedLayout: the screenshot itself shows a rendering/layout defect
+- metadataModel: the issue is about titles, chart choice, semantic meaning, or missing decision context inferred from metadata plus screenshot evidence
 
 Output only the JSON lines. No preamble, no explanation.`;
 }
@@ -138,6 +131,7 @@ function parseFindings(text: string, pageName: string, captureId: string): Visua
         findingType?: string;
         severity?: string;
         confidence?: string;
+        issueSource?: string;
         text?: string;
         recommendation?: string;
         regionHint?: string;
@@ -154,6 +148,7 @@ function parseFindings(text: string, pageName: string, captureId: string): Visua
         findingType: toFindingType(parsed.findingType),
         severity: toSeverity(parsed.severity),
         confidence: toConfidence(parsed.confidence),
+        issueSource: toIssueSource(parsed.issueSource),
         text: parsed.text,
         recommendation: parsed.recommendation,
         regionHint: parsed.regionHint,
@@ -179,4 +174,8 @@ function toSeverity(value: string | undefined): VisualAuditFinding['severity'] {
 function toConfidence(value: string | undefined): VisualAuditFinding['confidence'] {
   if (value === 'high' || value === 'low') return value;
   return 'medium';
+}
+
+function toIssueSource(value: string | undefined): VisualAuditFinding['issueSource'] {
+  return value === 'metadataModel' ? value : 'renderedLayout';
 }
