@@ -3,6 +3,8 @@
   --score-border: color-mix(in srgb, var(--vscode-editorGroup-border) 82%, transparent);
   --score-surface: color-mix(in srgb, var(--vscode-editor-background) 90%, var(--vscode-editorWidget-background) 10%);
   --score-surface-strong: color-mix(in srgb, var(--vscode-sideBar-background) 72%, var(--vscode-editorWidget-background) 28%);
+  --score-highlight-soft: color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-descriptionForeground) 6%);
+  --score-highlight-softer: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-descriptionForeground) 8%);
   --score-muted: var(--vscode-descriptionForeground);
   --score-accent: #d17a00;
   --score-accent-soft: rgba(209, 122, 0, 0.14);
@@ -1907,7 +1909,7 @@ details[open] .framework-caret {
   border: 1px solid var(--score-border);
   border-radius: 999px;
   font-weight: 600;
-  background: color-mix(in srgb, var(--vscode-editor-background) 90%, var(--vscode-focusBorder) 10%);
+  background: var(--score-highlight-soft);
 }
 
 .overview-persona-picker {
@@ -1943,7 +1945,7 @@ details[open] .framework-caret {
   border: 1px solid var(--score-border);
   border-radius: 14px;
   padding: 14px;
-  background: color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-focusBorder) 6%);
+  background: var(--score-highlight-soft);
 }
 
 .overview-list-card h3,
@@ -2053,7 +2055,7 @@ details[open] .framework-caret {
   padding: 10px 12px;
   border: 1px solid var(--score-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-focusBorder) 8%);
+  background: var(--score-highlight-softer);
 }
 
 .active-filter-summary p {
