@@ -17,3 +17,13 @@
 - Release summary: `.agent-memory/sessions/2026-05-31-0-2-0-release-summary.md`
 - Roadmap summary: `.agent-memory/sessions/2026-05-31-roadmap-next-epics-summary.md`
 - Roadmap docs: `docs/ROADMAP.md` and `docs/superpowers/specs|plans/2026-05-31-*`
+
+## 2026-05-31 Release Finalization
+
+- Curated the release payload, pruned raw session clutter, and kept only compact durable repo memory.
+- Merged `feat/semantic-color-chart-intent` into `main`, revalidated from `main`, and packaged `vscode-extension/pbir-design-analyzer-0.2.0.vsix`.
+- Recorded the deferred epic order as:
+  1. Consultant Deliverables & Export Platform
+  2. Visual Intelligence & Screenshot Analysis
+  3. Enterprise Governance & Advanced Review
+- Did not rerun a fresh manual VS Code smoke pass during the finalization session; previous UAT history remains documented, but the release record should treat that as a skipped final step.

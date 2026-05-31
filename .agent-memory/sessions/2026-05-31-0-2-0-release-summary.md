@@ -39,8 +39,27 @@ Release validation should include:
 - package from `main`
 - short VS Code smoke pass if practical
 
+## Final Validation Record
+
+- Merged curated feature payload into `main`
+- Revalidated on `main` with:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Packaged from `main` with:
+  - `cd vscode-extension && npm run package`
+- Environment preparation required on `main` before the final validation rerun:
+  - `cd vscode-extension && npm ci`
+  - `dotnet build service-dotnet/RpcHost/RpcHost.csproj -c Release`
+
+## Package Artifact
+
+- `vscode-extension/pbir-design-analyzer-0.2.0.vsix`
+
+## Known Release Gap
+
+- A fresh manual VS Code smoke pass was not executed during the release-finalization session. Previous UAT history exists in earlier notes, but this final session stopped at compile/test/package validation.
+
 ## Next Practical Step
 
-- merge curated feature payload into `main`
-- revalidate on `main`
-- package the `0.2.0` VSIX from `main`
+- Install and review the packaged `0.2.0` VSIX in VS Code, then move to roadmap Epic 1 rather than reopening `0.2.0` scope.

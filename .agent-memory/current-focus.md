@@ -6,7 +6,7 @@
 
 ## Current Objective
 
-- Finalize the `0.2.0` release by curating the feature worktree, preserving only durable repo memory, validating the curated payload, merging into `main`, and packaging the final VSIX from `main`.
+- `0.2.0` is now merged into `main`, validated, and packaged. The next practical step is manual VS Code review of the packaged artifact, followed by future work on the deferred roadmap epics rather than more `0.2.0` feature churn.
 
 ## Release Boundaries
 
@@ -16,15 +16,20 @@
 - Keep Evidence and Export secondary in the shipped workspace UX.
 - Keep `.vscode-test/` and other generated test-host artifacts out of commits.
 
-## Remaining Steps
+## Release Outcome
 
-1. Resolve branch-integration conflicts while preserving the validated `0.2.0` release payload.
-2. Re-run validation after branch integration completes.
-3. Fast-forward or merge the curated branch into `main`.
-4. Re-run validation on `main`.
-5. Package `pbir-design-analyzer-0.2.0.vsix` from `main`.
-6. Record final package path, validation results, and deferred roadmap references.
+- `main` now includes the full `0.2.0` review-workspace release.
+- Packaged artifact: `vscode-extension/pbir-design-analyzer-0.2.0.vsix`
+- Validation completed on `main`:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package`
+- Environment preparation needed on `main` before final validation:
+  - `cd vscode-extension && npm ci`
+  - `dotnet build service-dotnet/RpcHost/RpcHost.csproj -c Release`
+- Manual VS Code smoke pass was not rerun in this release-finalization session.
 
 ## Next Recommended Step
 
-- Finish the branch-integration pass in the feature worktree before touching the root `main` checkout.
+- Review the packaged `0.2.0` VSIX in VS Code, then start with roadmap Epic 1: Consultant Deliverables & Export Platform.
