@@ -22,8 +22,8 @@
 
 - Curated the release payload, pruned raw session clutter, and kept only compact durable repo memory.
 - Merged `feat/semantic-color-chart-intent` into `main`, revalidated from `main`, and packaged `vscode-extension/pbir-design-analyzer-0.2.0.vsix`.
+- Completed an isolated VS Code smoke pass against `Sales & Production.pbip`; verified `PBIR Optimization Report` and `Design Analyzer Configuration` open and the governance command returns without host failure.
 - Recorded the deferred epic order as:
   1. Consultant Deliverables & Export Platform
   2. Visual Intelligence & Screenshot Analysis
   3. Enterprise Governance & Advanced Review
-- Did not rerun a fresh manual VS Code smoke pass during the finalization session; previous UAT history remains documented, but the release record should treat that as a skipped final step.

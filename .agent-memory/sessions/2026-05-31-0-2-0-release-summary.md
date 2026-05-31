@@ -48,6 +48,10 @@ Release validation should include:
   - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
 - Packaged from `main` with:
   - `cd vscode-extension && npm run package`
+- Completed an isolated VS Code smoke pass against `/Users/bcrowell/Documents/GitHub/PBITesting/Sales & Production.pbip`:
+  - `pbirAnalyzer.scoreReport` opened `PBIR Optimization Report`
+  - `pbirAnalyzer.configureScoring` opened `Design Analyzer Configuration`
+  - `pbirAnalyzer.checkGovernance` returned without extension-host failure
 - Environment preparation required on `main` before the final validation rerun:
   - `cd vscode-extension && npm ci`
   - `dotnet build service-dotnet/RpcHost/RpcHost.csproj -c Release`
@@ -56,10 +60,6 @@ Release validation should include:
 
 - `vscode-extension/pbir-design-analyzer-0.2.0.vsix`
 
-## Known Release Gap
-
-- A fresh manual VS Code smoke pass was not executed during the release-finalization session. Previous UAT history exists in earlier notes, but this final session stopped at compile/test/package validation.
-
 ## Next Practical Step
 
-- Install and review the packaged `0.2.0` VSIX in VS Code, then move to roadmap Epic 1 rather than reopening `0.2.0` scope.
+- Move to roadmap Epic 1 rather than reopening `0.2.0` scope.

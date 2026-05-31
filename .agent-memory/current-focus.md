@@ -6,7 +6,7 @@
 
 ## Current Objective
 
-- `0.2.0` is now merged into `main`, validated, and packaged. The next practical step is manual VS Code review of the packaged artifact, followed by future work on the deferred roadmap epics rather than more `0.2.0` feature churn.
+- `0.2.0` is now merged into `main`, validated, packaged, and smoke-checked in an isolated VS Code host. The next practical step is future work on the deferred roadmap epics rather than more `0.2.0` churn.
 
 ## Release Boundaries
 
@@ -25,11 +25,14 @@
   - `cd vscode-extension && npm test`
   - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
   - `cd vscode-extension && npm run package`
+- Automated smoke pass completed in an isolated VS Code extension host against `Sales & Production.pbip`:
+  - `pbirAnalyzer.scoreReport` opened `PBIR Optimization Report`
+  - `pbirAnalyzer.configureScoring` opened `Design Analyzer Configuration`
+  - `pbirAnalyzer.checkGovernance` returned without crashing the extension host
 - Environment preparation needed on `main` before final validation:
   - `cd vscode-extension && npm ci`
   - `dotnet build service-dotnet/RpcHost/RpcHost.csproj -c Release`
-- Manual VS Code smoke pass was not rerun in this release-finalization session.
 
 ## Next Recommended Step
 
-- Review the packaged `0.2.0` VSIX in VS Code, then start with roadmap Epic 1: Consultant Deliverables & Export Platform.
+- Start with roadmap Epic 1: Consultant Deliverables & Export Platform.
