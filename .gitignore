@@ -15,7 +15,10 @@ vscode-extension/backend/rpc/
 *.trx
 
 .vscode/
+.vscode-test/
+**/.vscode-test/
 .idea/
+.worktrees/
 *.swp
 *.swo
 

@@ -14,16 +14,17 @@
 - Do not implement deferred roadmap epics in this release.
 - Keep scoring authoritative and unchanged.
 - Keep Evidence and Export secondary in the shipped workspace UX.
+- Keep `.vscode-test/` and other generated test-host artifacts out of commits.
 
 ## Remaining Steps
 
-1. Prune transient `.agent-memory` session clutter and generated test-host artifacts.
-2. Validate the feature worktree with compile and test commands.
-3. Commit the curated `0.2.0` payload on the feature branch.
-4. Merge into `main` and re-run validation there.
+1. Resolve branch-integration conflicts while preserving the validated `0.2.0` release payload.
+2. Re-run validation after branch integration completes.
+3. Fast-forward or merge the curated branch into `main`.
+4. Re-run validation on `main`.
 5. Package `pbir-design-analyzer-0.2.0.vsix` from `main`.
 6. Record final package path, validation results, and deferred roadmap references.
 
 ## Next Recommended Step
 
-- Finish release-payload curation first; do not merge until `.agent-memory`, docs, and generated artifacts have been cleaned.
+- Finish the branch-integration pass in the feature worktree before touching the root `main` checkout.

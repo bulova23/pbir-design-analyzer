@@ -10,6 +10,7 @@
   - Consultant Deliverables & Export Platform
   - Visual Intelligence & Screenshot Analysis
   - Enterprise Governance & Advanced Review
+- Cleaned release history by ignoring `.vscode-test/` artifacts and keeping repo memory compact for the `0.2.0` merge.
 
 ## Durable References
 
