@@ -2,7 +2,6 @@ import React from 'react';
 import type {
   AffectedVisualReference,
   ActionabilityBreakdown,
-  AuditCaptureSummary,
   AuditFindingDisplay,
   AuditPageState,
   AuditState,
@@ -35,6 +34,7 @@ import {
 } from '../../src/analyzer/score/presentation';
 import { applyPersonaPresentation, getReviewPresentationPersonaProfiles } from '../../src/analyzer/score/personaPresentation';
 import { buildReviewerComments } from '../../src/analyzer/score/reviewerComments';
+import { buildContextAwareRemediationQueue, type ContextAwareRemediationQueue } from './remediationQueue';
 
 interface ScoreVsCodeApi {
   postMessage(message: ScorePanelWebviewToHostMessage): void;
@@ -296,6 +296,10 @@ function getMatrixStatusClassName(status: NonNullable<ScoreResult['crossPageMatr
     default:
       return 'matrix-status-unknown';
   }
+}
+
+function getMatrixStatusLabel(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
+  return status[0].toUpperCase() + status.slice(1);
 }
 
 function mapDimensionToImpactAreas(dimension: Exclude<IssueFilterState['dimension'], 'all'>): NormalizedFinding['impactArea'][] {
@@ -742,14 +746,20 @@ function renderOverviewWorkspace(
   scoreValue: number,
   visualMix: { data?: number; navigation?: number; hidden?: number },
   crossPageMatrix: ScoreResult['crossPageMatrix'],
+  selectedPageName: string | undefined,
   workspacePersona: ReviewPresentationPersona,
   personaProfiles: ReviewPresentationPersonaProfile[],
   onWorkspacePersonaChange: (persona: ReviewPresentationPersona) => void,
   onMatrixCellClick: (pageName: string, dimension: Exclude<IssueFilterState['dimension'], 'all'>) => void,
+  onReturnToReportContext: () => void,
 ): React.ReactNode {
   if (!overviewSummary) {
     return null;
   }
+
+  const visibleRows = selectedPageName
+    ? crossPageMatrix?.rows.filter((row) => row.pageName === selectedPageName)
+    : crossPageMatrix?.rows;
 
   return (
     <section aria-label="Overview workspace" className="panel-card overview-card">
@@ -851,9 +861,16 @@ function renderOverviewWorkspace(
           </ol>
         </div>
       </div>
-      {crossPageMatrix ? (
+      {crossPageMatrix && visibleRows && visibleRows.length > 0 ? (
         <div className="overview-matrix">
-          <h3>Cross-page matrix</h3>
+          <div className="overview-matrix-head">
+            <h3>Cross-page matrix</h3>
+            {selectedPageName ? (
+              <button className="link-button" onClick={onReturnToReportContext} type="button">
+                Back to full matrix
+              </button>
+            ) : null}
+          </div>
           <div className="matrix-scroll">
             <table>
               <thead>
@@ -865,7 +882,7 @@ function renderOverviewWorkspace(
                 </tr>
               </thead>
               <tbody>
-                {crossPageMatrix.rows.map((row) => (
+                {visibleRows.map((row) => (
                   <tr key={row.pageName}>
                     <th>{row.pageName}</th>
                     {row.cells.map((cell) => (
@@ -877,8 +894,8 @@ function renderOverviewWorkspace(
                           title={cell.summary}
                           type="button"
                         >
-                          <strong>{cell.findingCount}</strong>
-                          <span>{cell.status}</span>
+                          <strong>{getMatrixStatusLabel(cell.status)}</strong>
+                          <span>{cell.findingCount} finding{cell.findingCount === 1 ? '' : 's'}</span>
                           {cell.highSeverityCount > 0 ? <small>{cell.highSeverityCount} high</small> : null}
                         </button>
                       </td>
@@ -894,13 +911,107 @@ function renderOverviewWorkspace(
   );
 }
 
-function renderFixPlanSection(
-  fixPlan: ScoreResult['fixPlan'],
-): React.ReactNode {
-  if (!fixPlan || fixPlan.length === 0) {
+function renderPagePurposeAnalysisSection(props: {
+  analysis: ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis'];
+  storySummary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>;
+  pageIntentProfile: PageIntentProfile | undefined;
+  selectedProfile: PageIntentProfileType;
+  onProfileChange: (next: PageIntentProfileType) => void;
+  actionabilityBreakdown: ActionabilityBreakdown | undefined;
+  benchmarkComparison: BenchmarkComparisonSummary | undefined;
+  confirmation: IntentFeedbackConfirmation | undefined;
+  note: string;
+  onConfirm: (next: IntentFeedbackConfirmation) => void;
+  onNoteChange: (next: string) => void;
+  onSaveNote: () => void;
+  noteSaved: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}): React.ReactNode {
+  const {
+    analysis,
+    storySummary,
+    pageIntentProfile,
+    selectedProfile,
+    onProfileChange,
+    actionabilityBreakdown,
+    benchmarkComparison,
+    confirmation,
+    note,
+    onConfirm,
+    onNoteChange,
+    onSaveNote,
+    noteSaved,
+    expanded,
+    onToggleExpanded,
+  } = props;
+
+  if (!analysis) {
     return null;
   }
 
+  return (
+    <section className="panel-card page-purpose-card">
+      <div className="issues-section-head">
+        <div>
+          <p className="section-kicker">Reasoning workflow</p>
+          <h2>Page Purpose Analysis</h2>
+        </div>
+        <p className="issues-section-copy">
+          Understand what this page appears to do, why the analyzer believes that, and where the decision-support gaps still sit.
+        </p>
+      </div>
+      <div className="page-purpose-summary">
+        <div className="overview-badges">
+          <span className="overview-badge">Purpose: {analysis.inferredPurpose}</span>
+          {analysis.confidence ? <span className="overview-badge">Confidence: {analysis.confidence}</span> : null}
+          {typeof analysis.actionabilityScore === 'number' ? (
+            <span className="overview-badge">Actionability: {analysis.actionabilityScore.toFixed(0)}/100</span>
+          ) : null}
+          {analysis.benchmarkStatus ? <span className="overview-badge">Benchmark: {analysis.benchmarkStatus}</span> : null}
+        </div>
+        {analysis.topGaps.length > 0 ? (
+          <p className="overview-copy">
+            <strong>Top gaps:</strong> {analysis.topGaps.join(' · ')}
+          </p>
+        ) : null}
+        <h3>Why This Matters</h3>
+        <p className="overview-summary-copy">{analysis.whyThisMatters}</p>
+        <button className="secondary-button" onClick={onToggleExpanded} type="button">
+          {expanded ? 'Hide Full Reasoning' : 'Show Full Reasoning'}
+        </button>
+      </div>
+      {expanded ? (
+        <div className="page-purpose-details">
+          {renderPageStorySummary(storySummary)}
+          {renderPageIntentProfileSummary(
+            pageIntentProfile,
+            selectedProfile,
+            onProfileChange,
+          )}
+          {renderActionabilityBreakdown(actionabilityBreakdown)}
+          {renderBenchmarkComparison(benchmarkComparison)}
+          <section className="panel-card story-review-card">
+            {renderStoryIntentReview(
+              storySummary,
+              confirmation,
+              note,
+              onConfirm,
+              onNoteChange,
+              onSaveNote,
+              noteSaved,
+            )}
+          </section>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function renderFixPlanSection(
+  queue: ContextAwareRemediationQueue,
+): React.ReactNode {
+  const fixPlan = queue.items;
   return (
     <section aria-label="Fix plan" className="panel-card fix-plan-card">
       <div className="issues-section-head">
@@ -909,39 +1020,72 @@ function renderFixPlanSection(
           <h2>Fix Plan</h2>
         </div>
         <p className="issues-section-copy">
-          Convert the highest-priority findings into a sequenced remediation queue.
+          Convert the selected problem area into a sequenced remediation queue.
         </p>
       </div>
-      <ol className="fix-plan-list">
-        {fixPlan.map((item) => (
-          <li className="fix-plan-item" key={item.id}>
-            <div className="fix-plan-head">
-              <h3>{item.title}</h3>
-              <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(item.severity)}`}>{item.severity}</span>
-            </div>
-            <p>{item.detail}</p>
-            <p className="fix-plan-recommendation"><strong>Recommended action:</strong> {item.recommendedAction}</p>
-            <dl className="issue-meta-grid">
-              <div>
-                <dt>Effort</dt>
-                <dd>{item.effort}</dd>
+      <div className="issue-detail-block">
+        <p className="issue-detail-label">Remediation Focus</p>
+        <p>{queue.focus.label}</p>
+        <p className="issues-section-copy">{queue.focus.helperText}</p>
+      </div>
+      {fixPlan.length === 0 ? (
+        <p className="empty-text">No remediation actions were generated for this problem area.</p>
+      ) : (
+        <ol className="fix-plan-list">
+          {fixPlan.map((item) => (
+            <li className="fix-plan-item" key={item.id}>
+              <div className="fix-plan-head">
+                <h3>{item.title}</h3>
+                <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(item.severity)}`}>{item.severity}</span>
               </div>
-              <div>
-                <dt>Scope</dt>
-                <dd>{getScopeLabel(item.scope)}</dd>
+              <p>{item.detail}</p>
+              <dl className="issue-meta-grid">
+                <div>
+                  <dt>Impact</dt>
+                  <dd>{item.impact}</dd>
+                </div>
+                <div>
+                  <dt>Effort</dt>
+                  <dd>{item.effort}</dd>
+                </div>
+                <div>
+                  <dt>Scope</dt>
+                  <dd>{getScopeLabel(item.scope)}</dd>
+                </div>
+                <div>
+                  <dt>Affected pages</dt>
+                  <dd>{item.affectedPages.length > 0 ? item.affectedPages.join(', ') : 'Report-wide'}</dd>
+                </div>
+              </dl>
+              <p className="fix-plan-recommendation"><strong>Why:</strong> {item.why}</p>
+              <p className="fix-plan-recommendation"><strong>Recommended action:</strong> {item.recommendedAction}</p>
+              {item.findingCoverageLabel ? (
+                <p className="fix-plan-recommendation"><strong>Finding Coverage:</strong> {item.findingCoverageLabel}</p>
+              ) : null}
+              {item.resolvedOutcomes.length > 0 ? (
+                <div className="issue-detail-block">
+                  <p className="issue-detail-label">Resolves</p>
+                  <ul className="issue-evidence-list">
+                    {item.resolvedOutcomes.map((outcome) => (
+                      <li className="issue-evidence-item" key={`${item.id}-${outcome}`}>{outcome}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="issue-detail-block">
+                <p className="issue-detail-label">Source findings</p>
+                <ul className="issue-evidence-list">
+                  {item.sourceFindings.map((finding) => (
+                    <li className="issue-evidence-item" key={`${item.id}-${finding.id}`}>
+                      {finding.title} ({getNormalizedFindingSeverityLabel(finding.severity)})
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div>
-                <dt>Affected pages</dt>
-                <dd>{item.affectedPages.length > 0 ? item.affectedPages.join(', ') : 'Report-wide'}</dd>
-              </div>
-              <div>
-                <dt>Source findings</dt>
-                <dd>{item.sourceFindingIds.join(', ')}</dd>
-              </div>
-            </dl>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   );
 }
@@ -1349,19 +1493,6 @@ function getReviewStatusLabel(status: ReviewStatus): string {
       return 'Mismatch / Needs review';
     default:
       return 'Not reviewed';
-  }
-}
-
-function getReviewStatusShortLabel(status: ReviewStatus): string {
-  switch (status) {
-    case 'confirmed':
-      return 'Confirmed';
-    case 'partial':
-      return 'Partial';
-    case 'mismatch':
-      return 'Mismatch';
-    default:
-      return 'Unreviewed';
   }
 }
 
@@ -2333,6 +2464,7 @@ export default function App(): JSX.Element {
   const [intentProfileOverrides, setIntentProfileOverrides] = React.useState<Record<string, PageIntentProfileType>>({});
   const [reviewerPersonaByPage, setReviewerPersonaByPage] = React.useState<Record<string, ReviewerPersona>>({});
   const [workspacePersona, setWorkspacePersona] = React.useState<ReviewPresentationPersona>('default');
+  const [pagePurposeExpanded, setPagePurposeExpanded] = React.useState(false);
   const [reviewStatusFilter, setReviewStatusFilter] = React.useState<ReviewStatus | 'all'>('all');
   const [issueFilters, setIssueFilters] = React.useState<IssueFilterState>({
     severity: 'all',
@@ -2395,6 +2527,7 @@ export default function App(): JSX.Element {
         const availableProfiles = message.state.result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
         const nextPersona = message.state.result.personaPresentation?.activePersona ?? 'default';
         setWorkspacePersona(nextPersona);
+        setPagePurposeExpanded(false);
         setIssueFilters(buildPersonaDefaultFilters(availableProfiles.find((profile) => profile.id === nextPersona)));
         setIssueFiltersDirty(false);
         return;
@@ -2489,6 +2622,8 @@ export default function App(): JSX.Element {
   const storyNote = storyFeedback?.note ?? '';
   const pageMetadata = selectedPage?.visualMetadata
     ?? (!multiPage ? (result.visualMetadata ?? pageScores[0]?.visualMetadata) : undefined);
+  const pagePurposeAnalysis = selectedPage?.pagePurposeAnalysis
+    ?? (!multiPage ? (result.pagePurposeAnalysis ?? pageScores[0]?.pagePurposeAnalysis) : undefined);
   const reviewEntries = buildPageReviewEntries(pageScores, result, storyIntentFeedback);
   const personaProfiles = result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
   const personaPresentation = result.overviewSummary
@@ -2500,12 +2635,10 @@ export default function App(): JSX.Element {
       })
     : undefined;
   const visibleFindings = buildVisibleFindings(personaPresentation?.findings ?? result.normalizedFindings, selectedPage?.pageName);
-  const filteredFixPlan = (personaPresentation?.fixPlan ?? result.fixPlan ?? []).filter((item) => {
-    if (!selectedPage) {
-      return true;
-    }
-
-    return item.affectedPages.length === 0 || item.affectedPages.includes(selectedPage.pageName);
+  const remediationQueue = buildContextAwareRemediationQueue({
+    findings: personaPresentation?.findings ?? result.normalizedFindings,
+    selectedPageName: selectedPage?.pageName,
+    filters: issueFilters,
   });
   const visualMix = selectedPage
     ? {
@@ -2561,13 +2694,13 @@ export default function App(): JSX.Element {
           >
             Refresh
           </button>
-          {filteredFixPlan.length > 0 ? (
+          {remediationQueue.items.length > 0 ? (
             <button
               className="primary-button"
               onClick={focusRecommendations}
               type="button"
             >
-              Review Fix Plan ({filteredFixPlan.length})
+              Review Fix Plan ({remediationQueue.items.length})
             </button>
           ) : null}
         </div>
@@ -2587,6 +2720,7 @@ export default function App(): JSX.Element {
               key={tab}
               onClick={() => {
                 setActiveTab(index);
+                setPagePurposeExpanded(false);
                 vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: index });
               }}
               type="button"
@@ -2603,6 +2737,7 @@ export default function App(): JSX.Element {
         scoreValue,
         visualMix,
         result.crossPageMatrix,
+        selectedPage?.pageName,
         workspacePersona,
         personaProfiles,
         (nextPersona) => {
@@ -2621,6 +2756,11 @@ export default function App(): JSX.Element {
           }));
           setIssueFiltersDirty(true);
           focusIssues();
+        },
+        () => {
+          setActiveTab(0);
+          setPagePurposeExpanded(false);
+          vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: 0 });
         },
       )}
 
@@ -2645,81 +2785,75 @@ export default function App(): JSX.Element {
         onExport: () => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' }),
       }) : null}
 
-      {storySummary ? (
-        <>
-          {renderPageStorySummary(storySummary)}
-          {renderPageIntentProfileSummary(
-            selectedPage?.pageIntentProfile ?? result.pageIntentProfile,
-            selectedIntentProfile,
-            (next) => setIntentProfileOverrides((prev) => ({ ...prev, [intentProfileKey]: next })),
-          )}
-          {renderActionabilityBreakdown(selectedPage?.actionabilityBreakdown ?? result.actionabilityBreakdown)}
-          {renderBenchmarkComparison(selectedPage?.benchmarkComparison ?? result.benchmarkComparison)}
-          <section className="panel-card story-review-card">
-            {renderStoryIntentReview(
-              storySummary,
-              storyConfirmation,
-              storyNote,
-              (next) => {
-                if (!storyConfirmationKey) {
-                  return;
-                }
+      {storySummary && pagePurposeAnalysis ? renderPagePurposeAnalysisSection({
+        analysis: pagePurposeAnalysis,
+        storySummary,
+        pageIntentProfile: selectedPage?.pageIntentProfile ?? result.pageIntentProfile,
+        selectedProfile: selectedIntentProfile,
+        onProfileChange: (next) => setIntentProfileOverrides((prev) => ({ ...prev, [intentProfileKey]: next })),
+        actionabilityBreakdown: selectedPage?.actionabilityBreakdown ?? result.actionabilityBreakdown,
+        benchmarkComparison: selectedPage?.benchmarkComparison ?? result.benchmarkComparison,
+        confirmation: storyConfirmation,
+        note: storyNote,
+        onConfirm: (next) => {
+          if (!storyConfirmationKey) {
+            return;
+          }
 
-                setStoryIntentFeedback((prev) => ({
-                  ...prev,
-                  [storyConfirmationKey]: {
-                    confirmation: next,
-                    note: prev[storyConfirmationKey]?.note ?? '',
-                  },
-                }));
-                setSavedStoryNoteKey(undefined);
-                const note = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
-                vscodeApiRef.current?.postMessage({
-                  type: 'setIntentFeedback',
-                  pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
-                  inferredIntent: storySummary.intentProfile,
-                  storyArchetype: storySummary.storyArchetype,
-                  userConfirmation: next,
-                  inferenceConfidence: storySummary.confidence,
-                  note: note ? note : undefined,
-                });
-              },
-              (nextNote) => {
-                if (!storyConfirmationKey) {
-                  return;
-                }
+          setStoryIntentFeedback((prev) => ({
+            ...prev,
+            [storyConfirmationKey]: {
+              confirmation: next,
+              note: prev[storyConfirmationKey]?.note ?? '',
+            },
+          }));
+          setSavedStoryNoteKey(undefined);
+          const note = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
+          vscodeApiRef.current?.postMessage({
+            type: 'setIntentFeedback',
+            pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
+            inferredIntent: storySummary.intentProfile,
+            storyArchetype: storySummary.storyArchetype,
+            userConfirmation: next,
+            inferenceConfidence: storySummary.confidence,
+            note: note ? note : undefined,
+          });
+        },
+        onNoteChange: (nextNote) => {
+          if (!storyConfirmationKey) {
+            return;
+          }
 
-                setStoryIntentFeedback((prev) => ({
-                  ...prev,
-                  [storyConfirmationKey]: {
-                    confirmation: prev[storyConfirmationKey]?.confirmation,
-                    note: nextNote,
-                  },
-                }));
-                setSavedStoryNoteKey(undefined);
-              },
-              () => {
-                if (!storyConfirmationKey || !storyConfirmation) {
-                  return;
-                }
+          setStoryIntentFeedback((prev) => ({
+            ...prev,
+            [storyConfirmationKey]: {
+              confirmation: prev[storyConfirmationKey]?.confirmation,
+              note: nextNote,
+            },
+          }));
+          setSavedStoryNoteKey(undefined);
+        },
+        onSaveNote: () => {
+          if (!storyConfirmationKey || !storyConfirmation) {
+            return;
+          }
 
-                const noteToSave = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
-                vscodeApiRef.current?.postMessage({
-                  type: 'setIntentFeedback',
-                  pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
-                  inferredIntent: storySummary.intentProfile,
-                  storyArchetype: storySummary.storyArchetype,
-                  userConfirmation: storyConfirmation,
-                  inferenceConfidence: storySummary.confidence,
-                  note: noteToSave ? noteToSave : undefined,
-                });
-                setSavedStoryNoteKey(storyConfirmationKey);
-              },
-              savedStoryNoteKey === storyConfirmationKey,
-            )}
-          </section>
-        </>
-      ) : null}
+          const noteToSave = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
+          vscodeApiRef.current?.postMessage({
+            type: 'setIntentFeedback',
+            pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
+            inferredIntent: storySummary.intentProfile,
+            storyArchetype: storySummary.storyArchetype,
+            userConfirmation: storyConfirmation,
+            inferenceConfidence: storySummary.confidence,
+            note: noteToSave ? noteToSave : undefined,
+          });
+          setSavedStoryNoteKey(storyConfirmationKey);
+        },
+        noteSaved: savedStoryNoteKey === storyConfirmationKey,
+        expanded: pagePurposeExpanded,
+        onToggleExpanded: () => setPagePurposeExpanded((prev) => !prev),
+      }) : null}
       <section ref={issuesSectionRef} tabIndex={-1}>
         {renderIssuesWorkspace({
           findings: visibleFindings,
@@ -2751,7 +2885,7 @@ export default function App(): JSX.Element {
       </section>
 
       <div ref={fixPlanSectionRef} tabIndex={-1}>
-        {renderFixPlanSection(filteredFixPlan)}
+        {renderFixPlanSection(remediationQueue)}
       </div>
       {selectedPage ? renderReviewerCommentGenerator(
         selectedPage,

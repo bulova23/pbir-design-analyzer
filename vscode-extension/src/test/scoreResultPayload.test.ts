@@ -315,11 +315,27 @@ describe('normalizeScoreResultPayload', () => {
         }),
       ]),
     });
+    expect((normalized as unknown as Record<string, unknown>).pagePurposeAnalysis).toMatchObject({
+      inferredPurpose: 'Executive',
+      confidence: 'high',
+      actionabilityScore: 60,
+      benchmarkStatus: expect.any(String),
+      whyThisMatters: expect.any(String),
+    });
+    expect((normalized.pageScores?.[0] as unknown as Record<string, unknown>)?.pagePurposeAnalysis).toMatchObject({
+      inferredPurpose: 'Executive',
+      confidence: 'high',
+      actionabilityScore: 60,
+      whyThisMatters: expect.any(String),
+    });
     expect(normalized.fixPlan).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           severity: expect.any(String),
           effort: expect.any(String),
+          impact: expect.any(String),
+          why: expect.any(String),
+          resolvedOutcomes: expect.any(Array),
           sourceFindingIds: expect.any(Array),
         }),
       ]),

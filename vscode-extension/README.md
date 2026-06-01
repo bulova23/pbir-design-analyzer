@@ -12,16 +12,12 @@ Documentation: [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md)
 4. Open PBIR Design Analyzer: Configure Scoring if you want to tune framework weights or navigation treatment.
 5. Use PBIR Design Analyzer: Check Governance only when your workspace has shared governance enabled.
 
-## What’s New In 0.2.0
+## What’s New In 0.2.2
 
-- Overview workspace for executive triage
-- Issues workspace powered by normalized findings
-- Fix Plan remediation queue
-- Evidence moved behind secondary drilldown
-- smart collapse defaults
-- persona review modes
-- cross-page matrix navigation
-- review packet preview/export kept downstream from analysis
+- `Fix Plan` now shows an explicit `Remediation Focus` so users can see the selected page and problem area driving the queue
+- remediation actions derive from `Page`, `Dimension`, and `Impact` instead of mirroring every issue filter exactly
+- `Severity`, `Scope`, and `Detection` still refine `Issues`, but they no longer hard-prune related remediation work
+- each remediation action now shows finding coverage such as `1 High · 2 Medium` plus clearer source-finding traceability
 
 ## What It Analyzes
 

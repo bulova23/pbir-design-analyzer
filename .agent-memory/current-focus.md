@@ -6,7 +6,7 @@
 
 ## Current Objective
 
-- `0.2.0` is now merged into `main`, validated, packaged, and smoke-checked in an isolated VS Code host. The next practical step is future work on the deferred roadmap epics rather than more `0.2.0` churn.
+- `0.2.2` is now packaged with the Context-Aware Remediation Queue enhancement. The remaining release-confidence step is a manual VS Code smoke check against the packaged build.
 
 ## Release Boundaries
 
@@ -20,6 +20,8 @@
 
 - `main` now includes the full `0.2.0` review-workspace release.
 - Packaged artifact: `vscode-extension/pbir-design-analyzer-0.2.0.vsix`
+- New packaged artifact for the UX consolidation follow-up: `vscode-extension/pbir-design-analyzer-0.2.1.vsix`
+- New packaged artifact for the remediation follow-up: `vscode-extension/pbir-design-analyzer-0.2.2.vsix`
 - Validation completed on `main`:
   - `cd vscode-extension && npm run compile`
   - `cd vscode-extension && npm test`
@@ -35,4 +37,4 @@
 
 ## Next Recommended Step
 
-- Start with roadmap Epic 1: Consultant Deliverables & Export Platform.
+- Run a manual VS Code smoke check for `vscode-extension/pbir-design-analyzer-0.2.2.vsix`, then decide whether the next implementation step is AI-Assisted Fixes / Refactoring Engine or a return to the broader post-`0.2.0` roadmap.

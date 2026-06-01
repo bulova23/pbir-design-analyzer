@@ -238,6 +238,7 @@ export type ReviewWorkflowMarkdownTemplateVariant = 'standard' | 'brandedConsult
 export type OverviewMaturityBand = 'Emerging' | 'Developing' | 'Mature' | 'Advanced';
 export type OverviewRiskBand = 'Low' | 'Moderate' | 'Elevated' | 'High';
 export type FixPlanEffort = 'low' | 'medium' | 'high';
+export type FixPlanImpact = 'low' | 'medium' | 'high';
 
 export interface ReviewWorkflowMarkdownBranding {
   clientName?: string;
@@ -353,6 +354,7 @@ export interface PageScore {
   scoringError?: string;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
+  pagePurposeAnalysis?: PagePurposeAnalysisSummary;
 }
 
 export interface OverviewInsight {
@@ -438,10 +440,22 @@ export interface FixPlanItem {
   detail: string;
   severity: NormalizedFindingSeverity;
   effort: FixPlanEffort;
+  impact: FixPlanImpact;
+  why: string;
   scope: NormalizedFindingScope;
   affectedPages: string[];
   recommendedAction: string;
+  resolvedOutcomes: string[];
   sourceFindingIds: string[];
+}
+
+export interface PagePurposeAnalysisSummary {
+  inferredPurpose: string;
+  confidence?: StoryConfidence;
+  actionabilityScore?: number;
+  benchmarkStatus?: string;
+  topGaps: string[];
+  whyThisMatters: string;
 }
 
 export interface ReviewPresentationPersonaProfile {
@@ -495,6 +509,7 @@ export interface ScoreResult {
   governanceScore?: number;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
+  pagePurposeAnalysis?: PagePurposeAnalysisSummary;
   normalizedFindings?: NormalizedFinding[];
   overviewSummary?: OverviewSummary;
   fixPlan?: FixPlanItem[];

@@ -2,7 +2,7 @@ import type { NormalizedFinding } from '../analyzer/contracts/scorePanel';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
 
 describe('buildFixPlan', () => {
-  it('builds a prioritized remediation queue linked back to normalized findings', () => {
+  it('builds a grouped remediation queue linked back to normalized findings', () => {
     const findings: NormalizedFinding[] = [
       {
         id: 'high-actionability',
@@ -17,6 +17,22 @@ describe('buildFixPlan', () => {
         frameworkImpact: ['Narrative Design'],
         recommendation: 'Add a stronger exception callout.',
         sourceKind: 'actionability',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+      {
+        id: 'high-benchmark',
+        title: 'Benchmark gap',
+        summary: 'Target benchmarks are missing from the executive KPI band.',
+        severity: 'high',
+        confidence: 85,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'benchmark',
+        frameworkImpact: ['Narrative Design'],
+        recommendation: 'Add target benchmarks to the KPI band.',
+        sourceKind: 'benchmark',
         sourceSection: 'issues',
         evidence: [],
       },
@@ -40,16 +56,22 @@ describe('buildFixPlan', () => {
 
     const queue = buildFixPlan(findings);
 
+    expect(queue).toHaveLength(2);
     expect(queue[0]).toMatchObject({
-      title: 'Actionability gap',
+      title: 'Add benchmarks and decision context',
       severity: 'high',
-      effort: 'medium',
-      sourceFindingIds: ['high-actionability'],
-      recommendedAction: 'Add a stronger exception callout.',
+      effort: 'low',
+      sourceFindingIds: ['high-actionability', 'high-benchmark'],
+      impact: 'high',
+      why: 'Reduces risk of KPI misinterpretation.',
+      resolvedOutcomes: ['Actionability gap', 'Benchmark gap'],
     });
     expect(queue[1]).toMatchObject({
+      title: 'Standardize navigation cues',
       severity: 'medium',
       effort: 'high',
+      impact: 'medium',
+      why: 'Makes navigation more predictable across related pages.',
       sourceFindingIds: ['medium-navigation'],
     });
   });

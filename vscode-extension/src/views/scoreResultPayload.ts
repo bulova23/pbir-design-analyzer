@@ -20,6 +20,7 @@ import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
 import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
 import { buildOverviewSummary } from '../analyzer/score/overviewSummary';
+import { buildPagePurposeAnalysis } from '../analyzer/score/pagePurposeAnalysis';
 import { getReviewPresentationPersonaProfiles } from '../analyzer/score/personaPresentation';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -516,6 +517,7 @@ function normalizePageScore(value: unknown): PageScore {
     scoringError: readOptionalString(candidate, 'scoringError'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
+    pagePurposeAnalysis: undefined,
   };
 }
 
@@ -558,8 +560,24 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     governanceScore: readOptionalNumber(candidate, 'governanceScore'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
+    pagePurposeAnalysis: undefined,
   };
 
+  normalized.pageScores = normalized.pageScores?.map((page) => ({
+    ...page,
+    pagePurposeAnalysis: buildPagePurposeAnalysis({
+      storySummary: page.inferredStorySummary,
+      pageIntentProfile: page.pageIntentProfile,
+      actionabilityBreakdown: page.actionabilityBreakdown,
+      benchmarkComparison: page.benchmarkComparison,
+    }),
+  }));
+  normalized.pagePurposeAnalysis = buildPagePurposeAnalysis({
+    storySummary: normalized.inferredStorySummary,
+    pageIntentProfile: normalized.pageIntentProfile,
+    actionabilityBreakdown: normalized.actionabilityBreakdown,
+    benchmarkComparison: normalized.benchmarkComparison,
+  });
   normalized.normalizedFindings = buildNormalizedFindings(normalized);
   normalized.fixPlan = buildFixPlan(normalized.normalizedFindings);
   normalized.overviewSummary = buildOverviewSummary(normalized);

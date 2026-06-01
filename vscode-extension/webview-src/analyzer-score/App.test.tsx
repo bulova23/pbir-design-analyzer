@@ -101,6 +101,14 @@ const scoreState: ScorePanelState = {
       strengths: ['Clear KPI band'],
       gaps: ['Weak exception callout'],
     },
+    pagePurposeAnalysis: {
+      inferredPurpose: 'Executive',
+      confidence: 'high',
+      actionabilityScore: 58,
+      benchmarkStatus: 'Mixed against expected',
+      topGaps: ['Exception visibility is weak.'],
+      whyThisMatters: 'This page appears intended for executive review but lacks the decision context expected for that audience. Decision makers may misinterpret KPI values without targets or prior-period comparison.',
+    },
     reportConsistencySummary: {
       consistentTitleAnchors: false,
       consistentFilterBand: true,
@@ -275,24 +283,30 @@ const scoreState: ScorePanelState = {
     fixPlan: [
       {
         id: 'fix-overview-actionability',
-        title: 'Actionability gap',
-        detail: 'The page includes some decision context but still hides the main exception.',
+        title: 'Add benchmarks and decision context',
+        detail: 'Resolve 2 related findings through one remediation step.',
         severity: 'high',
-        effort: 'medium',
+        effort: 'low',
+        impact: 'high',
+        why: 'Reduces risk of KPI misinterpretation.',
         scope: 'page',
         affectedPages: ['Overview'],
-        recommendedAction: 'Exception visibility is weak.',
-        sourceFindingIds: ['overview-actionability'],
+        recommendedAction: 'Add target benchmarks, prior-period context, and urgency cues.',
+        resolvedOutcomes: ['Benchmark gap', 'Actionability gap'],
+        sourceFindingIds: ['overview-actionability', 'details-benchmark'],
       },
       {
         id: 'fix-cross-page-navigation',
-        title: 'navigation',
+        title: 'Standardize navigation cues',
         detail: 'Navigation patterns differ across the report. Detection is partially detectable from PBIR metadata.',
         severity: 'medium',
         effort: 'high',
+        impact: 'medium',
+        why: 'Makes navigation more predictable across related pages.',
         scope: 'crossPage',
         affectedPages: ['Details'],
         recommendedAction: 'Keep navigation controls in one predictable zone.',
+        resolvedOutcomes: ['Navigation consistency'],
         sourceFindingIds: ['cross-page-navigation'],
       },
     ],
@@ -454,6 +468,14 @@ const scoreState: ScorePanelState = {
           strengths: ['Clear KPI band'],
           gaps: ['Weak exception callout'],
         },
+        pagePurposeAnalysis: {
+          inferredPurpose: 'Executive',
+          confidence: 'high',
+          actionabilityScore: 58,
+          benchmarkStatus: 'Mixed against expected',
+          topGaps: ['Exception visibility is weak.'],
+          whyThisMatters: 'This page appears intended for executive review but lacks the decision context expected for that audience. Decision makers may misinterpret KPI values without targets or prior-period comparison.',
+        },
         visualMetadata: {
           pageName: 'Overview',
           visiblePageTitle: 'Executive Overview',
@@ -589,6 +611,14 @@ const scoreState: ScorePanelState = {
           insight: 'Beautiful but useless: the page looks polished, but the decision path is still weak.',
           strengths: ['Clean trend visual'],
           gaps: ['Decision support is weak'],
+        },
+        pagePurposeAnalysis: {
+          inferredPurpose: 'Analytical',
+          confidence: 'medium',
+          actionabilityScore: 32,
+          benchmarkStatus: 'Below expected',
+          topGaps: ['Add a target or benchmark next to the KPI.', 'Call out the exception that needs action now.', 'Decision support is weak'],
+          whyThisMatters: 'This page appears intended for analytical use but lacks the decision context expected for that audience. Readers may over-trust visual polish even when the decision path is still weaker than expected.',
         },
         visualMetadata: {
           pageName: 'Details',
@@ -799,15 +829,19 @@ describe('Analyzer Score App', () => {
     expect(screen.getAllByText(/Detail Comparison/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(screen.getAllByText(/Affected pages/i).length).toBeGreaterThan(0);
-    expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
-    expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Not reviewed yet\./i)).toBeInTheDocument();
+    expect(screen.getByText('Page Purpose Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Why This Matters')).toBeInTheDocument();
+    expect(screen.getByText(/Decision makers may misinterpret KPI values/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText(/This page appears to summarize Revenue performance over time/i)).toBeInTheDocument();
+    expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Intent profile: executiveOverview')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Story archetype: executive overview + trend + comparison')).toBeInTheDocument();
     expect(screen.getByText('Page Intent Profile')).toBeInTheDocument();
     expect(screen.getByText(/Actionability score:/i)).toBeInTheDocument();
     expect(screen.getByText(/Benchmark and Archetype/i)).toBeInTheDocument();
+    expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Not reviewed yet\./i)).toBeInTheDocument();
     expect(screen.getAllByText(/exception visibility is still weaker than the benchmark/i).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText(/page intent profile override/i), {
       target: { value: 'operational' },
@@ -851,6 +885,7 @@ describe('Analyzer Score App', () => {
       pageIndex: 2,
     });
     expect(screen.getAllByText(/Detail Comparison/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText((_, node) => node?.textContent === 'Intent profile: analyticalDeepDive')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /partially/i }));
     expect(postMessage).toHaveBeenLastCalledWith({
@@ -1031,6 +1066,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Review Summary')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirmed/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
     expect(screen.getByText(/Confirmed by you during this session\./i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('Title works, but the supporting chart still needs a clearer takeaway.')).toBeInTheDocument();
@@ -1171,7 +1207,7 @@ describe('Analyzer Score App', () => {
     const topIssuesCard = screen.getByRole('heading', { name: 'Top issues' }).closest('div') as HTMLElement;
     expect(within(topIssuesCard).getAllByText(/navigation/i).length).toBeGreaterThan(0);
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
-    expect(within(fixPlan).getAllByRole('heading', { level: 3 })[0]).toHaveTextContent('navigation');
+    expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /filter issues for details navigation/i }));
     expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('Details');
@@ -1179,6 +1215,8 @@ describe('Analyzer Score App', () => {
     expect(screen.getByLabelText(/workspace review mode/i)).toHaveValue('governance');
     expect(screen.getByText(/Page: Details/i)).toBeInTheDocument();
     expect(screen.getByText(/Dimension: Navigation/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Details · Navigation')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Standardize navigation cues')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
     expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
@@ -1209,5 +1247,203 @@ describe('Analyzer Score App', () => {
     expect(highSeverityGroup.open).toBe(true);
     expect(screen.queryByText('Medium severity')).not.toBeInTheDocument();
     expect(evidenceSection.open).toBe(false);
+  });
+
+  it('renders Page Purpose Analysis as a summary-first workflow and preserves full reasoning on demand', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    expect(screen.getByText('Page Purpose Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Why This Matters')).toBeInTheDocument();
+    expect(screen.getByText(/Decision makers may misinterpret KPI values/i)).toBeInTheDocument();
+    expect(screen.queryByText('Inferred Page Story')).not.toBeInTheDocument();
+    expect(screen.queryByText('Page Intent Profile')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
+    expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
+    expect(screen.getByText('Page Intent Profile')).toBeInTheDocument();
+    expect(screen.getByText('Intent Feedback')).toBeInTheDocument();
+  });
+
+  it('renders Fix Plan as a differentiated remediation queue with action-specific rationale', async () => {
+    render(<App />);
+
+    const remediationState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        fixPlan: [
+          {
+            id: 'fix-1',
+            title: 'Add benchmarks and decision context',
+            detail: 'Add missing target and prior-period context to the KPI band.',
+            severity: 'high',
+            effort: 'low',
+            impact: 'high',
+            why: 'Reduces risk of KPI misinterpretation.',
+            scope: 'page',
+            affectedPages: ['Overview'],
+            recommendedAction: 'Add target benchmarks, prior-period context, and urgency cues.',
+            resolvedOutcomes: ['Benchmark gap', 'Actionability gap'],
+            sourceFindingIds: ['overview-actionability', 'details-benchmark'],
+          },
+        ],
+      },
+    } as unknown as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: remediationState,
+          },
+        }),
+      );
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getAllByText(/^Impact$/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/^Why:$/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/^Resolves$/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Reduces risk of KPI misinterpretation/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getByText('Benchmark gap')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Actionability gap')).toBeInTheDocument();
+  });
+
+  it('explains remediation focus and keeps the queue broader than severity-only issue filters', async () => {
+    render(<App />);
+
+    const remediationState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        normalizedFindings: [
+          {
+            id: 'overview-layout-high',
+            title: 'Grid alignment',
+            summary: 'Top-row KPI cards overlap instead of holding a clean band.',
+            severity: 'high',
+            confidence: 82,
+            scope: 'page',
+            detectionType: 'deterministic',
+            affectedPages: ['Overview'],
+            impactArea: 'layout',
+            frameworkImpact: ['Gestalt Principles'],
+            recommendation: 'Tighten the layout so peer visuals read as a deliberate system.',
+            sourceKind: 'framework',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+          {
+            id: 'overview-density-medium',
+            title: 'Visual density',
+            summary: 'The page is too crowded for fast executive scanning.',
+            severity: 'medium',
+            confidence: 80,
+            scope: 'page',
+            detectionType: 'deterministic',
+            affectedPages: ['Overview'],
+            impactArea: 'density',
+            frameworkImpact: ['Cognitive Load'],
+            recommendation: 'Split dense sections into a smaller number of focal visuals.',
+            sourceKind: 'framework',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+          ...(scoreState.result.normalizedFindings ?? []),
+        ],
+      },
+    } as unknown as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: remediationState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText(/issue page filter/i), {
+      target: { value: 'Overview' },
+    });
+    fireEvent.change(screen.getByLabelText(/issue dimension filter/i), {
+      target: { value: 'layout' },
+    });
+    fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
+      target: { value: 'high' },
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Overview · Layout')).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/Actions are grouped by problem area rather than individual findings/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Reduce visual density and align layout')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('1 High · 1 Medium')).toBeInTheDocument();
+  });
+
+  it('updates remediation focus from matrix-driven page and dimension context', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /filter issues for details navigation/i }));
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Details · Navigation')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Standardize navigation cues')).toBeInTheDocument();
+  });
+
+  it('adapts the matrix between report and page review contexts using qualitative statuses', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    const overallMatrix = screen.getByText('Cross-page matrix').closest('.overview-matrix') as HTMLElement;
+    expect(within(overallMatrix).getByText('Overview')).toBeInTheDocument();
+    expect(within(overallMatrix).getByText('Details')).toBeInTheDocument();
+    expect(within(overallMatrix).getAllByText(/Weak|Watch|Strong|Unknown/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    const pageMatrix = screen.getByText('Cross-page matrix').closest('.overview-matrix') as HTMLElement;
+    expect(within(pageMatrix).getByText('Overview')).toBeInTheDocument();
+    expect(within(pageMatrix).queryByText('Details')).not.toBeInTheDocument();
+    expect(within(pageMatrix).getAllByText(/Weak|Watch|Strong|Unknown/i).length).toBeGreaterThan(0);
+    expect(within(pageMatrix).queryByRole('button', { name: /filter issues for details navigation/i })).not.toBeInTheDocument();
   });
 });

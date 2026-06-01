@@ -21,7 +21,35 @@ The next roadmap epics build on that foundation without reopening the scoring ar
 
 ## Recommended Order
 
-### 1. Consultant Deliverables & Export Platform
+### 1. UX Architecture Consolidation
+
+**Business value:** High  
+**Risk:** Low to Medium  
+**Complexity:** Medium  
+**Quick wins:** High  
+**Strategic value:** Very High
+
+Why second:
+
+- the daily review workspace is the core product surface users touch most often
+- the current architecture is directionally right but still carries duplication, fragmented reasoning, and excess scroll depth
+- tightening the workspace before adding more features reduces future product complexity
+- all deferred epics benefit from a calmer, more stable review workflow foundation
+
+Quick wins:
+
+- clearer distinction between diagnosis and remediation
+- summary-first page-purpose analysis
+- qualitative-first matrix interpretation
+- reduced duplication and improved scanability
+
+Longer-term value:
+
+- cleaner interaction model for consultant deliverables
+- better platform base for visual evidence workflows
+- stronger UI stability before governance and enterprise expansion
+
+### 2. Consultant Deliverables & Export Platform
 
 **Business value:** High  
 **Risk:** Medium  
@@ -48,7 +76,7 @@ Longer-term value:
 - AI-generated executive narrative options
 - export as a first-class deliverables platform
 
-## 2. Visual Intelligence & Screenshot Analysis
+## 3. Visual Intelligence & Screenshot Analysis
 
 **Business value:** High  
 **Risk:** Medium  
@@ -56,7 +84,7 @@ Longer-term value:
 **Quick wins:** Medium  
 **Strategic value:** High
 
-Why second:
+Why third:
 
 - screenshot audit foundations already exist
 - visual overlays and screenshot-to-finding linkage improve explainability and perceived intelligence
@@ -74,7 +102,7 @@ Longer-term value:
 - density heatmaps
 - alignment and focus-area highlighting
 
-## 3. Enterprise Governance & Advanced Review
+## 4. Enterprise Governance & Advanced Review
 
 **Business value:** Medium to High  
 **Risk:** High  
@@ -82,7 +110,7 @@ Longer-term value:
 **Quick wins:** Low to Medium  
 **Strategic value:** Very High
 
-Why third:
+Why fourth:
 
 - this touches the broadest set of contracts and workflows
 - it depends on stable configuration, benchmark, and review patterns
@@ -102,6 +130,13 @@ Longer-term value:
 - mobile/responsive review workflows
 
 ## Epic Summary
+
+### UX Architecture Consolidation
+
+See:
+
+- [Design Spec](./superpowers/specs/2026-05-31-ux-architecture-consolidation-design.md)
+- [Implementation Plan](./superpowers/plans/2026-05-31-ux-architecture-consolidation-plan.md)
 
 ### Consultant Deliverables & Export Platform
 

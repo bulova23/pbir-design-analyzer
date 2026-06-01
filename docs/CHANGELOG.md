@@ -2,6 +2,56 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.2.2 — 2026-05-31
+
+### Context-Aware Remediation Queue
+
+- Made `Fix Plan` context-aware so remediation actions derive from the selected page and problem area rather than mirroring the exact visible issue slice.
+- Treated `Page`, `Dimension`, and `Impact` as remediation-driving filters while keeping `Severity`, `Scope`, and `Detection` diagnosis-only for queue generation.
+- Added explicit `Remediation Focus` messaging so users can see why the queue differs from the current issue list.
+
+### Remediation Traceability
+
+- Added finding-coverage summaries such as `1 High · 2 Medium` so remediation actions explain why related medium-severity work can still appear while reviewing a high-severity slice.
+- Improved source-finding traceability in the queue by listing the underlying finding titles and severity mix for each remediation action.
+- Kept empty remediation domains visible with explanatory scope copy instead of dropping the section entirely.
+
+### Validation
+
+- Preserved scores, severity semantics, confidence semantics, normalized findings, personas, and benchmark/scoring logic.
+- Passed targeted Jest coverage for context-aware remediation derivation and the analyzer score webview.
+
+## 0.2.1 — 2026-05-31
+
+### UX Architecture Consolidation
+
+- Consolidated fragmented page-purpose reasoning into a single summary-first `Page Purpose Analysis` workflow.
+- Added a presentation-only `Why This Matters` narrative so business impact is easier to understand before diving into framework detail.
+- Preserved inferred story, intent profile, actionability, benchmark comparison, and intent feedback behavior behind explicit reasoning expansion.
+
+### Remediation Queue And Reading Path
+
+- Reworked Fix Plan into a true remediation queue instead of a second issue list.
+- Added grouped actions, impact, effort, action-specific rationale, resolved outcomes, and source-finding traceability.
+- Strengthened the intended reading path:
+  - Overview Summary
+  - Page Purpose Analysis
+  - Issues
+  - Fix Plan
+  - Evidence
+  - Export
+
+### Context-Aware Matrix
+
+- Kept the full matrix in report-level Overview mode.
+- Narrowed the matrix to the selected page in page-review context.
+- Made matrix cells status-first with `Strong`, `Watch`, `Weak`, and `Unknown`, while keeping counts as supporting detail.
+
+### Validation
+
+- Preserved scoring, severity, confidence, normalized findings, personas, and benchmark/scoring semantics.
+- Passed compile and full Jest validation for the extension and score-panel webview.
+
 ## 0.2.0 — 2026-05-31
 
 ### Workspace Modernization
