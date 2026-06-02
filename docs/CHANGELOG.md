@@ -2,6 +2,49 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.3.0 — 2026-06-01
+
+### Deterministic Fix Opportunity Engine
+
+- Extended the workspace from `Analyze → Recommend` to `Analyze → Recommend → Fix → Validate` for supported remediation domains.
+- Added remediation-led deterministic fix opportunities for safe existing-object mutations such as title normalization, alignment normalization, navigation placement normalization, semantic color normalization, and cross-page consistency normalization.
+- Kept fix generation under `Fix Plan` remediation items rather than generating fixes directly from individual findings.
+
+### Preview, Apply, Rollback, And Re-Analysis
+
+- Added structured preview rows that show exact `Object`, `Property`, `Before`, and `After` mutation details before apply.
+- Added explicit fix-opportunity lifecycle states:
+  - `Previewed`
+  - `Approved`
+  - `Applied`
+  - `Rolled back`
+  - `Stale`
+  - `Failed validation`
+  - `Applied with unexpected outcome`
+- Added validation-first apply behavior so stale opportunities are blocked instead of being partially applied.
+- Added deterministic rollback plans backed by recorded file-content backups.
+- Added automatic re-analysis and post-apply outcome reporting with:
+  - `Resolved`
+  - `Improved`
+  - `Unchanged`
+  - `Unexpected`
+
+### Trust And Workflow Improvements
+
+- Kept unsupported remediation items advisory rather than inventing unsafe or opaque fixes.
+- Preserved the active report/page tab across refresh-driven re-analysis so apply and rollback do not force the user back to the default tab.
+- Preserved scores, severities, confidences, normalized findings, personas, and backend scoring semantics.
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npx eslint webview-src/analyzer-score/App.tsx webview-src/analyzer-score/App.test.tsx src/views/PbirScorePanel.ts src/views/scoreResultPayload.ts src/analyzer/fixes/*.ts src/test/fixOpportunityBuilder.test.ts src/test/fixApplyEngine.test.ts src/test/fixOutcomeEvaluator.test.ts`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Smoke-tested the packaged extension in an isolated VS Code profile:
+  - against the real `Sales & Production` PBIR report for score-panel open, advisory remediation behavior, and renderer-log review
+  - against a concrete PBIR fix-opportunity fixture for preview, apply, re-analysis, rollback, and unexpected-outcome handling
+
 ## 0.2.2 — 2026-05-31
 
 ### Context-Aware Remediation Queue

@@ -6,6 +6,10 @@ import type {
   AuditPageState,
   AuditState,
   BenchmarkComparisonSummary,
+  FixOpportunity,
+  FixOpportunityCategory,
+  FixOpportunityState,
+  FixOutcomeStatus,
   FindingType,
   FrameworkFeedbackItem,
   IntentFeedbackConfirmation,
@@ -246,6 +250,68 @@ function getNormalizedFindingSeverityClassName(severity: NormalizedFindingSeveri
     default:
       return 'issue-severity-info';
   }
+}
+
+function getFixOpportunityCategoryLabel(category: FixOpportunityCategory): string {
+  switch (category) {
+    case 'title':
+      return 'Title';
+    case 'semanticColor':
+      return 'Semantic color';
+    case 'alignment':
+      return 'Alignment';
+    case 'spacing':
+      return 'Spacing';
+    case 'grid':
+      return 'Grid';
+    case 'navigation':
+      return 'Navigation';
+    default:
+      return 'Cross-page consistency';
+  }
+}
+
+function getFixOpportunityStateLabel(state: FixOpportunityState): string {
+  switch (state) {
+    case 'Previewed':
+      return 'Previewed';
+    case 'Approved':
+      return 'Approved';
+    case 'Applied':
+      return 'Applied';
+    case 'RolledBack':
+      return 'Rolled back';
+    case 'Stale':
+      return 'Stale';
+    case 'FailedValidation':
+      return 'Failed validation';
+    default:
+      return 'Applied with unexpected outcome';
+  }
+}
+
+function getFixOutcomeStatusLabel(status: FixOutcomeStatus): string {
+  switch (status) {
+    case 'Resolved':
+      return 'Resolved';
+    case 'Improved':
+      return 'Improved';
+    case 'Unchanged':
+      return 'Unchanged';
+    default:
+      return 'Unexpected';
+  }
+}
+
+function remediationMatchesOpportunity(
+  item: ContextAwareRemediationQueue['items'][number],
+  opportunity: FixOpportunity,
+): boolean {
+  if (opportunity.remediationItemId === item.id) {
+    return true;
+  }
+
+  return opportunity.sourceFindingIds.some((findingId) => item.sourceFindingIds.includes(findingId));
 }
 
 function getDetectionTypeLabel(detectionType: NormalizedFinding['detectionType']): string {
@@ -1010,8 +1076,15 @@ function renderPagePurposeAnalysisSection(props: {
 
 function renderFixPlanSection(
   queue: ContextAwareRemediationQueue,
+  fixOpportunities: FixOpportunity[] | undefined,
+  expandedOpportunityIds: string[],
+  onToggleOpportunity: (opportunityId: string) => void,
+  onApproveOpportunity: (opportunityId: string) => void,
+  onApplyOpportunity: (opportunityId: string) => void,
+  onRollbackOpportunity: (opportunityId: string) => void,
 ): React.ReactNode {
   const fixPlan = queue.items;
+
   return (
     <section aria-label="Fix plan" className="panel-card fix-plan-card">
       <div className="issues-section-head">
@@ -1034,6 +1107,11 @@ function renderFixPlanSection(
         <ol className="fix-plan-list">
           {fixPlan.map((item) => (
             <li className="fix-plan-item" key={item.id}>
+              {(() => {
+                const relatedOpportunities = (fixOpportunities ?? []).filter((opportunity) => remediationMatchesOpportunity(item, opportunity));
+
+                return (
+                  <>
               <div className="fix-plan-head">
                 <h3>{item.title}</h3>
                 <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(item.severity)}`}>{item.severity}</span>
@@ -1082,6 +1160,120 @@ function renderFixPlanSection(
                   ))}
                 </ul>
               </div>
+              <div className="issue-detail-block">
+                <p className="issue-detail-label">Fix opportunities</p>
+                {relatedOpportunities.length ? (
+                  <ul className="issue-evidence-list">
+                    {relatedOpportunities.map((opportunity) => {
+                      const expanded = expandedOpportunityIds.includes(opportunity.id);
+                      const canApprove = opportunity.state === 'Previewed';
+                      const canApply = opportunity.state === 'Approved';
+                      const canRollback = opportunity.state === 'Applied' || opportunity.state === 'AppliedWithUnexpectedOutcome';
+
+                      return (
+                        <li className="issue-evidence-item" key={opportunity.id}>
+                          <div className="fix-plan-head">
+                            <div>
+                              <strong>{opportunity.title}</strong>
+                              <p className="issues-section-copy">
+                                {getFixOpportunityCategoryLabel(opportunity.category)} · {opportunity.summary}
+                              </p>
+                            </div>
+                            <span className="overview-badge">{getFixOpportunityStateLabel(opportunity.state)}</span>
+                          </div>
+                          <p className="fix-plan-recommendation">
+                            <strong>Expected resolutions:</strong> {opportunity.expectedResolutions.join(' · ')}
+                          </p>
+                          <p className="fix-plan-recommendation">
+                            <strong>Confidence:</strong> {opportunity.confidence}/100
+                          </p>
+                          <p className="fix-plan-recommendation">
+                            <strong>Rollback:</strong> {opportunity.rollbackPlan.fileBackups.length > 0 ? 'Available' : 'Unavailable'}
+                          </p>
+                          <div className="export-actions">
+                            <button
+                              className="secondary-button"
+                              onClick={() => onToggleOpportunity(opportunity.id)}
+                              type="button"
+                            >
+                              {expanded ? 'Hide Preview' : 'Show Preview'}
+                            </button>
+                            <button
+                              className="secondary-button"
+                              disabled={!canApprove}
+                              onClick={() => onApproveOpportunity(opportunity.id)}
+                              type="button"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="primary-button"
+                              disabled={!canApply}
+                              onClick={() => onApplyOpportunity(opportunity.id)}
+                              type="button"
+                            >
+                              Apply
+                            </button>
+                            {canRollback ? (
+                              <button
+                                className="secondary-button"
+                                onClick={() => onRollbackOpportunity(opportunity.id)}
+                                type="button"
+                              >
+                                Roll Back
+                              </button>
+                            ) : null}
+                          </div>
+                          {expanded ? (
+                            <div className="issue-detail-block">
+                              <p className="issue-detail-label">Mutation preview</p>
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th align="left">Object</th>
+                                    <th align="left">Property</th>
+                                    <th align="left">Before</th>
+                                    <th align="left">After</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {opportunity.previewRows.map((row, index) => (
+                                    <tr key={`${opportunity.id}-${row.objectId}-${row.property}-${index}`}>
+                                      <td>{row.pageName ? `${row.pageName} · ${row.objectId}` : row.objectId}</td>
+                                      <td>{row.property}</td>
+                                      <td>{String(row.before)}</td>
+                                      <td>{String(row.after)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : null}
+                          {opportunity.outcome?.entries.length ? (
+                            <div className="issue-detail-block">
+                              <p className="issue-detail-label">Outcome after re-analysis</p>
+                              <ul className="issue-evidence-list">
+                                {opportunity.outcome.entries.map((entry) => (
+                                  <li className="issue-evidence-item" key={`${opportunity.id}-${entry.findingId}`}>
+                                    {getFixOutcomeStatusLabel(entry.status)}: {entry.title}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="issues-section-copy">
+                    Advisory only: no safe metadata-only fix is currently available for this remediation.
+                  </p>
+                )}
+              </div>
+                  </>
+                );
+              })()}
             </li>
           ))}
         </ol>
@@ -2476,6 +2668,7 @@ export default function App(): JSX.Element {
   });
   const [issueFiltersDirty, setIssueFiltersDirty] = React.useState(false);
   const [issueGroupingMode, setIssueGroupingMode] = React.useState<IssueGroupingMode>('severity');
+  const [expandedOpportunityIds, setExpandedOpportunityIds] = React.useState<string[]>([]);
   const vscodeApiRef = React.useRef<ScoreVsCodeApi | null>(null);
   const issuesSectionRef = React.useRef<HTMLElement | null>(null);
   const fixPlanSectionRef = React.useRef<HTMLDivElement | null>(null);
@@ -2493,7 +2686,6 @@ export default function App(): JSX.Element {
 
       if (message.type === 'loading') {
         setViewState({ kind: 'loading' });
-        setActiveTab(0);
         setReviewStatusFilter('all');
         setStoryIntentFeedback({});
         setSavedStoryNoteKey(undefined);
@@ -2510,6 +2702,7 @@ export default function App(): JSX.Element {
         });
         setIssueFiltersDirty(false);
         setIssueGroupingMode('severity');
+        setExpandedOpportunityIds([]);
         return;
       }
 
@@ -2885,7 +3078,19 @@ export default function App(): JSX.Element {
       </section>
 
       <div ref={fixPlanSectionRef} tabIndex={-1}>
-        {renderFixPlanSection(remediationQueue)}
+        {renderFixPlanSection(
+          remediationQueue,
+          result.fixOpportunities,
+          expandedOpportunityIds,
+          (opportunityId) => setExpandedOpportunityIds((prev) => (
+            prev.includes(opportunityId)
+              ? prev.filter((id) => id !== opportunityId)
+              : [...prev, opportunityId]
+          )),
+          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'approveFixOpportunity', opportunityId }),
+          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'applyFixOpportunity', opportunityId }),
+          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'rollbackFixOpportunity', opportunityId }),
+        )}
       </div>
       {selectedPage ? renderReviewerCommentGenerator(
         selectedPage,

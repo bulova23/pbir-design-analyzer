@@ -1,13 +1,14 @@
 # <img src="vscode-extension/resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
 
-PBIR Design Analyzer is a VS Code extension for reviewing local Power BI PBIP/PBIR reports before they are shared, governed, or published. It analyzes report structure, layout, storytelling, accessibility, consistency, and review readiness, then presents the results in a modernized review workspace.
+PBIR Design Analyzer is a VS Code extension for reviewing local Power BI PBIP/PBIR reports before they are shared, governed, or published. It analyzes report structure, layout, storytelling, accessibility, consistency, and review readiness, then presents the results in a modernized review workspace with deterministic fix opportunities for selected remediation actions.
 
-## 0.2.0 Highlights
+## 0.3.0 Highlights
 
 - modernized score-panel workspace
 - Overview workspace for executive triage
 - Issues workspace built on normalized findings
 - Fix Plan workspace for remediation sequencing
+- deterministic fix opportunities with preview, apply, rollback, and re-analysis for supported remediation domains
 - Evidence workspace for framework, metadata, and audit drilldown
 - smart collapse defaults to reduce information overload
 - intent confirmation and review feedback workflow
@@ -39,7 +40,7 @@ The main working surface. Issues are normalized across multiple scoring/evidence
 
 ### Fix Plan
 
-The consultant-facing remediation queue. It converts findings into action-oriented next steps with severity, effort, scope, and affected-page context.
+The consultant-facing remediation queue. It converts findings into action-oriented next steps with severity, effort, scope, and affected-page context. Supported remediation items can also expose deterministic fix opportunities with explicit mutation previews and rollback.
 
 ### Evidence
 
@@ -74,7 +75,7 @@ dotnet test service-dotnet/tests/Tests.csproj -c Release
 2. Run **PBIR Design Analyzer: Score Report**.
 3. Start in **Overview** for executive triage.
 4. Use **Issues** to inspect prioritized findings.
-5. Use **Fix Plan** to sequence remediation.
+5. Use **Fix Plan** to sequence remediation and apply supported deterministic fixes.
 6. Use **Evidence** only when you need deeper proof or source details.
 7. Export or preview review packets after the review is complete.
 
@@ -104,7 +105,7 @@ The Overview workspace includes a page-by-dimension matrix. Clicking a cell filt
 
 ## Roadmap Summary
 
-The next planned epics after `0.2.0` are:
+The next planned epics after `0.3.0` are:
 
 1. Consultant Deliverables & Export Platform
 2. Visual Intelligence & Screenshot Analysis

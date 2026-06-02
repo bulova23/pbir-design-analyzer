@@ -16,6 +16,7 @@ import type {
   ScoreResult,
   VisualMetadataItem,
 } from '../analyzer/contracts/scorePanel';
+import { buildFixOpportunities } from '../analyzer/fixes/fixOpportunityBuilder';
 import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
 import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
@@ -580,6 +581,7 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
   });
   normalized.normalizedFindings = buildNormalizedFindings(normalized);
   normalized.fixPlan = buildFixPlan(normalized.normalizedFindings);
+  normalized.fixOpportunities = buildFixOpportunities(normalized);
   normalized.overviewSummary = buildOverviewSummary(normalized);
   normalized.crossPageMatrix = buildCrossPageMatrix(normalized.normalizedFindings, normalized.pageScores);
   normalized.personaPresentation = {

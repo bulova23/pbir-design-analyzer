@@ -9,6 +9,7 @@ import type {
   AuditFindingDisplay,
   AuditPageState,
   AuditState,
+  FixOpportunity,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
   ScorePanelHostToWebviewMessage,
@@ -44,6 +45,8 @@ import {
   saveReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreviewStore';
 import { chooseProfiledDocumentExportOptions } from '../analyzer/score/reviewWorkflowExportPrompts';
+import { applyFixOpportunity, rollbackFixOpportunity } from '../analyzer/fixes/fixApplyEngine';
+import { evaluateFixOutcome } from '../analyzer/fixes/fixOutcomeEvaluator';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -63,6 +66,7 @@ export class PbirScorePanel {
   private reviewPacketPreviewOptions = defaultReviewPacketPreviewOptions;
   private auditSession: VisualAuditSession | undefined;
   private auditProvider: VisualAuditProvider;
+  private readonly fixOpportunityHistory = new Map<string, FixOpportunity>();
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -170,10 +174,113 @@ export class PbirScorePanel {
       case 'openReviewPacketPreview':
         await this.handleOpenReviewPacketPreview();
         return;
+      case 'approveFixOpportunity':
+        await this.handleApproveFixOpportunity(message.opportunityId);
+        return;
+      case 'applyFixOpportunity':
+        await this.handleApplyFixOpportunity(message.opportunityId);
+        return;
+      case 'rollbackFixOpportunity':
+        await this.handleRollbackFixOpportunity(message.opportunityId);
+        return;
       case 'openSettings':
         await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
         return;
     }
+  }
+
+  private findFixOpportunity(opportunityId: string): FixOpportunity | undefined {
+    return this.currentResult?.fixOpportunities?.find((item) => item.id === opportunityId)
+      ?? this.fixOpportunityHistory.get(opportunityId);
+  }
+
+  private buildPresentationResult(result: ScoreResult): ScoreResult {
+    const currentOpportunities = (result.fixOpportunities ?? []).map((item) => {
+      const history = this.fixOpportunityHistory.get(item.id);
+      return history
+        ? {
+            ...item,
+            state: history.state,
+            outcome: history.outcome,
+          }
+        : item;
+    });
+
+    const merged = [...currentOpportunities];
+    for (const history of this.fixOpportunityHistory.values()) {
+      if (!merged.some((item) => item.id === history.id) && history.state !== 'Previewed') {
+        merged.push(history);
+      }
+    }
+
+    return {
+      ...result,
+      fixOpportunities: merged,
+    };
+  }
+
+  private async handleApproveFixOpportunity(opportunityId: string): Promise<void> {
+    const opportunity = this.findFixOpportunity(opportunityId);
+    if (!opportunity) {
+      void vscode.window.showWarningMessage(`Fix opportunity '${opportunityId}' is no longer available.`);
+      return;
+    }
+
+    this.fixOpportunityHistory.set(opportunityId, {
+      ...opportunity,
+      state: 'Approved',
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async handleApplyFixOpportunity(opportunityId: string): Promise<void> {
+    const opportunity = this.findFixOpportunity(opportunityId);
+    const previousResult = this.currentResult;
+    if (!opportunity || !previousResult) {
+      void vscode.window.showWarningMessage(`Fix opportunity '${opportunityId}' is no longer available.`);
+      return;
+    }
+
+    const applyResult = applyFixOpportunity(opportunity);
+    this.fixOpportunityHistory.set(opportunityId, {
+      ...opportunity,
+      state: applyResult.state,
+    });
+
+    if (applyResult.state !== 'Applied') {
+      await this.postCurrentScoreState();
+      return;
+    }
+
+    await this.refresh();
+    if (!this.currentResult) {
+      return;
+    }
+
+    const outcome = evaluateFixOutcome(opportunity, previousResult, this.currentResult);
+    this.fixOpportunityHistory.set(opportunityId, {
+      ...opportunity,
+      state: outcome.nextState,
+      outcome: outcome.outcome,
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async handleRollbackFixOpportunity(opportunityId: string): Promise<void> {
+    const opportunity = this.findFixOpportunity(opportunityId);
+    if (!opportunity) {
+      void vscode.window.showWarningMessage(`Fix opportunity '${opportunityId}' is no longer available for rollback.`);
+      return;
+    }
+
+    const rollbackResult = rollbackFixOpportunity(opportunity);
+    this.fixOpportunityHistory.set(opportunityId, {
+      ...opportunity,
+      state: rollbackResult.state,
+      outcome: undefined,
+    });
+    await this.refresh();
+    await this.postCurrentScoreState();
   }
 
   private pageNamesFromResult(): string[] {
@@ -477,11 +584,12 @@ export class PbirScorePanel {
     intentFeedback: ScorePanelState['intentFeedback'],
     reviewPacketPreview: ReturnType<typeof buildReviewWorkflowExportData>,
   ): void {
+    const presentationResult = this.buildPresentationResult(result);
     this.postMessage({
       type: 'scoreState',
       state: {
         config,
-        result,
+        result: presentationResult,
         selectedPageIndex: this.selectedPageIndex,
         intentFeedback,
         reviewPacketPreview,
@@ -550,7 +658,6 @@ export class PbirScorePanel {
   }
 
   private async refresh(): Promise<void> {
-    this.selectedPageIndex = 0;
     this.postMessage({ type: 'loading' });
     const scoringStartMs = Date.now();
 

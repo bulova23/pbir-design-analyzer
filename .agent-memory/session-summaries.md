@@ -66,3 +66,64 @@
 - Release packaging completed with:
   - artifact: `vscode-extension/pbir-design-analyzer-0.2.2.vsix`
 - Residual risk: manual VS Code smoke coverage has not yet been rerun against the packaged `0.2.2` build.
+
+## 2026-05-31 Deterministic Fix Opportunity Engine Phase 1
+
+- Implemented Phase 1 of AI-Assisted Fixes as a remediation-led deterministic fix workflow in the VS Code extension source.
+- Added explicit contracts and engine modules for:
+  - fix opportunities
+  - typed mutations
+  - preview rows
+  - rollback plans
+  - apply validation
+  - post-apply outcome evaluation
+- Wired the score panel host and webview so remediation items now expose:
+  - deterministic fix opportunities
+  - structured preview
+  - approve/apply/rollback actions
+  - re-analysis outcomes
+- Preserved the execution trust boundary:
+  - explicit preview
+  - explicit mutation list
+  - explicit rollback plan
+  - deterministic execution only
+- Validation passed with:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - targeted ESLint on changed fix-engine, host, payload, and webview files
+- Residual risks:
+  - manual VS Code smoke coverage still needed for the fix workflow
+  - no version bump or `.vsix` package created in this session
+
+## 2026-06-01 0.3.0 Release Follow-Up
+
+- Fixed the refresh-driven tab reset so page context now survives refresh/re-analysis after apply or rollback.
+- Bumped the extension to `0.3.0` and updated:
+  - `docs/CHANGELOG.md`
+  - `README.md`
+  - `vscode-extension/README.md`
+  - `docs/ROADMAP.md`
+- Packaged:
+  - `vscode-extension/pbir-design-analyzer-0.3.0.vsix`
+- Installed the packaged extension into an isolated VS Code profile and scored the real `Sales & Production` PBIR report.
+- Confirmed that current real business-report fixtures still produce advisory-only remediation under Phase 1 and therefore do not yet cover supported deterministic opportunity categories.
+- Validated the supported trust loop on a concrete PBIR fixture using the shipped modules:
+  - preview
+  - apply
+  - automatic re-analysis
+  - rollback
+  - `AppliedWithUnexpectedOutcome`
+
+## 2026-06-01 Single-Page Planner Follow-Up
+
+- Fixed the real `0.3.0` page-level planner gap by allowing deterministic fix planning from top-level `scoredPageName + visualMetadata` when `pageScores` are absent.
+- Added regression tests for:
+  - single-page fix planning from top-level page metadata
+  - safe zero-opportunity behavior when single-page visual metadata is missing
+  - more honest advisory-only copy in the webview
+- Revalidated the real `Sales & Production.pbip` fixture:
+  - full report still advisory-only because it only emits unsupported `Add benchmarks and decision context`
+  - page-level `Net Sales` now emits one real Phase 1 opportunity:
+    - `Reduce visual density and align layout (alignment)`
+    - `20` planned mutations
+    - `10` rollback file backups

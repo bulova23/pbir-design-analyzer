@@ -449,6 +449,101 @@ export interface FixPlanItem {
   sourceFindingIds: string[];
 }
 
+export type FixOpportunityCategory =
+  | 'title'
+  | 'semanticColor'
+  | 'alignment'
+  | 'spacing'
+  | 'grid'
+  | 'navigation'
+  | 'crossPageConsistency';
+
+export type FixMutationType =
+  | 'setTitleText'
+  | 'setPosition'
+  | 'setSize'
+  | 'setSemanticColor'
+  | 'setThemeRole'
+  | 'setNavigationPlacement';
+
+export type FixOpportunityState =
+  | 'Previewed'
+  | 'Approved'
+  | 'Applied'
+  | 'RolledBack'
+  | 'Stale'
+  | 'FailedValidation'
+  | 'AppliedWithUnexpectedOutcome';
+
+export type FixOutcomeStatus = 'Resolved' | 'Improved' | 'Unchanged' | 'Unexpected';
+
+export interface FixMutation {
+  id: string;
+  pageName?: string;
+  targetObjectId: string;
+  targetFile: string;
+  propertyPath: string;
+  mutationType: FixMutationType;
+  before: unknown;
+  after: unknown;
+}
+
+export interface RollbackFileBackup {
+  targetFile: string;
+  beforeContent: string;
+}
+
+export interface RollbackPlan {
+  id: string;
+  fixOpportunityId: string;
+  fileBackups: RollbackFileBackup[];
+  reverseMutations: FixMutation[];
+}
+
+export interface FixPreviewRow {
+  pageName?: string;
+  objectId: string;
+  property: string;
+  before: unknown;
+  after: unknown;
+}
+
+export interface FixOutcomeEntry {
+  findingId: string;
+  title: string;
+  status: FixOutcomeStatus;
+}
+
+export interface FixOutcomeSummary {
+  entries: FixOutcomeEntry[];
+}
+
+export interface FixApplyResult {
+  opportunityId: string;
+  state: FixOpportunityState;
+  appliedMutationCount: number;
+  validationErrors: string[];
+}
+
+export interface FixOpportunity {
+  id: string;
+  remediationItemId: string;
+  title: string;
+  category: FixOpportunityCategory;
+  summary: string;
+  confidence: number;
+  safetyClass: 'safe';
+  affectedPages: string[];
+  targetObjectIds: string[];
+  sourceFindingIds: string[];
+  expectedResolutions: string[];
+  mutations: FixMutation[];
+  previewRows: FixPreviewRow[];
+  rollbackPlan: RollbackPlan;
+  state: FixOpportunityState;
+  outcome?: FixOutcomeSummary;
+}
+
 export interface PagePurposeAnalysisSummary {
   inferredPurpose: string;
   confidence?: StoryConfidence;
@@ -513,6 +608,7 @@ export interface ScoreResult {
   normalizedFindings?: NormalizedFinding[];
   overviewSummary?: OverviewSummary;
   fixPlan?: FixPlanItem[];
+  fixOpportunities?: FixOpportunity[];
   crossPageMatrix?: CrossPageMatrixSummary;
   personaPresentation?: PersonaPresentationState;
 }
@@ -600,6 +696,9 @@ export type ScorePanelWebviewToHostMessage =
   | { type: 'setReviewPacketPreviewProfile'; profile: ReviewWorkflowExportProfile }
   | { type: 'setReviewPacketPreviewTemplateVariant'; templateVariant: ReviewWorkflowMarkdownTemplateVariant }
   | { type: 'openReviewPacketPreview' }
+  | { type: 'approveFixOpportunity'; opportunityId: string }
+  | { type: 'applyFixOpportunity'; opportunityId: string }
+  | { type: 'rollbackFixOpportunity'; opportunityId: string }
   | { type: 'openSettings' };
 
 export type ScorePanelHostToWebviewMessage =

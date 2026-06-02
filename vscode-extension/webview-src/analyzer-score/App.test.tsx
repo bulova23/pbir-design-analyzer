@@ -310,6 +310,71 @@ const scoreState: ScorePanelState = {
         sourceFindingIds: ['cross-page-navigation'],
       },
     ],
+    fixOpportunities: [
+      {
+        id: 'fixopp-overview-title',
+        remediationItemId: 'fix-overview-actionability',
+        title: 'Standardize overview title anchor',
+        category: 'title',
+        summary: 'Normalize the existing title anchor for executive scanning.',
+        confidence: 95,
+        safetyClass: 'safe',
+        affectedPages: ['Overview'],
+        targetObjectIds: ['title-textbox-1'],
+        sourceFindingIds: ['overview-actionability'],
+        expectedResolutions: ['Benchmark gap', 'Actionability gap'],
+        mutations: [
+          {
+            id: 'mutation-1',
+            pageName: 'Overview',
+            targetObjectId: 'title-textbox-1',
+            targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
+            propertyPath: 'position.x',
+            mutationType: 'setPosition',
+            before: 42,
+            after: 24,
+          },
+          {
+            id: 'mutation-2',
+            pageName: 'Overview',
+            targetObjectId: 'title-textbox-1',
+            targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
+            propertyPath: 'title.text',
+            mutationType: 'setTitleText',
+            before: 'Executive Overview',
+            after: 'Overview',
+          },
+        ],
+        previewRows: [
+          {
+            pageName: 'Overview',
+            objectId: 'title-textbox-1',
+            property: 'position.x',
+            before: 42,
+            after: 24,
+          },
+          {
+            pageName: 'Overview',
+            objectId: 'title-textbox-1',
+            property: 'title.text',
+            before: 'Executive Overview',
+            after: 'Overview',
+          },
+        ],
+        rollbackPlan: {
+          id: 'rollback-fixopp-overview-title',
+          fixOpportunityId: 'fixopp-overview-title',
+          fileBackups: [
+            {
+              targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
+              beforeContent: '{"position":{"x":42},"title":{"text":"Executive Overview"}}',
+            },
+          ],
+          reverseMutations: [],
+        },
+        state: 'Previewed',
+      },
+    ],
     personaPresentation: {
       activePersona: 'default',
       availablePersonas: [
@@ -1419,6 +1484,125 @@ describe('Analyzer Score App', () => {
     expect(within(fixPlan).getByText('Standardize navigation cues')).toBeInTheDocument();
   });
 
+  it('renders deterministic fix opportunities under remediation items and keeps unsupported remediation advisory', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getAllByText('Fix opportunities').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getByText('Standardize overview title anchor')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Previewed')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Rollback:')).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('Advisory only: no safe metadata-only fix is currently available for this remediation.').length).toBeGreaterThan(0);
+  });
+
+  it('shows structured mutation preview and posts approve/apply/rollback messages for fix opportunities', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Preview' }));
+    expect(screen.getByRole('columnheader', { name: 'Object' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Property' })).toBeInTheDocument();
+    expect(screen.getAllByText('Overview · title-textbox-1').length).toBeGreaterThan(0);
+    expect(screen.getByText('position.x')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('24')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'approveFixOpportunity',
+      opportunityId: 'fixopp-overview-title',
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                fixOpportunities: [
+                  {
+                    ...scoreState.result.fixOpportunities?.[0],
+                    state: 'Approved',
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'applyFixOpportunity',
+      opportunityId: 'fixopp-overview-title',
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                fixOpportunities: [
+                  {
+                    ...scoreState.result.fixOpportunities?.[0],
+                    state: 'AppliedWithUnexpectedOutcome',
+                    outcome: {
+                      entries: [
+                        {
+                          findingId: 'overview-actionability',
+                          title: 'Actionability gap',
+                          status: 'Unexpected',
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Applied with unexpected outcome')).toBeInTheDocument();
+    expect(screen.getByText('Outcome after re-analysis')).toBeInTheDocument();
+    expect(screen.getByText('Unexpected: Actionability gap')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Roll Back' }));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'rollbackFixOpportunity',
+      opportunityId: 'fixopp-overview-title',
+    });
+  });
+
   it('adapts the matrix between report and page review contexts using qualitative statuses', async () => {
     render(<App />);
 
@@ -1445,5 +1629,48 @@ describe('Analyzer Score App', () => {
     expect(within(pageMatrix).queryByText('Details')).not.toBeInTheDocument();
     expect(within(pageMatrix).getAllByText(/Weak|Watch|Strong|Unknown/i).length).toBeGreaterThan(0);
     expect(within(pageMatrix).queryByRole('button', { name: /filter issues for details navigation/i })).not.toBeInTheDocument();
+  });
+
+  it('preserves the active tab across loading and refresh-driven score state updates', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              selectedPageIndex: 2,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByRole('button', { name: 'Details' }).className).toContain('tab-button-active');
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'loading',
+          },
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              selectedPageIndex: 2,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByRole('button', { name: 'Details' }).className).toContain('tab-button-active');
   });
 });

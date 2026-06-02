@@ -1,14 +1,15 @@
 # PBIR Design Analyzer Roadmap
 
-This roadmap reflects the post-`0.2.0` product direction after the score-panel workspace modernization shipped.
+This roadmap reflects the post-`0.3.0` product direction after the review workspace stabilization and deterministic fix-opportunity release shipped.
 
-## Current Release: 0.2.0
+## Current Release: 0.3.0
 
-`0.2.0` establishes the core review workspace:
+`0.3.0` establishes the core review and deterministic fix workflow:
 
 - Overview
 - Issues
 - Fix Plan
+- deterministic Fix Opportunities for supported remediation items
 - Evidence
 - secondary Export
 - normalized findings
@@ -16,6 +17,7 @@ This roadmap reflects the post-`0.2.0` product direction after the score-panel w
 - intent confirmation and review feedback
 - workspace review modes
 - cross-page matrix navigation
+- preview/apply/rollback/re-analysis trust loop
 
 The next roadmap epics build on that foundation without reopening the scoring architecture.
 

@@ -12,12 +12,13 @@ Documentation: [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md)
 4. Open PBIR Design Analyzer: Configure Scoring if you want to tune framework weights or navigation treatment.
 5. Use PBIR Design Analyzer: Check Governance only when your workspace has shared governance enabled.
 
-## What’s New In 0.2.2
+## What’s New In 0.3.0
 
-- `Fix Plan` now shows an explicit `Remediation Focus` so users can see the selected page and problem area driving the queue
-- remediation actions derive from `Page`, `Dimension`, and `Impact` instead of mirroring every issue filter exactly
-- `Severity`, `Scope`, and `Detection` still refine `Issues`, but they no longer hard-prune related remediation work
-- each remediation action now shows finding coverage such as `1 High · 2 Medium` plus clearer source-finding traceability
+- `Fix Plan` can now expose deterministic `Fix Opportunities` for supported remediation items
+- supported opportunities show exact `Object`, `Property`, `Before`, and `After` preview rows before any mutation is applied
+- users can approve, apply, roll back, and re-analyze supported fixes directly from the remediation workflow
+- unsupported remediation stays advisory rather than generating opaque or unsafe fixes
+- the active page/report tab now stays in place during refresh-driven re-analysis after apply or rollback
 
 ## What It Analyzes
 
@@ -70,7 +71,7 @@ Use Issues as the main review surface. The workspace supports filtering and grou
 
 ### Fix Plan
 
-Use Fix Plan when you want an action-oriented remediation queue rather than raw findings.
+Use Fix Plan when you want an action-oriented remediation queue rather than raw findings. In `0.3.0`, supported remediation items can also surface deterministic fix opportunities with explicit preview, apply, rollback, and re-analysis steps.
 
 ### Evidence
 
@@ -94,8 +95,40 @@ Recommended flow:
 2. review Overview
 3. triage Issues
 4. sequence Fix Plan work
-5. inspect Evidence when needed
-6. export/share after review
+5. preview and apply supported fix opportunities when available
+6. inspect Evidence when needed
+7. export/share after review
+
+## Deterministic Fix Opportunities
+
+The first fix workflow release is intentionally narrow and trust-focused.
+
+Supported categories include:
+
+- title generation and standardization from deterministic page context
+- title anchor normalization
+- semantic color normalization
+- alignment and spacing normalization
+- grid normalization
+- navigation placement normalization
+- cross-page consistency normalization where objects already exist
+
+Current guardrails:
+
+- only existing-object metadata/theme/layout edits are supported
+- no new visual creation or deletion
+- no visual-type swaps
+- no DAX or model changes
+- no page redesign or storytelling redesign
+
+The workflow is:
+
+1. review remediation in Fix Plan
+2. open a supported fix opportunity
+3. inspect the exact mutation preview
+4. approve and apply
+5. review automatic re-analysis outcomes
+6. roll back if needed
 
 ## Review Modes
 

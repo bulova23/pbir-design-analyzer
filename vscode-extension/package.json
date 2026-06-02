@@ -2,7 +2,7 @@
   "name": "pbir-design-analyzer",
   "displayName": "PBIR Design Analyzer",
   "description": "Review local Power BI PBIP/PBIR reports in an issue-centric workspace for layout, storytelling, accessibility, consistency, and governance.",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "publisher": "bcrowell",
   "icon": "resources/icon.png",
   "repository": {
