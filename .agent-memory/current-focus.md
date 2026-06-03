@@ -7,6 +7,14 @@
 ## Current Objective
 
 - Phase 3 AI Proposal Enrichment release finalization is complete on the active branch: `0.4.0` is validated, packaged, and documented with provider-backed enrichment still disabled by default.
+- Wrote the analytical Fabric Apps design spec as a shared-workspace extension:
+  - `docs/superpowers/specs/2026-06-03-fabric-apps-analytics-review-design.md`
+  - `Analyzable Surface` abstraction
+  - Phase 1 `Fabric App Readiness Assessment`
+  - Phase 2 `Fabric App Review Mode`
+- Wrote the implementation plan for the Fabric Apps Analytics Review initiative:
+  - `docs/superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md`
+  - planning only, no code changes
 
 ## Release Boundaries
 
@@ -79,6 +87,10 @@
 ## Next Recommended Step
 
 - Tag and publish the `0.4.0` release if the current branch is ready to merge.
+- Review and refine the new Fabric Apps analytical design spec before any planning or implementation:
+  - `docs/superpowers/specs/2026-06-03-fabric-apps-analytics-review-design.md`
+- Review and approve the implementation plan before starting execution work:
+  - `docs/superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md`
 - Keep the packaged smoke harnesses available for future fix-workflow regressions:
   - `vscode-extension/scripts/phase2-deterministic-host-smoke.mjs`
 - Keep Phase 3 scoped to proposal enrichment only:

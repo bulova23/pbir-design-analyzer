@@ -218,6 +218,46 @@
 - Found that the branch already had planning docs and failing tests for proposal enrichment, but no actual `src/analyzer/proposalEnrichment/` implementation yet.
 - Implemented the Phase 3 advisory stack:
   - score-panel proposal-enrichment contracts
+
+## 2026-06-03 Fabric Apps Analytics Review Design
+
+- Wrote the analytical Fabric Apps design spec:
+  - `docs/superpowers/specs/2026-06-03-fabric-apps-analytics-review-design.md`
+- Framed the product direction as:
+  - one workspace
+  - multiple analyzers
+  - shared findings, evidence, remediation, and governance review patterns
+- Added the new architectural abstraction:
+  - `Analyzable Surface`
+- Scoped Fabric Apps support to analytical, semantic-model-backed experiences only.
+- Split the work into two advisory-first phases:
+  - `Fabric App Readiness Assessment`
+  - `Fabric App Review Mode`
+- Explicitly excluded operational apps, CRUD/workflow/backend concerns, and code generation from this design.
+
+## 2026-06-03 Fabric Apps Analytics Review Implementation Plan
+
+- Wrote the implementation plan:
+  - `docs/superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md`
+- Mapped the approved design onto concrete extension modules including:
+  - `scorePanel.ts`
+  - surface discovery
+  - analyzer registry
+  - `scoreResultPayload.ts`
+  - `PbirScorePanel.ts`
+  - `App.tsx`
+- Broke the work into six implementation phases:
+  - Surface Discovery Foundation
+  - Fabric App Readiness Assessment
+  - Workspace Integration
+  - Fabric App Review Mode
+  - Governance Integration
+  - Hardening And Validation
+- Recommended the first implementation slice as:
+  - surface discovery
+  - analyzer registry
+  - Phase 1 readiness analyzer
+  - readiness workspace integration
   - grounded remediation context builder
   - advisory provider abstraction
   - validation guards for invented artifacts, execution leakage, and outcome overclaim
