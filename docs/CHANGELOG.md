@@ -2,6 +2,79 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.4.0 — 2026-06-02
+
+### AI Proposal Enrichment Phase 3
+
+- Added an advisory-only `proposalEnrichments` layer to the score-panel result contract so remediation items can carry grounded explanation, priority, expected-outcome, title-suggestion, and alternative-guidance content without changing score semantics or deterministic execution authority.
+- Added bounded Phase 3 enrichment modules for:
+  - grounded remediation context building
+  - advisory provider abstraction
+  - hallucination and execution-leak validation
+  - deterministic fallback wording
+  - non-blocking orchestration back into the existing Fix Plan workflow
+- Wired the score-panel host to populate fallback-safe proposal enrichment content while keeping preview/apply/rollback, mutation planning, and post-apply outcome reporting unchanged.
+- Updated the Fix Plan webview to render clearly labeled `AI-enriched guidance` separately from deterministic opportunities and actual apply outcomes.
+- Preserved the trust boundary:
+  - AI enriches proposals only
+  - AI does not generate mutations
+  - AI does not apply mutations
+  - deterministic preview/apply/rollback behavior is unchanged
+
+### AI Fix Phase 2 Hardening
+
+- Added deterministic compatibility evaluation for multi-opportunity fix selection, including machine-readable and user-readable reasons for overlapping mutations, incompatible categories, stale opportunities, target drift, and missing rollback coverage.
+- Added grouped preview payloads and UI that summarize selected opportunities by page, object, property, changed files, changed objects, mutation facts, and expected outcomes.
+- Added deterministic batch apply orchestration with validate → backup → ordered apply → session record → re-analysis flow, plus all-or-nothing blocking when one selected opportunity is stale or conflicts.
+- Added session history and rollback visibility for grouped apply runs, including grouped outcome summaries, rollback history, and regeneration/stale messaging.
+- Preserved the deterministic trust boundary: no model calls, no provider integration, no AI-generated mutations, and no scoring or normalized-finding semantic changes.
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npx jest --runInBand src/test/proposalEnrichmentContextBuilder.test.ts src/test/proposalEnrichmentValidators.test.ts src/test/proposalEnrichmentOrchestrator.test.ts src/test/scoreResultPayload.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runInBand webview-src/analyzer-score/proposalEnrichment.test.ts webview-src/analyzer-score/App.test.tsx`
+- Passed:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npx jest --runInBand src/test/fixCompatibility.test.ts src/test/fixBatchPreview.test.ts src/test/fixApplyEngine.test.ts src/test/fixOutcomeEvaluator.test.ts src/test/fixSessionHistory.test.ts src/test/scoreResultPayload.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runInBand webview-src/analyzer-score/App.test.tsx`
+  - `cd vscode-extension && npx eslint src/analyzer/contracts/scorePanel.ts src/analyzer/fixes/fixCompatibility.ts src/analyzer/fixes/fixBatchPreview.ts src/analyzer/fixes/fixApplyEngine.ts src/analyzer/fixes/fixOutcomeEvaluator.ts src/analyzer/fixes/fixSessionHistory.ts src/views/PbirScorePanel.ts src/views/scoreResultPayload.ts src/test/fixCompatibility.test.ts src/test/fixBatchPreview.test.ts src/test/fixApplyEngine.test.ts src/test/fixOutcomeEvaluator.test.ts src/test/fixSessionHistory.test.ts src/test/scoreResultPayload.test.ts --ext ts && npx eslint webview-src/analyzer-score/App.tsx webview-src/analyzer-score/App.test.tsx --ext ts,tsx`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package`
+- Smoke validated:
+  - packaged extension installed into an isolated VS Code profile
+  - deterministic grouped preview, apply, rollback, and session recording still worked unchanged
+
+## 0.3.1 — 2026-06-01
+
+### Single-Page Planner Follow-Up
+
+- Fixed the deterministic fix planner so page-level scoring can generate supported opportunities from top-level `scoredPageName + visualMetadata` when `pageScores` are absent.
+- Kept report-level planning behavior intact while restoring page-level Phase 1 opportunities for real single-page analysis.
+- Updated advisory-only copy so unsupported remediation states more honestly that no safe metadata-only fix is currently available.
+
+### AI Fix Roadmap Clarity
+
+- Documented the staged AI-fix roadmap:
+  - Phase 1 deterministic fix opportunity engine
+  - Phase 2 preview/apply/rollback hardening
+  - Phase 3 AI-assisted proposal enrichment
+  - Phase 4 advanced AI refactoring
+- Reasserted the permanent execution trust boundary and deterministic mutation layer principle in roadmap-facing documentation.
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run package`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Smoke-tested the packaged extension in an isolated VS Code profile against the real `Sales & Production` PBIR fixture to verify:
+  - full-report remediation remains honestly advisory when Phase 1 does not support the emitted remediation family
+  - page-level `Net Sales` planning can consume top-level single-page metadata and surface supported deterministic opportunities
+  - supported opportunities still expose preview/apply/rollback when safe mutations exist
+  - unsupported remediation remains advisory with no webview-specific renderer errors observed
 ## 0.3.0 — 2026-06-01
 
 ### Deterministic Fix Opportunity Engine

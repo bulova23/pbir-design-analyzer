@@ -127,3 +127,127 @@
     - `Reduce visual density and align layout (alignment)`
     - `20` planned mutations
     - `10` rollback file backups
+
+## 2026-06-01 AI Fix Plan Reconciliation
+
+- Reconciled `docs/superpowers/plans/2026-05-31-ai-assisted-fix-opportunities-plan.md` with the shipped `0.3.0` deterministic fix workflow.
+- Marked completed Phase 1 workstreams as done and left only the real remaining follow-ups open:
+  - optional `fixOpportunities.*` helper extraction
+  - explicit AI-fix phase progression in `docs/ROADMAP.md`
+  - packaging/smoke-testing the single-page planner follow-up release
+
+## 2026-06-01 AI Fix Phase 1 Follow-Up And Phase 2 Planning
+
+- Bumped the extension to `0.3.1` and packaged:
+  - `vscode-extension/pbir-design-analyzer-0.3.1.vsix`
+- Completed the required validation:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package`
+- Smoke-tested the packaged extension in an isolated VS Code profile against the real `Sales & Production` fixture and confirmed:
+  - packaged `PBIR Optimization Report` opens successfully
+  - full-report deterministic fixes remain advisory-only on the real fixture
+  - installed-extension single-page scoring for `Net Sales` issues a `pageName: Net Sales` request and returns top-level `scoredPageName + visualMetadata`
+- Declined `fixOpportunities.ts` helper extraction with rationale:
+  - the current `App.tsx` logic remains localized enough
+  - extraction would add churn without improving safety or behavior
+- Added the Phase 2 hardening docs:
+  - `docs/superpowers/specs/2026-06-01-ai-fix-phase2-hardening-design.md`
+  - `docs/superpowers/plans/2026-06-01-ai-fix-phase2-hardening-plan.md`
+
+## 2026-06-01 AI Fix Phase 2 Hardening Implementation
+
+- Implemented Phase 2 orchestration above the deterministic mutation layer:
+  - compatibility/conflict evaluation
+  - grouped preview payloads
+  - deterministic batch apply + rollback session handling
+  - grouped outcome summaries
+  - host/webview selection, stale regeneration messaging, and session history
+- Added focused regression coverage for:
+  - compatibility conflicts and compatible selections
+  - grouped preview shaping
+  - all-or-nothing batch apply and session rollback
+  - grouped outcome summarization
+  - fix workflow payload shaping
+  - multi-select webview UX
+- Completed validation:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package`
+- Smoke validation:
+  - isolated packaged VS Code profile opened `PBIR Optimization Report` on the real `Sales & Production.pbip` fixture
+  - `node vscode-extension/scripts/phase2-deterministic-host-smoke.mjs` exercised grouped preview/apply/rollback/session history through the bundled Phase 2 host logic on a deterministic multi-opportunity fixture
+
+## 2026-06-02 Power BI Agent Skills Reference Review
+
+- Reviewed `data-goblin/power-bi-agentic-development` as a reference source for Power BI agent skills and patterns.
+- Recommended adopting only pattern-level guidance:
+  - advisory domain-specialized proposal enrichment
+  - deterministic PBIR/TMDL/binding validation stages
+  - explicit AGENTS.md guidance that AI suggestions must resolve into deterministic mutation contracts
+- Recommended deferring reviewer-style specialization to future Phase 3 and Report Design Studio work.
+- Recommended against importing external skills/hooks or replacing the current preview/apply/rollback/re-analysis trust boundary.
+
+## 2026-06-02 Phase 3 AI Proposal Enrichment Planning
+
+- Added the Phase 3 design spec:
+  - `docs/superpowers/specs/2026-06-02-ai-proposal-enrichment-design.md`
+- Added the Phase 3 implementation plan:
+  - `docs/superpowers/plans/2026-06-02-ai-proposal-enrichment-plan.md`
+- Defined the new advisory architecture layer as:
+  - `Issues`
+  - `Remediation Queue`
+  - `AI Proposal Enrichment`
+  - `Fix Opportunity Engine`
+  - `Deterministic Mutation Layer`
+- Preserved the permanent execution trust boundary:
+  - AI may enrich proposal quality
+  - AI may not mutate directly or bypass preview/apply/rollback/re-analysis
+- Positioned the roadmap sequence explicitly:
+  - Phase 1 deterministic engine
+  - Phase 2 hardening
+  - Phase 3 proposal enrichment
+  - Phase 4 advanced AI refactoring
+  - Phase 5 report design studio
+
+## 2026-06-02 Phase 3 AI Proposal Enrichment Resume And Implementation
+
+- Resumed the interrupted Phase 3 implementation from the current repo state instead of regenerating completed planning artifacts.
+- Found that the branch already had planning docs and failing tests for proposal enrichment, but no actual `src/analyzer/proposalEnrichment/` implementation yet.
+- Implemented the Phase 3 advisory stack:
+  - score-panel proposal-enrichment contracts
+  - grounded remediation context builder
+  - advisory provider abstraction
+  - validation guards for invented artifacts, execution leakage, and outcome overclaim
+  - deterministic fallback wording and non-blocking orchestration
+  - score-result payload normalization
+  - Fix Plan advisory rendering in the webview
+- Preserved the trust boundary:
+  - AI enriches proposals only
+  - deterministic mutation generation and apply/rollback execution are unchanged
+- Validation passed with:
+  - focused proposal-enrichment Jest suites
+  - full `cd vscode-extension && npm test`
+  - full `cd vscode-extension && npm run compile`
+
+## 2026-06-02 Phase 3 Release Finalization And Packaging
+
+- Bumped the extension version to `0.4.0`.
+- Updated shipped docs:
+  - `docs/CHANGELOG.md`
+  - `docs/ROADMAP.md`
+  - `README.md`
+  - `vscode-extension/README.md`
+- Completed release validation:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - targeted ESLint on the changed Phase 3 files
+- Built package:
+  - `vscode-extension/pbir-design-analyzer-0.4.0.vsix`
+- Installed the packaged VSIX into an isolated VS Code profile and passed the installed-artifact deterministic grouped preview/apply/rollback smoke.
+- Documented the remaining limitation:
+  - provider-backed enrichment is still disabled by default
+  - command-driven packaged real-report smoke under `@vscode/test-electron` still has a panel-interception blocker, so real-report advisory UI confirmation is not yet automated in the installed-extension path

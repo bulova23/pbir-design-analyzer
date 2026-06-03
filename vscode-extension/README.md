@@ -12,13 +12,16 @@ Documentation: [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md)
 4. Open PBIR Design Analyzer: Configure Scoring if you want to tune framework weights or navigation treatment.
 5. Use PBIR Design Analyzer: Check Governance only when your workspace has shared governance enabled.
 
-## What’s New In 0.3.0
+## What’s New In 0.4.0
 
-- `Fix Plan` can now expose deterministic `Fix Opportunities` for supported remediation items
+- `Fix Plan` now combines advisory `AI-enriched guidance` with deterministic `Fix Opportunities` for supported remediation items
+- advisory enrichment improves proposal wording, rationale, priority, and expected outcomes without changing deterministic execution authority
+- provider-backed enrichment is disabled by default; deterministic fallback advisory guidance still renders
 - supported opportunities show exact `Object`, `Property`, `Before`, and `After` preview rows before any mutation is applied
-- users can approve, apply, roll back, and re-analyze supported fixes directly from the remediation workflow
+- users can preview grouped selections, approve, apply, roll back, and re-analyze supported fixes directly from the remediation workflow
 - unsupported remediation stays advisory rather than generating opaque or unsafe fixes
 - the active page/report tab now stays in place during refresh-driven re-analysis after apply or rollback
+- single-page planning now recognizes top-level `scoredPageName + visualMetadata`, so page-level real-report analysis can surface supported opportunities when `pageScores` are absent
 
 ## What It Analyzes
 
@@ -71,7 +74,7 @@ Use Issues as the main review surface. The workspace supports filtering and grou
 
 ### Fix Plan
 
-Use Fix Plan when you want an action-oriented remediation queue rather than raw findings. In `0.3.0`, supported remediation items can also surface deterministic fix opportunities with explicit preview, apply, rollback, and re-analysis steps.
+Use Fix Plan when you want an action-oriented remediation queue rather than raw findings. In `0.4.0`, supported remediation items can surface fallback-safe `AI-enriched guidance` plus deterministic fix opportunities with explicit preview, grouped apply, rollback, and re-analysis steps for both full-report and supported single-page scoring payloads. Provider-backed enrichment remains disabled by default in this release.
 
 ### Evidence
 

@@ -1,4 +1,9 @@
-import type { FixOpportunity, FixOutcomeStatus, ScoreResult } from '../contracts/scorePanel';
+import type {
+  FixGroupedOutcomeSummary,
+  FixOpportunity,
+  FixOutcomeStatus,
+  ScoreResult,
+} from '../contracts/scorePanel';
 
 function severityRank(severity: 'high' | 'medium' | 'low' | 'info'): number {
   switch (severity) {
@@ -50,5 +55,39 @@ export function evaluateFixOutcome(
     outcome: {
       entries,
     },
+  };
+}
+
+export function summarizeBatchFixOutcomes(
+  items: Array<{
+    opportunityId: string;
+    title: string;
+    state: FixOpportunity['state'];
+    outcome: NonNullable<FixOpportunity['outcome']>;
+  }>,
+): FixGroupedOutcomeSummary {
+  const statusMap = new Map<FixOutcomeStatus, { count: number; opportunityIds: string[] }>();
+
+  for (const item of items) {
+    for (const entry of item.outcome.entries) {
+      const existing = statusMap.get(entry.status) ?? { count: 0, opportunityIds: [] };
+      existing.count += 1;
+      if (!existing.opportunityIds.includes(item.opportunityId)) {
+        existing.opportunityIds.push(item.opportunityId);
+      }
+      statusMap.set(entry.status, existing);
+    }
+  }
+
+  return {
+    totalEntries: items.reduce((sum, item) => sum + item.outcome.entries.length, 0),
+    statuses: [...statusMap.entries()].map(([status, detail]) => ({
+      status,
+      count: detail.count,
+      opportunityIds: detail.opportunityIds,
+    })),
+    appliedWithUnexpectedOutcomeOpportunityIds: items
+      .filter((item) => item.state === 'AppliedWithUnexpectedOutcome')
+      .map((item) => item.opportunityId),
   };
 }

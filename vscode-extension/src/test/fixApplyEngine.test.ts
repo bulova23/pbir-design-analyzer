@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { FixOpportunity } from '../analyzer/contracts/scorePanel';
-import { applyFixOpportunity, rollbackFixOpportunity } from '../analyzer/fixes/fixApplyEngine';
+import { applyFixOpportunity, applyFixOpportunityBatch, rollbackFixOpportunity, rollbackFixSession } from '../analyzer/fixes/fixApplyEngine';
 import { buildFixOpportunities } from '../analyzer/fixes/fixOpportunityBuilder';
 import type { NormalizedFinding, PageScore, ScoreResult, VisualMetadataItem } from '../analyzer/contracts/scorePanel';
 
@@ -205,5 +205,139 @@ describe('fixApplyEngine', () => {
     const rollbackResult = rollbackFixOpportunity(fix);
     expect(rollbackResult.state).toBe('RolledBack');
     expect(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')).toBe(original);
+  });
+
+  it('applies compatible opportunities in deterministic order', () => {
+    const reportPath = createReportRoot();
+    const first = opportunity(reportPath);
+    const second = {
+      ...opportunity(reportPath),
+      id: 'fix-z',
+      title: 'Secondary title alignment',
+      targetObjectIds: ['title-2'],
+      mutations: [{
+        ...opportunity(reportPath).mutations[0],
+        id: 'mutation-z',
+        targetObjectId: 'title-2',
+        targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+        propertyPath: 'position.x',
+        before: 80,
+        after: 24,
+      }],
+      rollbackPlan: {
+        id: 'rollback-fix-z',
+        fixOpportunityId: 'fix-z',
+        fileBackups: [{
+          targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+          beforeContent: '{"name":"title-2","position":{"x":80,"y":180,"width":400,"height":48},"title":{"text":"Overview Title"},"visual":{"visualType":"textbox"}}',
+        }],
+        reverseMutations: [],
+      },
+    } satisfies FixOpportunity;
+
+    fs.mkdirSync(path.dirname(second.mutations[0].targetFile), { recursive: true });
+    fs.writeFileSync(second.mutations[0].targetFile, second.rollbackPlan.fileBackups[0].beforeContent, 'utf8');
+
+    const result = applyFixOpportunityBatch([second, first], '2026-06-01T22:20:00.000Z');
+
+    expect(result.state).toBe('Applied');
+    expect(result.applyOrder).toEqual([first.id, second.id]);
+    expect(result.appliedMutationCount).toBe(first.mutations.length + second.mutations.length);
+    expect(result.session?.rollbackAvailable).toBe(true);
+  });
+
+  it('validates the full batch before applying any mutation', () => {
+    const reportPath = createReportRoot();
+    const first = opportunity(reportPath);
+    const second = {
+      ...opportunity(reportPath),
+      id: 'fix-b',
+      mutations: [{
+        ...opportunity(reportPath).mutations[0],
+        id: 'mutation-b',
+        targetObjectId: 'title-2',
+        targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+        before: 80,
+        after: 24,
+      }],
+      rollbackPlan: {
+        id: 'rollback-fix-b',
+        fixOpportunityId: 'fix-b',
+        fileBackups: [{
+          targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+          beforeContent: '{"name":"title-2","position":{"x":999,"y":180,"width":400,"height":48},"title":{"text":"Overview Title"},"visual":{"visualType":"textbox"}}',
+        }],
+        reverseMutations: [],
+      },
+    } satisfies FixOpportunity;
+
+    fs.mkdirSync(path.dirname(second.mutations[0].targetFile), { recursive: true });
+    fs.writeFileSync(second.mutations[0].targetFile, second.rollbackPlan.fileBackups[0].beforeContent, 'utf8');
+    const originalFirst = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
+
+    const result = applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
+
+    expect(result.state).toBe('Stale');
+    expect(result.appliedMutationCount).toBe(0);
+    expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
+  });
+
+  it('blocks the entire batch when one selected opportunity conflicts', () => {
+    const reportPath = createReportRoot();
+    const first = opportunity(reportPath);
+    const second = {
+      ...opportunity(reportPath),
+      id: 'fix-b',
+    } satisfies FixOpportunity;
+
+    const original = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
+    const result = applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
+
+    expect(result.state).toBe('FailedValidation');
+    expect(result.validationErrors).toEqual(expect.arrayContaining([expect.stringContaining('overlappingMutation')]));
+    expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(original);
+  });
+
+  it('restores grouped apply changes through session rollback', () => {
+    const reportPath = createReportRoot();
+    const first = opportunity(reportPath);
+    const second = {
+      ...opportunity(reportPath),
+      id: 'fix-z',
+      targetObjectIds: ['title-2'],
+      mutations: [{
+        ...opportunity(reportPath).mutations[0],
+        id: 'mutation-z',
+        targetObjectId: 'title-2',
+        targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+        propertyPath: 'position.x',
+        before: 80,
+        after: 24,
+      }],
+      rollbackPlan: {
+        id: 'rollback-fix-z',
+        fixOpportunityId: 'fix-z',
+        fileBackups: [{
+          targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+          beforeContent: '{"name":"title-2","position":{"x":80,"y":180,"width":400,"height":48},"title":{"text":"Overview Title"},"visual":{"visualType":"textbox"}}',
+        }],
+        reverseMutations: [],
+      },
+    } satisfies FixOpportunity;
+
+    fs.mkdirSync(path.dirname(second.mutations[0].targetFile), { recursive: true });
+    fs.writeFileSync(second.mutations[0].targetFile, second.rollbackPlan.fileBackups[0].beforeContent, 'utf8');
+
+    const originalFirst = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
+    const originalSecond = fs.readFileSync(second.mutations[0].targetFile, 'utf8');
+    const applyResult = applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
+
+    expect(applyResult.session).toBeDefined();
+
+    const rollbackResult = rollbackFixSession(applyResult.session!, [first, second], '2026-06-01T22:21:00.000Z');
+
+    expect(rollbackResult.state).toBe('RolledBack');
+    expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
+    expect(fs.readFileSync(second.mutations[0].targetFile, 'utf8')).toBe(originalSecond);
   });
 });

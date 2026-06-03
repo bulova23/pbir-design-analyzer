@@ -1,4 +1,4 @@
-import { normalizeScoreResultPayload } from '../views/scoreResultPayload';
+import { buildFixWorkflowPayload, normalizeScoreResultPayload } from '../views/scoreResultPayload';
 
 describe('normalizeScoreResultPayload', () => {
   it('maps PascalCase score payloads to the webview contract', () => {
@@ -472,6 +472,23 @@ describe('normalizeScoreResultPayload', () => {
     ]);
   });
 
+  it('initializes proposal enrichment state without changing deterministic score semantics', () => {
+    const normalized = normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CompositeScore: 77,
+      PageCount: 1,
+      Feedback: {},
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-02T20:00:00.000Z',
+      PageScores: [],
+    });
+
+    expect(normalized.proposalEnrichments).toEqual([]);
+    expect(normalized.compositeScore).toBe(77);
+    expect(normalized.fixPlan).toEqual(expect.any(Array));
+  });
+
   it('drops partial report consistency summaries and malformed nested semantic metadata', () => {
     const normalized = normalizeScoreResultPayload({
       VisualMetadata: {
@@ -555,5 +572,70 @@ describe('normalizeScoreResultPayload', () => {
       fitStatus: 'good',
       recommendedAlternatives: [],
     });
+  });
+  it('builds grouped fix workflow payload state for selected opportunities and sessions', () => {
+    const payload = buildFixWorkflowPayload({
+      opportunities: [
+        {
+          id: 'fix-a',
+          remediationItemId: 'rem-a',
+          title: 'Fix A',
+          category: 'alignment',
+          summary: 'Summary',
+          confidence: 95,
+          safetyClass: 'safe',
+          affectedPages: ['Overview'],
+          targetObjectIds: ['visual-1'],
+          sourceFindingIds: ['finding-a'],
+          expectedResolutions: ['Layout consistency'],
+          mutations: [{
+            id: 'mutation-a',
+            pageName: 'Overview',
+            targetObjectId: 'visual-1',
+            targetFile: '/tmp/a.json',
+            propertyPath: 'position.x',
+            mutationType: 'setPosition',
+            before: 12,
+            after: 24,
+          }],
+          previewRows: [{
+            pageName: 'Overview',
+            objectId: 'visual-1',
+            property: 'position.x',
+            before: 12,
+            after: 24,
+          }],
+          rollbackPlan: {
+            id: 'rollback-a',
+            fixOpportunityId: 'fix-a',
+            fileBackups: [{ targetFile: '/tmp/a.json', beforeContent: '{}' }],
+            reverseMutations: [],
+          },
+          state: 'Previewed',
+        },
+      ],
+      selectedOpportunityIds: ['fix-a'],
+      approvalState: 'Previewed',
+      message: 'Preview ready',
+      fixApplySessions: [{
+        id: 'session-1',
+        appliedAt: '2026-06-01T22:40:00.000Z',
+        opportunityIds: ['fix-a'],
+        opportunityTitles: ['Fix A'],
+        rollbackAvailable: true,
+        rollbackHistory: [],
+      }],
+    });
+
+    expect(payload.fixSelection).toMatchObject({
+      selectedOpportunityIds: ['fix-a'],
+      approvalState: 'Previewed',
+      message: 'Preview ready',
+      groupedPreview: {
+        opportunityIds: ['fix-a'],
+      },
+    });
+    expect(payload.fixSelection.compatibility.blockingReasons).toEqual([]);
+    expect(payload.fixApplySessions).toHaveLength(1);
   });
 });

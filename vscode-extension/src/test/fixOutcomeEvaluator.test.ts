@@ -1,5 +1,5 @@
 import type { FixOpportunity, ScoreResult } from '../analyzer/contracts/scorePanel';
-import { evaluateFixOutcome } from '../analyzer/fixes/fixOutcomeEvaluator';
+import { evaluateFixOutcome, summarizeBatchFixOutcomes } from '../analyzer/fixes/fixOutcomeEvaluator';
 
 function scoreResult(sourceFinding: { id: string; severity: 'high' | 'medium' | 'low' } | undefined): ScoreResult {
   return {
@@ -78,5 +78,24 @@ describe('evaluateFixOutcome', () => {
     const summary = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'high' }), scoreResult({ id: 'layout-finding', severity: 'high' }));
     expect(summary.nextState).toBe('AppliedWithUnexpectedOutcome');
     expect(summary.outcome.entries[0]).toMatchObject({ findingId: 'layout-finding', status: 'Unexpected' });
+  });
+
+  it('builds grouped batch outcome summaries without changing individual entry semantics', () => {
+    const first = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'high' }), scoreResult(undefined));
+    const second = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'high' }), scoreResult({ id: 'layout-finding', severity: 'high' }));
+
+    const grouped = summarizeBatchFixOutcomes([
+      { opportunityId: 'fix-1', title: opportunity.title, outcome: first.outcome, state: first.nextState },
+      { opportunityId: 'fix-2', title: opportunity.title, outcome: second.outcome, state: second.nextState },
+    ]);
+
+    expect(grouped.totalEntries).toBe(2);
+    expect(grouped.statuses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: 'Resolved', count: 1 }),
+        expect.objectContaining({ status: 'Unexpected', count: 1 }),
+      ]),
+    );
+    expect(grouped.appliedWithUnexpectedOutcomeOpportunityIds).toEqual(['fix-2']);
   });
 });

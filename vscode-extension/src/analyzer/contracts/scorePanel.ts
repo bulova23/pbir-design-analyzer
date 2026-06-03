@@ -449,6 +449,87 @@ export interface FixPlanItem {
   sourceFindingIds: string[];
 }
 
+// Phase 3 advisory output is presentation-only. It can improve proposal wording,
+// rationale, and prioritization, but it must never carry executable mutation authority.
+export type ProposalEnricherId =
+  | 'layout'
+  | 'theme'
+  | 'navigation'
+  | 'storytelling'
+  | 'executiveReadability'
+  | 'accessibility';
+
+export interface EnrichedTitleSuggestion {
+  title: string;
+  confidence: number;
+  rationale: string;
+}
+
+export interface EnrichedExplanation {
+  shortText: string;
+  expandedText?: string;
+}
+
+export interface EnrichedImpactSummary {
+  text: string;
+}
+
+export interface AdvisoryPriority {
+  tier: 'highLeverage' | 'quickWin' | 'consistencyCleanup' | 'advisoryOnly';
+  rationale: string;
+}
+
+export interface ExpectedOutcomeNarrative {
+  text: string;
+  areas: string[];
+}
+
+export interface AdvisoryAlternative {
+  title: string;
+  description: string;
+}
+
+export type ProposalEnrichmentValidationCode =
+  | 'unsupportedSurface'
+  | 'inventedArtifact'
+  | 'contradictoryPriority'
+  | 'executionLeak'
+  | 'outcomeOverclaim'
+  | 'semanticRewrite';
+
+export interface ProposalEnrichmentValidationIssue {
+  code: ProposalEnrichmentValidationCode;
+  message: string;
+  section?: 'titleSuggestions' | 'explanation' | 'whyThisMatters' | 'advisoryPriority' | 'expectedOutcome' | 'advisoryAlternatives';
+}
+
+export interface ProposalEnrichmentValidationResult {
+  status: 'passed' | 'degraded' | 'rejected';
+  issues: ProposalEnrichmentValidationIssue[];
+}
+
+export interface ProposalEnrichmentProvenance {
+  providerName?: string;
+  usedFallback: boolean;
+  enrichedAt: string;
+  sourceFindingIds: string[];
+}
+
+export interface ProposalEnrichment {
+  remediationItemId: string;
+  status: 'available' | 'fallback' | 'rejected' | 'skipped';
+  source: 'provider' | 'fallback';
+  enrichersApplied: ProposalEnricherId[];
+  titleSuggestions?: EnrichedTitleSuggestion[];
+  explanation?: EnrichedExplanation;
+  whyThisMatters?: EnrichedImpactSummary;
+  advisoryPriority?: AdvisoryPriority;
+  expectedOutcome?: ExpectedOutcomeNarrative;
+  advisoryAlternatives: AdvisoryAlternative[];
+  validation: ProposalEnrichmentValidationResult;
+  provenance: ProposalEnrichmentProvenance;
+}
+
 export type FixOpportunityCategory =
   | 'title'
   | 'semanticColor'
@@ -514,8 +595,104 @@ export interface FixOutcomeEntry {
   status: FixOutcomeStatus;
 }
 
+export interface FixGroupedOutcomeStatusSummary {
+  status: FixOutcomeStatus;
+  count: number;
+  opportunityIds: string[];
+}
+
+export interface FixGroupedOutcomeSummary {
+  totalEntries: number;
+  statuses: FixGroupedOutcomeStatusSummary[];
+  appliedWithUnexpectedOutcomeOpportunityIds: string[];
+}
+
 export interface FixOutcomeSummary {
   entries: FixOutcomeEntry[];
+  groupedSummary?: FixGroupedOutcomeSummary;
+}
+
+export type FixConflictCode =
+  | 'overlappingMutation'
+  | 'incompatibleCategory'
+  | 'staleOpportunity'
+  | 'targetDrifted'
+  | 'missingRollbackCoverage';
+
+export interface FixConflictReason {
+  code: FixConflictCode;
+  message: string;
+  opportunityIds: string[];
+  targetObjectId?: string;
+  propertyPath?: string;
+}
+
+export interface FixCompatibilityResult {
+  isCompatible: boolean;
+  compatibleOpportunityIds: string[];
+  blockingOpportunityIds: string[];
+  blockingReasons: FixConflictReason[];
+}
+
+export interface FixBatchPreviewPropertyChange {
+  opportunityId: string;
+  property: string;
+  before: unknown;
+  after: unknown;
+}
+
+export interface FixBatchPreviewObjectGroup {
+  pageName?: string;
+  objectId: string;
+  propertyChanges: FixBatchPreviewPropertyChange[];
+}
+
+export interface FixBatchPreviewPageGroup {
+  pageName: string;
+  objectGroups: FixBatchPreviewObjectGroup[];
+}
+
+export interface FixBatchPreviewSummary {
+  changedFileCount: number;
+  changedObjectCount: number;
+  expectedOutcomeCount: number;
+  touchedFiles: string[];
+  changedObjects: string[];
+}
+
+export interface FixBatchPreview {
+  opportunityIds: string[];
+  summary: FixBatchPreviewSummary;
+  pageGroups: FixBatchPreviewPageGroup[];
+  mutationFacts: FixPreviewRow[];
+  expectedOutcomes: string[];
+}
+
+export type FixSelectionApprovalState = 'NeedsPreview' | 'Previewed' | 'Approved';
+
+export interface FixSelectionState {
+  selectedOpportunityIds: string[];
+  compatibility: FixCompatibilityResult;
+  groupedPreview?: FixBatchPreview;
+  approvalState: FixSelectionApprovalState;
+  message?: string;
+}
+
+export interface FixSessionRollbackRecord {
+  rolledBackAt: string;
+  state: 'RolledBack' | 'RollbackFailed';
+}
+
+export interface FixApplySessionRecord {
+  id: string;
+  appliedAt: string;
+  opportunityIds: string[];
+  opportunityTitles: string[];
+  rollbackAvailable: boolean;
+  rollbackHistory: FixSessionRollbackRecord[];
+  groupedOutcomeSummary?: FixGroupedOutcomeSummary;
+  staleOpportunityIds?: string[];
+  regeneratedOpportunityIds?: string[];
 }
 
 export interface FixApplyResult {
@@ -523,6 +700,15 @@ export interface FixApplyResult {
   state: FixOpportunityState;
   appliedMutationCount: number;
   validationErrors: string[];
+}
+
+export interface FixBatchApplyResult {
+  state: FixOpportunityState;
+  opportunityIds: string[];
+  appliedMutationCount: number;
+  validationErrors: string[];
+  applyOrder: string[];
+  session?: FixApplySessionRecord;
 }
 
 export interface FixOpportunity {
@@ -608,6 +794,7 @@ export interface ScoreResult {
   normalizedFindings?: NormalizedFinding[];
   overviewSummary?: OverviewSummary;
   fixPlan?: FixPlanItem[];
+  proposalEnrichments?: ProposalEnrichment[];
   fixOpportunities?: FixOpportunity[];
   crossPageMatrix?: CrossPageMatrixSummary;
   personaPresentation?: PersonaPresentationState;
@@ -667,6 +854,8 @@ export interface ScorePanelState {
   result: ScoreResult;
   selectedPageIndex: number;
   intentFeedback: IntentFeedbackEntry[];
+  fixSelection?: FixSelectionState;
+  fixApplySessions?: FixApplySessionRecord[];
   reviewPacketPreview?: ReviewWorkflowExportData;
   reviewPacketPreviewHtml?: string;
   reviewPacketPreviewProfile?: ReviewWorkflowExportProfile;
@@ -696,6 +885,12 @@ export type ScorePanelWebviewToHostMessage =
   | { type: 'setReviewPacketPreviewProfile'; profile: ReviewWorkflowExportProfile }
   | { type: 'setReviewPacketPreviewTemplateVariant'; templateVariant: ReviewWorkflowMarkdownTemplateVariant }
   | { type: 'openReviewPacketPreview' }
+  | { type: 'toggleFixOpportunitySelection'; opportunityId: string }
+  | { type: 'previewSelectedFixOpportunities' }
+  | { type: 'approveSelectedFixOpportunities' }
+  | { type: 'applySelectedFixOpportunities' }
+  | { type: 'rollbackFixSession'; sessionId: string }
+  | { type: 'regenerateFixOpportunities'; opportunityIds?: string[] }
   | { type: 'approveFixOpportunity'; opportunityId: string }
   | { type: 'applyFixOpportunity'; opportunityId: string }
   | { type: 'rollbackFixOpportunity'; opportunityId: string }

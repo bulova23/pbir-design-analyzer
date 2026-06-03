@@ -9,6 +9,7 @@ import type {
   AuditFindingDisplay,
   AuditPageState,
   AuditState,
+  FixApplySessionRecord,
   FixOpportunity,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
@@ -22,10 +23,11 @@ import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture
 import type { VisualAuditSession } from '../analyzer/audit/types';
 import type { VisualAuditProvider } from '../analyzer/audit/providers/VisualAuditProvider';
 import { createActiveProvider } from '../analyzer/audit/providers/providerSetup';
+import { enrichFixPlanWithAdvisoryContent } from '../analyzer/proposalEnrichment/proposalEnrichmentOrchestrator';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { resolveWebviewAssets } from './webviewAssets';
-import { normalizeScoreResultPayload } from './scoreResultPayload';
+import { buildFixWorkflowPayload, normalizeScoreResultPayload } from './scoreResultPayload';
 import { revealVisualInPbirExplorer } from './pbirExplorerReveal';
 import { loadIntentFeedbackSession, saveIntentFeedbackSession, upsertIntentFeedback } from '../analyzer/intentFeedback/store';
 import {
@@ -45,8 +47,19 @@ import {
   saveReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreviewStore';
 import { chooseProfiledDocumentExportOptions } from '../analyzer/score/reviewWorkflowExportPrompts';
-import { applyFixOpportunity, rollbackFixOpportunity } from '../analyzer/fixes/fixApplyEngine';
-import { evaluateFixOutcome } from '../analyzer/fixes/fixOutcomeEvaluator';
+import {
+  applyFixOpportunity,
+  applyFixOpportunityBatch,
+  rollbackFixOpportunity,
+  rollbackFixSession,
+} from '../analyzer/fixes/fixApplyEngine';
+import { evaluateFixOpportunityCompatibility } from '../analyzer/fixes/fixCompatibility';
+import {
+  createFixApplySessionRecord,
+  markFixSessionRegenerated,
+  recordFixSessionRollback,
+} from '../analyzer/fixes/fixSessionHistory';
+import { evaluateFixOutcome, summarizeBatchFixOutcomes } from '../analyzer/fixes/fixOutcomeEvaluator';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -67,6 +80,10 @@ export class PbirScorePanel {
   private auditSession: VisualAuditSession | undefined;
   private auditProvider: VisualAuditProvider;
   private readonly fixOpportunityHistory = new Map<string, FixOpportunity>();
+  private selectedFixOpportunityIds: string[] = [];
+  private fixSelectionApprovalState: NonNullable<ScorePanelState['fixSelection']>['approvalState'] = 'NeedsPreview';
+  private fixApplySessions: FixApplySessionRecord[] = [];
+  private fixWorkflowMessage: string | undefined;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -174,6 +191,24 @@ export class PbirScorePanel {
       case 'openReviewPacketPreview':
         await this.handleOpenReviewPacketPreview();
         return;
+      case 'toggleFixOpportunitySelection':
+        await this.handleToggleFixOpportunitySelection(message.opportunityId);
+        return;
+      case 'previewSelectedFixOpportunities':
+        await this.handlePreviewSelectedFixOpportunities();
+        return;
+      case 'approveSelectedFixOpportunities':
+        await this.handleApproveSelectedFixOpportunities();
+        return;
+      case 'applySelectedFixOpportunities':
+        await this.handleApplySelectedFixOpportunities();
+        return;
+      case 'rollbackFixSession':
+        await this.handleRollbackFixSession(message.sessionId);
+        return;
+      case 'regenerateFixOpportunities':
+        await this.handleRegenerateFixOpportunities(message.opportunityIds);
+        return;
       case 'approveFixOpportunity':
         await this.handleApproveFixOpportunity(message.opportunityId);
         return;
@@ -217,6 +252,195 @@ export class PbirScorePanel {
       ...result,
       fixOpportunities: merged,
     };
+  }
+
+  private currentPreviewableOpportunities(): FixOpportunity[] {
+    return (this.currentResult?.fixOpportunities ?? []).filter((item) => item.state !== 'Applied' && item.state !== 'RolledBack');
+  }
+
+  private selectedFixOpportunities(): FixOpportunity[] {
+    const selectedSet = new Set(this.selectedFixOpportunityIds);
+    return this.currentPreviewableOpportunities().filter((item) => selectedSet.has(item.id));
+  }
+
+  private buildFixSelectionState(result: ScoreResult): ScorePanelState['fixSelection'] {
+    return buildFixWorkflowPayload({
+      opportunities: result.fixOpportunities ?? [],
+      selectedOpportunityIds: this.selectedFixOpportunityIds,
+      approvalState: this.fixSelectionApprovalState,
+      message: this.fixWorkflowMessage,
+      fixApplySessions: this.fixApplySessions,
+    }).fixSelection;
+  }
+
+  private async handleToggleFixOpportunitySelection(opportunityId: string): Promise<void> {
+    const opportunity = this.findFixOpportunity(opportunityId);
+    if (!opportunity || opportunity.state === 'Applied' || opportunity.state === 'RolledBack') {
+      return;
+    }
+
+    this.selectedFixOpportunityIds = this.selectedFixOpportunityIds.includes(opportunityId)
+      ? this.selectedFixOpportunityIds.filter((id) => id !== opportunityId)
+      : [...this.selectedFixOpportunityIds, opportunityId];
+    this.fixSelectionApprovalState = 'NeedsPreview';
+    this.fixWorkflowMessage = undefined;
+    await this.postCurrentScoreState();
+  }
+
+  private async handlePreviewSelectedFixOpportunities(): Promise<void> {
+    const selected = this.selectedFixOpportunities();
+    if (selected.length === 0) {
+      this.fixWorkflowMessage = 'Select one or more opportunities before previewing fixes.';
+      await this.postCurrentScoreState();
+      return;
+    }
+
+    const compatibility = evaluateFixOpportunityCompatibility(selected);
+    if (!compatibility.isCompatible) {
+      this.fixSelectionApprovalState = 'NeedsPreview';
+      this.fixWorkflowMessage = 'Selected opportunities are incompatible or stale. Resolve the blocked items before previewing.';
+      await this.postCurrentScoreState();
+      return;
+    }
+
+    this.fixSelectionApprovalState = 'Previewed';
+    this.fixWorkflowMessage = undefined;
+    await this.postCurrentScoreState();
+  }
+
+  private async handleApproveSelectedFixOpportunities(): Promise<void> {
+    const selected = this.selectedFixOpportunities();
+    const compatibility = evaluateFixOpportunityCompatibility(selected);
+    if (selected.length === 0 || !compatibility.isCompatible || this.fixSelectionApprovalState !== 'Previewed') {
+      return;
+    }
+
+    this.fixSelectionApprovalState = 'Approved';
+    await this.postCurrentScoreState();
+  }
+
+  private async handleApplySelectedFixOpportunities(): Promise<void> {
+    const selected = this.selectedFixOpportunities();
+    const previousResult = this.currentResult;
+    if (selected.length === 0 || !previousResult || this.fixSelectionApprovalState !== 'Approved') {
+      return;
+    }
+
+    const applyResult = applyFixOpportunityBatch(selected);
+    if (applyResult.state !== 'Applied') {
+      for (const opportunity of selected) {
+        this.fixOpportunityHistory.set(opportunity.id, {
+          ...opportunity,
+          state: applyResult.state,
+        });
+      }
+      this.fixWorkflowMessage = applyResult.state === 'Stale'
+        ? 'Selected opportunities are stale or drifted. Regenerate them before retrying.'
+        : 'Selected opportunities cannot be applied together.';
+      this.fixSelectionApprovalState = 'NeedsPreview';
+      await this.postCurrentScoreState();
+      return;
+    }
+
+    await this.refresh();
+    if (!this.currentResult) {
+      return;
+    }
+
+    const outcomeItems = selected.map((opportunity) => {
+      const outcome = evaluateFixOutcome(opportunity, previousResult, this.currentResult!);
+      this.fixOpportunityHistory.set(opportunity.id, {
+        ...opportunity,
+        state: outcome.nextState,
+        outcome: outcome.outcome,
+      });
+      return {
+        opportunityId: opportunity.id,
+        title: opportunity.title,
+        state: outcome.nextState,
+        outcome: outcome.outcome,
+      };
+    });
+
+    const groupedOutcomeSummary = summarizeBatchFixOutcomes(outcomeItems);
+    const session = createFixApplySessionRecord({
+      appliedAt: applyResult.session?.appliedAt ?? new Date().toISOString(),
+      opportunities: selected.map((opportunity) => ({
+        id: opportunity.id,
+        title: opportunity.title,
+        state: this.fixOpportunityHistory.get(opportunity.id)?.state ?? 'Applied',
+      })),
+      rollbackAvailable: applyResult.session?.rollbackAvailable ?? false,
+      groupedOutcomeSummary,
+    });
+
+    this.fixApplySessions = [
+      {
+        ...session,
+        id: applyResult.session?.id ?? session.id,
+      },
+      ...this.fixApplySessions,
+    ];
+    this.selectedFixOpportunityIds = [];
+    this.fixSelectionApprovalState = 'NeedsPreview';
+    this.fixWorkflowMessage = undefined;
+    await this.postCurrentScoreState();
+  }
+
+  private async handleRollbackFixSession(sessionId: string): Promise<void> {
+    const session = this.fixApplySessions.find((item) => item.id === sessionId);
+    if (!session) {
+      return;
+    }
+
+    const opportunities = session.opportunityIds
+      .map((id) => this.fixOpportunityHistory.get(id))
+      .filter((item): item is FixOpportunity => Boolean(item));
+    const rollback = rollbackFixSession(session, opportunities);
+    this.fixApplySessions = this.fixApplySessions.map((item) => item.id === sessionId
+      ? recordFixSessionRollback(item, rollback.rollbackHistory[rollback.rollbackHistory.length - 1])
+      : item);
+    for (const opportunity of opportunities) {
+      this.fixOpportunityHistory.set(opportunity.id, {
+        ...opportunity,
+        state: 'RolledBack',
+        outcome: undefined,
+      });
+    }
+
+    await this.refresh();
+    await this.postCurrentScoreState();
+  }
+
+  private async handleRegenerateFixOpportunities(opportunityIds?: string[]): Promise<void> {
+    const currentSelection = this.currentResult
+      ? this.buildFixSelectionState(this.buildPresentationResult(this.currentResult))
+      : undefined;
+    const staleIds = opportunityIds
+      ?? currentSelection?.compatibility.blockingReasons
+        .filter((reason) => reason.code === 'staleOpportunity' || reason.code === 'targetDrifted')
+        .flatMap((reason) => reason.opportunityIds)
+      ?? [];
+
+    const staleSet = new Set(staleIds);
+    await this.refresh();
+    const regeneratedOpportunityIds = (this.currentResult?.fixOpportunities ?? [])
+      .filter((item) => staleSet.has(item.id) || staleSet.has(item.remediationItemId))
+      .map((item) => item.id);
+
+    if (this.fixApplySessions[0]) {
+      this.fixApplySessions[0] = markFixSessionRegenerated(this.fixApplySessions[0], {
+        staleOpportunityIds: staleIds,
+        regeneratedOpportunityIds,
+      });
+    }
+
+    this.selectedFixOpportunityIds = regeneratedOpportunityIds;
+    this.fixSelectionApprovalState = 'NeedsPreview';
+    this.fixWorkflowMessage = staleIds.length > 0
+      ? `Regenerated ${regeneratedOpportunityIds.length} opportunity${regeneratedOpportunityIds.length === 1 ? '' : 'ies'} from stale selections.`
+      : 'Fix opportunities regenerated from the latest score state.';
+    await this.postCurrentScoreState();
   }
 
   private async handleApproveFixOpportunity(opportunityId: string): Promise<void> {
@@ -585,6 +809,13 @@ export class PbirScorePanel {
     reviewPacketPreview: ReturnType<typeof buildReviewWorkflowExportData>,
   ): void {
     const presentationResult = this.buildPresentationResult(result);
+    const fixWorkflow = buildFixWorkflowPayload({
+      opportunities: presentationResult.fixOpportunities ?? [],
+      selectedOpportunityIds: this.selectedFixOpportunityIds,
+      approvalState: this.fixSelectionApprovalState,
+      message: this.fixWorkflowMessage,
+      fixApplySessions: this.fixApplySessions,
+    });
     this.postMessage({
       type: 'scoreState',
       state: {
@@ -592,6 +823,8 @@ export class PbirScorePanel {
         result: presentationResult,
         selectedPageIndex: this.selectedPageIndex,
         intentFeedback,
+        fixSelection: fixWorkflow.fixSelection,
+        fixApplySessions: fixWorkflow.fixApplySessions,
         reviewPacketPreview,
         reviewPacketPreviewHtml: buildReviewPacketPreviewHtml(
           reviewPacketPreview,
@@ -696,7 +929,13 @@ export class PbirScorePanel {
         return;
       }
 
-      const normalizedResult = normalizeScoreResultPayload(response.data);
+      const normalizedResult = await enrichFixPlanWithAdvisoryContent(
+        normalizeScoreResultPayload(response.data),
+        {
+          providerMode: 'disabled',
+          enabledEnrichers: ['storytelling', 'executiveReadability'],
+        },
+      );
       this.currentResult = normalizedResult;
       const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
       const reviewPacketPreview = buildReviewWorkflowExportData(

@@ -2,6 +2,12 @@ import type {
   ActionabilityBreakdown,
   AffectedVisualReference,
   BenchmarkComparisonSummary,
+  FixApplySessionRecord,
+  FixOpportunity,
+  FixSelectionApprovalState,
+  FixSelectionState,
+  ProposalEnrichment,
+  ProposalEnrichmentValidationCode,
   ChartIntentConfidence,
   ChartIntentSummary,
   FindingType,
@@ -16,6 +22,8 @@ import type {
   ScoreResult,
   VisualMetadataItem,
 } from '../analyzer/contracts/scorePanel';
+import { buildFixBatchPreview } from '../analyzer/fixes/fixBatchPreview';
+import { evaluateFixOpportunityCompatibility } from '../analyzer/fixes/fixCompatibility';
 import { buildFixOpportunities } from '../analyzer/fixes/fixOpportunityBuilder';
 import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
@@ -117,6 +125,107 @@ function normalizeChartIntentSummary(value: unknown): ChartIntentSummary | undef
     evidence: readStringArray(value, 'evidence'),
     fitStatus: readOptionalString(value, 'fitStatus'),
     recommendedAlternatives: readStringArray(value, 'recommendedAlternatives'),
+  };
+}
+
+function normalizeProposalEnrichment(value: unknown): ProposalEnrichment | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const remediationItemId = readOptionalString(value, 'remediationItemId');
+  const status = readOptionalString(value, 'status');
+  const source = readOptionalString(value, 'source');
+  if (!remediationItemId || !status || !source) {
+    return undefined;
+  }
+
+  const titleSuggestionsValue = readProperty(value, 'titleSuggestions');
+  const explanationValue = readProperty(value, 'explanation');
+  const whyThisMattersValue = readProperty(value, 'whyThisMatters');
+  const advisoryPriorityValue = readProperty(value, 'advisoryPriority');
+  const expectedOutcomeValue = readProperty(value, 'expectedOutcome');
+  const advisoryAlternativesValue = readProperty(value, 'advisoryAlternatives');
+  const validationValue = readProperty(value, 'validation');
+  const provenanceValue = readProperty(value, 'provenance');
+
+  return {
+    remediationItemId,
+    status: status as ProposalEnrichment['status'],
+    source: source as ProposalEnrichment['source'],
+    enrichersApplied: readStringArray(value, 'enrichersApplied') as ProposalEnrichment['enrichersApplied'],
+    titleSuggestions: Array.isArray(titleSuggestionsValue)
+      ? titleSuggestionsValue
+        .filter(isRecord)
+        .map((item) => ({
+          title: readOptionalString(item, 'title') ?? '',
+          confidence: readRequiredNumber(item, 'confidence'),
+          rationale: readOptionalString(item, 'rationale') ?? '',
+        }))
+        .filter((item) => item.title.length > 0)
+      : undefined,
+    explanation: isRecord(explanationValue)
+      ? {
+          shortText: readOptionalString(explanationValue, 'shortText') ?? '',
+          expandedText: readOptionalString(explanationValue, 'expandedText'),
+        }
+      : undefined,
+    whyThisMatters: isRecord(whyThisMattersValue)
+      ? {
+          text: readOptionalString(whyThisMattersValue, 'text') ?? '',
+        }
+      : undefined,
+    advisoryPriority: isRecord(advisoryPriorityValue)
+      ? {
+          tier: readOptionalString(advisoryPriorityValue, 'tier') as NonNullable<ProposalEnrichment['advisoryPriority']>['tier'],
+          rationale: readOptionalString(advisoryPriorityValue, 'rationale') ?? '',
+        }
+      : undefined,
+    expectedOutcome: isRecord(expectedOutcomeValue)
+      ? {
+          text: readOptionalString(expectedOutcomeValue, 'text') ?? '',
+          areas: readStringArray(expectedOutcomeValue, 'areas'),
+        }
+      : undefined,
+    advisoryAlternatives: Array.isArray(advisoryAlternativesValue)
+      ? advisoryAlternativesValue
+        .filter(isRecord)
+        .map((item) => ({
+          title: readOptionalString(item, 'title') ?? '',
+          description: readOptionalString(item, 'description') ?? '',
+        }))
+        .filter((item) => item.title.length > 0 && item.description.length > 0)
+      : [],
+    validation: isRecord(validationValue)
+      ? {
+          status: (readOptionalString(validationValue, 'status') as ProposalEnrichment['validation']['status']) ?? 'passed',
+          issues: Array.isArray(readProperty(validationValue, 'issues'))
+            ? (readProperty(validationValue, 'issues') as unknown[])
+              .filter(isRecord)
+              .map((item) => ({
+                code: readOptionalString(item, 'code') as ProposalEnrichmentValidationCode,
+                message: readOptionalString(item, 'message') ?? '',
+                section: readOptionalString(item, 'section') as ProposalEnrichment['validation']['issues'][number]['section'],
+              }))
+              .filter((item) => item.code && item.message)
+            : [],
+        }
+      : {
+          status: 'passed',
+          issues: [],
+        },
+    provenance: isRecord(provenanceValue)
+      ? {
+          providerName: readOptionalString(provenanceValue, 'providerName'),
+          usedFallback: readRequiredBoolean(provenanceValue, 'usedFallback'),
+          enrichedAt: readOptionalString(provenanceValue, 'enrichedAt') ?? '',
+          sourceFindingIds: readStringArray(provenanceValue, 'sourceFindingIds'),
+        }
+      : {
+          usedFallback: false,
+          enrichedAt: '',
+          sourceFindingIds: [],
+        },
   };
 }
 
@@ -562,6 +671,11 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
     pagePurposeAnalysis: undefined,
+    proposalEnrichments: Array.isArray(readProperty(candidate, 'proposalEnrichments'))
+      ? (readProperty(candidate, 'proposalEnrichments') as unknown[])
+        .map((entry) => normalizeProposalEnrichment(entry))
+        .filter((entry): entry is ProposalEnrichment => Boolean(entry))
+      : [],
   };
 
   normalized.pageScores = normalized.pageScores?.map((page) => ({
@@ -589,4 +703,31 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     availablePersonas: getReviewPresentationPersonaProfiles(),
   };
   return normalized;
+}
+
+export function buildFixWorkflowPayload(input: {
+  opportunities: FixOpportunity[];
+  selectedOpportunityIds: string[];
+  approvalState: FixSelectionApprovalState;
+  message?: string;
+  fixApplySessions?: FixApplySessionRecord[];
+}): {
+  fixSelection: FixSelectionState;
+  fixApplySessions: FixApplySessionRecord[];
+} {
+  const selected = input.opportunities.filter((item) => input.selectedOpportunityIds.includes(item.id));
+  const compatibility = evaluateFixOpportunityCompatibility(selected);
+
+  return {
+    fixSelection: {
+      selectedOpportunityIds: selected.map((item) => item.id),
+      compatibility,
+      groupedPreview: input.approvalState === 'NeedsPreview' || !compatibility.isCompatible || selected.length === 0
+        ? undefined
+        : buildFixBatchPreview(selected),
+      approvalState: input.approvalState,
+      message: input.message,
+    },
+    fixApplySessions: input.fixApplySessions ?? [],
+  };
 }

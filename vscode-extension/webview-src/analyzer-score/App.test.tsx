@@ -20,6 +20,17 @@ const scoreState: ScorePanelState = {
   },
   selectedPageIndex: 0,
   intentFeedback: [],
+  fixSelection: {
+    selectedOpportunityIds: [],
+    compatibility: {
+      isCompatible: true,
+      compatibleOpportunityIds: [],
+      blockingOpportunityIds: [],
+      blockingReasons: [],
+    },
+    approvalState: 'NeedsPreview',
+  },
+  fixApplySessions: [],
   reviewPacketPreviewProfile: 'consultant',
   reviewPacketPreviewTemplateVariant: 'brandedConsultant',
   result: {
@@ -368,6 +379,52 @@ const scoreState: ScorePanelState = {
             {
               targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
               beforeContent: '{"position":{"x":42},"title":{"text":"Executive Overview"}}',
+            },
+          ],
+          reverseMutations: [],
+        },
+        state: 'Previewed',
+      },
+      {
+        id: 'fixopp-overview-chart',
+        remediationItemId: 'fix-overview-actionability',
+        title: 'Normalize chart top spacing',
+        category: 'alignment',
+        summary: 'Align the lead chart with the title anchor.',
+        confidence: 95,
+        safetyClass: 'safe',
+        affectedPages: ['Overview'],
+        targetObjectIds: ['chart-hero-1'],
+        sourceFindingIds: ['overview-actionability'],
+        expectedResolutions: ['Actionability gap'],
+        mutations: [
+          {
+            id: 'mutation-3',
+            pageName: 'Overview',
+            targetObjectId: 'chart-hero-1',
+            targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/chart-hero-1/visual.json',
+            propertyPath: 'position.y',
+            mutationType: 'setPosition',
+            before: 120,
+            after: 96,
+          },
+        ],
+        previewRows: [
+          {
+            pageName: 'Overview',
+            objectId: 'chart-hero-1',
+            property: 'position.y',
+            before: 120,
+            after: 96,
+          },
+        ],
+        rollbackPlan: {
+          id: 'rollback-fixopp-overview-chart',
+          fixOpportunityId: 'fixopp-overview-chart',
+          fileBackups: [
+            {
+              targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/chart-hero-1/visual.json',
+              beforeContent: '{"position":{"y":120}}',
             },
           ],
           reverseMutations: [],
@@ -1385,7 +1442,7 @@ describe('Analyzer Score App', () => {
     expect(within(fixPlan).getAllByText(/^Resolves$/i).length).toBeGreaterThan(0);
     expect(within(fixPlan).getAllByText(/Reduces risk of KPI misinterpretation/i).length).toBeGreaterThan(0);
     expect(within(fixPlan).getByText('Benchmark gap')).toBeInTheDocument();
-    expect(within(fixPlan).getByText('Actionability gap')).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('Actionability gap').length).toBeGreaterThan(0);
   });
 
   it('explains remediation focus and keeps the queue broader than severity-only issue filters', async () => {
@@ -1501,12 +1558,89 @@ describe('Analyzer Score App', () => {
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getAllByText('Fix opportunities').length).toBeGreaterThan(0);
     expect(within(fixPlan).getByText('Standardize overview title anchor')).toBeInTheDocument();
-    expect(within(fixPlan).getByText('Previewed')).toBeInTheDocument();
-    expect(within(fixPlan).getByText('Rollback:')).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('Previewed').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText('Rollback:').length).toBeGreaterThan(0);
     expect(within(fixPlan).getAllByText('Advisory only: no safe metadata-only fix is currently available for this remediation.').length).toBeGreaterThan(0);
   });
 
-  it('shows structured mutation preview and posts approve/apply/rollback messages for fix opportunities', async () => {
+  it('renders advisory proposal enrichment separately from deterministic fix execution details', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                proposalEnrichments: [
+                  {
+                    remediationItemId: 'fix-overview-actionability',
+                    status: 'available',
+                    source: 'provider',
+                    enrichersApplied: ['storytelling', 'executiveReadability'],
+                    titleSuggestions: [
+                      {
+                        title: 'Executive Sales Overview',
+                        confidence: 0.82,
+                        rationale: 'Matches the KPI-led page purpose.',
+                      },
+                    ],
+                    explanation: {
+                      shortText: 'Adding benchmark context helps readers interpret the KPI quickly.',
+                      expandedText: 'Without a benchmark, the KPI communicates performance but not whether the result is good or bad.',
+                    },
+                    whyThisMatters: {
+                      text: 'Without a benchmark, users cannot quickly tell whether performance is on target.',
+                    },
+                    advisoryPriority: {
+                      tier: 'highLeverage',
+                      rationale: 'This improves decision context on a high-visibility page.',
+                    },
+                    expectedOutcome: {
+                      text: 'If applied, this change is expected to improve readability and decision context.',
+                      areas: ['readability', 'decision context'],
+                    },
+                    advisoryAlternatives: [
+                      {
+                        title: 'Consolidate the KPI section',
+                        description: 'Instead of adding another KPI card, consider consolidating the KPI section around one benchmarked summary.',
+                      },
+                    ],
+                    validation: {
+                      status: 'passed',
+                      issues: [],
+                    },
+                    provenance: {
+                      providerName: 'Test Provider',
+                      usedFallback: false,
+                      enrichedAt: '2026-06-02T20:00:00.000Z',
+                      sourceFindingIds: ['finding-overview-actionability', 'finding-overview-benchmark'],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('AI-enriched guidance')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Executive Sales Overview')).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/Adding benchmark context helps readers interpret the KPI quickly/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/Without a benchmark, users cannot quickly tell whether performance is on target/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/High leverage/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/If applied, this change is expected to improve readability and decision context/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/Consolidate the KPI section/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/AI-enriched/i)).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('Expected resolutions:').length).toBeGreaterThan(0);
+  });
+
+  it('supports grouped preview approval apply and session rollback for compatible opportunities', async () => {
     render(<App />);
 
     await act(async () => {
@@ -1520,87 +1654,266 @@ describe('Analyzer Score App', () => {
       );
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show Preview' }));
+    fireEvent.click(screen.getByLabelText('Select Standardize overview title anchor'));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'toggleFixOpportunitySelection',
+      opportunityId: 'fixopp-overview-title',
+    });
+
+    fireEvent.click(screen.getByLabelText('Select Normalize chart top spacing'));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'toggleFixOpportunitySelection',
+      opportunityId: 'fixopp-overview-chart',
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'NeedsPreview',
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview selected' }));
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'previewSelectedFixOpportunities' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'Previewed',
+                groupedPreview: {
+                  opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  summary: {
+                    changedFileCount: 2,
+                    changedObjectCount: 2,
+                    expectedOutcomeCount: 2,
+                    touchedFiles: ['a', 'b'],
+                    changedObjects: ['title-textbox-1', 'chart-hero-1'],
+                  },
+                  pageGroups: [
+                    {
+                      pageName: 'Overview',
+                      objectGroups: [
+                        {
+                          objectId: 'title-textbox-1',
+                          pageName: 'Overview',
+                          propertyChanges: [
+                            {
+                              opportunityId: 'fixopp-overview-title',
+                              property: 'position.x',
+                              before: 42,
+                              after: 24,
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                  mutationFacts: [
+                    {
+                      pageName: 'Overview',
+                      objectId: 'title-textbox-1',
+                      property: 'position.x',
+                      before: 42,
+                      after: 24,
+                    },
+                    {
+                      pageName: 'Overview',
+                      objectId: 'chart-hero-1',
+                      property: 'position.y',
+                      before: 120,
+                      after: 96,
+                    },
+                  ],
+                  expectedOutcomes: ['Actionability gap', 'Benchmark gap'],
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Grouped preview')).toBeInTheDocument();
+    expect(screen.getByText('Mutation facts')).toBeInTheDocument();
+    expect(screen.getByText('Grouped by page / object / property')).toBeInTheDocument();
+    expect(screen.getByText('chart-hero-1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected' }));
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'approveSelectedFixOpportunities' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                ...(scoreState.fixSelection as NonNullable<typeof scoreState.fixSelection>),
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'Approved',
+                groupedPreview: {
+                  opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  summary: {
+                    changedFileCount: 2,
+                    changedObjectCount: 2,
+                    expectedOutcomeCount: 2,
+                    touchedFiles: ['a', 'b'],
+                    changedObjects: ['title-textbox-1', 'chart-hero-1'],
+                  },
+                  pageGroups: [],
+                  mutationFacts: [],
+                  expectedOutcomes: ['Actionability gap', 'Benchmark gap'],
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply selected' }));
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'applySelectedFixOpportunities' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                ...(scoreState.fixSelection as NonNullable<typeof scoreState.fixSelection>),
+                selectedOpportunityIds: [],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: [],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'NeedsPreview',
+              },
+              fixApplySessions: [
+                {
+                  id: 'session-1',
+                  appliedAt: '2026-06-01T22:40:00.000Z',
+                  opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  opportunityTitles: ['Standardize overview title anchor', 'Normalize chart top spacing'],
+                  rollbackAvailable: true,
+                  rollbackHistory: [],
+                  groupedOutcomeSummary: {
+                    totalEntries: 2,
+                    statuses: [
+                      { status: 'Resolved', count: 1, opportunityIds: ['fixopp-overview-title'] },
+                      { status: 'Unexpected', count: 1, opportunityIds: ['fixopp-overview-chart'] },
+                    ],
+                    appliedWithUnexpectedOutcomeOpportunityIds: ['fixopp-overview-chart'],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Session history')).toBeInTheDocument();
+    expect(screen.getByText(/Resolved 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Unexpected 1/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back session' }));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'rollbackFixSession',
+      sessionId: 'session-1',
+    });
+  });
+
+  it('blocks incompatible selections with clear conflict messaging and supports regeneration messaging', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: false,
+                  compatibleOpportunityIds: [],
+                  blockingOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingReasons: [
+                    {
+                      code: 'overlappingMutation',
+                      message: 'Selected opportunities both change title-textbox-1 at position.x.',
+                      opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                      targetObjectId: 'title-textbox-1',
+                      propertyPath: 'position.x',
+                    },
+                  ],
+                },
+                approvalState: 'NeedsPreview',
+                message: 'Selected opportunities are stale or drifted. Regenerate them before retrying.',
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Compatibility')).toBeInTheDocument();
+    expect(screen.getByText(/Selected opportunities both change title-textbox-1/i)).toBeInTheDocument();
+    expect(screen.getByText(/overlappingMutation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Regenerate them before retrying/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate stale' }));
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: 'regenerateFixOpportunities',
+      opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show Preview' })[0]);
     expect(screen.getByRole('columnheader', { name: 'Object' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Property' })).toBeInTheDocument();
     expect(screen.getAllByText('Overview · title-textbox-1').length).toBeGreaterThan(0);
     expect(screen.getByText('position.x')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('24')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
-      type: 'approveFixOpportunity',
-      opportunityId: 'fixopp-overview-title',
-    });
-
-    await act(async () => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            type: 'scoreState',
-            state: {
-              ...scoreState,
-              result: {
-                ...scoreState.result,
-                fixOpportunities: [
-                  {
-                    ...scoreState.result.fixOpportunities?.[0],
-                    state: 'Approved',
-                  },
-                ],
-              },
-            },
-          },
-        }),
-      );
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
-      type: 'applyFixOpportunity',
-      opportunityId: 'fixopp-overview-title',
-    });
-
-    await act(async () => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            type: 'scoreState',
-            state: {
-              ...scoreState,
-              result: {
-                ...scoreState.result,
-                fixOpportunities: [
-                  {
-                    ...scoreState.result.fixOpportunities?.[0],
-                    state: 'AppliedWithUnexpectedOutcome',
-                    outcome: {
-                      entries: [
-                        {
-                          findingId: 'overview-actionability',
-                          title: 'Actionability gap',
-                          status: 'Unexpected',
-                        },
-                      ],
-                    },
-                  },
-                ],
-              },
-            },
-          },
-        }),
-      );
-    });
-
-    expect(screen.getByText('Applied with unexpected outcome')).toBeInTheDocument();
-    expect(screen.getByText('Outcome after re-analysis')).toBeInTheDocument();
-    expect(screen.getByText('Unexpected: Actionability gap')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Roll Back' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
-      type: 'rollbackFixOpportunity',
-      opportunityId: 'fixopp-overview-title',
-    });
   });
 
   it('adapts the matrix between report and page review contexts using qualitative statuses', async () => {

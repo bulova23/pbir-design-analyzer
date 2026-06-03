@@ -1,15 +1,16 @@
 # PBIR Design Analyzer Roadmap
 
-This roadmap reflects the post-`0.3.0` product direction after the review workspace stabilization and deterministic fix-opportunity release shipped.
+This roadmap reflects the post-`0.4.0` product direction after the review workspace stabilization, deterministic fix-opportunity follow-up release, Phase 2 hardening, and Phase 3 proposal-enrichment implementation landed on the active branch.
 
-## Current Release: 0.3.0
+## Current Release: 0.4.0
 
-`0.3.0` establishes the core review and deterministic fix workflow:
+`0.4.0` extends the core review and deterministic fix workflow with grouped deterministic safety controls and advisory proposal enrichment:
 
 - Overview
 - Issues
 - Fix Plan
 - deterministic Fix Opportunities for supported remediation items
+- advisory proposal enrichment with fallback-safe `AI-enriched guidance`
 - Evidence
 - secondary Export
 - normalized findings
@@ -19,11 +20,61 @@ This roadmap reflects the post-`0.3.0` product direction after the review worksp
 - cross-page matrix navigation
 - preview/apply/rollback/re-analysis trust loop
 
+It builds on the `0.3.1` single-page planner follow-up, which closed the gap where page-level scoring needed top-level `scoredPageName + visualMetadata` support when `pageScores` are absent.
+
 The next roadmap epics build on that foundation without reopening the scoring architecture.
+
+## AI Fix Roadmap
+
+The AI-fix roadmap remains intentionally staged:
+
+1. Phase 1: Deterministic Fix Opportunity Engine
+2. Phase 2: Preview / Apply / Rollback Hardening
+3. Phase 3: AI-assisted proposal enrichment
+4. Phase 4: Advanced AI refactoring
+5. Phase 5: Report design studio
+
+Permanent guardrails for every phase:
+
+- intelligence may improve proposal quality later
+- intelligence must not replace deterministic execution
+- all report changes must still flow through the deterministic mutation layer
+- all report changes must still respect the preview/apply/rollback execution trust boundary
+
+Phase 2 hardening is now implemented on the active branch. It hardened the existing trust loop without introducing model calls, provider integration, or AI-driven execution.
+
+Phase 3 proposal enrichment is also now implemented on the active branch as an advisory-only layer above the deterministic mutation workflow. It adds grounded, validated, fallback-safe proposal wording and expected-outcome guidance while keeping all report edits inside the existing preview/apply/rollback trust loop.
 
 ## Recommended Order
 
-### 1. UX Architecture Consolidation
+### 1. AI Fix Phase 2: Preview / Apply / Rollback Hardening
+
+**Business value:** High  
+**Risk:** Low to Medium  
+**Complexity:** Medium  
+**Quick wins:** Medium  
+**Strategic value:** Very High
+
+Why first:
+
+- the deterministic fix workflow is now shipped and should be hardened before any AI-enrichment work
+- stronger conflict detection, batch safety, rollback visibility, and diff clarity improve trust in the current product surface
+- hardening the trust loop reduces risk before broader deliverable, evidence, and governance expansion
+
+Quick wins:
+
+- clearer stale/conflict messaging
+- safer multi-opportunity sequencing
+- better rollback history visibility
+- richer post-apply diff and outcome summaries
+
+Longer-term value:
+
+- stable execution foundation for later AI-assisted proposal enrichment
+- lower-risk path to future multi-fix workflows
+- clearer operational model for consultant and enterprise users
+
+### 2. UX Architecture Consolidation
 
 **Business value:** High  
 **Risk:** Low to Medium  
@@ -51,7 +102,7 @@ Longer-term value:
 - better platform base for visual evidence workflows
 - stronger UI stability before governance and enterprise expansion
 
-### 2. Consultant Deliverables & Export Platform
+### 3. Consultant Deliverables & Export Platform
 
 **Business value:** High  
 **Risk:** Medium  
@@ -78,7 +129,7 @@ Longer-term value:
 - AI-generated executive narrative options
 - export as a first-class deliverables platform
 
-## 3. Visual Intelligence & Screenshot Analysis
+## 4. Visual Intelligence & Screenshot Analysis
 
 **Business value:** High  
 **Risk:** Medium  
@@ -104,7 +155,7 @@ Longer-term value:
 - density heatmaps
 - alignment and focus-area highlighting
 
-## 4. Enterprise Governance & Advanced Review
+## 5. Enterprise Governance & Advanced Review
 
 **Business value:** Medium to High  
 **Risk:** High  
@@ -132,6 +183,19 @@ Longer-term value:
 - mobile/responsive review workflows
 
 ## Epic Summary
+
+### AI Fix Phase 2: Preview / Apply / Rollback Hardening
+
+See:
+
+- [Design Spec](./superpowers/specs/2026-06-01-ai-fix-phase2-hardening-design.md)
+- [Implementation Plan](./superpowers/plans/2026-06-01-ai-fix-phase2-hardening-plan.md)
+
+Status:
+
+- implemented on the active branch with compatibility evaluation, grouped preview, deterministic batch apply orchestration, rollback/session history visibility, stale regeneration messaging, and grouped outcome summaries
+- preserves the deterministic mutation layer and keeps scoring, severity, confidence, and normalized finding semantics unchanged
+- Phase 3 proposal enrichment is now the implemented advisory layer above this foundation
 
 ### UX Architecture Consolidation
 
@@ -161,6 +225,24 @@ See:
 - [Design Spec](./superpowers/specs/2026-05-31-enterprise-governance-advanced-review-design.md)
 - [Implementation Plan](./superpowers/plans/2026-05-31-enterprise-governance-advanced-review-plan.md)
 
+### AI Fix Phase 3: AI-Assisted Proposal Enrichment
+
+See:
+
+- [Design Spec](./superpowers/specs/2026-06-02-ai-proposal-enrichment-design.md)
+- [Implementation Plan](./superpowers/plans/2026-06-02-ai-proposal-enrichment-plan.md)
+
+Status:
+
+- implemented on the active branch as a grounded advisory layer for remediation-item title suggestions, explanation copy, why-this-matters summaries, advisory priority, expected outcomes, and fallback-safe alternatives
+- keeps provider logic outside scoring and outside deterministic mutation application
+- preserves the permanent trust boundary:
+  - AI enriches proposals only
+  - AI does not generate mutations
+  - AI does not apply mutations
+  - preview/apply/rollback and re-analysis remain deterministic
+- next AI-fix roadmap step remains Phase 4 advanced AI refactoring, not hidden execution changes inside Phase 3
+
 ## Guardrails
 
 These roadmap epics should not:
@@ -169,9 +251,12 @@ These roadmap epics should not:
 - mutate score or finding severity/confidence from presentation modes
 - replace normalized findings as the shared issue model
 - turn temporary roadmap experiments into hidden scoring logic
+- bypass the deterministic mutation layer for report edits
+- let future AI features bypass explicit preview, apply, rollback, and outcome reporting
 
 The preferred path is:
 
 - stable scoring layer
 - stable findings layer
-- richer review, evidence, export, and governance workflows built above them
+- stable deterministic mutation layer
+- richer advisory review, evidence, export, and governance workflows built above them

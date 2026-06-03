@@ -39,6 +39,11 @@ import {
 import { applyPersonaPresentation, getReviewPresentationPersonaProfiles } from '../../src/analyzer/score/personaPresentation';
 import { buildReviewerComments } from '../../src/analyzer/score/reviewerComments';
 import { buildContextAwareRemediationQueue, type ContextAwareRemediationQueue } from './remediationQueue';
+import {
+  getAdvisoryPriorityLabel,
+  getProposalEnrichmentSummary,
+  hasProposalEnrichmentContent,
+} from './proposalEnrichment';
 
 interface ScoreVsCodeApi {
   postMessage(message: ScorePanelWebviewToHostMessage): void;
@@ -312,6 +317,26 @@ function remediationMatchesOpportunity(
   }
 
   return opportunity.sourceFindingIds.some((findingId) => item.sourceFindingIds.includes(findingId));
+}
+
+function remediationMatchesProposalEnrichment(
+  item: ContextAwareRemediationQueue['items'][number],
+  enrichment: NonNullable<ScoreResult['proposalEnrichments']>[number],
+): boolean {
+  if (enrichment.remediationItemId === item.id) {
+    return true;
+  }
+
+  if (enrichment.provenance.sourceFindingIds.some((findingId) => item.sourceFindingIds.includes(findingId))) {
+    return true;
+  }
+
+  const firstAffectedPage = item.affectedPages[0];
+  if (!firstAffectedPage) {
+    return false;
+  }
+
+  return (enrichment.titleSuggestions ?? []).some((suggestion) => suggestion.title.includes(firstAffectedPage));
 }
 
 function getDetectionTypeLabel(detectionType: NormalizedFinding['detectionType']): string {
@@ -1077,13 +1102,22 @@ function renderPagePurposeAnalysisSection(props: {
 function renderFixPlanSection(
   queue: ContextAwareRemediationQueue,
   fixOpportunities: FixOpportunity[] | undefined,
+  proposalEnrichments: ScoreResult['proposalEnrichments'] | undefined,
+  fixSelection: ScorePanelState['fixSelection'],
+  fixApplySessions: NonNullable<ScorePanelState['fixApplySessions']>,
   expandedOpportunityIds: string[],
   onToggleOpportunity: (opportunityId: string) => void,
-  onApproveOpportunity: (opportunityId: string) => void,
-  onApplyOpportunity: (opportunityId: string) => void,
-  onRollbackOpportunity: (opportunityId: string) => void,
+  onToggleOpportunitySelection: (opportunityId: string) => void,
+  onPreviewSelected: () => void,
+  onApproveSelected: () => void,
+  onApplySelected: () => void,
+  onRollbackSession: (sessionId: string) => void,
+  onRegenerate: (opportunityIds?: string[]) => void,
 ): React.ReactNode {
   const fixPlan = queue.items;
+  const selectedIds = new Set(fixSelection?.selectedOpportunityIds ?? []);
+  const selectionBlocked = (fixSelection?.compatibility.blockingReasons.length ?? 0) > 0;
+  const selectedCount = fixSelection?.selectedOpportunityIds.length ?? 0;
 
   return (
     <section aria-label="Fix plan" className="panel-card fix-plan-card">
@@ -1101,6 +1135,147 @@ function renderFixPlanSection(
         <p>{queue.focus.label}</p>
         <p className="issues-section-copy">{queue.focus.helperText}</p>
       </div>
+      <div className="issue-detail-block">
+        <p className="issue-detail-label">Batch workflow</p>
+        <p className="issues-section-copy">
+          Select compatible deterministic opportunities, preview them together, approve the preview, then apply and re-analyze as one batch.
+        </p>
+        <p className="fix-plan-recommendation">
+          <strong>Selected opportunities:</strong> {selectedCount}
+        </p>
+        {fixSelection?.message ? (
+          <p className="fix-plan-recommendation">{fixSelection.message}</p>
+        ) : null}
+        <div className="export-actions">
+          <button className="secondary-button" disabled={selectedCount === 0} onClick={onPreviewSelected} type="button">
+            Preview selected
+          </button>
+          <button
+            className="secondary-button"
+            disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Previewed'}
+            onClick={onApproveSelected}
+            type="button"
+          >
+            Approve selected
+          </button>
+          <button
+            className="primary-button"
+            disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Approved'}
+            onClick={onApplySelected}
+            type="button"
+          >
+            Apply selected
+          </button>
+          <button className="secondary-button" onClick={() => onRegenerate(fixSelection?.selectedOpportunityIds)} type="button">
+            Regenerate stale
+          </button>
+        </div>
+      </div>
+      {selectionBlocked ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Compatibility</p>
+          <ul className="issue-evidence-list">
+            {fixSelection?.compatibility.blockingReasons.map((reason, index) => (
+              <li className="issue-evidence-item" key={`${reason.code}-${index}`}>
+                {reason.message} ({reason.code})
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {fixSelection?.groupedPreview ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Grouped preview</p>
+          <p className="fix-plan-recommendation">
+            <strong>Changed files:</strong> {fixSelection.groupedPreview.summary.changedFileCount} · <strong>Changed objects:</strong> {fixSelection.groupedPreview.summary.changedObjectCount}
+          </p>
+          <p className="fix-plan-recommendation">
+            <strong>Expected outcomes:</strong> {fixSelection.groupedPreview.expectedOutcomes.join(' · ')}
+          </p>
+          <div className="issue-detail-block">
+            <p className="issue-detail-label">Mutation facts</p>
+            <table>
+              <thead>
+                <tr>
+                  <th align="left">Page</th>
+                  <th align="left">Object</th>
+                  <th align="left">Property</th>
+                  <th align="left">Before</th>
+                  <th align="left">After</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fixSelection.groupedPreview.mutationFacts.map((row, index) => (
+                  <tr key={`${row.objectId}-${row.property}-${index}`}>
+                    <td>{row.pageName ?? 'Report-wide'}</td>
+                    <td>{row.objectId}</td>
+                    <td>{row.property}</td>
+                    <td>{String(row.before)}</td>
+                    <td>{String(row.after)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="issue-detail-block">
+            <p className="issue-detail-label">Grouped by page / object / property</p>
+            <ul className="issue-evidence-list">
+              {fixSelection.groupedPreview.pageGroups.map((pageGroup) => (
+                <li className="issue-evidence-item" key={pageGroup.pageName}>
+                  <strong>{pageGroup.pageName}</strong>
+                  <ul className="issue-evidence-list">
+                    {pageGroup.objectGroups.map((objectGroup) => (
+                      <li className="issue-evidence-item" key={`${pageGroup.pageName}-${objectGroup.objectId}`}>
+                        {objectGroup.objectId}: {objectGroup.propertyChanges.map((change) => change.property).join(' · ')}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
+      {fixApplySessions.length > 0 ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Session history</p>
+          <ul className="issue-evidence-list">
+            {fixApplySessions.map((session) => (
+              <li className="issue-evidence-item" key={session.id}>
+                <strong>{session.opportunityTitles.join(' · ')}</strong>
+                <p className="issues-section-copy">
+                  Applied {session.appliedAt} · Rollback {session.rollbackAvailable ? 'available' : 'unavailable'}
+                </p>
+                {session.groupedOutcomeSummary ? (
+                  <p className="issues-section-copy">
+                    {session.groupedOutcomeSummary.statuses.map((status) => `${getFixOutcomeStatusLabel(status.status)} ${status.count}`).join(' · ')}
+                  </p>
+                ) : null}
+                {session.staleOpportunityIds?.length ? (
+                  <p className="issues-section-copy">
+                    Stale: {session.staleOpportunityIds.join(' · ')}
+                  </p>
+                ) : null}
+                {session.regeneratedOpportunityIds?.length ? (
+                  <p className="issues-section-copy">
+                    Regenerated: {session.regeneratedOpportunityIds.join(' · ')}
+                  </p>
+                ) : null}
+                <div className="export-actions">
+                  <button
+                    className="secondary-button"
+                    disabled={!session.rollbackAvailable}
+                    onClick={() => onRollbackSession(session.id)}
+                    type="button"
+                  >
+                    Roll back session
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {fixPlan.length === 0 ? (
         <p className="empty-text">No remediation actions were generated for this problem area.</p>
       ) : (
@@ -1160,15 +1335,57 @@ function renderFixPlanSection(
                   ))}
                 </ul>
               </div>
+              {(() => {
+                const enrichment = proposalEnrichments?.find((entry) => remediationMatchesProposalEnrichment(item, entry));
+                if (!hasProposalEnrichmentContent(enrichment)) {
+                  return null;
+                }
+
+                return (
+                  <div className="issue-detail-block">
+                    <p className="issue-detail-label">AI-enriched guidance</p>
+                    {enrichment?.source === 'fallback' ? (
+                      <p className="issues-section-copy">{getProposalEnrichmentSummary(enrichment)}</p>
+                    ) : null}
+                    <p className="fix-plan-recommendation"><strong>Expected resolutions:</strong></p>
+                    {enrichment?.titleSuggestions?.length ? (
+                      <p className="fix-plan-recommendation">
+                        <strong>Suggested title:</strong> {enrichment.titleSuggestions[0].title}
+                      </p>
+                    ) : null}
+                    {enrichment?.explanation ? (
+                      <p className="fix-plan-recommendation">{enrichment.explanation.shortText}</p>
+                    ) : null}
+                    {enrichment?.whyThisMatters ? (
+                      <p className="fix-plan-recommendation">{enrichment.whyThisMatters.text}</p>
+                    ) : null}
+                    {enrichment?.advisoryPriority ? (
+                      <p className="fix-plan-recommendation">
+                        <strong>{getAdvisoryPriorityLabel(enrichment.advisoryPriority.tier)}</strong>: {enrichment.advisoryPriority.rationale}
+                      </p>
+                    ) : null}
+                    {enrichment?.expectedOutcome ? (
+                      <p className="fix-plan-recommendation">{enrichment.expectedOutcome.text}</p>
+                    ) : null}
+                    {enrichment?.advisoryAlternatives?.length ? (
+                      <ul className="issue-evidence-list">
+                        {enrichment.advisoryAlternatives.map((alternative) => (
+                          <li className="issue-evidence-item" key={`${item.id}-${alternative.title}`}>
+                            <strong>{alternative.title}</strong>: {alternative.description}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })()}
               <div className="issue-detail-block">
                 <p className="issue-detail-label">Fix opportunities</p>
                 {relatedOpportunities.length ? (
                   <ul className="issue-evidence-list">
                     {relatedOpportunities.map((opportunity) => {
                       const expanded = expandedOpportunityIds.includes(opportunity.id);
-                      const canApprove = opportunity.state === 'Previewed';
-                      const canApply = opportunity.state === 'Approved';
-                      const canRollback = opportunity.state === 'Applied' || opportunity.state === 'AppliedWithUnexpectedOutcome';
+                      const selected = selectedIds.has(opportunity.id);
 
                       return (
                         <li className="issue-evidence-item" key={opportunity.id}>
@@ -1181,8 +1398,18 @@ function renderFixPlanSection(
                             </div>
                             <span className="overview-badge">{getFixOpportunityStateLabel(opportunity.state)}</span>
                           </div>
+                          <label className="issues-section-copy">
+                            <input
+                              aria-label={`Select ${opportunity.title}`}
+                              checked={selected}
+                              onChange={() => onToggleOpportunitySelection(opportunity.id)}
+                              type="checkbox"
+                            />
+                            {' '}
+                            Select for grouped preview/apply
+                          </label>
                           <p className="fix-plan-recommendation">
-                            <strong>Expected resolutions:</strong> {opportunity.expectedResolutions.join(' · ')}
+                            <strong>Opportunity resolutions:</strong> {opportunity.expectedResolutions.join(' · ')}
                           </p>
                           <p className="fix-plan-recommendation">
                             <strong>Confidence:</strong> {opportunity.confidence}/100
@@ -1198,31 +1425,6 @@ function renderFixPlanSection(
                             >
                               {expanded ? 'Hide Preview' : 'Show Preview'}
                             </button>
-                            <button
-                              className="secondary-button"
-                              disabled={!canApprove}
-                              onClick={() => onApproveOpportunity(opportunity.id)}
-                              type="button"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              className="primary-button"
-                              disabled={!canApply}
-                              onClick={() => onApplyOpportunity(opportunity.id)}
-                              type="button"
-                            >
-                              Apply
-                            </button>
-                            {canRollback ? (
-                              <button
-                                className="secondary-button"
-                                onClick={() => onRollbackOpportunity(opportunity.id)}
-                                type="button"
-                              >
-                                Roll Back
-                              </button>
-                            ) : null}
                           </div>
                           {expanded ? (
                             <div className="issue-detail-block">
@@ -3081,15 +3283,21 @@ export default function App(): JSX.Element {
         {renderFixPlanSection(
           remediationQueue,
           result.fixOpportunities,
+          result.proposalEnrichments,
+          viewState.state.fixSelection,
+          viewState.state.fixApplySessions ?? [],
           expandedOpportunityIds,
           (opportunityId) => setExpandedOpportunityIds((prev) => (
             prev.includes(opportunityId)
               ? prev.filter((id) => id !== opportunityId)
               : [...prev, opportunityId]
           )),
-          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'approveFixOpportunity', opportunityId }),
-          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'applyFixOpportunity', opportunityId }),
-          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'rollbackFixOpportunity', opportunityId }),
+          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'toggleFixOpportunitySelection', opportunityId }),
+          () => vscodeApiRef.current?.postMessage({ type: 'previewSelectedFixOpportunities' }),
+          () => vscodeApiRef.current?.postMessage({ type: 'approveSelectedFixOpportunities' }),
+          () => vscodeApiRef.current?.postMessage({ type: 'applySelectedFixOpportunities' }),
+          (sessionId) => vscodeApiRef.current?.postMessage({ type: 'rollbackFixSession', sessionId }),
+          (opportunityIds) => vscodeApiRef.current?.postMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
         )}
       </div>
       {selectedPage ? renderReviewerCommentGenerator(

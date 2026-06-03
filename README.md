@@ -2,13 +2,17 @@
 
 PBIR Design Analyzer is a VS Code extension for reviewing local Power BI PBIP/PBIR reports before they are shared, governed, or published. It analyzes report structure, layout, storytelling, accessibility, consistency, and review readiness, then presents the results in a modernized review workspace with deterministic fix opportunities for selected remediation actions.
 
-## 0.3.0 Highlights
+## 0.4.0 Highlights
 
 - modernized score-panel workspace
 - Overview workspace for executive triage
 - Issues workspace built on normalized findings
 - Fix Plan workspace for remediation sequencing
-- deterministic fix opportunities with preview, apply, rollback, and re-analysis for supported remediation domains
+- deterministic fix opportunities with preview, apply, rollback, grouped workflow safety, and re-analysis for supported remediation domains
+- advisory `AI-enriched guidance` now improves remediation wording, rationale, priority, and expected outcomes without changing deterministic execution
+- provider-backed enrichment is currently disabled by default; fallback advisory guidance still appears
+- single-page fix planning still works when page-level analysis is provided as top-level `scoredPageName + visualMetadata`
+- unsupported remediation remains explicitly advisory when no safe metadata-only mutation exists
 - Evidence workspace for framework, metadata, and audit drilldown
 - smart collapse defaults to reduce information overload
 - intent confirmation and review feedback workflow
@@ -40,7 +44,7 @@ The main working surface. Issues are normalized across multiple scoring/evidence
 
 ### Fix Plan
 
-The consultant-facing remediation queue. It converts findings into action-oriented next steps with severity, effort, scope, and affected-page context. Supported remediation items can also expose deterministic fix opportunities with explicit mutation previews and rollback.
+The consultant-facing remediation queue. It converts findings into action-oriented next steps with severity, effort, scope, and affected-page context. Supported remediation items can also expose fallback-safe `AI-enriched guidance` plus deterministic fix opportunities with explicit mutation previews and rollback. Advisory enrichment does not generate or apply mutations.
 
 ### Evidence
 
@@ -105,11 +109,12 @@ The Overview workspace includes a page-by-dimension matrix. Clicking a cell filt
 
 ## Roadmap Summary
 
-The next planned epics after `0.3.0` are:
+The next planned epics after `0.4.0` are:
 
-1. Consultant Deliverables & Export Platform
-2. Visual Intelligence & Screenshot Analysis
-3. Enterprise Governance & Advanced Review
+1. AI Fix Phase 4: Advanced AI refactoring
+2. Consultant Deliverables & Export Platform
+3. Visual Intelligence & Screenshot Analysis
+4. Enterprise Governance & Advanced Review
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for order, value, risk, complexity, and linked specs/plans.
 

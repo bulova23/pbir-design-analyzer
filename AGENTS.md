@@ -25,6 +25,9 @@ Key architecture layers:
 - workspace personas are separate from reviewer-comment personas
 - cross-page matrix navigation is presentation-only and finding-driven
 - review/export workflows remain downstream from scoring
+- AI proposal enrichment is advisory-only and must never carry mutation authority
+- deterministic preview/apply/rollback remains the only report-edit execution path
+- external Power BI agent skills or prompts may be used as research input only; do not import external skill code, prompts, or autonomous execution patterns into this repo
 
 ## Roadmap References
 
