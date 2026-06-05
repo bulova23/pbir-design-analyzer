@@ -475,3 +475,74 @@
   - `cd vscode-extension && npm run package`
 - Rebuilt package:
   - `vscode-extension/pbir-design-analyzer-0.4.0.vsix`
+## 2026-06-05 Phase 4 Advanced AI Refactoring Workstreams 1-3 Start
+
+- Began implementation using:
+  - `docs/superpowers/specs/2026-06-03-advanced-ai-refactoring-design.md`
+  - `docs/superpowers/plans/2026-06-03-advanced-ai-refactoring-plan.md`
+- Constrained this session to Workstreams 1 through 3 only:
+  - trust-boundary contracts
+  - compilation classification
+  - grounded context building
+  - provider abstraction
+  - validators
+  - deterministic fallbacks
+  - orchestration
+- Preserved the implementation boundaries:
+  - advisory-only
+  - provider-agnostic
+  - grounded
+  - validated
+  - fallback-safe
+  - no preview/apply/rollback or deterministic mutation changes
+  - no Fabric-specific behavior
+  - no UI rendering yet
+
+## 2026-06-05 Phase 4 Advanced AI Refactoring Workstreams 1-3 Complete
+
+- Implemented the non-UI Phase 4 foundation slice:
+  - advisory refactoring contracts
+  - compilation classification
+  - grounded refactoring context builder
+  - provider abstraction
+  - scenario normalization
+  - validation guards
+  - deterministic fallback proposals
+  - non-blocking orchestration
+- Preserved the trust boundary:
+  - proposals remain advisory-only
+  - compilation emits hints only
+  - no direct mutation authority
+  - deterministic fix execution remains unchanged
+- Focused validation passed:
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringCompilationClassifier.test.ts`
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringContextBuilder.test.ts`
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringScenarioBuilder.test.ts src/test/refactoringValidators.test.ts src/test/refactoringOrchestrator.test.ts`
+  - final combined focused run:
+    - `5` suites passed
+    - `13` tests passed
+- Deferred by design:
+  - payload threading
+  - host/UI rendering
+  - enrichers beyond the current foundation
+  - Fabric-specific behavior
+
+## 2026-06-05 Phase 4 Advanced AI Refactoring Workstream 4 Complete
+
+- Added the first bounded PBIR-first domain enrichers:
+  - `layout`
+  - `storytelling`
+  - `navigation`
+  - `executiveExperience`
+- Added deterministic enricher routing from grounded remediation, finding, page-story, visual-metadata, and cross-page context.
+- Updated fallback orchestration so provider-disabled or unavailable runs can return validated local advisory scenarios instead of only the generic fallback wording.
+- Preserved the trust boundary:
+  - advisory-only output
+  - grounded evidence links
+  - existing compilability classifier only
+  - no mutation authority
+  - no payload or webview integration
+  - no preview/apply/rollback changes
+- Validation passed:
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringEnrichers.test.ts src/test/refactoringCompilationClassifier.test.ts src/test/refactoringContextBuilder.test.ts src/test/refactoringScenarioBuilder.test.ts src/test/refactoringValidators.test.ts src/test/refactoringOrchestrator.test.ts`
+  - `cd vscode-extension && npm run compile`

@@ -6,6 +6,38 @@
 
 ## Current Objective
 
+- Phase 4 Advanced AI Refactoring Workstreams 1 through 4 are now implemented on the active branch using:
+  - `docs/superpowers/specs/2026-06-03-advanced-ai-refactoring-design.md`
+  - `docs/superpowers/plans/2026-06-03-advanced-ai-refactoring-plan.md`
+- Implemented scope in this slice:
+  - advisory refactoring contracts
+  - compilation classification
+  - grounded context building
+  - provider abstraction
+  - validators
+  - deterministic fallbacks
+  - orchestration
+  - bounded PBIR-first domain enrichers for:
+    - `layout`
+    - `storytelling`
+    - `navigation`
+    - `executiveExperience`
+- Validation completed for the Phase 4 slice:
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringCompilationClassifier.test.ts`
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringContextBuilder.test.ts`
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringScenarioBuilder.test.ts src/test/refactoringValidators.test.ts src/test/refactoringOrchestrator.test.ts`
+  - `cd vscode-extension && npx jest --runInBand src/test/refactoringEnrichers.test.ts src/test/refactoringCompilationClassifier.test.ts src/test/refactoringContextBuilder.test.ts src/test/refactoringScenarioBuilder.test.ts src/test/refactoringValidators.test.ts src/test/refactoringOrchestrator.test.ts`
+  - `cd vscode-extension && npm run compile`
+- Explicit implementation boundaries for this session:
+  - no UI rendering yet
+  - no payload threading yet
+  - no webview wiring yet
+  - no all-domain enricher rollout yet
+  - no Fabric-specific behavior yet
+  - no changes to preview/apply/rollback
+  - no changes to the deterministic mutation layer
+  - no changes to Fabric App review behavior
+  - no changes to readiness scoring
 - Phase 3 AI Proposal Enrichment release finalization is complete on the active branch: `0.4.0` is validated, packaged, and documented with provider-backed enrichment still disabled by default.
 - Implemented Release Slice 1 of the Fabric Apps Analytics Review roadmap on the active branch:
   - PBIR `Analyzable Surface`
@@ -171,6 +203,25 @@
 
 ## Next Recommended Step
 
+- Review the completed Phase 4 advisory foundation plus initial enricher slice before moving further:
+  - trust-boundary contract quality
+  - validation coverage
+  - fallback safety
+  - provider abstraction shape
+  - bounded enricher quality and relevance
+- If Phase 4 continues next, proceed to the deferred slice only:
+  - payload threading
+  - host-side invocation
+  - UI rendering
+  - secondary enrichers:
+    - `kpiHierarchy`
+    - `accessibilityAlignment`
+    - `governanceAlignment`
+- Keep all existing boundaries intact in the next slice:
+  - no preview/apply/rollback changes
+  - no deterministic mutation changes
+  - no Fabric-specific behavior
+  - no readiness scoring changes
 - If Fabric App Review Mode continues, decide whether to:
   - check in a durable analytical Rayfin sample fixture for repeatable smoke coverage
   - or keep using an external/sample local repo plus temporary harness for ad hoc Fabric smoke runs

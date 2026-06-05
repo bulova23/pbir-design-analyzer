@@ -651,6 +651,111 @@ export interface ProposalEnrichment {
   provenance: ProposalEnrichmentProvenance;
 }
 
+// Phase 4 refactoring proposals remain advisory. They can compare bounded design
+// scenarios and signal which concepts may compile into existing deterministic
+// categories later, but they never carry direct mutation authority.
+export type RefactoringDomain =
+  | 'layout'
+  | 'kpiHierarchy'
+  | 'storytelling'
+  | 'navigation'
+  | 'executiveExperience'
+  | 'accessibilityAlignment'
+  | 'governanceAlignment';
+
+export interface RefactoringAffectedScope {
+  scope: NormalizedFindingScope;
+  pageNames: string[];
+}
+
+export interface RefactoringEvidenceLink {
+  findingId?: string;
+  label: string;
+  pageName?: string;
+  detail?: string;
+}
+
+export interface RefactoringTradeoff {
+  title: string;
+  description: string;
+}
+
+// Compilation hints are classification metadata only. They may reference
+// supported deterministic opportunity categories, but they are not executable
+// fix opportunities and they are not mutation plans.
+export interface RefactoringCompilationHint {
+  category: 'alignment' | 'spacing' | 'grid' | 'title' | 'navigation';
+  confidence: number;
+  rationale: string;
+  supportedScopes: NormalizedFindingScope[];
+}
+
+export interface RefactoringOptionCompilation {
+  status: 'compilable' | 'advisoryOnly';
+  coverage?: 'full' | 'partial';
+  hints: RefactoringCompilationHint[];
+}
+
+export interface RefactoringScenarioOption {
+  optionId: string;
+  label: string;
+  title: string;
+  summary: string;
+  proposedChanges: string[];
+  affectedScope: RefactoringAffectedScope;
+  rationale: string;
+  evidenceLinks: RefactoringEvidenceLink[];
+  businessImpact: string;
+  tradeoffs: RefactoringTradeoff[];
+  confidence: number;
+  compilation: RefactoringOptionCompilation;
+}
+
+export interface RefactoringScenario {
+  scenarioId: string;
+  domain: RefactoringDomain;
+  title: string;
+  summary: string;
+  options: RefactoringScenarioOption[];
+}
+
+export type RefactoringValidationCode =
+  | 'inventedArtifact'
+  | 'unsupportedExecutionClaim'
+  | 'contradictoryEvidence'
+  | 'optionDuplication'
+  | 'outcomeOverclaim'
+  | 'scopeEscape';
+
+export interface RefactoringValidationIssue {
+  code: RefactoringValidationCode;
+  message: string;
+  scenarioId?: string;
+  optionId?: string;
+}
+
+export interface RefactoringValidationResult {
+  status: 'passed' | 'degraded' | 'rejected';
+  issues: RefactoringValidationIssue[];
+}
+
+export interface RefactoringProposalProvenance {
+  providerName?: string;
+  usedFallback: boolean;
+  enrichedAt: string;
+  sourceFindingIds: string[];
+}
+
+export interface RefactoringProposal {
+  remediationItemId: string;
+  status: 'available' | 'fallback' | 'rejected' | 'skipped';
+  source: 'provider' | 'fallback';
+  domains: RefactoringDomain[];
+  scenarios: RefactoringScenario[];
+  validation: RefactoringValidationResult;
+  provenance: RefactoringProposalProvenance;
+}
+
 export type FixOpportunityCategory =
   | 'title'
   | 'semanticColor'
@@ -916,6 +1021,7 @@ export interface ScoreResult {
   overviewSummary?: OverviewSummary;
   fixPlan?: FixPlanItem[];
   proposalEnrichments?: ProposalEnrichment[];
+  refactoringProposals?: RefactoringProposal[];
   fixOpportunities?: FixOpportunity[];
   crossPageMatrix?: CrossPageMatrixSummary;
   personaPresentation?: PersonaPresentationState;
