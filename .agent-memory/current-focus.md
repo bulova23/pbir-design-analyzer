@@ -44,6 +44,37 @@
   - no screenshot intelligence
   - no semantic-model evidence extraction
   - no Fabric App mutation path
+- Closed out Release Slice 2B evidence expansion for Fabric App Review Mode on the active branch:
+  - bounded screenshot evidence extraction using existing screenshot evidence primitives
+  - bounded semantic-model usage evidence extraction
+  - richer finding-to-evidence linkage across Fabric App review findings
+  - categorized Evidence workspace rendering for:
+    - TypeScript Evidence
+    - Navigation Evidence
+    - Design Token Evidence
+    - Screenshot Evidence
+    - Semantic Model Evidence
+  - graceful degradation when screenshot or semantic-model evidence is absent
+  - Fabric App review remains advisory-only with no deterministic preview/apply/rollback path
+- Completed a real VS Code smoke pass for Release Slice 2B closeout:
+  - reused the Slice 2A temporary `@vscode/test-electron` harness
+  - primary analytical Rayfin fixture confirmed:
+    - `surfaceType: fabricApp`
+    - `analyzerType: fabricAppReview`
+    - `analyzerProfile: fabricAppQuality`
+    - evidence counts:
+      - `typescriptLayout: 10`
+      - `navigation: 2`
+      - `designToken: 28`
+      - `screenshot: 2`
+      - `semanticModel: 4`
+    - findings linked to screenshot and semantic-model evidence references
+    - `fixOpportunityCount: 0`
+    - no extension-host errors
+  - no-auxiliary-evidence fixture confirmed graceful degradation with:
+    - `screenshot: 0`
+    - `semanticModel: 0`
+    - advisory findings and fix-plan shaping still present
 - Completed a real VS Code smoke pass for Release Slice 2A foundations:
   - the official Microsoft Rayfin todo scaffold classified as:
     - `status: ambiguous`
@@ -142,14 +173,15 @@
 
 - If Fabric App Review Mode continues, decide whether to:
   - check in a durable analytical Rayfin sample fixture for repeatable smoke coverage
-  - or keep using an external/sample local repo for ad hoc Fabric smoke runs
+  - or keep using an external/sample local repo plus temporary harness for ad hoc Fabric smoke runs
 - If extension-host smoke remains part of release validation, document or script the required build shape explicitly:
   - `cd vscode-extension && npm run compile`
   - `cd vscode-extension && npm run bundle:extension`
 - Keep the current Fabric boundary narrow until later slices add more evidence domains:
   - no governance integration
-  - no screenshot intelligence
-  - no semantic-model extraction beyond foundational contracts
+  - screenshot evidence remains evidence-only, not Visual Intelligence
+  - semantic-model evidence remains bounded analytics UX evidence, not governance or DAX review
+  - no Fabric App mutation authority
 
 ## Reference Review
 

@@ -27,7 +27,38 @@ All notable changes to PBIR Design Analyzer are recorded here.
   - no Fabric App fixes
   - no repo mutation
   - no code generation
-  - no governance or screenshot-intelligence expansion in this slice
+  - no governance expansion
+  - no screenshot intelligence
+  - no Fabric App mutation authority
+
+### Fabric App Review Evidence Expansion
+
+- Expanded Fabric App review evidence quality without expanding governance or mutation scope.
+- Added bounded repo evidence extraction for:
+  - screenshot evidence
+  - semantic-model usage evidence
+- Added richer Fabric App finding traceability so advisory findings can reference:
+  - TypeScript layout evidence
+  - navigation evidence
+  - design-token evidence
+  - screenshot evidence
+  - semantic-model evidence
+- Updated the Evidence workspace to render categorized Fabric App evidence sections for:
+  - TypeScript Evidence
+  - Navigation Evidence
+  - Design Token Evidence
+  - Screenshot Evidence
+  - Semantic Model Evidence
+- Added graceful degradation behavior:
+  - Fabric App review still completes when screenshots are absent
+  - Fabric App review still completes when semantic-model artifacts are absent
+  - the workspace shows explicit missing-evidence messaging instead of failing or inventing evidence
+- Preserved the advisory-only boundary:
+  - no governance expansion
+  - no AI refactoring
+  - no Fabric App mutations
+  - no code generation
+  - deterministic preview/apply/rollback remains PBIR-only
 
 ### Fabric App Readiness Assessment
 
@@ -66,6 +97,8 @@ All notable changes to PBIR Design Analyzer are recorded here.
 ### Validation
 
 - Passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/screenshotEvidence.test.ts src/test/semanticModelEvidence.test.ts src/test/fabricAppReviewAnalyzer.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
   - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/surfaceDiscovery.test.ts src/test/analyzerRegistry.test.ts src/test/typescriptEvidence.test.ts src/test/navigationEvidence.test.ts src/test/designTokenEvidence.test.ts src/test/fabricAppReviewAnalyzer.test.ts src/test/scoreResultPayload.test.ts`
   - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
   - `cd vscode-extension && npm test`
@@ -79,6 +112,12 @@ All notable changes to PBIR Design Analyzer are recorded here.
     - TypeScript layout
     - navigation
     - design tokens
+    - screenshots
+    - semantic-model usage
+  - confirmed a supported no-auxiliary-evidence variant still reviewed successfully with:
+    - `screenshot: 0`
+    - `semanticModel: 0`
+    - no extension-host errors
   - confirmed Fabric App review remained advisory only with `fixOpportunityCount: 0`
   - confirmed the official Microsoft Rayfin todo scaffold classified as:
     - `status: ambiguous`
@@ -86,6 +125,8 @@ All notable changes to PBIR Design Analyzer are recorded here.
   - limitation:
     - `npm run compile` alone removes the extension-host entry bundle from `dist/`
     - extension-host smoke requires `npm run bundle:extension` after compile, or `npm test` / `npm run build`
+  - limitation:
+    - the real Fabric App smoke still depends on a temporary local Rayfin-based analytical fixture and temporary `@vscode/test-electron` harness outside the repo
 - Real PBIR smoke:
   - `node vscode-extension/scripts/phase2-deterministic-host-smoke.mjs`
   - confirmed the extension host still scored the real `Sales & Production.pbip` fixture and completed the deterministic grouped workflow smoke

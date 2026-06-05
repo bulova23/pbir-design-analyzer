@@ -219,6 +219,32 @@
 - Implemented the Phase 3 advisory stack:
   - score-panel proposal-enrichment contracts
 
+## 2026-06-05 Fabric App Review Slice 2B Closeout
+
+- Closed out Fabric App Review Mode Release Slice 2B with bounded screenshot evidence, bounded semantic-model usage evidence, richer finding linkage, categorized Evidence rendering, and graceful missing-evidence behavior.
+- Passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+- Passed a real isolated VS Code Fabric App smoke using the Slice 2A temporary harness against:
+  - a Rayfin-based analytical fixture with:
+    - `typescriptLayout: 10`
+    - `navigation: 2`
+    - `designToken: 28`
+    - `screenshot: 2`
+    - `semanticModel: 4`
+  - a no-auxiliary-evidence fixture with:
+    - `screenshot: 0`
+    - `semanticModel: 0`
+- Confirmed:
+  - `surfaceType: fabricApp`
+  - `analyzerType: fabricAppReview`
+  - `analyzerProfile: fabricAppQuality`
+  - Fabric App review remained advisory-only with `fixOpportunityCount: 0`
+  - no extension-host errors were observed in the smoke harness
+- Remaining limitation:
+  - real Fabric App smoke still depends on temporary local fixtures and a temporary local `@vscode/test-electron` harness outside the repo
+
 ## 2026-06-04 Fabric App Review Mode Planning
 
 - Added the Release Slice 2 planning doc:

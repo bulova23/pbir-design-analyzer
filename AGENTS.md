@@ -29,6 +29,8 @@ Key architecture layers:
 - PBIR `Fabric App Readiness Assessment` is an analyzer operating on a PBIR surface, not a separate surface or workspace
 - Fabric App Review Mode foundations validate `Fabric App` as a second real surface type through the same workspace
 - Fabric App Review remains advisory-only unless the repo explicitly adds a future deterministic execution path; do not invent one
+- bounded screenshot evidence and semantic-model usage evidence are valid Fabric App Review evidence domains
+- screenshot evidence in Fabric App Review must reuse the existing screenshot evidence primitives and must not be treated as Visual Intelligence
 - workspace personas are separate from reviewer-comment personas
 - cross-page matrix navigation is presentation-only and finding-driven
 - review/export workflows remain downstream from scoring

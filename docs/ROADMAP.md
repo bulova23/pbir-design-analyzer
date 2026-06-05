@@ -75,11 +75,15 @@ Implemented second-surface foundation slice:
   - TypeScript layout
   - navigation
   - design tokens
+  - screenshots
+  - semantic-model usage
+- richer finding-to-evidence linkage across Fabric App review findings
 - shared-workspace rendering through:
   - Overview
   - Issues
   - Fix Plan
   - Evidence
+- graceful degradation when screenshots or semantic-model artifacts are absent
 
 This slice is advisory-only and answers:
 
@@ -89,7 +93,6 @@ It does not yet implement:
 
 - governance integration
 - screenshot intelligence
-- semantic-model evidence extraction
 - Fabric App fixes
 - code generation
 - Fabric App mutation

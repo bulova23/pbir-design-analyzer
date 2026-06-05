@@ -4,7 +4,7 @@ import type { SemanticModelEvidenceReport } from './reviewTypes';
 
 const SIGNAL_LIMIT = 6;
 const FILE_PATTERN = /\.(ts|tsx|js|jsx|json)$/i;
-const SIGNAL_PATTERN = /\b(?:semanticModel|dataset|queryRef|measure|metric)\b/i;
+const SIGNAL_PATTERN = /\b(?:semanticModel|dataset|queryRef|measure|metric)\s*:/i;
 
 function safeReadDir(dirPath: string): fs.Dirent[] {
   try {
