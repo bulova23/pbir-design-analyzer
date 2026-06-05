@@ -6,6 +6,7 @@
 
 ## Current Objective
 
+- Add a repo-local Codex frontend-design skill adapted from external source material so future UI work can use repo-aware design guidance.
 - Marketplace and README positioning refresh completed on the active branch:
   - product now reads as an Analytics Experience Review Platform in marketplace-facing copy
   - excessive inline-code styling was removed from marketplace-facing documentation
@@ -137,6 +138,20 @@
   - implement Phase 4 on PBIR before Fabric Apps Analytics Review
   - keep the proposal contracts aligned to the `Analyzable Surface` direction for later reuse
 
+## In Progress
+
+- No product-code work is currently in progress.
+- Repo-local Codex frontend skill setup and memory normalization are complete in this session.
+
+## Blockers
+
+- None recorded.
+
+## Validation Status
+
+- Repo-local Codex frontend skill files added and verified under `.codex/skills/`.
+- Shared-memory validation is being rerun after normalizing repo-memory sections to the Tier 1 contract.
+
 ## Release Boundaries
 
 - Keep completed product code, tests, docs, roadmap specs/plans, and compact durable memory.
@@ -207,6 +222,7 @@
 
 ## Next Recommended Step
 
+- Use `.codex/skills/frontend-design` the next time a score-panel or webview styling task needs stronger visual direction, and refine it after one or two real frontend sessions if gaps show up.
 - Review the completed Phase 4 advisory foundation plus initial enricher slice before moving further:
   - trust-boundary contract quality
   - validation coverage
@@ -236,8 +252,16 @@
 - Keep the current Fabric boundary narrow until later slices add more evidence domains:
   - no governance integration
   - screenshot evidence remains evidence-only, not Visual Intelligence
-  - semantic-model evidence remains bounded analytics UX evidence, not governance or DAX review
-  - no Fabric App mutation authority
+- semantic-model evidence remains bounded analytics UX evidence, not governance or DAX review
+- no Fabric App mutation authority
+
+## Relevant Files
+
+- `AGENTS.md`
+- `.agent-memory/repo-map.md`
+- `.codex/skills/frontend-design/SKILL.md`
+- `.codex/skills/README.md`
+- `.codex/skills/ui-ux-pro-max/SKILL.md`
 
 ## Reference Review
 
@@ -285,4 +309,9 @@
 - Installed the `0.4.0` VSIX into an isolated VS Code profile and confirmed the packaged deterministic grouped preview/apply/rollback workflow still passes.
 - Documented the shipped limitation explicitly:
   - provider-backed proposal enrichment remains disabled by default
-  - packaged real-report command automation still has a harness interception gap for webview creation under `@vscode/test-electron`
+- packaged real-report command automation still has a harness interception gap for webview creation under `@vscode/test-electron`
+
+## Last Updated
+
+- Date: `2026-06-05`
+- By: `codex`

@@ -12,6 +12,15 @@
 - Jest
 - xUnit
 
+## Important Paths
+
+- `vscode-extension/src/`: extension host, commands, score payload shaping, review/export helpers
+- `vscode-extension/webview-src/`: React webview sources
+- `service-dotnet/Services/Pbir/`: backend scoring, PBIR parsing, semantic/story/governance heuristics
+- `service-dotnet/RpcHost/`: packaged backend entrypoint
+- `docs/`: product docs, roadmap notes, specs, and plans
+- `.codex/skills/`: repo-local Codex skills
+
 ## Core Product Areas
 
 - `vscode-extension/src/`: extension host, commands, score payload shaping, review/export helpers
@@ -38,10 +47,29 @@
 
 ## Key Commands
 
+- `cd vscode-extension && npm run build`
 - `cd vscode-extension && npm run compile`
 - `cd vscode-extension && npm test`
 - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
 - `cd vscode-extension && npm run package`
+
+## Validation Entry Points
+
+- `cd vscode-extension && npm run build`
+- `cd vscode-extension && npm test`
+- `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## Startup Docs
+
+- `AGENTS.md`
+- `README.md`
+
+## Major Constraints
+
+- Keep fixture-based tests opt-in.
+- Preserve packaged backend behavior.
+- Keep scoring authoritative and presentation-only derivations separate.
+- Keep normalized findings as the shared issue model.
 
 ## Release Constraints
 

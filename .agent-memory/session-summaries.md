@@ -564,3 +564,10 @@
   - Fabric App Review
   - governance support
 - Removed unnecessary inline-code styling from feature and workflow names to reduce VS Code Marketplace blue-pill rendering.
+
+## 2026-06-05 Codex Frontend Skill Setup
+
+- Added a repo-local Codex `frontend-design` skill at `.codex/skills/frontend-design/SKILL.md`.
+- Reworked the source material into repo-aware guidance for VS Code webviews and PBIR review surfaces instead of copying the external skill verbatim.
+- Added `.codex/skills/README.md` to make the repo-local skill inventory easier to discover.
+- Normalized `.agent-memory/current-focus.md` and `.agent-memory/repo-map.md` so Tier 1 repo-contract validation passes again.
