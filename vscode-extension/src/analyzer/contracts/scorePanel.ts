@@ -1,4 +1,6 @@
 import type { DesignAnalyzerConfig } from '../config/types';
+import type { AnalyzerProfileId, AnalyzerType } from '../analyzers/types';
+import type { SurfaceType } from '../surfaces/types';
 
 export type FindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
 export type AuditFindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
@@ -42,12 +44,24 @@ export interface AffectedVisualReference {
 }
 
 export interface NormalizedFindingEvidenceReference {
-  kind: 'framework' | 'audit' | 'metadata' | 'consistency' | 'quickFix' | 'benchmark' | 'actionability';
+  kind:
+    | 'framework'
+    | 'audit'
+    | 'metadata'
+    | 'consistency'
+    | 'quickFix'
+    | 'benchmark'
+    | 'actionability'
+    | 'readiness'
+    | 'typescriptLayout'
+    | 'navigation'
+    | 'designToken';
   label: string;
   pageName?: string;
   frameworkKey?: string;
   visualId?: string;
   detail?: string;
+  filePath?: string;
 }
 
 export interface NormalizedFinding {
@@ -432,6 +446,109 @@ export interface OverviewSummary {
   topIssues: OverviewInsight[];
   topActions: OverviewAction[];
   crossPageSummary: CrossPageSummary;
+  readinessSummary?: FabricAppReadinessOverviewSummary;
+}
+
+export interface AnalysisContextMetadata {
+  surfaceType: SurfaceType;
+  analyzerType: AnalyzerType;
+  analyzerProfile: AnalyzerProfileId;
+  surfaceDisplayName: string;
+  sourceLocation: string;
+  availableAnalyzerTypes: AnalyzerType[];
+  availableAnalyzerProfiles: AnalyzerProfileId[];
+}
+
+export type FabricAppReadinessBand =
+  | 'strongCandidate'
+  | 'possibleCandidate'
+  | 'redesignRequired'
+  | 'keepAsReport';
+
+export type FabricAppPageCandidateState = FabricAppReadinessBand;
+export type FabricAppRedesignEffort = 'low' | 'medium' | 'high';
+export type FabricAppReadinessEvidenceKind =
+  | 'pbirMetadata'
+  | 'interaction'
+  | 'navigation'
+  | 'screenshot'
+  | 'semanticModel'
+  | 'portability';
+
+export interface FabricAppReadinessDimensionScores {
+  layoutPortability: number;
+  interactionPortability: number;
+  narrativePortability: number;
+  semanticModelSuitability: number;
+  navigationPortability: number;
+  governancePortability: number;
+  accessibilityPortability: number;
+  visualizationAsCodeOpportunity: number;
+}
+
+export interface FabricAppReadinessEvidence {
+  kind: FabricAppReadinessEvidenceKind;
+  label: string;
+  detail: string;
+  pageName?: string;
+}
+
+export interface AnalyticsGovernanceSignal {
+  category: 'navigation' | 'accessibility' | 'storytelling' | 'semanticModel';
+  severity: 'low' | 'medium' | 'high';
+  summary: string;
+  pageName?: string;
+}
+
+export interface FabricAppPageReadinessAssessment {
+  pageName: string;
+  readinessScore: number;
+  readinessDimensions: FabricAppReadinessDimensionScores;
+  candidateState: FabricAppPageCandidateState;
+  positiveSignals: string[];
+  blockers: string[];
+  unsupportedPatterns: string[];
+  redesignRequiredAreas: string[];
+  migrationNotes: string[];
+  evidence: FabricAppReadinessEvidence[];
+}
+
+export interface FabricAppReadinessOverviewSummary {
+  readinessScore: number;
+  readinessBand: FabricAppReadinessBand;
+  candidatePageCount: number;
+  migrationBlockerCount: number;
+  estimatedRedesignEffort: FabricAppRedesignEffort;
+}
+
+export interface FabricAppReadinessAssessment {
+  overallReadinessScore: number;
+  readinessBand: FabricAppReadinessBand;
+  migrationSummary: string;
+  candidatePages: string[];
+  blockers: string[];
+  unsupportedPatterns: string[];
+  redesignRequiredAreas: string[];
+  recommendedNextActions: string[];
+  estimatedRedesignEffort: FabricAppRedesignEffort;
+  dimensionScores: FabricAppReadinessDimensionScores;
+  pageAssessments: FabricAppPageReadinessAssessment[];
+  evidence: FabricAppReadinessEvidence[];
+  governanceSignals: AnalyticsGovernanceSignal[];
+}
+
+export interface FabricAppReviewEvidence {
+  kind: 'typescriptLayout' | 'navigation' | 'designToken';
+  label: string;
+  summary: string;
+  filePath: string;
+}
+
+export interface FabricAppReviewSummary {
+  qualityScore: number;
+  summary: string;
+  remediationGuidance: string[];
+  evidence: FabricAppReviewEvidence[];
 }
 
 export interface FixPlanItem {
@@ -798,6 +915,9 @@ export interface ScoreResult {
   fixOpportunities?: FixOpportunity[];
   crossPageMatrix?: CrossPageMatrixSummary;
   personaPresentation?: PersonaPresentationState;
+  analysisContext?: AnalysisContextMetadata;
+  readinessAssessment?: FabricAppReadinessAssessment;
+  fabricAppReview?: FabricAppReviewSummary;
 }
 
 export interface AuditCaptureSummary {

@@ -22,6 +22,13 @@ Key architecture layers:
 ### Important Boundaries
 
 - normalized findings are the shared issue model
+- analyzable surface, analyzer, and analyzer profile are separate concepts:
+  - surface = thing being reviewed
+  - analyzer = review engine operating on that surface
+  - profile = emphasis lens for that analyzer
+- PBIR `Fabric App Readiness Assessment` is an analyzer operating on a PBIR surface, not a separate surface or workspace
+- Fabric App Review Mode foundations validate `Fabric App` as a second real surface type through the same workspace
+- Fabric App Review remains advisory-only unless the repo explicitly adds a future deterministic execution path; do not invent one
 - workspace personas are separate from reviewer-comment personas
 - cross-page matrix navigation is presentation-only and finding-driven
 - review/export workflows remain downstream from scoring
@@ -88,3 +95,17 @@ Extension tests use Jest with `ts-jest`; backend tests use xUnit. Add or update 
 
 ## Commit & Pull Request Guidelines
 Recent history follows Conventional Commit style with optional scopes, for example `feat(governance): ...` or `docs: ...`. Keep commits focused and imperative. PRs should use the template in `.github/PULL_REQUEST_TEMPLATE.md`: include a short summary, link the issue with `Fixes #...`, list validation performed, and add screenshots or doc updates when behavior or UI changes.
+
+## Rule
+For README.md, CHANGELOG.md, marketplace descriptions, release notes,
+and user-facing documentation:
+
+Prefer:
+- normal text
+- bold text
+- headings
+- bullet lists
+
+Avoid:
+- inline code formatting for feature names, UI labels, workflows,
+  concepts, personas, analyzers, readiness states, and roadmap items.

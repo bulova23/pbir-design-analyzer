@@ -45,6 +45,55 @@ Phase 2 hardening is now implemented on the active branch. It hardened the exist
 
 Phase 3 proposal enrichment is also now implemented on the active branch as an advisory-only layer above the deterministic mutation workflow. It adds grounded, validated, fallback-safe proposal wording and expected-outcome guidance while keeping all report edits inside the existing preview/apply/rollback trust loop.
 
+## Analytics Experience Review Platform
+
+The platform direction now extends beyond PBIR-only review through the new `Analyzable Surface` architecture:
+
+- analyzable surface
+- surface discovery
+- analyzer selection
+- analyzer profile selection
+- normalized findings, evidence, remediation, and governance outputs
+- one shared workspace
+
+Implemented first slice:
+
+- `PBIR Report Surface`
+- `Fabric App Readiness Analyzer`
+- analyzer profiles:
+  - `default`
+  - `migrationReadiness`
+
+Implemented second-surface foundation slice:
+
+- Fabric App Surface
+- Fabric App Review Analyzer
+- analyzer profiles:
+  - default
+  - fabricAppQuality
+- bounded evidence extraction for:
+  - TypeScript layout
+  - navigation
+  - design tokens
+- shared-workspace rendering through:
+  - Overview
+  - Issues
+  - Fix Plan
+  - Evidence
+
+This slice is advisory-only and answers:
+
+- should this PBIR report become a Fabric App
+
+It does not yet implement:
+
+- governance integration
+- screenshot intelligence
+- semantic-model evidence extraction
+- Fabric App fixes
+- code generation
+- Fabric App mutation
+
 ## Recommended Order
 
 ### 1. AI Fix Phase 2: Preview / Apply / Rollback Hardening
@@ -242,6 +291,36 @@ Status:
   - AI does not apply mutations
   - preview/apply/rollback and re-analysis remain deterministic
 - next AI-fix roadmap step remains Phase 4 advanced AI refactoring, not hidden execution changes inside Phase 3
+
+### Fabric Apps Analytics Review
+
+See:
+
+- [Design Spec](./superpowers/specs/2026-06-03-fabric-apps-analytics-review-design.md)
+- [Implementation Plan](./superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md)
+
+Status:
+
+- Release Slice 1 is now implemented on the active branch as `Fabric App Readiness Assessment`
+- adds:
+  - `Analyzable Surface` foundations for PBIR
+  - automatic PBIR surface detection
+  - analyzer registry and profile selection support
+  - advisory migration-readiness scoring across layout, interaction, narrative, semantic-model, navigation, governance, accessibility, and visualization-as-code dimensions
+  - readiness findings, evidence, and remediation integrated into the existing shared workspace
+- keeps the trust boundary intact:
+  - readiness remains advisory-only
+  - deterministic mutation authority remains PBIR-only and unchanged
+- Release Slice 2A foundations are now implemented on the active branch as `Fabric App Review Mode Foundations`
+- adds:
+  - Fabric App surface discovery
+  - Fabric App Review Analyzer
+  - bounded TypeScript, navigation, and design-token evidence extraction
+  - shared-workspace Fabric App findings, fix-plan guidance, and evidence rendering
+- keeps the trust boundary intact:
+  - Fabric App review remains advisory-only
+  - no Fabric App mutation path was introduced
+- next step for this initiative is deeper Fabric App review, not code generation or migration automation
 
 ## Guardrails
 

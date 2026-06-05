@@ -219,6 +219,97 @@
 - Implemented the Phase 3 advisory stack:
   - score-panel proposal-enrichment contracts
 
+## 2026-06-04 Fabric App Review Mode Planning
+
+- Added the Release Slice 2 planning doc:
+  - `docs/superpowers/plans/2026-06-03-fabric-app-review-mode-plan.md`
+- Resolved the minimum analyzable Fabric App boundary as:
+  - `TypeScript + routes/navigation + at least one semantic-model-backed analytics indicator`
+- Kept screenshots and design tokens optional evidence sources rather than qualification gates.
+- Preserved the core architecture:
+  - one workspace
+  - one normalized findings model
+  - advisory-only Fabric App review
+  - no repo mutation path
+- Recommended implementation order:
+  1. Phase 4 Advanced AI Refactoring
+  2. Fabric App Review Mode Release Slice 2
+
+## 2026-06-04 Fabric App Review Mode Foundations
+
+- Implemented Release Slice 2A as the first real second-surface validation slice.
+- Added Fabric App surface discovery with:
+  - supported
+  - unsupported
+  - ambiguous
+  - explicit reason codes and user-facing explanations
+- Added the advisory Fabric App Review Analyzer plus bounded evidence extraction for:
+  - TypeScript layout
+  - navigation
+  - design tokens
+- Wired Fabric App review through the existing workspace:
+  - Overview
+  - Issues
+  - Fix Plan
+  - Evidence
+- Preserved the trust boundary:
+  - no Fabric App fixes
+  - no mutation path
+  - no governance integration
+  - no screenshot intelligence
+  - no semantic-model evidence extraction
+
+## 2026-06-04 Fabric App Review Mode Real Smoke
+
+- Ran the current extension build in an isolated VS Code extension host against Fabric App repositories.
+- Confirmed the official Microsoft Rayfin todo scaffold is intentionally not analyzable for Slice 2A:
+  - `status: ambiguous`
+  - `reasonCode: ambiguousAnalyticsSurface`
+- Created a valid analytical Rayfin sample repo and confirmed the end-to-end Review workflow:
+  - `Fabric App Review` tab opened in VS Code
+  - `surfaceType: fabricApp`
+  - `analyzerType: fabricAppReview`
+  - `analyzerProfile: fabricAppQuality`
+  - advisory findings, fix plan, and evidence populated through the existing workspace contracts
+  - `fixOpportunityCount: 0`, so no deterministic preview/apply/rollback path appeared
+- Validation passed:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run bundle:extension`
+  - `node /tmp/fabric-app-smoke/run-fabric-review-smoke.mjs`
+  - `cd vscode-extension && npm test`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Documented the extension-host smoke limitation:
+  - `npm run compile` alone removes `dist/extension.js`
+  - host smoke needs `npm run bundle:extension` after compile, or a build/test script that bundles
+
+
+
+## 2026-06-04 Readiness Filter And Spacing Tweaks
+
+- Loosened the `Page Purpose Analysis` layout in the analyzer score webview with extra header and summary spacing plus a little more room below `Show Full Reasoning`.
+- Renamed the `Issues` readiness dropdown to `Fabric App Readiness`.
+- Added a `Hide readiness issues` option so Fabric readiness findings can be removed from the issue list without affecting other findings.
+- Validation passed with:
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runInBand webview-src/analyzer-score/App.test.tsx`
+
+## 2026-06-04 Story Assessment Workflow Refactor
+
+- Refactored the collapsed `Page Purpose Analysis` UI into a story-first `Story Assessment` workflow in the analyzer score webview.
+- Promoted `Detected Story`, `Supported Decision`, `Why This Matters`, optional `Decision Risk`, and `Story Gaps` ahead of the renamed metrics `Story Confidence` and `Decision Support`.
+- Kept the expanded reasoning path intact for intent profile, benchmark, actionability, evidence, and review controls.
+- Validation passed with:
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runInBand webview-src/analyzer-score/App.test.tsx`
+  - `cd vscode-extension && npm run compile`
+
+## 2026-06-04 Review Commentary Evidence Relocation
+
+- Removed `Reviewer Comment Generator` from the main review flow and relocated it under `Evidence` as collapsed `Review Commentary`.
+- Preserved the existing persona selector, generated commentary logic, and export compatibility.
+- Reframed commentary as derived/supporting evidence rather than primary analysis.
+- Validation passed with:
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runInBand webview-src/analyzer-score/App.test.tsx`
+  - `cd vscode-extension && npm run compile`
+
 ## 2026-06-03 Fabric Apps Analytics Review Design
 
 - Wrote the analytical Fabric Apps design spec:
@@ -239,38 +330,85 @@
 
 - Wrote the implementation plan:
   - `docs/superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md`
-- Mapped the approved design onto concrete extension modules including:
-  - `scorePanel.ts`
+- Structured the work around:
+  - analyzable surface discovery
+  - analyzer registry
+  - readiness analysis
+  - shared workspace integration
+  - Fabric App review
+  - analytics governance
+
+## 2026-06-03 Phase 4 Advanced AI Refactoring Planning
+
+- Wrote the Phase 4 design spec:
+  - `docs/superpowers/specs/2026-06-03-advanced-ai-refactoring-design.md`
+- Wrote the Phase 4 implementation plan:
+  - `docs/superpowers/plans/2026-06-03-advanced-ai-refactoring-plan.md`
+- Extended the AI-fix architecture from:
+  - `Issues`
+  - `Remediation Queue`
+  - `AI Proposal Enrichment`
+  - `Fix Opportunity Engine`
+  - `Deterministic Mutation Layer`
+- To:
+  - `Issues`
+  - `Remediation Queue`
+  - `AI Refactoring Proposals`
+  - `Fix Opportunity Engine`
+  - `Deterministic Mutation Layer`
+- Preserved the permanent trust boundary:
+  - AI may propose, explain, prioritize, and compare
+  - AI may not mutate directly or bypass deterministic validation, preview, approval, apply, rollback, or re-analysis
+- Recommended sequencing:
+  - implement Phase 4 on PBIR first
+  - implement Fabric Apps Analytics Review second
+
+## 2026-06-03 Fabric App Readiness Assessment Implementation
+
+- Implemented Release Slice 1 of the Fabric Apps Analytics Review roadmap on the active branch.
+- Added `Analyzable Surface` foundations for PBIR:
+  - PBIR surface typing
   - surface discovery
   - analyzer registry
-  - `scoreResultPayload.ts`
-  - `PbirScorePanel.ts`
-  - `App.tsx`
-- Broke the work into six implementation phases:
-  - Surface Discovery Foundation
-  - Fabric App Readiness Assessment
-  - Workspace Integration
-  - Fabric App Review Mode
-  - Governance Integration
-  - Hardening And Validation
-- Recommended the first implementation slice as:
-  - surface discovery
-  - analyzer registry
-  - Phase 1 readiness analyzer
-  - readiness workspace integration
-  - grounded remediation context builder
+  - analyzer profile selection support
+- Implemented advisory `Fabric App Readiness Assessment` with deterministic heuristics for:
+  - layout portability
+  - interaction portability
+  - narrative portability
+  - semantic-model suitability
+  - navigation portability
+  - governance portability
+  - accessibility portability
+  - visualization-as-code opportunity
+- Added readiness outputs into the shared workspace:
+  - overview readiness badges
+  - readiness findings in Issues
+  - readiness remediation in Fix Plan
+  - readiness evidence in Evidence
+- Preserved the trust boundary:
+  - readiness is advisory only
+  - no Fabric App code generation
+  - no mutation authority outside the deterministic PBIR fix workflow
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Real PBIR smoke passed:
+  - `node vscode-extension/scripts/phase2-deterministic-host-smoke.mjs`
+- Documented limitation:
+  - the current real-fixture smoke harness still does not assert readiness-specific UI fields on the real report path
+- Defined the first implementation slice as:
+  - trust-boundary contract additions
+  - deterministic compilation classification
+  - grounded refactoring context builder
   - advisory provider abstraction
-  - validation guards for invented artifacts, execution leakage, and outcome overclaim
+  - validation guards for invented artifacts, execution leakage, option duplication, and outcome overclaim
   - deterministic fallback wording and non-blocking orchestration
   - score-result payload normalization
-  - Fix Plan advisory rendering in the webview
+  - score-panel webview rendering for advisory scenario comparison
 - Preserved the trust boundary:
-  - AI enriches proposals only
+  - AI proposes, explains, prioritizes, and compares only
   - deterministic mutation generation and apply/rollback execution are unchanged
-- Validation passed with:
-  - focused proposal-enrichment Jest suites
-  - full `cd vscode-extension && npm test`
-  - full `cd vscode-extension && npm run compile`
 
 ## 2026-06-02 Phase 3 Release Finalization And Packaging
 
@@ -291,3 +429,23 @@
 - Documented the remaining limitation:
   - provider-backed enrichment is still disabled by default
   - command-driven packaged real-report smoke under `@vscode/test-electron` still has a panel-interception blocker, so real-report advisory UI confirmation is not yet automated in the installed-extension path
+
+## 2026-06-03 Fabric Readiness UI Fixes
+
+- Fixed the Fabric readiness webview follow-up issues reported from the packaged `0.4.0` build:
+  - moved readiness into a dedicated overview callout instead of mixing it into the main badge row
+  - converted readiness state labels to human-readable text
+  - filtered readiness evidence to the currently selected page
+  - filtered the executive-summary readiness callout to the currently selected page
+  - corrected readiness-card spacing and multi-word badge rendering
+- Added targeted webview regression coverage for:
+  - overview readiness callout rendering
+  - human-readable readiness labels
+  - selected-page readiness evidence filtering
+- Validation passed:
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runInBand webview-src/analyzer-score/App.test.tsx`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run package`
+- Rebuilt package:
+  - `vscode-extension/pbir-design-analyzer-0.4.0.vsix`

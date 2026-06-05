@@ -23,7 +23,9 @@ import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture
 import type { VisualAuditSession } from '../analyzer/audit/types';
 import type { VisualAuditProvider } from '../analyzer/audit/providers/VisualAuditProvider';
 import { createActiveProvider } from '../analyzer/audit/providers/providerSetup';
+import { reviewFabricAppSurface } from '../analyzer/fabric/review/fabricAppReviewAnalyzer';
 import { enrichFixPlanWithAdvisoryContent } from '../analyzer/proposalEnrichment/proposalEnrichmentOrchestrator';
+import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { resolveWebviewAssets } from './webviewAssets';
@@ -895,10 +897,11 @@ export class PbirScorePanel {
     const scoringStartMs = Date.now();
 
     try {
-      if (!this.bridge) {
+      const surfaceDiscovery = detectAnalyzableSurface(this.reportPath);
+      if (surfaceDiscovery.status === 'unsupported' || surfaceDiscovery.status === 'ambiguous') {
         this.postMessage({
           type: 'error',
-          message: 'LSP bridge not available. Is the .NET service running?',
+          message: surfaceDiscovery.reason,
         });
         return;
       }
@@ -906,6 +909,66 @@ export class PbirScorePanel {
       const savedConfig = await loadDesignAnalyzerConfig(this.context);
       this.savedConfig = savedConfig;
       this.reviewPacketPreviewOptions = await loadReviewPacketPreviewOptions(this.context, this.reportPath);
+
+      if (surfaceDiscovery.surface.surfaceType === 'fabricApp') {
+        this.panel.title = 'Fabric App Review';
+        const reviewResult = reviewFabricAppSurface(surfaceDiscovery.surface, 'fabricAppQuality');
+        const normalizedResult = await enrichFixPlanWithAdvisoryContent(
+          normalizeScoreResultPayload({
+            GestaltScore: reviewResult.qualityScore,
+            CognitiveLoadScore: reviewResult.qualityScore,
+            DataInkScore: reviewResult.qualityScore,
+            AccessibilityScore: reviewResult.qualityScore,
+            VisualBestPracticesScore: reviewResult.qualityScore,
+            StephenFewScore: reviewResult.qualityScore,
+            EnterpriseGovernanceScore: reviewResult.qualityScore,
+            TufteScore: reviewResult.qualityScore,
+            GraphicalPerceptionScore: reviewResult.qualityScore,
+            DensityScore: reviewResult.qualityScore,
+            NarrativeScore: reviewResult.qualityScore,
+            CompositeScore: reviewResult.qualityScore,
+            Feedback: {},
+            PageCount: reviewResult.evidence.length,
+            Recommendations: reviewResult.remediationGuidance,
+            ReportPath: this.reportPath,
+            ScoredAt: new Date().toISOString(),
+            NormalizedFindings: reviewResult.normalizedFindings,
+            FabricAppReview: {
+              QualityScore: reviewResult.qualityScore,
+              Summary: reviewResult.summary,
+              RemediationGuidance: reviewResult.remediationGuidance,
+              Evidence: reviewResult.evidence.map((item) => ({
+                Kind: item.kind,
+                Label: item.label,
+                Summary: item.summary,
+                FilePath: item.filePath,
+              })),
+            },
+          }),
+          {
+            providerMode: 'disabled',
+            enabledEnrichers: ['storytelling', 'executiveReadability'],
+          },
+        );
+        this.currentResult = normalizedResult;
+        const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
+        const reviewPacketPreview = buildReviewWorkflowExportData(
+          normalizedResult,
+          intentFeedbackSession.entries,
+        );
+        this.postScoreState(savedConfig, normalizedResult, intentFeedbackSession.entries, reviewPacketPreview);
+        return;
+      }
+
+      this.panel.title = 'PBIR Optimization Report';
+
+      if (!this.bridge) {
+        this.postMessage({
+          type: 'error',
+          message: 'LSP bridge not available. Is the .NET service running?',
+        });
+        return;
+      }
 
       const requestPayload: ScoreRequestPayload = {
         reportPath: this.reportPath,

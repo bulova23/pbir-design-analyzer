@@ -232,6 +232,29 @@ const scoreState: ScorePanelState = {
           },
         ],
       },
+      {
+        id: 'fabric-readiness-good-candidate',
+        title: 'Good Fabric App Candidate',
+        summary: 'The overview page is a promising migration candidate with relatively low redesign effort.',
+        severity: 'info',
+        confidence: 82,
+        scope: 'report',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'layout',
+        frameworkImpact: ['Fabric App Readiness'],
+        recommendation: 'Start with the strongest migration-candidate pages first.',
+        sourceKind: 'fabricAppReadiness',
+        sourceSection: 'issues',
+        evidence: [
+          {
+            kind: 'readiness',
+            label: 'Migration rationale',
+            pageName: 'Overview',
+            detail: 'Overall readiness score 71/100.',
+          },
+        ],
+      },
     ],
     overviewSummary: {
       overallScore: 77,
@@ -290,6 +313,131 @@ const scoreState: ScorePanelState = {
         consistentPages: 1,
         totalPages: 2,
       },
+      readinessSummary: {
+        readinessScore: 71,
+        readinessBand: 'possibleCandidate',
+        candidatePageCount: 1,
+        migrationBlockerCount: 2,
+        estimatedRedesignEffort: 'medium',
+      },
+    },
+    analysisContext: {
+      surfaceType: 'pbirReport',
+      analyzerType: 'fabricAppReadiness',
+      analyzerProfile: 'migrationReadiness',
+      surfaceDisplayName: 'Sales.Report',
+      sourceLocation: '/tmp/Sales.Report',
+      availableAnalyzerTypes: ['pbirDesignReview', 'fabricAppReadiness'],
+      availableAnalyzerProfiles: ['default', 'migrationReadiness'],
+    },
+    readinessAssessment: {
+      overallReadinessScore: 71,
+      readinessBand: 'possibleCandidate',
+      migrationSummary: 'This PBIR report has promising migration candidates, but navigation complexity should be reduced first.',
+      candidatePages: ['Overview'],
+      blockers: [
+        'Navigation complexity is likely too Power BI-specific for direct migration.',
+        'Low accessibility portability requires redesign before migration.',
+      ],
+      unsupportedPatterns: [
+        'Hidden-visual state switching is difficult to translate directly.',
+      ],
+      redesignRequiredAreas: ['navigation portability', 'accessibility portability'],
+      recommendedNextActions: [
+        'Simplify navigation before treating the report as an app candidate.',
+        'Reduce Power BI-only dependencies such as slicer-heavy interaction patterns.',
+      ],
+      estimatedRedesignEffort: 'medium',
+      dimensionScores: {
+        layoutPortability: 75,
+        interactionPortability: 60,
+        narrativePortability: 72,
+        semanticModelSuitability: 74,
+        navigationPortability: 54,
+        governancePortability: 70,
+        accessibilityPortability: 58,
+        visualizationAsCodeOpportunity: 68,
+      },
+      pageAssessments: [
+        {
+          pageName: 'Overview',
+          readinessScore: 80,
+          readinessDimensions: {
+            layoutPortability: 82,
+            interactionPortability: 78,
+            narrativePortability: 80,
+            semanticModelSuitability: 76,
+            navigationPortability: 72,
+            governancePortability: 75,
+            accessibilityPortability: 74,
+            visualizationAsCodeOpportunity: 70,
+          },
+          candidateState: 'strongCandidate',
+          positiveSignals: ['Focused visual scope is easier to recompose as an app surface.'],
+          blockers: [],
+          unsupportedPatterns: [],
+          redesignRequiredAreas: [],
+          migrationNotes: ['Keep the page purpose tight during migration.'],
+          evidence: [
+            {
+              kind: 'portability',
+              label: 'Migration rationale',
+              pageName: 'Overview',
+              detail: 'Overall readiness score 80/100.',
+            },
+          ],
+        },
+        {
+          pageName: 'Details',
+          readinessScore: 42,
+          readinessDimensions: {
+            layoutPortability: 48,
+            interactionPortability: 38,
+            narrativePortability: 46,
+            semanticModelSuitability: 56,
+            navigationPortability: 34,
+            governancePortability: 52,
+            accessibilityPortability: 40,
+            visualizationAsCodeOpportunity: 44,
+          },
+          candidateState: 'redesignRequired',
+          positiveSignals: ['The semantic model can still support a future app shell.'],
+          blockers: ['Heavy slicer-driven interaction does not map cleanly to an app flow.'],
+          unsupportedPatterns: ['Bookmark-style hidden-state switching is difficult to migrate directly.'],
+          redesignRequiredAreas: ['interaction portability', 'navigation portability'],
+          migrationNotes: ['Recompose this page into a simpler task-focused app experience.'],
+          evidence: [
+            {
+              kind: 'portability',
+              label: 'Migration rationale',
+              pageName: 'Details',
+              detail: 'Overall readiness score 42/100.',
+            },
+          ],
+        },
+      ],
+      evidence: [
+        {
+          kind: 'portability',
+          label: 'Migration rationale',
+          pageName: 'Overview',
+          detail: 'Overall readiness score 80/100.',
+        },
+        {
+          kind: 'portability',
+          label: 'Migration rationale',
+          pageName: 'Details',
+          detail: 'Overall readiness score 42/100.',
+        },
+      ],
+      governanceSignals: [
+        {
+          category: 'navigation',
+          severity: 'medium',
+          summary: 'Navigation portability falls below the app-ready threshold.',
+          pageName: 'Details',
+        },
+      ],
     },
     fixPlan: [
       {
@@ -893,6 +1041,11 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/Visual mix: 12 data, 4 navigation, 1 hidden/i)).toBeInTheDocument();
     expect(screen.getByText(/Maturity: Mature/i)).toBeInTheDocument();
     expect(screen.getByText(/Risk: Elevated/i)).toBeInTheDocument();
+    const readinessOverview = screen.getByLabelText('Fabric App migration readiness');
+    expect(within(readinessOverview).getByText('Fabric App migration readiness')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/Possible Candidate/i)).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Readiness score$/i)).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Candidate pages$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/workspace review mode/i)).toHaveValue('default');
     expect(screen.getByText(/Review modes change how findings are prioritized and explained/i)).toBeInTheDocument();
     expect(screen.getByText('Cross-page matrix')).toBeInTheDocument();
@@ -901,6 +1054,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getAllByText(/The page includes some decision context but still hides the main exception\./i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Fix first:/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Evidence')).toBeInTheDocument();
+    expect(screen.getByLabelText(/issue fabric app readiness filter/i)).toBeInTheDocument();
     expect(screen.getByText('Export')).toBeInTheDocument();
     expect(screen.getByText('Review Summary')).toBeInTheDocument();
     expect(screen.getAllByText('Review Packet Preview').length).toBeGreaterThan(0);
@@ -951,11 +1105,12 @@ describe('Analyzer Score App', () => {
     expect(screen.getAllByText(/Detail Comparison/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(screen.getAllByText(/Affected pages/i).length).toBeGreaterThan(0);
-    expect(screen.getByText('Page Purpose Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Story Assessment')).toBeInTheDocument();
     expect(screen.getByText('Why This Matters')).toBeInTheDocument();
-    expect(screen.getByText(/Decision makers may misinterpret KPI values/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
+    expect(screen.getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('Detected Story')).toBeInTheDocument();
     expect(screen.getByText(/This page appears to summarize Revenue performance over time/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Intent profile: executiveOverview')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Story archetype: executive overview + trend + comparison')).toBeInTheDocument();
@@ -1035,11 +1190,16 @@ describe('Analyzer Score App', () => {
       note: 'Needs a clearer variance narrative before this can be review-ready.',
     });
     expect(screen.getByText(/Reviewer note saved for this page review\./i)).toBeInTheDocument();
-    expect(screen.getByText('Reviewer Comment Generator')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/reviewer persona/i), {
+    expect(screen.queryByText('Reviewer Comment Generator')).not.toBeInTheDocument();
+    const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
+    evidenceSection.open = true;
+    const reviewCommentarySection = screen.getByText('Review Commentary').closest('details') as HTMLDetailsElement;
+    expect(reviewCommentarySection.open).toBe(false);
+    reviewCommentarySection.open = true;
+    fireEvent.change(within(reviewCommentarySection).getByLabelText(/reviewer persona/i), {
       target: { value: 'strictDesignCritic' },
     });
-    expect(screen.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
+    expect(within(reviewCommentarySection).getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Page Consistency Notes').length).toBeGreaterThan(0);
     expect(screen.getByText(/Metric label naming differs from other pages/i)).toBeInTheDocument();
     const detailMetadataDetails = screen.getByText('Parsed Metadata').closest('details') as HTMLDetailsElement;
@@ -1295,7 +1455,7 @@ describe('Analyzer Score App', () => {
     fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
       target: { value: 'medium' },
     });
-    expect(screen.getByText(/Showing 1 of 3 finding\(s\)\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1 of 4 finding\(s\)\./i)).toBeInTheDocument();
     const issuesWorkspace = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
     expect(within(issuesWorkspace).queryByText('Actionability gap')).not.toBeInTheDocument();
 
@@ -1303,6 +1463,106 @@ describe('Analyzer Score App', () => {
       target: { value: 'impactArea' },
     });
     expect(within(issuesWorkspace).getAllByText('Navigation').length).toBeGreaterThan(0);
+  });
+
+  it('filters and hides Fabric readiness findings without overloading scope', async () => {
+    render(<App />);
+
+    const readinessFilterState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        normalizedFindings: [
+          ...(scoreState.result.normalizedFindings ?? []),
+          {
+            id: 'fabric-readiness-blocker-navigation',
+            title: 'Migration Blocker',
+            summary: 'Navigation complexity is likely too Power BI-specific for direct migration.',
+            severity: 'medium',
+            confidence: 88,
+            scope: 'report',
+            detectionType: 'deterministic',
+            affectedPages: ['Details'],
+            impactArea: 'navigation',
+            frameworkImpact: ['Fabric App Readiness'],
+            recommendation: 'Simplify navigation before treating the report as an app candidate.',
+            sourceKind: 'fabricAppReadiness',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+          {
+            id: 'fabric-readiness-redesign-details',
+            title: 'Redesign Required',
+            summary: 'Details needs redesign before it becomes a strong app migration candidate.',
+            severity: 'medium',
+            confidence: 84,
+            scope: 'page',
+            detectionType: 'deterministic',
+            affectedPages: ['Details'],
+            impactArea: 'layout',
+            frameworkImpact: ['Fabric App Readiness'],
+            recommendation: 'Recompose this page into a simpler task-focused app experience.',
+            sourceKind: 'fabricAppReadiness',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+        ],
+      },
+    } as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: readinessFilterState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
+      target: { value: 'all' },
+    });
+    fireEvent.change(screen.getByLabelText(/issue fabric app readiness filter/i), {
+      target: { value: 'blocker' },
+    });
+
+    const issuesWorkspace = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
+    expect(screen.getByText(/Fabric App Readiness: Blocker/i)).toBeInTheDocument();
+    expect(within(issuesWorkspace).getAllByText('Migration Blocker').length).toBeGreaterThan(0);
+    expect(within(issuesWorkspace).queryByText('Redesign Required')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Scope: Report/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/issue fabric app readiness filter/i), {
+      target: { value: 'hidden' },
+    });
+    expect(screen.getByText(/Fabric App Readiness: Hidden/i)).toBeInTheDocument();
+    expect(within(issuesWorkspace).queryByText('Migration Blocker')).not.toBeInTheDocument();
+    expect(within(issuesWorkspace).queryByText('Good Fabric App Candidate')).not.toBeInTheDocument();
+  });
+
+  it('syncs the issue page filter to the selected page tab', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+    expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('Details');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overall' }));
+    expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
   });
 
   it('applies workspace persona ordering and matrix-driven issue filters without changing score', async () => {
@@ -1371,7 +1631,148 @@ describe('Analyzer Score App', () => {
     expect(evidenceSection.open).toBe(false);
   });
 
-  it('renders Page Purpose Analysis as a summary-first workflow and preserves full reasoning on demand', async () => {
+  it('renders Fabric readiness as a dedicated overview callout with human-readable labels', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Fabric App migration readiness')).toBeInTheDocument();
+    expect(screen.getAllByText('Possible Candidate').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Readiness: possibleCandidate/i)).not.toBeInTheDocument();
+  });
+
+  it('filters the overview Fabric readiness callout to the selected page', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    const readinessOverview = screen.getByLabelText('Fabric App migration readiness');
+    expect(within(readinessOverview).getByText('Fabric App readiness for Details')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText('Redesign Required')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText('42')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Blockers$/i)).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Unsupported patterns$/i)).toBeInTheDocument();
+    expect(within(readinessOverview).queryByText(/^Candidate pages$/i)).not.toBeInTheDocument();
+  });
+
+  it('filters overview summary cards to the selected page context', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    const topStrengthsCard = screen.getByRole('heading', { name: 'Top strengths' }).closest('div') as HTMLElement;
+    const topIssuesCard = screen.getByRole('heading', { name: 'Top issues' }).closest('div') as HTMLElement;
+    const topActionsCard = screen.getByRole('heading', { name: 'Top actions' }).closest('div') as HTMLElement;
+
+    expect(within(topStrengthsCard).getByText(/Clean trend visual/i)).toBeInTheDocument();
+    expect(within(topStrengthsCard).queryByText(/Overall design quality is above the working threshold/i)).not.toBeInTheDocument();
+    expect(within(topIssuesCard).getByText(/Beautiful but weakly actionable/i)).toBeInTheDocument();
+    expect(within(topIssuesCard).queryByText(/Actionability gap/i)).not.toBeInTheDocument();
+    expect(within(topActionsCard).getByText(/Decision support is weak/i)).toBeInTheDocument();
+  });
+
+  it('filters Fabric readiness evidence to the selected page', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
+    evidenceSection.open = true;
+
+    const readinessSection = screen.getAllByText('Fabric App Readiness')
+      .map((node) => node.closest('details'))
+      .find((node): node is HTMLDetailsElement => Boolean(node)) as HTMLDetailsElement;
+    readinessSection.open = true;
+
+    const readinessPanel = within(readinessSection);
+
+    expect(readinessPanel.getByText('Fabric App readiness for Details')).toBeInTheDocument();
+    expect(readinessPanel.getByText('Redesign Required')).toBeInTheDocument();
+    expect(readinessPanel.getByText(/Overall readiness score 42\/100\./i)).toBeInTheDocument();
+    expect(readinessPanel.queryByText(/Overall readiness score 80\/100\./i)).not.toBeInTheDocument();
+    expect(readinessPanel.queryByText(/^Candidate pages$/i)).not.toBeInTheDocument();
+  });
+
+  it('moves reviewer commentary under Evidence as collapsed supporting material while preserving persona-aware output', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    expect(screen.queryByText('Reviewer Comment Generator')).not.toBeInTheDocument();
+
+    const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
+    evidenceSection.open = true;
+
+    const reviewCommentarySection = screen.getByText('Review Commentary').closest('details') as HTMLDetailsElement;
+    expect(reviewCommentarySection.open).toBe(false);
+    reviewCommentarySection.open = true;
+
+    const commentaryPanel = within(reviewCommentarySection);
+    expect(commentaryPanel.getByLabelText(/reviewer persona/i)).toHaveValue('consultant');
+    expect(commentaryPanel.getByText(/Consultant review for Details \(analytical\)/i)).toBeInTheDocument();
+    expect(commentaryPanel.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
+
+    fireEvent.change(commentaryPanel.getByLabelText(/reviewer persona/i), {
+      target: { value: 'strictDesignCritic' },
+    });
+
+    expect(commentaryPanel.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
+  });
+
+  it('renders Story Assessment as a story-first workflow and preserves full reasoning on demand', async () => {
     render(<App />);
 
     await act(async () => {
@@ -1387,9 +1788,26 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
-    expect(screen.getByText('Page Purpose Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Story Assessment')).toBeInTheDocument();
+    expect(screen.getByText('Detected Story')).toBeInTheDocument();
+    expect(screen.getByText(/This page appears to summarize Revenue performance over time, with region comparison as supporting evidence\./i)).toBeInTheDocument();
+    expect(screen.getByText('Supported Decision')).toBeInTheDocument();
+    expect(screen.getByText(/This page should help leaders judge performance against expectations and decide whether intervention is needed\./i)).toBeInTheDocument();
     expect(screen.getByText('Why This Matters')).toBeInTheDocument();
-    expect(screen.getByText(/Decision makers may misinterpret KPI values/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
+    const detectedStoryHeading = screen.getByText('Detected Story');
+    const whyThisMattersHeading = screen.getByText('Why This Matters');
+    const storyGapsHeading = screen.getByText('Story Gaps');
+    const storyGapsBlock = storyGapsHeading.closest('div') as HTMLElement;
+    const supportedDecisionHeading = screen.getByText('Supported Decision');
+    expect(detectedStoryHeading.compareDocumentPosition(supportedDecisionHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(supportedDecisionHeading.compareDocumentPosition(whyThisMattersHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(whyThisMattersHeading.compareDocumentPosition(storyGapsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('Story Gaps')).toBeInTheDocument();
+    expect(within(storyGapsBlock).getByText(/Exception visibility is weak\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Story Confidence: high/i)).toBeInTheDocument();
+    expect(screen.getByText(/Decision Support: 58\/100/i)).toBeInTheDocument();
+    expect(screen.getByText(/Benchmark: Mixed against expected/i)).toBeInTheDocument();
     expect(screen.queryByText('Inferred Page Story')).not.toBeInTheDocument();
     expect(screen.queryByText('Page Intent Profile')).not.toBeInTheDocument();
 
@@ -1397,6 +1815,26 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
     expect(screen.getByText('Page Intent Profile')).toBeInTheDocument();
     expect(screen.getByText('Intent Feedback')).toBeInTheDocument();
+  });
+
+  it('derives decision risk from existing reasoning when applicable', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    expect(screen.getByText('Decision Risk')).toBeInTheDocument();
+    expect(screen.getAllByText(/Decision makers may misinterpret KPI values without targets or prior-period comparison\./i).length).toBeGreaterThan(0);
   });
 
   it('renders Fix Plan as a differentiated remediation queue with action-specific rationale', async () => {
@@ -1563,6 +2001,93 @@ describe('Analyzer Score App', () => {
     expect(within(fixPlan).getAllByText('Advisory only: no safe metadata-only fix is currently available for this remediation.').length).toBeGreaterThan(0);
   });
 
+  it('shows the batch workflow block when deterministic opportunities are available in the current context', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Batch workflow')).toBeInTheDocument();
+    expect(within(fixPlan).getByRole('button', { name: 'Preview selected' })).toBeInTheDocument();
+    expect(within(fixPlan).getByRole('button', { name: 'Approve selected' })).toBeInTheDocument();
+    expect(within(fixPlan).getByRole('button', { name: 'Apply selected' })).toBeInTheDocument();
+  });
+
+  it('hides the batch workflow block when only advisory recommendations are available', async () => {
+    render(<App />);
+
+    const advisoryOnlyState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        fixOpportunities: [],
+      },
+      fixSelection: {
+        selectedOpportunityIds: [],
+        compatibility: {
+          isCompatible: true,
+          compatibleOpportunityIds: [],
+          blockingOpportunityIds: [],
+          blockingReasons: [],
+        },
+        approvalState: 'NeedsPreview',
+      },
+    } as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: advisoryOnlyState,
+          },
+        }),
+      );
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).queryByText('Batch workflow')).not.toBeInTheDocument();
+    expect(within(fixPlan).queryByRole('button', { name: 'Preview selected' })).not.toBeInTheDocument();
+    expect(within(fixPlan).queryByRole('button', { name: 'Approve selected' })).not.toBeInTheDocument();
+    expect(within(fixPlan).queryByRole('button', { name: 'Apply selected' })).not.toBeInTheDocument();
+  });
+
+  it('shows advisory-only messaging when no deterministic opportunities are available', async () => {
+    render(<App />);
+
+    const advisoryOnlyState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        fixOpportunities: [],
+      },
+    } as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: advisoryOnlyState,
+          },
+        }),
+      );
+    });
+
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Advisory Recommendations Only')).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/No deterministic opportunities are available in the current context\./i)).toBeInTheDocument();
+  });
+
   it('renders advisory proposal enrichment separately from deterministic fix execution details', async () => {
     render(<App />);
 
@@ -1629,14 +2154,14 @@ describe('Analyzer Score App', () => {
     });
 
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
-    expect(within(fixPlan).getByText('AI-enriched guidance')).toBeInTheDocument();
-    expect(within(fixPlan).getByText('Executive Sales Overview')).toBeInTheDocument();
-    expect(within(fixPlan).getByText(/Adding benchmark context helps readers interpret the KPI quickly/i)).toBeInTheDocument();
-    expect(within(fixPlan).getByText(/Without a benchmark, users cannot quickly tell whether performance is on target/i)).toBeInTheDocument();
-    expect(within(fixPlan).getByText(/High leverage/i)).toBeInTheDocument();
-    expect(within(fixPlan).getByText(/If applied, this change is expected to improve readability and decision context/i)).toBeInTheDocument();
-    expect(within(fixPlan).getByText(/Consolidate the KPI section/i)).toBeInTheDocument();
-    expect(within(fixPlan).getByText(/AI-enriched/i)).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('AI-enriched guidance').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText('Executive Sales Overview').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Adding benchmark context helps readers interpret the KPI quickly/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Without a benchmark, users cannot quickly tell whether performance is on target/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/High leverage/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/If applied, this change is expected to improve readability and decision context/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Consolidate the KPI section/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/AI-enriched/i).length).toBeGreaterThan(0);
     expect(within(fixPlan).getAllByText('Expected resolutions:').length).toBeGreaterThan(0);
   });
 
@@ -1985,5 +2510,148 @@ describe('Analyzer Score App', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Details' }).className).toContain('tab-button-active');
+  });
+
+  it('renders Fabric App review inside the existing workspace without deterministic mutation controls', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                reportPath: '/tmp/executive-fabric-app',
+                pageCount: 2,
+                pageScores: undefined,
+                readinessAssessment: undefined,
+                feedback: {},
+                reportConsistencySummary: undefined,
+                inferredStorySummary: undefined,
+                pageIntentProfile: undefined,
+                actionabilityBreakdown: undefined,
+                benchmarkComparison: undefined,
+                pagePurposeAnalysis: undefined,
+                analysisContext: {
+                  surfaceType: 'fabricApp',
+                  analyzerType: 'fabricAppReview',
+                  analyzerProfile: 'fabricAppQuality',
+                  surfaceDisplayName: 'Executive Fabric App',
+                  sourceLocation: '/tmp/executive-fabric-app',
+                  availableAnalyzerTypes: ['fabricAppReview'],
+                  availableAnalyzerProfiles: ['default', 'fabricAppQuality'],
+                },
+                fabricAppReview: {
+                  qualityScore: 72,
+                  summary: 'Fabric App review produced bounded findings from TypeScript, navigation, and tokens.',
+                  remediationGuidance: ['Rename generic routes.', 'Standardize token usage.'],
+                  evidence: [
+                    {
+                      kind: 'navigation',
+                      label: 'Navigation evidence',
+                      summary: 'Executive Overview -> /overview',
+                      filePath: 'src/routes/index.tsx',
+                    },
+                    {
+                      kind: 'designToken',
+                      label: 'Token bypass evidence',
+                      summary: 'Hard-coded color bypass detected: #ff0000.',
+                      filePath: 'src/ExecutiveCard.tsx',
+                    },
+                  ],
+                },
+                fixOpportunities: [],
+                proposalEnrichments: [],
+                normalizedFindings: [
+                  {
+                    id: 'fabric-route-clarity',
+                    title: 'Route labeling is too generic for analytical navigation',
+                    summary: 'Generic labels weaken evidence flow.',
+                    severity: 'medium',
+                    confidence: 82,
+                    scope: 'report',
+                    detectionType: 'deterministic',
+                    affectedPages: [],
+                    impactArea: 'navigation',
+                    frameworkImpact: ['Fabric App Review'],
+                    recommendation: 'Rename generic routes.',
+                    sourceKind: 'fabricAppReview',
+                    sourceSection: 'issues',
+                    evidence: [
+                      {
+                        kind: 'navigation',
+                        label: 'Navigation evidence',
+                        detail: 'src/routes/index.tsx — Detail -> /detail',
+                        filePath: 'src/routes/index.tsx',
+                      },
+                    ],
+                  },
+                  {
+                    id: 'fabric-token-bypass',
+                    title: 'Token inconsistencies were detected',
+                    summary: 'Hard-coded styling bypasses the shared token layer.',
+                    severity: 'medium',
+                    confidence: 82,
+                    scope: 'report',
+                    detectionType: 'deterministic',
+                    affectedPages: [],
+                    impactArea: 'layout',
+                    frameworkImpact: ['Fabric App Review'],
+                    recommendation: 'Standardize token usage.',
+                    sourceKind: 'fabricAppReview',
+                    sourceSection: 'issues',
+                    evidence: [
+                      {
+                        kind: 'designToken',
+                        label: 'Token bypass evidence',
+                        detail: 'src/ExecutiveCard.tsx — Hard-coded color bypass detected: #ff0000.',
+                        filePath: 'src/ExecutiveCard.tsx',
+                      },
+                    ],
+                  },
+                ],
+                fixPlan: [
+                  {
+                    id: 'fix-fabric-navigation',
+                    title: 'Improve navigation clarity',
+                    detail: 'Resolve 1 related finding through one remediation step.',
+                    severity: 'medium',
+                    effort: 'medium',
+                    impact: 'medium',
+                    why: 'Clarifies the executive-to-detail scan path.',
+                    scope: 'report',
+                    affectedPages: [],
+                    recommendedAction: 'Rename generic routes.',
+                    resolvedOutcomes: ['Navigation consistency'],
+                    sourceFindingIds: ['fabric-route-clarity'],
+                  },
+                ],
+                overviewSummary: {
+                  ...scoreState.result.overviewSummary!,
+                  overallScore: 72,
+                  executiveSummary: 'This Fabric App has usable analytical structure, but route clarity and token discipline need improvement.',
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Optimization Report')).toBeInTheDocument();
+    expect(screen.getByText(/This Fabric App has usable analytical structure/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Route labeling is too generic for analytical navigation').length).toBeGreaterThan(0);
+    expect(screen.getByText('Improve navigation clarity')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Evidence'));
+    const fabricEvidenceSummary = screen.getAllByText('Fabric App Review Evidence')[0].closest('summary') as HTMLElement;
+    expect(fabricEvidenceSummary).toBeInTheDocument();
+    fireEvent.click(fabricEvidenceSummary);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('Executive Overview -> /overview') ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('src/ExecutiveCard.tsx') ?? false).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Batch workflow')).not.toBeInTheDocument();
+    expect(screen.getByText('Advisory Recommendations Only')).toBeInTheDocument();
   });
 });

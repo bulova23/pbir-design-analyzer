@@ -83,4 +83,47 @@ describe('buildOverviewSummary', () => {
     expect(summary.benchmarkSummary).toContain('Executive-ready benchmark');
     expect(summary.crossPageSummary.headline).toContain('1 of 3');
   });
+
+  it('adds Fabric App readiness rollups when a readiness assessment is available', () => {
+    const result = {
+      compositeScore: 78,
+      pageCount: 3,
+      normalizedFindings: [],
+      readinessAssessment: {
+        overallReadinessScore: 71,
+        readinessBand: 'possibleCandidate',
+        migrationSummary: 'Promising candidates exist, but navigation complexity should be reduced first.',
+        candidatePages: ['Overview', 'Summary'],
+        blockers: ['Navigation complexity is likely too Power BI-specific for direct migration.'],
+        unsupportedPatterns: [],
+        redesignRequiredAreas: ['navigation portability'],
+        recommendedNextActions: ['Simplify navigation before treating the report as an app candidate.'],
+        estimatedRedesignEffort: 'medium',
+        dimensionScores: {
+          layoutPortability: 75,
+          interactionPortability: 61,
+          narrativePortability: 72,
+          semanticModelSuitability: 74,
+          navigationPortability: 54,
+          governancePortability: 70,
+          accessibilityPortability: 76,
+          visualizationAsCodeOpportunity: 68,
+        },
+        pageAssessments: [],
+        evidence: [],
+        governanceSignals: [],
+      },
+    } as unknown as ScoreResult;
+
+    const summary = buildOverviewSummary(result);
+
+    expect(summary.readinessSummary).toEqual({
+      readinessScore: 71,
+      readinessBand: 'possibleCandidate',
+      candidatePageCount: 2,
+      migrationBlockerCount: 1,
+      estimatedRedesignEffort: 'medium',
+    });
+    expect(summary.executiveSummary).toContain('possible migration candidate');
+  });
 });

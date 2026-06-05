@@ -7,6 +7,19 @@
 ## Current Objective
 
 - Phase 3 AI Proposal Enrichment release finalization is complete on the active branch: `0.4.0` is validated, packaged, and documented with provider-backed enrichment still disabled by default.
+- Implemented Release Slice 1 of the Fabric Apps Analytics Review roadmap on the active branch:
+  - PBIR `Analyzable Surface`
+  - PBIR surface discovery
+  - analyzer registry and profile selection support
+  - advisory `Fabric App Readiness Assessment`
+  - readiness findings, evidence, and remediation in the shared workspace
+  - documentation and durable memory updates
+  - follow-up webview fixes for readiness UX:
+    - dedicated overview readiness callout
+    - human-readable readiness labels
+    - page-filtered readiness evidence
+    - page-filtered executive-summary readiness callout
+    - rebuilt packaged artifact `vscode-extension/pbir-design-analyzer-0.4.0.vsix`
 - Wrote the analytical Fabric Apps design spec as a shared-workspace extension:
   - `docs/superpowers/specs/2026-06-03-fabric-apps-analytics-review-design.md`
   - `Analyzable Surface` abstraction
@@ -14,7 +27,48 @@
   - Phase 2 `Fabric App Review Mode`
 - Wrote the implementation plan for the Fabric Apps Analytics Review initiative:
   - `docs/superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md`
+  - Release Slice 1 is now implemented on the active branch
+- Wrote the Release Slice 2 implementation plan for Fabric App Review Mode:
+  - `docs/superpowers/plans/2026-06-03-fabric-app-review-mode-plan.md`
   - planning only, no code changes
+  - minimum analyzable Fabric App recommendation:
+    - `TypeScript + routes/navigation + at least one semantic-model-backed analytics indicator`
+  - sequencing recommendation:
+    - implement Phase 4 Advanced AI Refactoring before Release Slice 2 Fabric App Review Mode
+- Implemented Release Slice 2A foundations for Fabric App Review Mode on the active branch:
+  - Fabric App surface discovery with supported, unsupported, and ambiguous states
+  - advisory `FabricAppReviewAnalyzer`
+  - bounded TypeScript layout, navigation, and design-token evidence extraction
+  - shared-workspace Fabric App findings, fix-plan guidance, and evidence rendering
+  - no governance integration
+  - no screenshot intelligence
+  - no semantic-model evidence extraction
+  - no Fabric App mutation path
+- Completed a real VS Code smoke pass for Release Slice 2A foundations:
+  - the official Microsoft Rayfin todo scaffold classified as:
+    - `status: ambiguous`
+    - `reasonCode: ambiguousAnalyticsSurface`
+  - a valid analytical Rayfin sample repo opened successfully in an isolated VS Code extension host
+  - `Fabric App Review` opened through the existing workspace with:
+    - `surfaceType: fabricApp`
+    - `analyzerType: fabricAppReview`
+    - `analyzerProfile: fabricAppQuality`
+  - advisory findings, evidence, and fix-plan guidance appeared with:
+    - TypeScript layout evidence
+    - navigation evidence
+    - design-token evidence
+  - deterministic preview/apply/rollback controls did not appear because:
+    - `fixOpportunityCount: 0`
+  - extension-host smoke limitation confirmed:
+    - `npm run compile` clears `dist/`
+    - extension-host smoke needs `npm run bundle:extension` after compile, or a build/test script that bundles
+- Wrote the Phase 4 Advanced AI Refactoring planning docs:
+  - `docs/superpowers/specs/2026-06-03-advanced-ai-refactoring-design.md`
+  - `docs/superpowers/plans/2026-06-03-advanced-ai-refactoring-plan.md`
+  - planning only, no code changes
+- Captured the sequencing recommendation:
+  - implement Phase 4 on PBIR before Fabric Apps Analytics Review
+  - keep the proposal contracts aligned to the `Analyzable Surface` direction for later reuse
 
 ## Release Boundaries
 
@@ -86,19 +140,16 @@
 
 ## Next Recommended Step
 
-- Tag and publish the `0.4.0` release if the current branch is ready to merge.
-- Review and refine the new Fabric Apps analytical design spec before any planning or implementation:
-  - `docs/superpowers/specs/2026-06-03-fabric-apps-analytics-review-design.md`
-- Review and approve the implementation plan before starting execution work:
-  - `docs/superpowers/plans/2026-06-03-fabric-apps-analytics-review-plan.md`
-- Keep the packaged smoke harnesses available for future fix-workflow regressions:
-  - `vscode-extension/scripts/phase2-deterministic-host-smoke.mjs`
-- Keep Phase 3 scoped to proposal enrichment only:
-  - no provider-driven mutations
-  - no hidden Phase 4 execution behavior
-  - no report-generation or design-studio work in this release
-- Resolve the remaining packaged real-report automation gap later:
-  - `@vscode/test-electron` command-driven smoke did not observe packaged panel creation when attempting to intercept the installed extension's real-report webview path
+- If Fabric App Review Mode continues, decide whether to:
+  - check in a durable analytical Rayfin sample fixture for repeatable smoke coverage
+  - or keep using an external/sample local repo for ad hoc Fabric smoke runs
+- If extension-host smoke remains part of release validation, document or script the required build shape explicitly:
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run bundle:extension`
+- Keep the current Fabric boundary narrow until later slices add more evidence domains:
+  - no governance integration
+  - no screenshot intelligence
+  - no semantic-model extraction beyond foundational contracts
 
 ## Reference Review
 

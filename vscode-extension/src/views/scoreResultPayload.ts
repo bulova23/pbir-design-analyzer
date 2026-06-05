@@ -8,6 +8,7 @@ import type {
   FixSelectionState,
   ProposalEnrichment,
   ProposalEnrichmentValidationCode,
+  FabricAppReviewSummary,
   ChartIntentConfidence,
   ChartIntentSummary,
   FindingType,
@@ -21,10 +22,16 @@ import type {
   SemanticColorAssignment,
   ScoreResult,
   VisualMetadataItem,
+  NormalizedFinding,
+  NormalizedFindingEvidenceReference,
 } from '../analyzer/contracts/scorePanel';
 import { buildFixBatchPreview } from '../analyzer/fixes/fixBatchPreview';
 import { evaluateFixOpportunityCompatibility } from '../analyzer/fixes/fixCompatibility';
 import { buildFixOpportunities } from '../analyzer/fixes/fixOpportunityBuilder';
+import { getDefaultAnalyzerSelection } from '../analyzer/analyzers/registry';
+import { assessFabricAppReadiness } from '../analyzer/fabric/readiness/readinessAnalyzer';
+import { buildFabricReadinessFindings } from '../analyzer/fabric/readiness/readinessFindings';
+import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
 import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
@@ -226,6 +233,99 @@ function normalizeProposalEnrichment(value: unknown): ProposalEnrichment | undef
           enrichedAt: '',
           sourceFindingIds: [],
         },
+  };
+}
+
+function normalizeEvidenceReference(value: unknown): NormalizedFindingEvidenceReference | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const kind = readOptionalString(value, 'kind');
+  const label = readOptionalString(value, 'label');
+  if (!kind || !label) {
+    return undefined;
+  }
+
+  return {
+    kind: kind as NormalizedFindingEvidenceReference['kind'],
+    label,
+    pageName: readOptionalString(value, 'pageName'),
+    frameworkKey: readOptionalString(value, 'frameworkKey'),
+    visualId: readOptionalString(value, 'visualId'),
+    detail: readOptionalString(value, 'detail'),
+    filePath: readOptionalString(value, 'filePath'),
+  };
+}
+
+function normalizeNormalizedFinding(value: unknown): NormalizedFinding | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const id = readOptionalString(value, 'id');
+  const title = readOptionalString(value, 'title');
+  const summary = readOptionalString(value, 'summary');
+  const severity = readOptionalString(value, 'severity');
+  const detectionType = readOptionalString(value, 'detectionType');
+  const scope = readOptionalString(value, 'scope');
+  const impactArea = readOptionalString(value, 'impactArea');
+  const recommendation = readOptionalString(value, 'recommendation');
+  const sourceKind = readOptionalString(value, 'sourceKind');
+  const sourceSection = readOptionalString(value, 'sourceSection');
+
+  if (!id || !title || !summary || !severity || !detectionType || !scope || !impactArea || !recommendation || !sourceKind || !sourceSection) {
+    return undefined;
+  }
+
+  return {
+    id,
+    title,
+    summary,
+    severity: severity as NormalizedFinding['severity'],
+    confidence: readRequiredNumber(value, 'confidence'),
+    scope: scope as NormalizedFinding['scope'],
+    detectionType: detectionType as NormalizedFinding['detectionType'],
+    affectedPages: readStringArray(value, 'affectedPages'),
+    impactArea: impactArea as NormalizedFinding['impactArea'],
+    frameworkImpact: readStringArray(value, 'frameworkImpact'),
+    recommendation,
+    sourceKind,
+    sourceSection: sourceSection as NormalizedFinding['sourceSection'],
+    evidence: Array.isArray(readProperty(value, 'evidence'))
+      ? (readProperty(value, 'evidence') as unknown[])
+        .map((item) => normalizeEvidenceReference(item))
+        .filter((item): item is NormalizedFindingEvidenceReference => Boolean(item))
+      : [],
+  };
+}
+
+function normalizeFabricAppReviewSummary(value: unknown): FabricAppReviewSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const summary = readOptionalString(value, 'summary');
+  const qualityScore = readOptionalNumber(value, 'qualityScore');
+  if (!summary || qualityScore === undefined) {
+    return undefined;
+  }
+
+  return {
+    qualityScore,
+    summary,
+    remediationGuidance: readStringArray(value, 'remediationGuidance'),
+    evidence: Array.isArray(readProperty(value, 'evidence'))
+      ? (readProperty(value, 'evidence') as unknown[])
+        .filter(isRecord)
+        .map((item) => ({
+          kind: (readOptionalString(item, 'kind') as FabricAppReviewSummary['evidence'][number]['kind']) ?? 'navigation',
+          label: readOptionalString(item, 'label') ?? '',
+          summary: readOptionalString(item, 'summary') ?? '',
+          filePath: readOptionalString(item, 'filePath') ?? '',
+        }))
+        .filter((item) => item.label.length > 0 && item.summary.length > 0 && item.filePath.length > 0)
+      : [],
   };
 }
 
@@ -671,6 +771,12 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
     pagePurposeAnalysis: undefined,
+    normalizedFindings: Array.isArray(readProperty(candidate, 'normalizedFindings'))
+      ? (readProperty(candidate, 'normalizedFindings') as unknown[])
+        .map((entry) => normalizeNormalizedFinding(entry))
+        .filter((entry): entry is NormalizedFinding => Boolean(entry))
+      : undefined,
+    fabricAppReview: normalizeFabricAppReviewSummary(readProperty(candidate, 'fabricAppReview')),
     proposalEnrichments: Array.isArray(readProperty(candidate, 'proposalEnrichments'))
       ? (readProperty(candidate, 'proposalEnrichments') as unknown[])
         .map((entry) => normalizeProposalEnrichment(entry))
@@ -693,7 +799,31 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     actionabilityBreakdown: normalized.actionabilityBreakdown,
     benchmarkComparison: normalized.benchmarkComparison,
   });
-  normalized.normalizedFindings = buildNormalizedFindings(normalized);
+  const surfaceDiscovery = detectAnalyzableSurface(normalized.reportPath);
+  if (surfaceDiscovery.status === 'supported') {
+    const analyzerSelection = getDefaultAnalyzerSelection(surfaceDiscovery.surface);
+    normalized.analysisContext = {
+      surfaceType: surfaceDiscovery.surface.surfaceType,
+      analyzerType: analyzerSelection.analyzerType,
+      analyzerProfile: analyzerSelection.analyzerProfile,
+      surfaceDisplayName: surfaceDiscovery.surface.displayName,
+      sourceLocation: surfaceDiscovery.surface.sourceLocation,
+      availableAnalyzerTypes: [...surfaceDiscovery.surface.availableAnalyzerTypes],
+      availableAnalyzerProfiles: [...surfaceDiscovery.surface.availableAnalyzerProfiles],
+    };
+  }
+
+  normalized.normalizedFindings = normalized.normalizedFindings ?? buildNormalizedFindings(normalized);
+  if (normalized.analysisContext?.analyzerType === 'fabricAppReadiness') {
+    normalized.readinessAssessment = assessFabricAppReadiness(
+      normalized,
+      normalized.analysisContext.analyzerProfile,
+    );
+    normalized.normalizedFindings = [
+      ...(normalized.normalizedFindings ?? []),
+      ...buildFabricReadinessFindings(normalized, normalized.readinessAssessment),
+    ];
+  }
   normalized.fixPlan = buildFixPlan(normalized.normalizedFindings);
   normalized.fixOpportunities = buildFixOpportunities(normalized);
   normalized.overviewSummary = buildOverviewSummary(normalized);

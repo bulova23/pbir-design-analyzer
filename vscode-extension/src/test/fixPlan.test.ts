@@ -75,4 +75,54 @@ describe('buildFixPlan', () => {
       sourceFindingIds: ['medium-navigation'],
     });
   });
+
+  it('builds migration-readiness remediation items for Fabric readiness findings', () => {
+    const findings: NormalizedFinding[] = [
+      {
+        id: 'readiness-blocker-navigation',
+        title: 'Migration Blocker',
+        summary: 'Navigation complexity is likely too Power BI-specific for direct migration.',
+        severity: 'high',
+        confidence: 88,
+        scope: 'report',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview', 'Detail'],
+        impactArea: 'navigation',
+        frameworkImpact: ['Fabric App Readiness'],
+        recommendation: 'Simplify navigation before treating the report as an app candidate.',
+        sourceKind: 'fabricAppReadiness',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+      {
+        id: 'readiness-semantic',
+        title: 'Migration Blocker',
+        summary: 'Semantic labeling is too weak for clean app reuse.',
+        severity: 'medium',
+        confidence: 82,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Detail'],
+        impactArea: 'metadata',
+        frameworkImpact: ['Fabric App Readiness'],
+        recommendation: 'Improve semantic labeling and measure framing for app reuse.',
+        sourceKind: 'fabricAppReadiness',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+    ];
+
+    const queue = buildFixPlan(findings);
+
+    expect(queue).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Simplify navigation for app portability',
+        }),
+        expect.objectContaining({
+          title: 'Improve semantic labeling for app reuse',
+        }),
+      ]),
+    );
+  });
 });

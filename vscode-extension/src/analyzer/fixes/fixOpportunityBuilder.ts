@@ -42,6 +42,10 @@ function buildOpportunityId(item: FixPlanItem, category: FixOpportunityCategory,
 }
 
 export function buildFixOpportunities(result: ScoreResult): FixOpportunity[] {
+  if (result.analysisContext?.surfaceType && result.analysisContext.surfaceType !== 'pbirReport') {
+    return [];
+  }
+
   const fixPlan = result.fixPlan ?? [];
   const opportunities = fixPlan.flatMap((item) => inferOpportunityCategories(item, result)
     .map(({ category, pageName }): FixOpportunity | undefined => {

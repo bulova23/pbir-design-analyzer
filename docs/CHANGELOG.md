@@ -2,6 +2,95 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## Unreleased
+
+### Fabric App Review Mode Foundations
+
+- Added the second real analyzable surface:
+  - Fabric App Surface
+- Added Fabric App surface discovery with explicit supported, unsupported, and ambiguous states plus user-facing reason messages.
+- Added the advisory Fabric App Review Analyzer as the first implementation slice of Fabric App Review Mode.
+- Added bounded repo evidence extraction for:
+  - TypeScript layout evidence
+  - navigation evidence
+  - design token evidence
+- Added Fabric App review findings into the existing shared findings model for:
+  - navigation issues
+  - layout and dashboard composition issues
+  - token inconsistencies
+  - storytelling and executive readability issues
+- Added advisory Fabric App remediation into the existing Fix Plan without creating any Fabric App mutation path.
+- Added Fabric App review evidence into the existing Evidence workspace with file-traceable references.
+- Added local host-side Fabric App review execution so supported repos can be reviewed without depending on PBIR backend scoring.
+- Preserved the trust boundary:
+  - Fabric App review is advisory only
+  - no Fabric App fixes
+  - no repo mutation
+  - no code generation
+  - no governance or screenshot-intelligence expansion in this slice
+
+### Fabric App Readiness Assessment
+
+- Added foundational `Analyzable Surface` support for PBIR reports, including explicit `surfaceType`, `analyzerType`, and `analyzerProfile` metadata in the shared score-panel result contract.
+- Added PBIR surface discovery plus analyzer registration and default selection for the advisory `Fabric App Readiness Analyzer`.
+- Added deterministic readiness scoring for PBIR reports and pages across:
+  - layout portability
+  - interaction portability
+  - narrative portability
+  - semantic-model suitability
+  - navigation portability
+  - governance portability
+  - accessibility portability
+  - visualization-as-code opportunity
+- Added advisory readiness outputs:
+  - overall readiness score and band
+  - candidate pages
+  - migration blockers
+  - unsupported patterns
+  - redesign-required areas
+  - recommended next actions
+- Added readiness findings into the existing workspace issue model:
+  - Good Fabric App Candidate
+  - Migration Blocker
+  - Redesign Required
+  - Unsupported Pattern
+  - Visualization Opportunity
+- Added readiness-specific advisory remediation to Fix Plan without creating any new mutation path.
+- Added readiness summary badges to Overview and readiness evidence to the Evidence workspace.
+- Preserved the execution trust boundary:
+  - readiness findings are advisory only
+  - no Fabric App code generation
+  - no Fabric App mutation
+  - no bypass of deterministic preview/apply/rollback/re-analysis
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/surfaceDiscovery.test.ts src/test/analyzerRegistry.test.ts src/test/typescriptEvidence.test.ts src/test/navigationEvidence.test.ts src/test/designTokenEvidence.test.ts src/test/fabricAppReviewAnalyzer.test.ts src/test/scoreResultPayload.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Real Fabric App smoke:
+  - ran the current extension build in an isolated VS Code extension host against a Rayfin-based Fabric App sample repo
+  - confirmed the review opened the existing shared workspace as `Fabric App Review`
+  - confirmed `surfaceType: fabricApp`, `analyzerType: fabricAppReview`, and `analyzerProfile: fabricAppQuality`
+  - confirmed advisory findings, fix-plan guidance, and evidence across:
+    - TypeScript layout
+    - navigation
+    - design tokens
+  - confirmed Fabric App review remained advisory only with `fixOpportunityCount: 0`
+  - confirmed the official Microsoft Rayfin todo scaffold classified as:
+    - `status: ambiguous`
+    - `reasonCode: ambiguousAnalyticsSurface`
+  - limitation:
+    - `npm run compile` alone removes the extension-host entry bundle from `dist/`
+    - extension-host smoke requires `npm run bundle:extension` after compile, or `npm test` / `npm run build`
+- Real PBIR smoke:
+  - `node vscode-extension/scripts/phase2-deterministic-host-smoke.mjs`
+  - confirmed the extension host still scored the real `Sales & Production.pbip` fixture and completed the deterministic grouped workflow smoke
+  - limitation: the existing smoke harness does not yet assert readiness-specific UI fields on the real fixture
+
 ## 0.4.0 — 2026-06-02
 
 ### AI Proposal Enrichment Phase 3

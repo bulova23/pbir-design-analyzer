@@ -77,6 +77,30 @@ interface IssueFilterState {
   impactArea: NormalizedFinding['impactArea'] | 'all';
   scope: NormalizedFinding['scope'] | 'all';
   detectionType: NormalizedFinding['detectionType'] | 'all';
+  readinessRole: 'all' | 'hidden' | 'candidateSignal' | 'blocker' | 'unsupportedPattern' | 'redesignRequired' | 'visualizationOpportunity';
+}
+
+type ReadinessAssessment = NonNullable<ScoreResult['readinessAssessment']>;
+type ReadinessPageAssessment = ReadinessAssessment['pageAssessments'][number];
+type ReadinessOverviewCallout =
+  | {
+    mode: 'report';
+    heading: string;
+    badgeLabel: string;
+    metrics: Array<{ label: string; value: string | number }>;
+  }
+  | {
+    mode: 'page';
+    heading: string;
+    badgeLabel: string;
+    metrics: Array<{ label: string; value: string | number }>;
+  };
+
+interface OverviewCardContent {
+  topStrengths: OverviewSummary['topStrengths'];
+  topWeaknesses: OverviewSummary['topWeaknesses'];
+  topIssues: OverviewSummary['topIssues'];
+  topActions: OverviewSummary['topActions'];
 }
 
 function isZeroScore(result: ScoreResult): boolean {
@@ -257,6 +281,217 @@ function getNormalizedFindingSeverityClassName(severity: NormalizedFindingSeveri
   }
 }
 
+function getReadinessBandLabel(band: NonNullable<ScoreResult['readinessAssessment']>['readinessBand']): string {
+  switch (band) {
+    case 'strongCandidate':
+      return 'Strong Candidate';
+    case 'possibleCandidate':
+      return 'Possible Candidate';
+    case 'redesignRequired':
+      return 'Redesign Required';
+    default:
+      return 'Keep As Report';
+  }
+}
+
+function getReadinessEffortLabel(effort: ReadinessAssessment['estimatedRedesignEffort'] | undefined): string {
+  if (!effort) {
+    return 'Unknown';
+  }
+
+  return effort[0].toUpperCase() + effort.slice(1);
+}
+
+function buildReadinessPageSummary(pageAssessment: ReadinessPageAssessment): string {
+  switch (pageAssessment.candidateState) {
+    case 'strongCandidate':
+      return `This page is a strong migration candidate with limited redesign pressure.`;
+    case 'possibleCandidate':
+      return `This page can inform a future Fabric App, but some redesign work is still needed first.`;
+    case 'redesignRequired':
+      return `This page can contribute to a Fabric App, but it needs substantive redesign before migration.`;
+    default:
+      return `This page should remain a report experience unless the interaction model is substantially reworked.`;
+  }
+}
+
+function renderReadinessDetailList(label: string, items: string[], keyPrefix: string): React.ReactNode {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="issue-detail-block">
+      <p className="issue-detail-label">{label}</p>
+      <ul className="issue-evidence-list">
+        {items.map((item, index) => (
+          <li className="issue-evidence-item" key={`${keyPrefix}-${index}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function renderReadinessEvidenceList(evidence: ReadinessAssessment['evidence'], keyPrefix: string): React.ReactNode {
+  if (evidence.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="issue-detail-block">
+      <p className="issue-detail-label">Evidence references</p>
+      <ul className="issue-evidence-list">
+        {evidence.map((item, index) => (
+          <li className="issue-evidence-item" key={`${keyPrefix}-${index}`}>
+            <strong>{item.label}</strong>
+            {item.pageName ? ` · ${item.pageName}` : ''}
+            {item.detail ? ` — ${item.detail}` : ''}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function toOverviewInsight(finding: NormalizedFinding): OverviewSummary['topIssues'][number] {
+  return {
+    id: finding.id,
+    title: finding.title,
+    detail: finding.summary,
+    severity: finding.severity,
+    affectedPages: finding.affectedPages,
+    sourceFindingIds: [finding.id],
+  };
+}
+
+function toOverviewAction(finding: NormalizedFinding): OverviewSummary['topActions'][number] {
+  return {
+    id: `action-${finding.id}`,
+    title: finding.title,
+    detail: finding.recommendation,
+    severity: finding.severity,
+    affectedPages: finding.affectedPages,
+    sourceFindingIds: [finding.id],
+  };
+}
+
+function buildPageOverviewCardContent(
+  selectedPage: PageScore,
+  visibleFindings: NormalizedFinding[],
+  readinessAssessment: ScoreResult['readinessAssessment'],
+): OverviewCardContent {
+  const sortedFindings = [...visibleFindings].sort((left, right) => {
+    const severityDiff = getNormalizedFindingSeverityOrder(left.severity) - getNormalizedFindingSeverityOrder(right.severity);
+    if (severityDiff !== 0) {
+      return severityDiff;
+    }
+
+    return right.confidence - left.confidence;
+  });
+
+  const pageReadiness = readinessAssessment?.pageAssessments.find((item) => item.pageName === selectedPage.pageName);
+  const strengths: OverviewSummary['topStrengths'] = [];
+
+  if (selectedPage.benchmarkComparison?.strengths?.length) {
+    strengths.push(...selectedPage.benchmarkComparison.strengths.map((item, index) => ({
+      id: `strength-benchmark-${selectedPage.pageName}-${index}`,
+      title: item,
+      detail: selectedPage.benchmarkComparison?.insight ?? '',
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    })));
+  }
+
+  if (selectedPage.actionabilityBreakdown?.strengths?.length) {
+    strengths.push(...selectedPage.actionabilityBreakdown.strengths.map((item, index) => ({
+      id: `strength-actionability-${selectedPage.pageName}-${index}`,
+      title: item,
+      detail: selectedPage.actionabilityBreakdown?.summary ?? '',
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    })));
+  }
+
+  if (pageReadiness?.positiveSignals?.length) {
+    strengths.push(...pageReadiness.positiveSignals.map((item, index) => ({
+      id: `strength-readiness-${selectedPage.pageName}-${index}`,
+      title: 'Migration-positive signal',
+      detail: item,
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    })));
+  }
+
+  if (strengths.length === 0 && selectedPage.compositeScore >= 75) {
+    strengths.push({
+      id: `strength-score-${selectedPage.pageName}`,
+      title: `Page design quality is above the working threshold`,
+      detail: `The current page composite score is ${Math.round(selectedPage.compositeScore)} / 100.`,
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    });
+  }
+
+  return {
+    topStrengths: strengths.slice(0, 3),
+    topWeaknesses: sortedFindings.slice(0, 3).map(toOverviewInsight),
+    topIssues: sortedFindings.slice(0, 3).map(toOverviewInsight),
+    topActions: sortedFindings.slice(0, 3).map(toOverviewAction),
+  };
+}
+
+function buildReportReadinessOverviewCallout(readinessSummary: NonNullable<OverviewSummary['readinessSummary']>): ReadinessOverviewCallout {
+  return {
+    mode: 'report',
+    heading: 'Fabric App migration readiness',
+    badgeLabel: getReadinessBandLabel(readinessSummary.readinessBand),
+    metrics: [
+      { label: 'Readiness score', value: readinessSummary.readinessScore },
+      { label: 'Candidate pages', value: readinessSummary.candidatePageCount },
+      { label: 'Migration blockers', value: readinessSummary.migrationBlockerCount },
+      { label: 'Redesign effort', value: getReadinessEffortLabel(readinessSummary.estimatedRedesignEffort) },
+    ],
+  };
+}
+
+function buildPageReadinessOverviewCallout(pageAssessment: ReadinessPageAssessment): ReadinessOverviewCallout {
+  return {
+    mode: 'page',
+    heading: `Fabric App readiness for ${pageAssessment.pageName}`,
+    badgeLabel: getReadinessBandLabel(pageAssessment.candidateState),
+    metrics: [
+      { label: 'Readiness score', value: pageAssessment.readinessScore },
+      { label: 'Blockers', value: pageAssessment.blockers.length },
+      { label: 'Unsupported patterns', value: pageAssessment.unsupportedPatterns.length },
+      { label: 'Redesign areas', value: pageAssessment.redesignRequiredAreas.length },
+    ],
+  };
+}
+
+function renderReadinessOverviewCallout(callout: ReadinessOverviewCallout): React.ReactNode {
+  return (
+    <section className="overview-readiness-callout" aria-label="Fabric App migration readiness">
+      <div className="overview-readiness-head">
+        <div>
+          <p className="section-kicker">Fabric App readiness</p>
+          <h3>{callout.heading}</h3>
+        </div>
+        <span className="overview-badge overview-badge-emphasis">
+          {callout.badgeLabel}
+        </span>
+      </div>
+      <dl className="overview-readiness-grid">
+        {callout.metrics.map((metric) => (
+          <div key={metric.label}>
+            <dt>{metric.label}</dt>
+            <dd>{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function getFixOpportunityCategoryLabel(category: FixOpportunityCategory): string {
   switch (category) {
     case 'title':
@@ -376,6 +611,44 @@ function getDimensionLabel(dimension: IssueFilterState['dimension']): string {
   return dimension[0].toUpperCase() + dimension.slice(1);
 }
 
+function getReadinessRoleForFinding(finding: NormalizedFinding): Exclude<IssueFilterState['readinessRole'], 'all' | 'hidden'> | undefined {
+  if (finding.sourceKind !== 'fabricAppReadiness') {
+    return undefined;
+  }
+
+  switch (finding.title) {
+    case 'Good Fabric App Candidate':
+      return 'candidateSignal';
+    case 'Migration Blocker':
+      return 'blocker';
+    case 'Unsupported Pattern':
+      return 'unsupportedPattern';
+    case 'Redesign Required':
+      return 'redesignRequired';
+    case 'Visualization Opportunity':
+      return 'visualizationOpportunity';
+    default:
+      return undefined;
+  }
+}
+
+function getReadinessRoleLabel(role: Exclude<IssueFilterState['readinessRole'], 'all'>): string {
+  switch (role) {
+    case 'hidden':
+      return 'Hidden';
+    case 'candidateSignal':
+      return 'Candidate signal';
+    case 'blocker':
+      return 'Blocker';
+    case 'unsupportedPattern':
+      return 'Unsupported pattern';
+    case 'redesignRequired':
+      return 'Redesign required';
+    default:
+      return 'Visualization opportunity';
+  }
+}
+
 function getMatrixStatusClassName(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
   switch (status) {
     case 'weak':
@@ -415,6 +688,7 @@ function buildPersonaDefaultFilters(profile: ReviewPresentationPersonaProfile | 
       impactArea: 'all',
       scope: 'all',
       detectionType: 'all',
+      readinessRole: 'all',
     };
   }
 
@@ -438,7 +712,16 @@ function buildPersonaDefaultFilters(profile: ReviewPresentationPersonaProfile | 
     impactArea,
     scope: profile.id === 'governance' ? 'crossPage' : 'all',
     detectionType: profile.defaultDetectionTypes?.[0] ?? 'all',
+    readinessRole: 'all',
   };
+}
+
+function getIssueFilterPageForTab(pageScores: PageScore[], activeTab: number): string | 'all' {
+  if (activeTab <= 0) {
+    return 'all';
+  }
+
+  return pageScores[activeTab - 1]?.pageName ?? 'all';
 }
 
 function summarizeActiveIssueFilters(filters: IssueFilterState): string[] {
@@ -460,6 +743,9 @@ function summarizeActiveIssueFilters(filters: IssueFilterState): string[] {
   }
   if (filters.detectionType !== 'all') {
     items.push(`Detection: ${getDetectionTypeLabel(filters.detectionType)}`);
+  }
+  if (filters.readinessRole !== 'all') {
+    items.push(`Fabric App Readiness: ${getReadinessRoleLabel(filters.readinessRole)}`);
   }
   return items;
 }
@@ -515,6 +801,18 @@ function applyIssueFilters(
     }
 
     if (filters.detectionType !== 'all' && finding.detectionType !== filters.detectionType) {
+      return false;
+    }
+
+    if (filters.readinessRole === 'hidden' && finding.sourceKind === 'fabricAppReadiness') {
+      return false;
+    }
+
+    if (
+      filters.readinessRole !== 'all'
+      && filters.readinessRole !== 'hidden'
+      && getReadinessRoleForFinding(finding) !== filters.readinessRole
+    ) {
       return false;
     }
 
@@ -693,6 +991,18 @@ function renderIssuesWorkspace(
           </select>
         </label>
         <label>
+          Fabric App Readiness
+          <select aria-label="Issue fabric app readiness filter" onChange={(event) => onFilterChange('readinessRole', event.target.value)} value={filters.readinessRole}>
+            <option value="all">All</option>
+            <option value="hidden">Hide readiness issues</option>
+            <option value="candidateSignal">Candidate signal</option>
+            <option value="blocker">Blocker</option>
+            <option value="unsupportedPattern">Unsupported pattern</option>
+            <option value="redesignRequired">Redesign required</option>
+            <option value="visualizationOpportunity">Visualization opportunity</option>
+          </select>
+        </label>
+        <label>
           Group by
           <select aria-label="Issue grouping mode" onChange={(event) => onGroupingModeChange(event.target.value as IssueGroupingMode)} value={groupingMode}>
             <option value="severity">Severity</option>
@@ -831,8 +1141,51 @@ function renderEvidence(
   );
 }
 
+function renderFabricAppReviewEvidence(
+  review: NonNullable<ScoreResult['fabricAppReview']>,
+  analysisContext: ScoreResult['analysisContext'],
+): React.ReactNode {
+  return (
+    <details className="evidence-subsection">
+      <summary className="collapsible-summary">
+        <span>Fabric App Review Evidence</span>
+        <span className="collapsible-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div className="collapsible-body">
+        <section className="panel-card">
+          <div className="issues-section-head">
+            <div>
+              <p className="section-kicker">Fabric App surface</p>
+              <h2>Fabric App Review Evidence</h2>
+            </div>
+            <p className="issues-section-copy">{review.summary}</p>
+          </div>
+          <div className="overview-badges">
+            <span className="overview-badge">Quality score: {review.qualityScore}</span>
+            {analysisContext ? <span className="overview-badge">Analyzer: {analysisContext.analyzerType}</span> : null}
+            {analysisContext ? <span className="overview-badge">Profile: {analysisContext.analyzerProfile}</span> : null}
+          </div>
+          <ul className="issue-evidence-list">
+            {review.evidence.map((item, index) => (
+              <li className="issue-evidence-item" key={`${item.filePath}-${index}`}>
+                <strong>{item.label}</strong> — {item.summary}
+                <div>{item.filePath}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </details>
+  );
+}
+
 function renderOverviewWorkspace(
   overviewSummary: OverviewSummary | undefined,
+  analysisContext: ScoreResult['analysisContext'],
+  fabricAppReview: ScoreResult['fabricAppReview'],
+  readinessAssessment: ScoreResult['readinessAssessment'],
+  selectedPage: PageScore | undefined,
+  visibleFindings: NormalizedFinding[],
   frameworkValues: Array<{ key: string; label: string; score: number; weightLabel: string }>,
   scoreValue: number,
   visualMix: { data?: number; navigation?: number; hidden?: number },
@@ -851,6 +1204,22 @@ function renderOverviewWorkspace(
   const visibleRows = selectedPageName
     ? crossPageMatrix?.rows.filter((row) => row.pageName === selectedPageName)
     : crossPageMatrix?.rows;
+  const selectedPageReadiness = selectedPageName
+    ? readinessAssessment?.pageAssessments.find((item) => item.pageName === selectedPageName)
+    : undefined;
+  const overviewCardContent = selectedPage
+    ? buildPageOverviewCardContent(selectedPage, visibleFindings, readinessAssessment)
+    : {
+        topStrengths: overviewSummary.topStrengths,
+        topWeaknesses: overviewSummary.topWeaknesses,
+        topIssues: overviewSummary.topIssues,
+        topActions: overviewSummary.topActions,
+      };
+  const readinessCallout = selectedPageReadiness
+    ? buildPageReadinessOverviewCallout(selectedPageReadiness)
+    : overviewSummary.readinessSummary
+      ? buildReportReadinessOverviewCallout(overviewSummary.readinessSummary)
+      : undefined;
 
   return (
     <section aria-label="Overview workspace" className="panel-card overview-card">
@@ -886,7 +1255,17 @@ function renderOverviewWorkspace(
         <span className="overview-badge">Risk: {overviewSummary.riskBand}</span>
         <span className="overview-badge">High issues: {overviewSummary.severityDistribution.high}</span>
         <span className="overview-badge">Medium issues: {overviewSummary.severityDistribution.medium}</span>
+        {analysisContext ? <span className="overview-badge">Analyzer: {analysisContext.analyzerType}</span> : null}
+        {analysisContext ? <span className="overview-badge">Profile: {analysisContext.analyzerProfile}</span> : null}
       </div>
+      {fabricAppReview ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Fabric App quality summary</p>
+          <p>{fabricAppReview.summary}</p>
+          <p className="issues-section-copy">Advisory only. No deterministic repo mutations or automatic fixes are available for this surface.</p>
+        </div>
+      ) : null}
+      {readinessCallout ? renderReadinessOverviewCallout(readinessCallout) : null}
       <p className="overview-copy">
         Benchmark summary: {overviewSummary.benchmarkSummary}
       </p>
@@ -922,7 +1301,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top strengths</h3>
           <ul>
-            {overviewSummary.topStrengths.map((item) => (
+            {overviewCardContent.topStrengths.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ul>
@@ -930,7 +1309,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top weaknesses</h3>
           <ul>
-            {overviewSummary.topWeaknesses.map((item) => (
+            {overviewCardContent.topWeaknesses.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ul>
@@ -938,7 +1317,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top issues</h3>
           <ul>
-            {overviewSummary.topIssues.map((item) => (
+            {overviewCardContent.topIssues.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ul>
@@ -946,7 +1325,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top actions</h3>
           <ol>
-            {overviewSummary.topActions.map((item) => (
+            {overviewCardContent.topActions.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ol>
@@ -1002,6 +1381,182 @@ function renderOverviewWorkspace(
   );
 }
 
+function renderReadinessAssessment(
+  readinessAssessment: ScoreResult['readinessAssessment'],
+  selectedPageName?: string,
+): React.ReactNode {
+  if (!readinessAssessment) {
+    return null;
+  }
+
+  if (selectedPageName) {
+    const pageAssessment = readinessAssessment.pageAssessments.find((item) => item.pageName === selectedPageName);
+    if (!pageAssessment) {
+      return (
+        <div className="issue-card-list readiness-card-list">
+          <div className="issue-card readiness-card">
+            <div className="readiness-card-head">
+              <div>
+                <h3>Fabric App readiness for {selectedPageName}</h3>
+                <p className="issue-card-copy">No page-specific readiness assessment was generated for this page. Use the Overall tab for report-wide readiness context.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="issue-card-list readiness-card-list">
+        <div className="issue-card readiness-card">
+          <div className="readiness-card-head">
+            <div>
+              <h3>Fabric App readiness for {pageAssessment.pageName}</h3>
+              <p className="issue-card-copy">{buildReadinessPageSummary(pageAssessment)}</p>
+            </div>
+            <span className="issue-severity-badge issue-severity-info readiness-badge">
+              {getReadinessBandLabel(pageAssessment.candidateState)}
+            </span>
+          </div>
+          <dl className="issue-meta-grid readiness-card-meta">
+            <div>
+              <dt>Readiness score</dt>
+              <dd>{pageAssessment.readinessScore}</dd>
+            </div>
+            <div>
+              <dt>Blockers</dt>
+              <dd>{pageAssessment.blockers.length}</dd>
+            </div>
+            <div>
+              <dt>Unsupported patterns</dt>
+              <dd>{pageAssessment.unsupportedPatterns.length}</dd>
+            </div>
+            <div>
+              <dt>Redesign areas</dt>
+              <dd>{pageAssessment.redesignRequiredAreas.length}</dd>
+            </div>
+          </dl>
+          <div className="issue-card-body readiness-card-body">
+            {renderReadinessDetailList('Positive signals', pageAssessment.positiveSignals, 'page-readiness-positive')}
+            {renderReadinessDetailList('Blockers', pageAssessment.blockers, 'page-readiness-blockers')}
+            {renderReadinessDetailList('Unsupported patterns', pageAssessment.unsupportedPatterns, 'page-readiness-unsupported')}
+            {renderReadinessDetailList('Migration notes', pageAssessment.migrationNotes, 'page-readiness-notes')}
+            {renderReadinessEvidenceList(pageAssessment.evidence, 'page-readiness-evidence')}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="issue-card-list readiness-card-list">
+      <div className="issue-card readiness-card">
+        <div className="readiness-card-head">
+          <div>
+            <h3>Fabric App readiness summary</h3>
+            <p className="issue-card-copy">{readinessAssessment.migrationSummary}</p>
+          </div>
+          <span className="issue-severity-badge issue-severity-info readiness-badge">
+            {getReadinessBandLabel(readinessAssessment.readinessBand)}
+          </span>
+        </div>
+        <dl className="issue-meta-grid readiness-card-meta">
+          <div>
+            <dt>Readiness score</dt>
+            <dd>{readinessAssessment.overallReadinessScore}</dd>
+          </div>
+          <div>
+            <dt>Candidate pages</dt>
+            <dd>{readinessAssessment.candidatePages.length}</dd>
+          </div>
+          <div>
+            <dt>Blockers</dt>
+            <dd>{readinessAssessment.blockers.length}</dd>
+          </div>
+          <div>
+            <dt>Redesign effort</dt>
+            <dd>{getReadinessEffortLabel(readinessAssessment.estimatedRedesignEffort)}</dd>
+          </div>
+        </dl>
+        <div className="issue-card-body readiness-card-body">
+          {renderReadinessDetailList('Recommended next actions', readinessAssessment.recommendedNextActions, 'readiness-action')}
+          {renderReadinessDetailList('Blockers', readinessAssessment.blockers, 'readiness-blockers')}
+          {renderReadinessDetailList('Unsupported patterns', readinessAssessment.unsupportedPatterns, 'readiness-unsupported')}
+          {renderReadinessDetailList('Redesign required areas', readinessAssessment.redesignRequiredAreas, 'readiness-redesign')}
+          {renderReadinessEvidenceList(readinessAssessment.evidence, 'readiness-evidence')}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getDetectedStoryText(
+  storySummary: ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary'],
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
+): string {
+  if (storySummary?.inferredStory?.trim()) {
+    return storySummary.inferredStory.trim();
+  }
+
+  return `This page appears to support ${analysis.inferredPurpose.toLowerCase()} decision-making.`;
+}
+
+function splitIntoSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0);
+}
+
+function deriveDecisionRiskFromGaps(gaps: string[]): string | undefined {
+  const normalized = gaps.map((gap) => gap.toLowerCase());
+  const risks: string[] = [];
+
+  if (normalized.some((gap) => gap.includes('target') || gap.includes('benchmark'))) {
+    risks.push('Users may see performance but cannot determine whether results are good or bad.');
+  }
+
+  if (normalized.some((gap) => gap.includes('prior-period') || gap.includes('delta') || gap.includes('movement over time'))) {
+    risks.push('Users may understand current values but cannot judge movement over time.');
+  }
+
+  if (normalized.some((gap) => gap.includes('exception') || gap.includes('decision trigger') || gap.includes('urgency') || gap.includes('action now'))) {
+    risks.push('Users may not know what requires attention or intervention now.');
+  }
+
+  if (normalized.some((gap) => gap.includes('narrative') || gap.includes('hierarchy') || gap.includes('decision support is weak'))) {
+    risks.push('Users may see supporting visuals without a clear primary takeaway.');
+  }
+
+  return risks.length > 0 ? risks.slice(0, 2).join(' ') : undefined;
+}
+
+function getDecisionRiskText(
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
+): string | undefined {
+  const sentences = splitIntoSentences(analysis.whyThisMatters);
+  if (sentences.length > 1) {
+    return sentences.slice(1).join(' ');
+  }
+
+  return deriveDecisionRiskFromGaps(analysis.topGaps);
+}
+
+function getSupportedDecisionText(
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
+): string {
+  switch (analysis.inferredPurpose.toLowerCase()) {
+    case 'executive':
+      return 'This page should help leaders judge performance against expectations and decide whether intervention is needed.';
+    case 'operational':
+      return 'This page should help operators judge current performance and decide where intervention is needed now.';
+    case 'analytical':
+      return 'This page should help reviewers investigate drivers, compare outcomes, and decide which questions need deeper follow-up.';
+    default:
+      return 'This page should help readers understand the main takeaway and decide what to review next.';
+  }
+}
+
 function renderPagePurposeAnalysisSection(props: {
   analysis: ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis'];
   storySummary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>;
@@ -1041,33 +1596,57 @@ function renderPagePurposeAnalysisSection(props: {
     return null;
   }
 
+  const detectedStory = getDetectedStoryText(storySummary, analysis);
+  const supportedDecision = getSupportedDecisionText(analysis);
+  const decisionRisk = getDecisionRiskText(analysis);
+
   return (
     <section className="panel-card page-purpose-card">
       <div className="issues-section-head">
         <div>
-          <p className="section-kicker">Reasoning workflow</p>
-          <h2>Page Purpose Analysis</h2>
+          <p className="section-kicker">Story diagnostics</p>
+          <h2>Story Assessment</h2>
         </div>
         <p className="issues-section-copy">
-          Understand what this page appears to do, why the analyzer believes that, and where the decision-support gaps still sit.
+          Understand the story this page is trying to tell, the decision it supports, and what still prevents that story from working.
         </p>
       </div>
       <div className="page-purpose-summary">
-        <div className="overview-badges">
-          <span className="overview-badge">Purpose: {analysis.inferredPurpose}</span>
-          {analysis.confidence ? <span className="overview-badge">Confidence: {analysis.confidence}</span> : null}
+        <div className="page-purpose-block">
+          <h3>Detected Story</h3>
+          <p className="page-purpose-lead">{detectedStory}</p>
+        </div>
+        <div className="page-purpose-block">
+          <h3>Supported Decision</h3>
+          <p className="overview-copy">{supportedDecision}</p>
+        </div>
+        <div className="page-purpose-block">
+          <h3>Why This Matters</h3>
+          <p className="overview-summary-copy">{analysis.whyThisMatters}</p>
+        </div>
+        {decisionRisk ? (
+          <div className="page-purpose-block">
+            <h3>Decision Risk</h3>
+            <p className="overview-copy">{decisionRisk}</p>
+          </div>
+        ) : null}
+        {analysis.topGaps.length > 0 ? (
+          <div className="page-purpose-block">
+            <h3>Story Gaps</h3>
+            <ul className="story-gap-list">
+              {analysis.topGaps.map((gap) => (
+                <li key={gap}>{gap}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="overview-badges story-metric-badges">
+          {analysis.confidence ? <span className="overview-badge">Story Confidence: {analysis.confidence}</span> : null}
           {typeof analysis.actionabilityScore === 'number' ? (
-            <span className="overview-badge">Actionability: {analysis.actionabilityScore.toFixed(0)}/100</span>
+            <span className="overview-badge">Decision Support: {analysis.actionabilityScore.toFixed(0)}/100</span>
           ) : null}
           {analysis.benchmarkStatus ? <span className="overview-badge">Benchmark: {analysis.benchmarkStatus}</span> : null}
         </div>
-        {analysis.topGaps.length > 0 ? (
-          <p className="overview-copy">
-            <strong>Top gaps:</strong> {analysis.topGaps.join(' · ')}
-          </p>
-        ) : null}
-        <h3>Why This Matters</h3>
-        <p className="overview-summary-copy">{analysis.whyThisMatters}</p>
         <button className="secondary-button" onClick={onToggleExpanded} type="button">
           {expanded ? 'Hide Full Reasoning' : 'Show Full Reasoning'}
         </button>
@@ -1115,6 +1694,12 @@ function renderFixPlanSection(
   onRegenerate: (opportunityIds?: string[]) => void,
 ): React.ReactNode {
   const fixPlan = queue.items;
+  const currentContextOpportunities = (fixOpportunities ?? []).filter((opportunity) => (
+    opportunity.state !== 'Applied' &&
+    opportunity.state !== 'RolledBack' &&
+    fixPlan.some((item) => remediationMatchesOpportunity(item, opportunity))
+  ));
+  const hasDeterministicOpportunities = currentContextOpportunities.length > 0;
   const selectedIds = new Set(fixSelection?.selectedOpportunityIds ?? []);
   const selectionBlocked = (fixSelection?.compatibility.blockingReasons.length ?? 0) > 0;
   const selectedCount = fixSelection?.selectedOpportunityIds.length ?? 0;
@@ -1135,43 +1720,53 @@ function renderFixPlanSection(
         <p>{queue.focus.label}</p>
         <p className="issues-section-copy">{queue.focus.helperText}</p>
       </div>
-      <div className="issue-detail-block">
-        <p className="issue-detail-label">Batch workflow</p>
-        <p className="issues-section-copy">
-          Select compatible deterministic opportunities, preview them together, approve the preview, then apply and re-analyze as one batch.
-        </p>
-        <p className="fix-plan-recommendation">
-          <strong>Selected opportunities:</strong> {selectedCount}
-        </p>
-        {fixSelection?.message ? (
-          <p className="fix-plan-recommendation">{fixSelection.message}</p>
-        ) : null}
-        <div className="export-actions">
-          <button className="secondary-button" disabled={selectedCount === 0} onClick={onPreviewSelected} type="button">
-            Preview selected
-          </button>
-          <button
-            className="secondary-button"
-            disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Previewed'}
-            onClick={onApproveSelected}
-            type="button"
-          >
-            Approve selected
-          </button>
-          <button
-            className="primary-button"
-            disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Approved'}
-            onClick={onApplySelected}
-            type="button"
-          >
-            Apply selected
-          </button>
-          <button className="secondary-button" onClick={() => onRegenerate(fixSelection?.selectedOpportunityIds)} type="button">
-            Regenerate stale
-          </button>
+      {hasDeterministicOpportunities ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Batch workflow</p>
+          <p className="issues-section-copy">
+            Select compatible deterministic opportunities, preview them together, approve the preview, then apply and re-analyze as one batch.
+          </p>
+          <p className="fix-plan-recommendation">
+            <strong>Selected opportunities:</strong> {selectedCount}
+          </p>
+          {fixSelection?.message ? (
+            <p className="fix-plan-recommendation">{fixSelection.message}</p>
+          ) : null}
+          <div className="export-actions">
+            <button className="secondary-button" disabled={selectedCount === 0} onClick={onPreviewSelected} type="button">
+              Preview selected
+            </button>
+            <button
+              className="secondary-button"
+              disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Previewed'}
+              onClick={onApproveSelected}
+              type="button"
+            >
+              Approve selected
+            </button>
+            <button
+              className="primary-button"
+              disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Approved'}
+              onClick={onApplySelected}
+              type="button"
+            >
+              Apply selected
+            </button>
+            <button className="secondary-button" onClick={() => onRegenerate(fixSelection?.selectedOpportunityIds)} type="button">
+              Regenerate stale
+            </button>
+          </div>
         </div>
-      </div>
-      {selectionBlocked ? (
+      ) : null}
+      {!hasDeterministicOpportunities ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Advisory Recommendations Only</p>
+          <p className="issues-section-copy">
+            No deterministic opportunities are available in the current context.
+          </p>
+        </div>
+      ) : null}
+      {hasDeterministicOpportunities && selectionBlocked ? (
         <div className="issue-detail-block">
           <p className="issue-detail-label">Compatibility</p>
           <ul className="issue-evidence-list">
@@ -1809,7 +2404,7 @@ function renderBenchmarkComparison(summary: BenchmarkComparisonSummary | undefin
   );
 }
 
-function renderReviewerCommentGenerator(
+function renderReviewCommentary(
   page: PageScore,
   selectedProfile: PageIntentProfileType,
   persona: ReviewerPersona,
@@ -1818,8 +2413,10 @@ function renderReviewerCommentGenerator(
   const generated = buildReviewerComments(page, { selectedProfile, persona });
 
   return (
-    <section className="panel-card story-review-card">
-      <h2>Reviewer Comment Generator</h2>
+    <section className="story-review-card">
+      <p className="issues-section-copy">
+        Derived commentary that adapts to the selected reviewer persona. This supports the evidence trail and does not replace the primary findings or fix workflow.
+      </p>
       <label className="story-note-label" htmlFor="reviewer-persona">Persona</label>
       <select
         aria-label="Reviewer persona"
@@ -2867,6 +3464,7 @@ export default function App(): JSX.Element {
     impactArea: 'all',
     scope: 'all',
     detectionType: 'all',
+    readinessRole: 'all',
   });
   const [issueFiltersDirty, setIssueFiltersDirty] = React.useState(false);
   const [issueGroupingMode, setIssueGroupingMode] = React.useState<IssueGroupingMode>('severity');
@@ -2901,6 +3499,7 @@ export default function App(): JSX.Element {
           impactArea: 'all',
           scope: 'all',
           detectionType: 'all',
+          readinessRole: 'all',
         });
         setIssueFiltersDirty(false);
         setIssueGroupingMode('severity');
@@ -2923,7 +3522,11 @@ export default function App(): JSX.Element {
         const nextPersona = message.state.result.personaPresentation?.activePersona ?? 'default';
         setWorkspacePersona(nextPersona);
         setPagePurposeExpanded(false);
-        setIssueFilters(buildPersonaDefaultFilters(availableProfiles.find((profile) => profile.id === nextPersona)));
+        const personaDefaults = buildPersonaDefaultFilters(availableProfiles.find((profile) => profile.id === nextPersona));
+        setIssueFilters({
+          ...personaDefaults,
+          pageName: getIssueFilterPageForTab(message.state.result.pageScores ?? [], message.state.selectedPageIndex),
+        });
         setIssueFiltersDirty(false);
         return;
       }
@@ -3116,6 +3719,10 @@ export default function App(): JSX.Element {
               onClick={() => {
                 setActiveTab(index);
                 setPagePurposeExpanded(false);
+                setIssueFilters((prev) => ({
+                  ...prev,
+                  pageName: getIssueFilterPageForTab(pageScores, index),
+                }));
                 vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: index });
               }}
               type="button"
@@ -3126,8 +3733,13 @@ export default function App(): JSX.Element {
         </nav>
       ) : null}
 
-      {renderOverviewWorkspace(
-        personaPresentation?.overviewSummary ?? result.overviewSummary,
+        {renderOverviewWorkspace(
+          personaPresentation?.overviewSummary ?? result.overviewSummary,
+          result.analysisContext,
+          result.fabricAppReview,
+          result.readinessAssessment,
+          selectedPage,
+          visibleFindings,
         frameworkValues,
         scoreValue,
         visualMix,
@@ -3155,6 +3767,10 @@ export default function App(): JSX.Element {
         () => {
           setActiveTab(0);
           setPagePurposeExpanded(false);
+          setIssueFilters((prev) => ({
+            ...prev,
+            pageName: 'all',
+          }));
           vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: 0 });
         },
       )}
@@ -3175,6 +3791,10 @@ export default function App(): JSX.Element {
 
           const nextTab = pageIndex + 1;
           setActiveTab(nextTab);
+          setIssueFilters((prev) => ({
+            ...prev,
+            pageName: getIssueFilterPageForTab(pageScores, nextTab),
+          }));
           vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: nextTab });
         },
         onExport: () => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' }),
@@ -3270,6 +3890,7 @@ export default function App(): JSX.Element {
               impactArea: 'all',
               scope: 'all',
               detectionType: 'all',
+              readinessRole: 'all',
             });
           },
           onResetToPersonaDefaults: () => {
@@ -3300,12 +3921,6 @@ export default function App(): JSX.Element {
           (opportunityIds) => vscodeApiRef.current?.postMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
         )}
       </div>
-      {selectedPage ? renderReviewerCommentGenerator(
-        selectedPage,
-        selectedIntentProfile,
-        selectedReviewerPersona,
-        (next) => setReviewerPersonaByPage((prev) => ({ ...prev, [intentProfileKey]: next })),
-      ) : null}
 
       <details className="panel-card evidence-section">
         <summary className="collapsible-summary">
@@ -3313,6 +3928,8 @@ export default function App(): JSX.Element {
           <span className="collapsible-caret" aria-hidden="true">▾</span>
         </summary>
         <div className="collapsible-body evidence-stack">
+          {result.fabricAppReview ? renderFabricAppReviewEvidence(result.fabricAppReview, result.analysisContext) : null}
+
           {overallView && multiPage ? (
             <details className="evidence-subsection">
               <summary className="collapsible-summary">
@@ -3413,6 +4030,35 @@ export default function App(): JSX.Element {
                     ))}
                   </ul>
                 </section>
+              </div>
+            </details>
+          ) : null}
+
+          {result.readinessAssessment ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Fabric App Readiness</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderReadinessAssessment(result.readinessAssessment, selectedPage?.pageName)}
+              </div>
+            </details>
+          ) : null}
+
+          {selectedPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Review Commentary</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderReviewCommentary(
+                  selectedPage,
+                  selectedIntentProfile,
+                  selectedReviewerPersona,
+                  (next) => setReviewerPersonaByPage((prev) => ({ ...prev, [intentProfileKey]: next })),
+                )}
               </div>
             </details>
           ) : null}

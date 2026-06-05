@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { buildFixWorkflowPayload, normalizeScoreResultPayload } from '../views/scoreResultPayload';
 
 describe('normalizeScoreResultPayload', () => {
@@ -448,6 +451,93 @@ describe('normalizeScoreResultPayload', () => {
     });
   });
 
+  it('adds analysis context and Fabric App readiness assessment for PBIR surfaces', () => {
+    const normalized = normalizeScoreResultPayload({
+      CompositeScore: 77,
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-03T21:00:00.000Z',
+      PageScores: [
+        {
+          PageName: 'Executive Overview',
+          GestaltScore: 84,
+          CognitiveLoadScore: 78,
+          DataInkScore: 79,
+          AccessibilityScore: 82,
+          VisualBestPracticesScore: 83,
+          StephenFewScore: 76,
+          EnterpriseGovernanceScore: 78,
+          TufteScore: 72,
+          GraphicalPerceptionScore: 75,
+          DensityScore: 74,
+          NarrativeScore: 81,
+          CompositeScore: 80,
+          Feedback: {},
+          Recommendations: [],
+          ActionabilityBreakdown: {
+            Score: 76,
+            TargetBenchmarkPresent: true,
+            ExceptionVisibility: true,
+            UrgencySignaling: true,
+            PriorPeriodContext: true,
+            DrillPathPresent: true,
+            ExpectationLevel: 'high',
+            Strengths: ['Benchmarks are visible.'],
+            Gaps: [],
+            Summary: 'The page exposes a clear decision path with target and prior-period context.',
+          },
+          PageIntentProfile: {
+            InferredProfile: 'executive',
+            ActionabilityExpectation: 'high',
+            ReviewGuidance: ['Keep the decision path prominent.'],
+            Evidence: ['Executive KPI band'],
+          },
+          VisualMetadata: {
+            PageName: 'Executive Overview',
+            VisiblePageTitle: 'Executive Overview',
+            SemanticColorMap: [],
+            VisualCount: 5,
+            VisibleTitleVisualCount: 1,
+            TextVisualCount: 1,
+            SlicerCount: 1,
+            LegendVisualCount: 1,
+            AxisLabelVisualCount: 1,
+            DataLabelVisualCount: 1,
+            FormattedVisualCount: 5,
+            Visuals: [],
+          },
+        },
+      ],
+    });
+
+    expect(normalized.analysisContext).toMatchObject({
+      surfaceType: 'pbirReport',
+      analyzerType: 'fabricAppReadiness',
+      analyzerProfile: 'migrationReadiness',
+    });
+    expect(normalized.readinessAssessment).toMatchObject({
+      readinessBand: 'strongCandidate',
+      candidatePages: ['Executive Overview'],
+    });
+    expect(normalized.overviewSummary?.readinessSummary).toMatchObject({
+      candidatePageCount: 1,
+    });
+    expect(normalized.normalizedFindings?.some((finding) => finding.sourceKind === 'fabricAppReadiness')).toBe(true);
+  });
+
   it('defaults missing or invalid finding types to strongHeuristic', () => {
     const normalized = normalizeScoreResultPayload({
       Feedback: {
@@ -637,5 +727,95 @@ describe('normalizeScoreResultPayload', () => {
     });
     expect(payload.fixSelection.compatibility.blockingReasons).toEqual([]);
     expect(payload.fixApplySessions).toHaveLength(1);
+  });
+
+  it('preserves local Fabric App review findings and evidence when a Fabric App surface is detected', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fabric-score-payload-'));
+    fs.mkdirSync(path.join(repoRoot, 'src', 'routes'), { recursive: true });
+    fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'executive-fabric-app' }));
+    fs.writeFileSync(path.join(repoRoot, 'src', 'ExecutiveDashboard.tsx'), `
+      export function ExecutiveDashboard() {
+        return <DashboardLayout><KpiCard /></DashboardLayout>;
+      }
+    `);
+    fs.writeFileSync(path.join(repoRoot, 'src', 'routes', 'index.tsx'), `
+      export const routes = [{ path: '/overview', label: 'Executive Overview' }];
+    `);
+
+    try {
+      const normalized = normalizeScoreResultPayload({
+        GestaltScore: 72,
+        CognitiveLoadScore: 72,
+        DataInkScore: 72,
+        AccessibilityScore: 72,
+        VisualBestPracticesScore: 72,
+        StephenFewScore: 72,
+        EnterpriseGovernanceScore: 72,
+        TufteScore: 72,
+        GraphicalPerceptionScore: 72,
+        DensityScore: 72,
+        NarrativeScore: 72,
+        CompositeScore: 72,
+        Feedback: {},
+        PageCount: 2,
+        Recommendations: [],
+        ReportPath: repoRoot,
+        ScoredAt: '2026-06-04T21:00:00.000Z',
+        NormalizedFindings: [
+          {
+            Id: 'fabric-route-clarity',
+            Title: 'Route labeling is too generic for analytical navigation',
+            Summary: 'Generic labels weaken evidence flow.',
+            Severity: 'medium',
+            Confidence: 82,
+            Scope: 'report',
+            DetectionType: 'deterministic',
+            AffectedPages: [],
+            ImpactArea: 'navigation',
+            FrameworkImpact: ['Fabric App Review'],
+            Recommendation: 'Rename generic routes.',
+            SourceKind: 'fabricAppReview',
+            SourceSection: 'issues',
+            Evidence: [
+              {
+                Kind: 'navigation',
+                Label: 'Navigation evidence',
+                Detail: 'src/routes/index.tsx — Detail -> /detail',
+                FilePath: 'src/routes/index.tsx',
+              },
+            ],
+          },
+        ],
+        FabricAppReview: {
+          QualityScore: 72,
+          Summary: 'Fabric App review produced bounded findings.',
+          RemediationGuidance: ['Rename generic routes.'],
+          Evidence: [
+            {
+              Kind: 'navigation',
+              Label: 'Navigation evidence',
+              Summary: 'Executive Overview -> /overview',
+              FilePath: 'src/routes/index.tsx',
+            },
+          ],
+        },
+      });
+
+      expect(normalized.analysisContext).toMatchObject({
+        surfaceType: 'fabricApp',
+        analyzerType: 'fabricAppReview',
+        analyzerProfile: 'fabricAppQuality',
+      });
+      expect(normalized.fabricAppReview).toMatchObject({
+        qualityScore: 72,
+        summary: 'Fabric App review produced bounded findings.',
+      });
+      expect(normalized.normalizedFindings?.some((finding) => finding.sourceKind === 'fabricAppReview')).toBe(true);
+      expect(normalized.fixPlan?.[0]).toMatchObject({
+        title: expect.stringMatching(/navigation|route/i),
+      });
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });

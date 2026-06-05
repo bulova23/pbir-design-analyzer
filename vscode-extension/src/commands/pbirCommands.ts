@@ -212,11 +212,11 @@ export function registerPbirCommands(
 
                 if (!reportPath) {
                     const uris = await vscode.window.showOpenDialog({
-                        title: 'Select PBIR Report',
+                        title: 'Select PBIR report or Fabric App repo',
                         filters: { 'PBIR Reports': ['pbir'], 'All Files': ['*'] },
                         canSelectMany: false,
-                        canSelectFolders: false,
-                        openLabel: 'Score Report',
+                        canSelectFolders: true,
+                        openLabel: 'Open Review',
                     });
                     reportPath = uris?.[0]?.fsPath;
                 }

@@ -60,6 +60,62 @@ interface RemediationBlueprint {
 }
 
 function getBlueprint(finding: NormalizedFinding): RemediationBlueprint {
+  if (finding.sourceKind === 'fabricAppReview') {
+    if (finding.impactArea === 'navigation') {
+      return {
+        family: 'fabric-navigation',
+        title: 'Improve navigation clarity',
+        why: 'Clarifies executive-to-detail evidence flow across the app.',
+      };
+    }
+
+    if (finding.impactArea === 'storytelling') {
+      return {
+        family: 'fabric-storytelling',
+        title: 'Improve dashboard hierarchy',
+        why: 'Strengthens executive readability and clarifies the primary scan path.',
+      };
+    }
+
+    return {
+      family: 'fabric-tokens',
+      title: 'Standardize token usage',
+      why: 'Improves consistency across color, spacing, and typography decisions.',
+    };
+  }
+
+  if (finding.sourceKind === 'fabricAppReadiness') {
+    if (finding.impactArea === 'navigation') {
+      return {
+        family: 'migration-navigation',
+        title: 'Simplify navigation for app portability',
+        why: 'Reduces reliance on Power BI-specific navigation shells before migration.',
+      };
+    }
+
+    if (finding.impactArea === 'metadata') {
+      return {
+        family: 'migration-semantic-labeling',
+        title: 'Improve semantic labeling for app reuse',
+        why: 'Makes semantic-model-backed app recreation more reliable.',
+      };
+    }
+
+    if (finding.impactArea === 'storytelling') {
+      return {
+        family: 'migration-narrative',
+        title: 'Improve narrative hierarchy for app migration',
+        why: 'Clarifies which pages should become app landing, summary, or drill surfaces.',
+      };
+    }
+
+    return {
+      family: 'migration-portability',
+      title: 'Reduce Power BI-only dependencies',
+      why: 'Improves report portability before Fabric App migration.',
+    };
+  }
+
   switch (finding.impactArea) {
     case 'actionability':
     case 'benchmark':
@@ -111,6 +167,32 @@ function getBlueprint(finding: NormalizedFinding): RemediationBlueprint {
 }
 
 function getResolvedOutcome(finding: NormalizedFinding): string {
+  if (finding.sourceKind === 'fabricAppReview') {
+    switch (finding.impactArea) {
+      case 'navigation':
+        return 'Navigation clarity';
+      case 'storytelling':
+        return 'Executive readability';
+      default:
+        return 'Token consistency';
+    }
+  }
+
+  if (finding.sourceKind === 'fabricAppReadiness') {
+    switch (finding.impactArea) {
+      case 'navigation':
+        return 'Navigation portability';
+      case 'metadata':
+        return 'Semantic-model portability';
+      case 'storytelling':
+        return 'Narrative portability';
+      case 'accessibility':
+        return 'Accessibility portability';
+      default:
+        return 'Migration portability';
+    }
+  }
+
   switch (finding.impactArea) {
     case 'benchmark':
       return 'Benchmark gap';
