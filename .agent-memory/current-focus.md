@@ -6,6 +6,10 @@
 
 ## Current Objective
 
+- Marketplace and README positioning refresh completed on the active branch:
+  - product now reads as an Analytics Experience Review Platform in marketplace-facing copy
+  - excessive inline-code styling was removed from marketplace-facing documentation
+  - messaging now emphasizes story assessment, Issues, Fix Plan, evidence-driven review, Fabric App Readiness, Fabric App Review, and governance support
 - Phase 4 Advanced AI Refactoring Workstreams 1 through 4 are now implemented on the active branch using:
   - `docs/superpowers/specs/2026-06-03-advanced-ai-refactoring-design.md`
   - `docs/superpowers/plans/2026-06-03-advanced-ai-refactoring-plan.md`
@@ -222,6 +226,7 @@
   - no deterministic mutation changes
   - no Fabric-specific behavior
   - no readiness scoring changes
+- If the documentation refresh needs real installation verification, rebuild and install a fresh VSIX so the revised extension details page can be reviewed in VS Code.
 - If Fabric App Review Mode continues, decide whether to:
   - check in a durable analytical Rayfin sample fixture for repeatable smoke coverage
   - or keep using an external/sample local repo plus temporary harness for ad hoc Fabric smoke runs

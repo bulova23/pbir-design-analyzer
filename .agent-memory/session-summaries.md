@@ -546,3 +546,21 @@
 - Validation passed:
   - `cd vscode-extension && npx jest --runInBand src/test/refactoringEnrichers.test.ts src/test/refactoringCompilationClassifier.test.ts src/test/refactoringContextBuilder.test.ts src/test/refactoringScenarioBuilder.test.ts src/test/refactoringValidators.test.ts src/test/refactoringOrchestrator.test.ts`
   - `cd vscode-extension && npm run compile`
+
+## 2026-06-05 Marketplace Copy Refresh
+
+- Repositioned PBIR Design Analyzer in marketplace-facing copy as an Analytics Experience Review Platform rather than a PBIR engineering utility.
+- Rewrote:
+  - `README.md`
+  - `vscode-extension/README.md`
+  - the extension short description in `vscode-extension/package.json`
+- Shifted emphasis toward:
+  - story assessment
+  - Issues workspace
+  - Fix Plan
+  - AI proposal enrichment
+  - evidence-driven review
+  - Fabric App Readiness
+  - Fabric App Review
+  - governance support
+- Removed unnecessary inline-code styling from feature and workflow names to reduce VS Code Marketplace blue-pill rendering.

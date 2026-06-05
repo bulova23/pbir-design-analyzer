@@ -1,141 +1,154 @@
-# PBIR Design Analyzer VS Code Extension
+# PBIR Design Analyzer
 
-PBIR Design Analyzer is a focused VS Code extension for reviewing local Power BI PBIP/PBIR report projects before they are shared, governed, or published. It analyzes report pages, visuals, navigation, hidden states, theming, and design consistency so authors can improve report quality with a repeatable workflow.
+PBIR Design Analyzer is an Analytics Experience Review Platform for teams that need to evaluate report quality, dashboard quality, governance alignment, and migration readiness before analytics work is shared more broadly.
+
+It helps consultants, BI architects, analytics teams, Power BI developers, and Fabric developers review analytical experiences with a clearer workflow:
+
+- assess the story each page is trying to tell
+- identify design, usability, actionability, navigation, and accessibility issues
+- review evidence before making decisions
+- build a Fix Plan with remediation guidance and deterministic fix opportunities where supported
+- assess Fabric App migration readiness and review analytical Fabric Apps through the same workspace
 
 Documentation: [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md)
 
-## Quick Start
+## Why Teams Use It
 
-1. Open a local PBIP project or `.Report` folder.
-2. Run PBIR Design Analyzer: Score Report.
-3. Review the Overview workspace, Issues, Fix Plan, and Evidence sections.
-4. Open PBIR Design Analyzer: Configure Scoring if you want to tune framework weights or navigation treatment.
-5. Use PBIR Design Analyzer: Check Governance only when your workspace has shared governance enabled.
+Most report-review tools stop at scorecards or metadata checks.
+
+PBIR Design Analyzer is designed for real review work:
+
+- **Story assessment** to show what a page is trying to communicate, whether the message succeeds, and what gets in the way
+- **Issues workspace** to surface findings across design quality, usability, accessibility, actionability, consistency, and navigation
+- **Fix Plan** to turn findings into remediation steps, advisory recommendations, and deterministic fix opportunities where safe support exists
+- **Evidence-driven review** so recommendations stay tied to metadata, navigation, screenshots, semantic-model usage, and other supporting evidence
+- **Governance support** for standards, consistency, accessibility, and overall analytics quality
+- **Migration readiness** to assess which Power BI assets are strong candidates for Fabric App evolution and which ones need redesign first
 
 ## What’s New In 0.4.0
 
-- `Fix Plan` now combines advisory `AI-enriched guidance` with deterministic `Fix Opportunities` for supported remediation items
-- advisory enrichment improves proposal wording, rationale, priority, and expected outcomes without changing deterministic execution authority
-- provider-backed enrichment is disabled by default; deterministic fallback advisory guidance still renders
-- supported opportunities show exact `Object`, `Property`, `Before`, and `After` preview rows before any mutation is applied
-- users can preview grouped selections, approve, apply, roll back, and re-analyze supported fixes directly from the remediation workflow
-- unsupported remediation stays advisory rather than generating opaque or unsafe fixes
-- the active page/report tab now stays in place during refresh-driven re-analysis after apply or rollback
-- single-page planning now recognizes top-level `scoredPageName + visualMetadata`, so page-level real-report analysis can surface supported opportunities when `pageScores` are absent
+- Fix Plan now combines advisory AI proposal enrichment with deterministic Fix Opportunities for supported remediation items
+- advisory recommendations now provide stronger explanation quality, business rationale, prioritization guidance, and expected-outcome framing
+- deterministic fix workflows support preview, approval, apply, rollback, and re-analysis for supported remediation areas
+- unsupported remediation remains clearly advisory rather than drifting into opaque or unsafe automation
+- the review workspace now stays more stable during re-analysis after apply or rollback
+- Fabric App Readiness adds migration-candidate scoring, blockers, redesign effort, and next-step guidance for PBIR reports and pages
+- Fabric App Review supports analytical Fabric App review with navigation, design-token, screenshot, and semantic-model evidence
 
-## What It Analyzes
+## What The Platform Reviews
 
-- PBIP/PBIR report structure, page order, visuals, bookmarks, and navigation controls
-- page layout quality, grouping, spacing, alignment, and information density
-- chart selection, labeling, decorative ink, and visual consistency
-- contrast and readability signals that affect accessibility coverage
-- storytelling flow from headline metrics through trends, comparisons, and drill paths
-- optional enterprise governance scoring plus opt-in workspace governance checks
+### Story Assessment
 
-## Design Principles In The Configuration Panel
+- page purpose and audience fit
+- headline-to-evidence flow
+- summary-to-detail sequencing
+- analytical clarity and actionability
 
-- Gestalt Principles. Evaluates grouping, alignment, proximity, similarity, and continuity across report layouts.
-- Cognitive Load. Measures visual density, competing signals, and the mental effort required to interpret a page.
-- Data-Ink Ratio. Rewards visuals that maximize data signal and minimize decorative or redundant ink.
-- Graphical Perception. Evaluates whether chart encodings match how accurately people compare quantitative values.
-- Accessibility (WCAG). Checks contrast, readability, and reporting choices that improve accessibility coverage.
-- Visual Best Practices. Applies dashboard design guidance around chart choice, labeling, and consistency.
-- Enterprise Governance. An optional scoring framework for team or enterprise design standards. Workspace publish governance is configured separately and is disabled by default until explicitly enabled.
-- Stephen Few Principles. Applies Stephen Few dashboard heuristics such as KPI prominence and one-screen density.
-- Tufte Minimalism. Emphasizes clarity, precision, and minimal chart junk in report presentation.
-- Dashboard Density. Evaluates balance between information richness and crowding on each report page.
-- Narrative Design. Evaluates how well page sequencing and layout guide a user through the report story.
+### Issues Workspace
 
-## Sidecar Toolbar Guide
-
-- Folder icon - Open PBIP Project. Open a local PBIP project or Report folder and populate the explorer tree.
-- Refresh icon - Refresh Reports. Re-scan report metadata after file edits or Power BI Desktop saves.
-- Chart icon - Score Report. Run the design analysis for the selected report or page and open the PBIR Optimization Report.
-- Gear icon - Configure Scoring. Enable or disable principles, rebalance weights, tune navigation scoring, and review governance defaults.
-- Shield icon - Check Governance. Evaluate the current report against workspace governance only when a shared governance policy is enabled.
-
-## Score Panel Walkthrough
-
-### Overview
-
-Use Overview first for:
-
-- overall score
-- maturity/risk framing
-- strengths and weaknesses
-- top issues
-- top actions
-- cross-page summary
-- cross-page matrix navigation
-
-### Issues
-
-Use Issues as the main review surface. The workspace supports filtering and grouping across normalized findings instead of forcing the user through framework cards first.
+- layout and density problems
+- navigation and drill-path friction
+- accessibility and readability concerns
+- design consistency gaps
+- weak benchmark or decision-support framing
 
 ### Fix Plan
 
-Use Fix Plan when you want an action-oriented remediation queue rather than raw findings. In `0.4.0`, supported remediation items can surface fallback-safe `AI-enriched guidance` plus deterministic fix opportunities with explicit preview, grouped apply, rollback, and re-analysis steps for both full-report and supported single-page scoring payloads. Provider-backed enrichment remains disabled by default in this release.
+- remediation guidance tied to findings
+- advisory recommendations that explain why a change matters
+- deterministic fix opportunities for supported scenarios
+- preview, apply, rollback, and re-analysis for the deterministic execution path
 
 ### Evidence
 
-Use Evidence for:
+- metadata evidence
+- navigation evidence
+- screenshot evidence
+- semantic-model evidence
+- framework analysis and supporting review detail
 
-- Design Framework Analysis
-- metadata inspection
-- AI Screenshot Audit
-- scoring internals
-- review packet preview
+### Fabric App Readiness
+
+- migration candidates
+- blockers and unsupported patterns
+- redesign effort
+- Fabric App suitability
+
+### Fabric App Review
+
+- analytical Fabric App structure and experience quality
+- navigation clarity
+- design-token evidence
+- screenshot-backed review
+- semantic-model usage evidence
+
+## Quick Start
+
+1. Open a local PBIP project or .Report folder.
+2. Run PBIR Design Analyzer: Score Report.
+3. Start in Overview to understand overall quality, top risks, and story health.
+4. Use Issues to triage findings by severity, page, dimension, and scope.
+5. Use Fix Plan to sequence remediation and apply supported deterministic fixes where available.
+6. Use Evidence to inspect proof, supporting signals, and migration-readiness rationale.
+
+## Review Workspace
+
+### Overview
+
+Use Overview to understand:
+
+- overall analytics experience quality
+- top strengths and top risks
+- story gaps across the report
+- which pages need attention first
+- whether the asset is a strong Fabric App candidate
+
+### Issues
+
+Use Issues as the primary review surface when you need to inspect:
+
+- design issues
+- usability issues
+- accessibility concerns
+- navigation problems
+- actionability gaps
+
+### Fix Plan
+
+Use Fix Plan when you need an action-oriented remediation workflow instead of a raw list of findings.
+
+It brings together:
+
+- remediation guidance
+- advisory recommendations
+- business rationale
+- deterministic fix opportunities for supported cases
+
+### Evidence
+
+Use Evidence when you want to verify why a finding or recommendation exists before you act on it.
 
 ### Export
 
-Export remains a downstream action. The current release keeps review packet preview and export available without letting export dominate the main analysis path.
+Export stays downstream from review so the product remains focused on evaluation first and deliverables second.
 
-## Review Workflow
+## Deterministic Fix Workflow
 
-Recommended flow:
+PBIR Design Analyzer preserves a strict execution boundary.
 
-1. score the report
-2. review Overview
-3. triage Issues
-4. sequence Fix Plan work
-5. preview and apply supported fix opportunities when available
-6. inspect Evidence when needed
-7. export/share after review
+Supported deterministic fixes can:
 
-## Deterministic Fix Opportunities
+- preview exact changes before apply
+- support grouped review and approval
+- apply safe metadata and layout edits in supported areas
+- roll back changes if the outcome is not acceptable
+- trigger re-analysis after apply
 
-The first fix workflow release is intentionally narrow and trust-focused.
-
-Supported categories include:
-
-- title generation and standardization from deterministic page context
-- title anchor normalization
-- semantic color normalization
-- alignment and spacing normalization
-- grid normalization
-- navigation placement normalization
-- cross-page consistency normalization where objects already exist
-
-Current guardrails:
-
-- only existing-object metadata/theme/layout edits are supported
-- no new visual creation or deletion
-- no visual-type swaps
-- no DAX or model changes
-- no page redesign or storytelling redesign
-
-The workflow is:
-
-1. review remediation in Fix Plan
-2. open a supported fix opportunity
-3. inspect the exact mutation preview
-4. approve and apply
-5. review automatic re-analysis outcomes
-6. roll back if needed
+The platform does not use advisory recommendations to generate or apply freeform mutations.
 
 ## Review Modes
 
-The workspace review modes are:
+The workspace supports review modes for:
 
 - Default
 - Executive
@@ -143,19 +156,21 @@ The workspace review modes are:
 - Governance
 - Accessibility
 
-These reorder and emphasize findings and actions. They do not change score values or backend scoring behavior.
+These modes change emphasis and presentation. They do not change scoring outcomes.
 
 ## Cross-Page Matrix
 
-The Overview matrix shows page rows and review-dimension columns. Clicking a cell filters Issues to the selected page and dimension and keeps the current review mode active.
+The Overview matrix helps reviewers move from high-level concerns to the exact page and review dimension that needs attention.
 
 ## Typical Workflow
 
-1. Open a PBIP project or `.Report` folder.
-2. Refresh after external edits or after saving in Power BI Desktop.
-3. Score the full report to review overall and page-level results.
-4. Adjust principle weights and governance settings if your team uses a custom review standard.
-5. Re-score and run governance checks before publish or handoff.
+1. Open a PBIP project or .Report folder.
+2. Score the report or page.
+3. Review story quality and top risks in Overview.
+4. Triage issues and evidence.
+5. Sequence remediation in Fix Plan.
+6. Apply supported deterministic fixes where appropriate.
+7. Re-review the updated result or export findings for downstream use.
 
 ## Core Commands
 
@@ -177,21 +192,21 @@ Current shared settings focus on governance:
 - powerbi-modeling.governance.minimumCompositeScore
 - powerbi-modeling.governance.approvedThemeIds
 
-Analyzer scoring preferences and workspace behavior are managed through the extension panels rather than a large static settings surface.
+Most review behavior and scoring emphasis are managed through the extension workspace rather than a large static settings surface.
 
 ## Detailed Usage Guide
 
-For full setup, workflow, scoring interpretation, and design principle details, see [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md).
+For setup, workflow details, scoring interpretation, and review guidance, see [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md).
 
 ## Requirements
 
 - VS Code 1.93+
 - .NET 8 available on the machine for the packaged analyzer backend
-- a local Power BI project using PBIP/PBIR files
+- a local Power BI project using PBIP or PBIR files
 
 ## Scope
 
-This package is intentionally narrow. It is built for local PBIR design analysis and governance workflows, not general Fabric authoring, TMDL editing, or live service management.
+PBIR Design Analyzer is built for local analytics experience review, governance review, and migration-readiness assessment. It is not positioned as a general Fabric authoring tool, TMDL editor, or live service-management console.
 
 ## Feedback And Issues
 
