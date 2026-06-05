@@ -323,6 +323,8 @@ function normalizeFabricAppReviewSummary(value: unknown): FabricAppReviewSummary
           label: readOptionalString(item, 'label') ?? '',
           summary: readOptionalString(item, 'summary') ?? '',
           filePath: readOptionalString(item, 'filePath') ?? '',
+          pageName: readOptionalString(item, 'pageName'),
+          stateName: readOptionalString(item, 'stateName'),
         }))
         .filter((item) => item.label.length > 0 && item.summary.length > 0 && item.filePath.length > 0)
       : [],

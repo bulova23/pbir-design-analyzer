@@ -1,10 +1,12 @@
 import type { NormalizedFinding } from '../../contracts/scorePanel';
 
 export interface FabricAppEvidenceItem {
-  kind: 'typescriptLayout' | 'navigation' | 'designToken';
+  kind: 'typescriptLayout' | 'navigation' | 'designToken' | 'screenshot' | 'semanticModel';
   label: string;
   summary: string;
   filePath: string;
+  pageName?: string;
+  stateName?: string;
 }
 
 export interface TypeScriptEvidenceSignal {
@@ -39,6 +41,31 @@ export interface DesignTokenEvidenceSignal {
 export interface DesignTokenEvidenceReport {
   tokens: DesignTokenEvidenceSignal[];
   bypasses: DesignTokenEvidenceSignal[];
+}
+
+export interface ScreenshotEvidenceSignal {
+  filePath: string;
+  fileName: string;
+  pageName: string;
+  stateName?: string;
+}
+
+export interface ScreenshotEvidenceReport {
+  captures: ScreenshotEvidenceSignal[];
+  unmatchedCaptures: Array<{
+    filePath: string;
+    fileName: string;
+    stateName?: string;
+  }>;
+}
+
+export interface SemanticModelEvidenceSignal {
+  filePath: string;
+  summary: string;
+}
+
+export interface SemanticModelEvidenceReport {
+  signals: SemanticModelEvidenceSignal[];
 }
 
 export interface FabricAppReviewResult {

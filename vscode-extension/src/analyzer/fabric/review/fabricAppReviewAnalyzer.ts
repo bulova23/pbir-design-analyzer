@@ -3,11 +3,15 @@ import type { NormalizedFinding } from '../../contracts/scorePanel';
 import type { AnalyzableSurface } from '../../surfaces/types';
 import { extractDesignTokenEvidence } from './designTokenEvidence';
 import { extractNavigationEvidence } from './navigationEvidence';
+import { extractScreenshotEvidence } from './screenshotEvidence';
+import { extractSemanticModelEvidence } from './semanticModelEvidence';
 import { extractTypeScriptEvidence } from './typescriptEvidence';
 import type {
   FabricAppEvidenceItem,
   FabricAppReviewResult,
   NavigationEvidenceReport,
+  ScreenshotEvidenceReport,
+  SemanticModelEvidenceReport,
   TypeScriptEvidenceReport,
   DesignTokenEvidenceReport,
 } from './reviewTypes';
@@ -61,6 +65,28 @@ function evidenceItemsFromTokens(report: DesignTokenEvidenceReport): FabricAppEv
   ];
 }
 
+function evidenceItemsFromScreenshots(report: ScreenshotEvidenceReport): FabricAppEvidenceItem[] {
+  return report.captures.map((capture) => ({
+    kind: 'screenshot' as const,
+    label: 'Screenshot evidence',
+    summary: capture.stateName
+      ? `${capture.pageName} capture shows state "${capture.stateName}".`
+      : `${capture.pageName} capture is available for review.`,
+    filePath: capture.filePath,
+    pageName: capture.pageName,
+    stateName: capture.stateName,
+  }));
+}
+
+function evidenceItemsFromSemanticModel(report: SemanticModelEvidenceReport): FabricAppEvidenceItem[] {
+  return report.signals.map((signal) => ({
+    kind: 'semanticModel' as const,
+    label: 'Semantic model evidence',
+    summary: signal.summary,
+    filePath: signal.filePath,
+  }));
+}
+
 function buildFinding(params: {
   id: string;
   title: string;
@@ -97,8 +123,12 @@ function buildFindings(
   typeScriptEvidence: TypeScriptEvidenceReport,
   navigationEvidence: NavigationEvidenceReport,
   tokenEvidence: DesignTokenEvidenceReport,
+  screenshotEvidence: ScreenshotEvidenceReport,
+  semanticModelEvidence: SemanticModelEvidenceReport,
 ): NormalizedFinding[] {
   const findings: NormalizedFinding[] = [];
+  const screenshotItems = evidenceItemsFromScreenshots(screenshotEvidence);
+  const semanticItems = evidenceItemsFromSemanticModel(semanticModelEvidence);
 
   if (tokenEvidence.bypasses.length > 0) {
     findings.push(buildFinding({
@@ -108,7 +138,10 @@ function buildFindings(
       severity: 'medium',
       impactArea: 'layout',
       recommendation: 'Standardize token usage so color, spacing, and typography stay consistent across the app.',
-      evidence: evidenceItemsFromTokens({ tokens: [], bypasses: tokenEvidence.bypasses }),
+      evidence: [
+        ...evidenceItemsFromTokens({ tokens: [], bypasses: tokenEvidence.bypasses }),
+        ...semanticItems.slice(0, 1),
+      ],
     }));
   }
 
@@ -120,7 +153,11 @@ function buildFindings(
       severity: 'high',
       impactArea: 'navigation',
       recommendation: 'Create a clearer overview-to-detail route structure so readers understand where to start and where to drill deeper.',
-      evidence: evidenceItemsFromNavigation(navigationEvidence),
+      evidence: [
+        ...evidenceItemsFromNavigation(navigationEvidence),
+        ...screenshotItems.slice(0, 2),
+        ...semanticItems.slice(0, 1),
+      ],
     }));
   }
 
@@ -132,7 +169,11 @@ function buildFindings(
       severity: 'medium',
       impactArea: 'storytelling',
       recommendation: 'Rename generic routes so the analytical purpose of each destination is obvious before navigation.',
-      evidence: evidenceItemsFromNavigation(navigationEvidence).filter((item) => item.summary.toLowerCase().includes('detail')),
+      evidence: [
+        ...evidenceItemsFromNavigation(navigationEvidence).filter((item) => item.summary.toLowerCase().includes('detail')),
+        ...screenshotItems.filter((item) => item.pageName?.toLowerCase().includes('overview')).slice(0, 1),
+        ...semanticItems.slice(0, 1),
+      ],
     }));
   }
 
@@ -144,7 +185,11 @@ function buildFindings(
       severity: 'medium',
       impactArea: 'storytelling',
       recommendation: 'Strengthen KPI grouping and executive scan order in the landing experience.',
-      evidence: evidenceItemsFromTypeScript(typeScriptEvidence),
+      evidence: [
+        ...evidenceItemsFromTypeScript(typeScriptEvidence),
+        ...screenshotItems.slice(0, 1),
+        ...semanticItems.slice(0, 2),
+      ],
     }));
   }
 
@@ -178,16 +223,29 @@ export function reviewFabricAppSurface(
   const typeScriptEvidence = extractTypeScriptEvidence(surface.sourceLocation);
   const navigationEvidence = extractNavigationEvidence(surface.sourceLocation);
   const tokenEvidence = extractDesignTokenEvidence(surface.sourceLocation);
-  const normalizedFindings = buildFindings(typeScriptEvidence, navigationEvidence, tokenEvidence);
+  const screenshotEvidence = extractScreenshotEvidence(
+    surface.sourceLocation,
+    navigationEvidence.routes.map((route) => route.label),
+  );
+  const semanticModelEvidence = extractSemanticModelEvidence(surface.sourceLocation);
+  const normalizedFindings = buildFindings(
+    typeScriptEvidence,
+    navigationEvidence,
+    tokenEvidence,
+    screenshotEvidence,
+    semanticModelEvidence,
+  );
   const evidence = [
     ...evidenceItemsFromTypeScript(typeScriptEvidence),
     ...evidenceItemsFromNavigation(navigationEvidence),
     ...evidenceItemsFromTokens(tokenEvidence),
+    ...evidenceItemsFromScreenshots(screenshotEvidence),
+    ...evidenceItemsFromSemanticModel(semanticModelEvidence),
   ];
 
   return {
     qualityScore: buildQualityScore(normalizedFindings),
-    summary: `Fabric App review produced ${normalizedFindings.length} finding(s) from TypeScript layout, navigation, and design-token evidence.`,
+    summary: `Fabric App review produced ${normalizedFindings.length} finding(s) from TypeScript layout, navigation, design-token, screenshot, and semantic-model evidence.`,
     remediationGuidance: [...new Set(normalizedFindings.map((finding) => finding.recommendation))],
     evidence,
     normalizedFindings,

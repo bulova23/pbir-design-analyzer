@@ -1145,6 +1145,38 @@ function renderFabricAppReviewEvidence(
   review: NonNullable<ScoreResult['fabricAppReview']>,
   analysisContext: ScoreResult['analysisContext'],
 ): React.ReactNode {
+  const categories: Array<{
+    title: string;
+    kinds: NonNullable<ScoreResult['fabricAppReview']>['evidence'][number]['kind'][];
+    emptyMessage: string;
+  }> = [
+    {
+      title: 'TypeScript Evidence',
+      kinds: ['typescriptLayout'],
+      emptyMessage: 'No TypeScript evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Navigation Evidence',
+      kinds: ['navigation'],
+      emptyMessage: 'No navigation evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Design Token Evidence',
+      kinds: ['designToken'],
+      emptyMessage: 'No design-token evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Screenshot Evidence',
+      kinds: ['screenshot'],
+      emptyMessage: 'No screenshot evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Semantic Model Evidence',
+      kinds: ['semanticModel'],
+      emptyMessage: 'No semantic model evidence is available for this Fabric App review.',
+    },
+  ];
+
   return (
     <details className="evidence-subsection">
       <summary className="collapsible-summary">
@@ -1165,14 +1197,27 @@ function renderFabricAppReviewEvidence(
             {analysisContext ? <span className="overview-badge">Analyzer: {analysisContext.analyzerType}</span> : null}
             {analysisContext ? <span className="overview-badge">Profile: {analysisContext.analyzerProfile}</span> : null}
           </div>
-          <ul className="issue-evidence-list">
-            {review.evidence.map((item, index) => (
-              <li className="issue-evidence-item" key={`${item.filePath}-${index}`}>
-                <strong>{item.label}</strong> — {item.summary}
-                <div>{item.filePath}</div>
-              </li>
-            ))}
-          </ul>
+          {categories.map((category) => {
+            const items = review.evidence.filter((item) => category.kinds.includes(item.kind));
+
+            return (
+              <section key={category.title}>
+                <h3>{category.title}</h3>
+                {items.length > 0 ? (
+                  <ul className="issue-evidence-list">
+                    {items.map((item, index) => (
+                      <li className="issue-evidence-item" key={`${category.title}-${item.filePath}-${index}`}>
+                        <strong>{item.label}</strong> — {item.summary}
+                        <div>{item.filePath}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{category.emptyMessage}</p>
+                )}
+              </section>
+            );
+          })}
         </section>
       </div>
     </details>

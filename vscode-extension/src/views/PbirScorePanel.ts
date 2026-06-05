@@ -942,6 +942,8 @@ export class PbirScorePanel {
                 Label: item.label,
                 Summary: item.summary,
                 FilePath: item.filePath,
+                PageName: item.pageName,
+                StateName: item.stateName,
               })),
             },
           }),

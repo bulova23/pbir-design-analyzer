@@ -2546,7 +2546,7 @@ describe('Analyzer Score App', () => {
                 },
                 fabricAppReview: {
                   qualityScore: 72,
-                  summary: 'Fabric App review produced bounded findings from TypeScript, navigation, and tokens.',
+                  summary: 'Fabric App review produced bounded findings from TypeScript, navigation, tokens, screenshots, and semantic-model evidence.',
                   remediationGuidance: ['Rename generic routes.', 'Standardize token usage.'],
                   evidence: [
                     {
@@ -2560,6 +2560,18 @@ describe('Analyzer Score App', () => {
                       label: 'Token bypass evidence',
                       summary: 'Hard-coded color bypass detected: #ff0000.',
                       filePath: 'src/ExecutiveCard.tsx',
+                    },
+                    {
+                      kind: 'screenshot',
+                      label: 'Screenshot evidence',
+                      summary: 'Executive Overview capture shows a KPI-first landing state.',
+                      filePath: 'screenshots/01 Executive Overview - Default.png',
+                    },
+                    {
+                      kind: 'semanticModel',
+                      label: 'Semantic model evidence',
+                      summary: 'SalesModel query usage anchors Revenue and Margin interactions.',
+                      filePath: 'src/data/queries.ts',
                     },
                   ],
                 },
@@ -2587,6 +2599,12 @@ describe('Analyzer Score App', () => {
                         detail: 'src/routes/index.tsx — Detail -> /detail',
                         filePath: 'src/routes/index.tsx',
                       },
+                      {
+                        kind: 'screenshot',
+                        label: 'Screenshot evidence',
+                        detail: 'screenshots/01 Executive Overview - Default.png — KPI-first landing state is visible.',
+                        filePath: 'screenshots/01 Executive Overview - Default.png',
+                      },
                     ],
                   },
                   {
@@ -2609,6 +2627,12 @@ describe('Analyzer Score App', () => {
                         label: 'Token bypass evidence',
                         detail: 'src/ExecutiveCard.tsx — Hard-coded color bypass detected: #ff0000.',
                         filePath: 'src/ExecutiveCard.tsx',
+                      },
+                      {
+                        kind: 'semanticModel',
+                        label: 'Semantic model evidence',
+                        detail: 'src/data/queries.ts — SalesModel query usage anchors Revenue interactions.',
+                        filePath: 'src/data/queries.ts',
                       },
                     ],
                   },
@@ -2651,7 +2675,80 @@ describe('Analyzer Score App', () => {
     fireEvent.click(fabricEvidenceSummary);
     expect(screen.getAllByText((_, element) => element?.textContent?.includes('Executive Overview -> /overview') ?? false).length).toBeGreaterThan(0);
     expect(screen.getAllByText((_, element) => element?.textContent?.includes('src/ExecutiveCard.tsx') ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Screenshot Evidence').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Semantic Model Evidence').length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('screenshots/01 Executive Overview - Default.png') ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('src/data/queries.ts') ?? false).length).toBeGreaterThan(0);
     expect(screen.queryByText('Batch workflow')).not.toBeInTheDocument();
     expect(screen.getByText('Advisory Recommendations Only')).toBeInTheDocument();
+  });
+
+  it('shows graceful missing-state messaging when screenshot and semantic model evidence are unavailable', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                reportPath: '/tmp/fabric-without-extra-evidence',
+                pageCount: 1,
+                pageScores: undefined,
+                readinessAssessment: undefined,
+                feedback: {},
+                reportConsistencySummary: undefined,
+                inferredStorySummary: undefined,
+                pageIntentProfile: undefined,
+                actionabilityBreakdown: undefined,
+                benchmarkComparison: undefined,
+                pagePurposeAnalysis: undefined,
+                analysisContext: {
+                  surfaceType: 'fabricApp',
+                  analyzerType: 'fabricAppReview',
+                  analyzerProfile: 'fabricAppQuality',
+                  surfaceDisplayName: 'Minimal Fabric App',
+                  sourceLocation: '/tmp/fabric-without-extra-evidence',
+                  availableAnalyzerTypes: ['fabricAppReview'],
+                  availableAnalyzerProfiles: ['default', 'fabricAppQuality'],
+                },
+                fabricAppReview: {
+                  qualityScore: 79,
+                  summary: 'Fabric App review produced bounded findings from TypeScript, navigation, and design-token evidence.',
+                  remediationGuidance: ['Clarify route naming.'],
+                  evidence: [
+                    {
+                      kind: 'navigation',
+                      label: 'Navigation evidence',
+                      summary: 'Overview -> /overview',
+                      filePath: 'src/routes/index.tsx',
+                    },
+                  ],
+                },
+                fixOpportunities: [],
+                proposalEnrichments: [],
+                normalizedFindings: [],
+                fixPlan: [],
+                overviewSummary: {
+                  ...scoreState.result.overviewSummary!,
+                  overallScore: 79,
+                  executiveSummary: 'Core app structure is present, but richer evidence is unavailable for this surface.',
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByText('Evidence'));
+    const fabricEvidenceSummary = screen.getAllByText('Fabric App Review Evidence')[0].closest('summary') as HTMLElement;
+    fireEvent.click(fabricEvidenceSummary);
+
+    expect(screen.getByText('No screenshot evidence is available for this Fabric App review.')).toBeInTheDocument();
+    expect(screen.getByText('No semantic model evidence is available for this Fabric App review.')).toBeInTheDocument();
   });
 });

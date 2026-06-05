@@ -55,7 +55,9 @@ export interface NormalizedFindingEvidenceReference {
     | 'readiness'
     | 'typescriptLayout'
     | 'navigation'
-    | 'designToken';
+    | 'designToken'
+    | 'screenshot'
+    | 'semanticModel';
   label: string;
   pageName?: string;
   frameworkKey?: string;
@@ -538,10 +540,12 @@ export interface FabricAppReadinessAssessment {
 }
 
 export interface FabricAppReviewEvidence {
-  kind: 'typescriptLayout' | 'navigation' | 'designToken';
+  kind: 'typescriptLayout' | 'navigation' | 'designToken' | 'screenshot' | 'semanticModel';
   label: string;
   summary: string;
   filePath: string;
+  pageName?: string;
+  stateName?: string;
 }
 
 export interface FabricAppReviewSummary {
