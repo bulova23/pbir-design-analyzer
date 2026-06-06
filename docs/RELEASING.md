@@ -2,8 +2,10 @@
 
 This repo publishes releases to two places:
 
-- GitHub Releases, with the packaged `.vsix` attached as a downloadable asset
+- GitHub Releases, with platform-targeted `.vsix` files attached as downloadable assets
 - the VS Code Marketplace, so users can install and update from inside VS Code
+
+For `0.5.0`, Marketplace publication is manual. Do not run an automated publish step as part of final package preparation.
 
 The repo stays source-only. Built `.vsix` files remain ignored in git and are distributed through release assets instead.
 
@@ -37,14 +39,19 @@ git tag v0.1.10
 git push origin v0.1.10
 ```
 
-4. The `Release` workflow will:
+4. The release preparation flow should:
    - verify the git tag matches the extension version
    - run backend tests
    - run extension and webview tests
-   - package `pbir-design-analyzer-<version>.vsix`
-   - upload the VSIX as a workflow artifact
-   - create or update the GitHub Release for the tag
-   - publish the same VSIX to the VS Code Marketplace
+   - package five platform-targeted VSIX files:
+     - `pbir-design-analyzer-<version>-win32-x64.vsix`
+     - `pbir-design-analyzer-<version>-win32-arm64.vsix`
+     - `pbir-design-analyzer-<version>-linux-x64.vsix`
+     - `pbir-design-analyzer-<version>-darwin-x64.vsix`
+     - `pbir-design-analyzer-<version>-darwin-arm64.vsix`
+   - upload the VSIX files as workflow artifacts
+   - create or update the GitHub Release for the tag with all five assets if desired
+   - stop before Marketplace publication so the release owner can upload manually
 
 ## Release Triggers
 
@@ -62,11 +69,166 @@ Use the `Release` workflow from the Actions tab with:
 
 - `tag`: an existing tag, such as `v0.1.10`
 - `prerelease`: optional toggle for GitHub pre-releases
-- `publish_marketplace`: disable only if you want GitHub Release assets without Marketplace publishing
+- `publish_marketplace`: disable for `0.5.0`
 
 ## CI Artifacts
 
-The regular `CI` workflow now uploads the generated `.vsix` as a short-lived workflow artifact. That is useful for validation on pull requests, but it is not the public distribution channel.
+The regular `CI` workflow now:
+
+- runs build and test validation on Ubuntu, Windows, and macOS
+- packages the public target-specific VSIX files on Ubuntu
+- uploads the generated VSIX set as a short-lived workflow artifact
+
+## Packaging Isolation
+
+The packaging scripts now build each target backend into its own target-specific staging directory and package from a temporary isolated extension root.
+
+- `package:all` is intentionally serial
+- a lock file prevents concurrent packaging invocations from reusing mutable staging
+- Windows arm64 self-contained backend files cannot contaminate the Windows x64, Linux x64, macOS x64, or macOS arm64 artifacts because each target uses isolated backend staging
+
+## Cross-Platform Scoring Gate
+
+Before publishing `0.5.0`, treat score determinism as a release gate:
+
+- the same PBIR report fingerprint must produce the same score output on every supported platform
+- theme, locale, newline style, path separators, filesystem traversal order, and machine architecture must not change scoring outcomes
+- if two machines produce different scores, do not publish until the fingerprint and score diagnostics explain why
+
+Use the score diagnostics workflow:
+
+1. Run PBIR Design Analyzer: Score Report on the same report copy.
+2. Run PBIR Design Analyzer: Copy Score Diagnostics.
+3. Capture the JSON from the clipboard or from the PBIR Score Diagnostics output channel.
+4. Compare:
+   - extension version
+   - backend version
+   - platform and architecture
+   - analyzer type and analyzer profile
+   - report fingerprint
+   - score
+   - issue counts
+   - readiness score and readiness band
+   - page processing order
+   - finding IDs and evidence counts
+
+For a direct repo-side comparison, save each diagnostic payload to disk and run:
+
+```bash
+cd vscode-extension
+node scripts/compare-score-diagnostics.mjs /path/to/windows.json /path/to/macos.json
+```
+
+Expected result:
+
+- matching report fingerprints must produce matching score outputs
+- if report fingerprints differ, treat the input copies as non-identical and resolve that first
+
+Manual cross-platform smoke for `0.5.0` should record one diagnostic snapshot per tested platform build.
+
+## Windows ARM64 Note
+
+Windows arm64 is part of the final `0.5.0` package set.
+
+- build it with `npm run package:all` or `node scripts/package-vsix.mjs --target win32-arm64`
+- that target intentionally uses a self-contained backend publish for `0.5.0`
+- expect the Windows arm64 VSIX to be much larger than the other target-specific packages because it bundles the .NET runtime
+- keep it in the manual upload set alongside the framework-dependent Windows x64, Linux x64, macOS x64, and macOS arm64 packages
+
+## Icon Rendering Note
+
+The icon source PNG is transparent and the packaged copy should match it byte-for-byte.
+
+If VS Code shows the icon on a light tile in the extension details page, treat that as VS Code rendering behavior rather than a release blocker.
+
+## Manual Marketplace Upload Checklist
+
+For `0.5.0`, do not run a Marketplace publish command from this repo during release prep.
+
+Manual upload set:
+
+- `pbir-design-analyzer-0.5.0-win32-x64.vsix`
+- `pbir-design-analyzer-0.5.0-win32-arm64.vsix`
+- `pbir-design-analyzer-0.5.0-linux-x64.vsix`
+- `pbir-design-analyzer-0.5.0-darwin-x64.vsix`
+- `pbir-design-analyzer-0.5.0-darwin-arm64.vsix`
+
+Before manual upload:
+
+1. Rebuild from a clean packaging state.
+2. Inspect each VSIX for target, backend RID, publish model, and version.
+3. Confirm the packaged icon path is present.
+4. Confirm the Windows arm64 package remains self-contained and the other targets remain framework-dependent.
+5. Keep all five packages together for the same `0.5.0` listing.
+
+## Manual Marketplace Upload Procedure For Platform-Targeted VSIX Files
+
+The official VS Code publishing docs confirm two things that matter for `0.5.0`:
+
+- manual upload through the Visual Studio Marketplace publisher management page is supported
+- platform-specific extensions are published as separate packages
+
+They do not explicitly document portal-specific behavior for uploading the second, third, fourth, and fifth platform package for the same extension version. Because of that, the safest release guidance for `0.5.0` combines:
+
+- official Marketplace publishing guidance
+- the `vsce` implementation behavior used by VS Code extension publishers
+- direct inspection of the packaged `TargetPlatform` metadata inside each rebuilt VSIX
+
+### What Is Confirmed
+
+- Each `0.5.0` VSIX carries a target in `extension.vsixmanifest` through the `TargetPlatform` field.
+- The official docs describe platform-specific extensions as separate packages.
+- The official docs also describe manual VSIX upload through the publisher management page.
+- The `vsce` publish implementation checks for duplicate publication using both:
+  - extension version
+  - target platform
+
+That duplicate check strongly indicates that later uploads for a different target are intended to attach another platform package to the same listing rather than overwrite an existing different-target package.
+
+### What Is Not Explicitly Documented
+
+- no official doc was found that requires a specific manual upload order
+- no official doc was found that states, in portal-specific language, whether later uploads replace or append per-target variants
+
+Because that portal behavior is under-documented, upload conservatively and verify after each file.
+
+### Safest Manual Upload Steps
+
+1. Go to the Visual Studio Marketplace publisher management page:
+   - `https://marketplace.visualstudio.com/manage/publishers/`
+2. Open the existing `bcrowell.pbir-design-analyzer` extension listing.
+3. Upload the `0.5.0` packages one at a time.
+4. Wait for each upload to finish processing before starting the next upload.
+5. Stop immediately if the portal behaves as though it is replacing the whole `0.5.0` release instead of accepting an additional platform package.
+
+Recommended operational order for `0.5.0`:
+
+1. `pbir-design-analyzer-0.5.0-win32-x64.vsix`
+2. `pbir-design-analyzer-0.5.0-linux-x64.vsix`
+3. `pbir-design-analyzer-0.5.0-darwin-x64.vsix`
+4. `pbir-design-analyzer-0.5.0-darwin-arm64.vsix`
+5. `pbir-design-analyzer-0.5.0-win32-arm64.vsix`
+
+This order is an operational preference, not a documented Marketplace rule. It front-loads the smaller framework-dependent packages and leaves the large Windows arm64 self-contained package last.
+
+### What To Watch For During Upload
+
+- If the portal accepts the file and continues to show `0.5.0`, proceed to the next target.
+- If the portal reports that the same target/version already exists, do not retry that same file.
+- If the portal appears to replace the existing uploaded target package set rather than add another target-specific package, stop and do not upload the remaining files until that behavior is understood.
+
+### Practical Risk Call
+
+- Low risk:
+  - the Marketplace supports platform-specific extension publication
+  - the rebuilt VSIX files contain correct target metadata
+- Medium risk:
+  - the public docs are clearer about `vsce publish --target` and `vsce publish --packagePath` than about repeated manual portal uploads for one version
+- Release recommendation:
+  - manual upload is acceptable for `0.5.0`
+  - perform it sequentially
+  - verify after each upload
+  - do not batch-assume portal behavior that the docs do not explicitly state
 
 ## Notes
 

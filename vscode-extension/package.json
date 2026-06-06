@@ -1,8 +1,8 @@
 {
   "name": "pbir-design-analyzer",
   "displayName": "PBIR Design Analyzer",
-  "description": "Analytics Experience Review Platform for Power BI and Fabric teams, with story assessment, findings, evidence, remediation workflows, governance review, and migration readiness.",
-  "version": "0.4.0",
+  "description": "Cross-platform Analytics Experience Review Platform for PBIR reports and Fabric apps, with story assessment, Issues, Fix Plan, evidence, AI proposal enrichment, and migration readiness.",
+  "version": "0.5.0",
   "publisher": "bcrowell",
   "icon": "resources/icon.png",
   "repository": {
@@ -21,11 +21,15 @@
     "Other"
   ],
   "keywords": [
+    "analytics-review",
+    "fabric",
+    "fabric-app",
     "power-bi",
     "pbip",
     "pbir",
     "report-design",
-    "governance"
+    "governance",
+    "story-assessment"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
@@ -64,6 +68,11 @@
         "command": "pbirAnalyzer.scoreReport",
         "title": "PBIR Design Analyzer: Score Report",
         "icon": "$(graph)"
+      },
+      {
+        "command": "pbirAnalyzer.copyScoreDiagnostics",
+        "title": "PBIR Design Analyzer: Copy Score Diagnostics",
+        "icon": "$(copy)"
       },
       {
         "command": "pbirAnalyzer.configureScoring",
@@ -181,26 +190,27 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run clean:backend && npm run build:backend && npm run compile && npm run bundle:extension && npm run build:webview",
+    "vscode:prepublish": "node scripts/vsce-prepublish.mjs",
     "build": "npm run clean:backend && npm run build:backend && npm run compile && npm run bundle:extension && npm run build:webview",
-    "clean:backend": "rm -rf backend/rpc",
-    "build:backend": "dotnet publish ../service-dotnet/RpcHost/RpcHost.csproj -c Release -o backend/rpc",
-    "precompile": "rm -rf out dist",
+    "clean:backend": "node scripts/clean-paths.mjs backend/rpc",
+    "build:backend": "node scripts/build-backend.mjs",
+    "precompile": "node scripts/clean-paths.mjs out dist",
     "compile": "tsc -p ./",
     "bundle:extension": "node scripts/bundle-extension.mjs",
     "watch": "tsc -watch -p ./",
     "watch:extension": "node scripts/bundle-extension.mjs --watch",
-    "build:webview": "rm -rf webview-dist && vite build --config webview-src/vite.analyzer-config.config.ts && vite build --config webview-src/vite.analyzer-score.config.ts",
-    "watch:webview": "vite build --watch --config webview-src/vite.analyzer-config.config.ts & vite build --watch --config webview-src/vite.analyzer-score.config.ts",
+    "build:webview": "node scripts/build-webview.mjs",
+    "watch:webview": "node scripts/build-webview.mjs --watch",
     "dev:webview": "vite --config webview-src/vite.analyzer-score.config.ts",
-    "postinstall": "npm run build:webview",
+    "postinstall": "node scripts/postinstall.mjs",
     "pretest": "npm run compile && npm run bundle:extension",
     "test": "jest && jest -c jest.webview.config.cjs",
     "test:webview": "jest -c jest.webview.config.cjs",
     "vscode:dev": "npm run compile && npm run bundle:extension",
-    "vscode:watch": "npm run watch & npm run watch:extension",
+    "vscode:watch": "node scripts/run-parallel.mjs \"npm run watch\" \"npm run watch:extension\"",
     "lint": "eslint src --ext ts",
-    "package": "vsce package --out pbir-design-analyzer-$npm_package_version.vsix"
+    "package": "node scripts/package-vsix.mjs",
+    "package:all": "node scripts/package-vsix.mjs --all"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -217,7 +227,7 @@
     "@typescript-eslint/parser": "^8.59.2",
     "@vitejs/plugin-react": "^4.2.0",
     "@vscode/test-electron": "^2.3.8",
-    "@vscode/vsce": "^2.22.0",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.25.12",
     "eslint": "^8.54.0",
     "jest": "^30.4.0",

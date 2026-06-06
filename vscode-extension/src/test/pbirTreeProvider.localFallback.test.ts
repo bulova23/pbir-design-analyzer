@@ -94,4 +94,26 @@ describe('PbirTreeProvider local fallback', () => {
     expect(rootItems).toHaveLength(1);
     expect(rootItems[0].label).toBe('Sales & Production');
   });
+
+  it('sorts fallback page nodes deterministically when pages.json is missing', async () => {
+    fs.rmSync(path.join(projectRoot, 'Sales & Production.Report', 'definition', 'pages', 'pages.json'));
+
+    const customerPageRoot = path.join(projectRoot, 'Sales & Production.Report', 'definition', 'pages', 'CustomerPage');
+    fs.mkdirSync(customerPageRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(customerPageRoot, 'page.json'),
+      JSON.stringify({
+        name: 'CustomerPage',
+        displayName: 'Customer Analysis',
+      }),
+    );
+
+    const provider = new PbirTreeProvider();
+    provider.setProjectPath(pbipPath);
+
+    const rootItems = await provider.getChildren();
+    const reportChildren = await provider.getChildren(rootItems[0]);
+
+    expect(reportChildren.map((item) => item.label)).toEqual(['Corporate Theme', 'Customer Analysis', 'Overview']);
+  });
 });

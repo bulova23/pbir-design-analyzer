@@ -33,12 +33,14 @@ export function evaluateFixOutcome(
     let status: FixOutcomeStatus = 'Unexpected';
     if (!next) {
       status = 'Resolved';
-    } else if (previous && severityRank(next.severity) > severityRank(previous.severity)) {
-      status = 'Improved';
-    } else if (previous && severityRank(next.severity) === severityRank(previous.severity)) {
+    } else if (!previous) {
       status = 'Unexpected';
-    } else {
+    } else if (severityRank(next.severity) > severityRank(previous.severity)) {
+      status = 'Improved';
+    } else if (severityRank(next.severity) === severityRank(previous.severity)) {
       status = 'Unchanged';
+    } else {
+      status = 'Unexpected';
     }
 
     return {

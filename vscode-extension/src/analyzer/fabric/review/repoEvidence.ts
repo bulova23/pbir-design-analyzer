@@ -1,6 +1,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+function compareText(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
 export function collectRepoFiles(rootPath: string, maxDepth = 4): string[] {
   const files: string[] = [];
 
@@ -15,6 +27,8 @@ export function collectRepoFiles(rootPath: string, maxDepth = 4): string[] {
     } catch {
       return;
     }
+
+    entries.sort((left, right) => compareText(left.name, right.name));
 
     for (const entry of entries) {
       if (entry.name === 'node_modules' || entry.name.startsWith('.git')) {
@@ -32,7 +46,7 @@ export function collectRepoFiles(rootPath: string, maxDepth = 4): string[] {
   }
 
   visit(rootPath, 0);
-  return files;
+  return files.sort(compareText);
 }
 
 export function readRepoText(filePath: string): string {

@@ -1,21 +1,22 @@
 # <img src="vscode-extension/resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
 
-PBIR Design Analyzer is an Analytics Experience Review Platform for reviewing Power BI reports and analytical experiences before they are shared, governed, migrated, or used as client-facing deliverables.
+PBIR Design Analyzer 0.5.0 is the first cross-platform Analytics Experience Review Platform release.
 
-It combines story assessment, evidence-driven findings, remediation planning, deterministic fix workflows, governance review, and Fabric App readiness into one review workspace for consultants, BI architects, analytics teams, Power BI developers, and Fabric developers.
+It helps teams review PBIR reports and analytical Fabric Apps through one workspace built around Story Assessment, Issues, Fix Plan, Evidence, Fabric App Readiness, Fabric App Review, and AI Proposal Enrichment.
 
 ## Product Positioning
 
-PBIR Design Analyzer is not positioned as a PBIR metadata utility or a report linter.
+PBIR Design Analyzer is not positioned as a narrow PBIR metadata utility or a report linter.
 
-It is designed to help teams answer higher-value questions such as:
+It is designed to help teams answer higher-value review questions:
 
-- What story is this page trying to tell?
-- Does the analytical experience succeed for the intended audience?
-- What design, usability, navigation, accessibility, or actionability issues are holding it back?
+- What story is this report, dashboard, or app trying to tell?
+- What prevents that story from succeeding?
+- Which issues matter most for design quality, usability, actionability, navigation, accessibility, and governance?
 - What should be fixed first?
-- Which changes are advisory, and which ones can be executed through a deterministic workflow?
-- Which assets are strong candidates for Fabric App evolution, and which ones need redesign first?
+- Which recommendations stay advisory, and which ones can be executed through a deterministic workflow?
+- Which PBIR assets are strong candidates for Fabric App migration?
+- How does an analytical Fabric App hold up under the same review lens?
 
 ## What The Platform Delivers
 
@@ -34,6 +35,7 @@ It is designed to help teams answer higher-value questions such as:
 - navigation problems
 - accessibility concerns
 - cross-page consistency signals
+- governance risks
 
 ### Fix Plan
 
@@ -42,21 +44,13 @@ It is designed to help teams answer higher-value questions such as:
 - business rationale and prioritization guidance
 - deterministic fix opportunities for supported scenarios
 
-### AI Proposal Enrichment
-
-- stronger explanation quality
-- business rationale
-- prioritization guidance
-- expected-outcome framing
-
-This enrichment remains advisory and does not bypass deterministic execution boundaries.
-
-### Evidence-Driven Review
+### Evidence
 
 - metadata evidence
 - navigation evidence
 - screenshot evidence
 - semantic-model evidence
+- code-derived evidence
 - supporting framework analysis
 
 ### Fabric App Readiness
@@ -74,29 +68,47 @@ This enrichment remains advisory and does not bypass deterministic execution bou
 - screenshot-backed evidence
 - semantic-model usage evidence
 
-### Governance
+### AI Proposal Enrichment
 
-- standards support
-- consistency review
-- accessibility coverage
-- analytics-quality review
+- clearer explanations
+- business rationale
+- prioritization guidance
+- expected outcomes
 
-## 0.4.0 Highlights
+This enrichment remains advisory and does not bypass deterministic execution boundaries.
 
-- modern review workspace built around Overview, Issues, Fix Plan, Evidence, and Export
-- stronger story assessment and review framing for analytical pages
-- deterministic Fix Opportunities with preview, apply, rollback, grouped review safety, and re-analysis in supported areas
-- AI proposal enrichment that improves recommendations without changing deterministic execution authority
-- Fabric App Readiness for migration evaluation from PBIR assets
-- Fabric App Review foundations for analytical Fabric experiences with richer evidence
-- screenshot and semantic-model evidence support in the shared review workflow
-- review modes for executive, consultant, governance, and accessibility-focused reading paths
+## 0.5.0 Highlights
+
+### New
+
+- Fabric App Readiness Assessment
+- Fabric App Review Mode foundations
+- screenshot evidence
+- semantic-model evidence
+- analyzable surface architecture
+- surface discovery
+- analyzer registry
+- analyzer profiles
+
+### Improved
+
+- cross-platform VSIX packages for Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
+- backend startup detection and runtime checks
+- clearer degraded-mode messaging when the backend is unavailable
+- stronger review positioning for PBIR reports and analytical Fabric Apps
+- deterministic score diagnostics and report fingerprinting
+
+### Safety
+
+- deterministic fix-engine hardening
+- safer mutation planning with unsupported title and semantic-color writes held back
+- corrected severity outcome reporting
 
 ## Review Workflow
 
 1. Open a PBIP project or .Report folder.
 2. Score the report or page.
-3. Use Overview to understand story quality, top risks, and migration-readiness signals.
+3. Use Story Assessment and Overview to understand the intended narrative, top risks, and migration-readiness signals.
 4. Use Issues to triage findings by severity, page, dimension, and scope.
 5. Use Fix Plan to sequence remediation and apply supported deterministic fixes where available.
 6. Use Evidence to inspect proof before acting on recommendations.
@@ -138,13 +150,88 @@ These modes change emphasis and sequencing, not core scoring outcomes.
 
 The platform includes cross-page matrix navigation so reviewers can move from high-level weak areas directly into the exact page and review dimension that needs attention.
 
+## Platform Support
+
+- Windows x64
+- Windows arm64
+- Linux x64
+- macOS x64
+- macOS arm64
+
+Each packaged release ships as a platform-targeted VSIX with the matching backend binary for that operating system and architecture.
+
+Runtime expectation for the public `0.5.0` packages:
+
+- Windows x64 requires the matching .NET 8 runtime
+- Windows arm64 ships with a self-contained backend for `0.5.0`
+- Linux x64 requires the matching .NET 8 runtime
+- macOS x64 requires the matching .NET 8 runtime
+- macOS arm64 requires the matching .NET 8 runtime
+
+The Windows arm64 package is intentionally larger than the other target-specific VSIX files because it bundles the .NET runtime inside the backend payload for startup reliability on Windows 11 ARM.
+
+If the backend runtime is missing or cannot start, the extension falls back to degraded mode:
+
+- local PBIR tree browsing remains available
+- backend-driven scoring and governance commands stay unavailable until the correct runtime or VSIX is installed
+- the extension shows explicit degraded-mode messaging instead of failing silently
+
+## Cross-Platform Score Determinism
+
+`0.5.0` treats score determinism as a release gate.
+
+- the same report fingerprint must produce the same score, issue counts, readiness score, analyzer metadata, and findings on every supported platform
+- theme, locale, path separators, newline style, filesystem traversal order, and machine architecture must not change scoring outcomes
+
+After scoring, use **PBIR Design Analyzer: Copy Score Diagnostics** to capture the active diagnostic payload. The payload is copied to the clipboard and also written to the **PBIR Score Diagnostics** output channel.
+
+To compare two saved diagnostic payloads locally:
+
+```bash
+cd vscode-extension
+node scripts/compare-score-diagnostics.mjs /path/to/first.json /path/to/second.json
+```
+
+If the fingerprints match, the score outputs must match. If the fingerprints differ, treat the report copies as non-identical input.
+
+## Final 0.5.0 Package Set
+
+Manual release packaging for `0.5.0` should produce these five files:
+
+- `pbir-design-analyzer-0.5.0-win32-x64.vsix`
+- `pbir-design-analyzer-0.5.0-win32-arm64.vsix`
+- `pbir-design-analyzer-0.5.0-linux-x64.vsix`
+- `pbir-design-analyzer-0.5.0-darwin-x64.vsix`
+- `pbir-design-analyzer-0.5.0-darwin-arm64.vsix`
+
+Install the VSIX that matches the target operating system and architecture.
+
+## Icon Rendering Note
+
+The source icon PNG is transparent and the packaged copy should match it byte-for-byte.
+
+If VS Code shows the icon on a light tile in the extension details page, treat that as VS Code rendering behavior rather than a packaging defect.
+
+## Manual Marketplace Publishing
+
+`0.5.0` is prepared for manual Marketplace upload. Do not rely on repo-side publication automation for this release.
+
+Manual release flow:
+
+1. Rebuild and inspect the five target-specific VSIX files.
+2. Keep all five artifacts for the same `0.5.0` extension listing.
+3. Upload the matching package for each supported target during manual Marketplace publication.
+4. Keep the Windows arm64 self-contained package in the release set alongside the framework-dependent Windows x64, Linux x64, macOS x64, and macOS arm64 packages.
+5. Do not alter the icon asset unless the packaged icon no longer matches the source file.
+
 ## Documentation
 
 - [Detailed How-To Guide](docs/HOW_TO_USE.md)
 - [Extension README](vscode-extension/README.md)
 - [Changelog](docs/CHANGELOG.md)
-- [Roadmap](docs/ROADMAP.md)
 - [Release Guide](docs/RELEASING.md)
+- [0.5.0 Release Summary](docs/releases/2026-06-05-0-5-0-release-summary.md)
+- [Roadmap](docs/ROADMAP.md)
 
 ## Roadmap Summary
 
@@ -160,9 +247,9 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed ordering and linked specs.
 
 ## Repository Layout
 
-- vscode-extension/ - shipped extension
-- service-dotnet/ - backend host and scoring services
-- docs/ - usage guidance, changelog, roadmap, and release support
+- `vscode-extension/` - shipped extension
+- `service-dotnet/` - backend host and scoring services
+- `docs/` - usage guidance, changelog, release notes, roadmap, and release support
 
 ## Installation
 
@@ -173,6 +260,13 @@ cd vscode-extension
 npm install
 npm run build
 npm run package
+```
+
+Build all platform-targeted VSIX packages:
+
+```bash
+cd vscode-extension
+npm run package:all
 ```
 
 Run backend tests:

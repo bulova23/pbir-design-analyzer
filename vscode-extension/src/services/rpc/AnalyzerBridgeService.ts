@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { LanguageClient, State } from 'vscode-languageclient/node';
 
 export enum BridgeState {
   UNINITIALIZED = 'uninitialized',
@@ -19,6 +19,8 @@ export class AnalyzerBridgeService extends EventEmitter {
   private state: BridgeState = BridgeState.UNINITIALIZED;
   private readonly defaultTimeout = 30000;
   private readonly outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer Backend');
+  private isShuttingDown = false;
+  private lastClientState: State = State.Stopped;
 
   private constructor() {
     super();
@@ -43,13 +45,43 @@ export class AnalyzerBridgeService extends EventEmitter {
       return;
     }
 
+    this.isShuttingDown = false;
     this.state = BridgeState.STARTING;
     this.client = client;
     this.outputChannel.appendLine('[AnalyzerBridge] Waiting for analyzer backend to become ready...');
+    this.emit('stateChange', BridgeState.STARTING);
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    this.client.onDidChangeState((event) => {
+      this.lastClientState = event.newState;
+      if (event.newState === State.Stopped) {
+        if (this.isShuttingDown) {
+          this.state = BridgeState.UNINITIALIZED;
+          this.emit('stateChange', BridgeState.UNINITIALIZED);
+          return;
+        }
+
+        this.outputChannel.appendLine('[AnalyzerBridge] Analyzer backend stopped unexpectedly');
+        this.state = BridgeState.ERROR;
+        this.emit('stateChange', BridgeState.ERROR);
+      }
+    });
+
+    try {
+      const pingResponse = await this.client.sendRequest('model/ping', {});
+      const readyStatus = extractReadyStatus(pingResponse);
+      if (readyStatus !== 'ready') {
+        throw new Error(`Backend ping did not report a ready status: ${JSON.stringify(pingResponse)}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.outputChannel.appendLine(`[AnalyzerBridge] Analyzer backend failed readiness handshake: ${message}`);
+      this.state = BridgeState.ERROR;
+      this.emit('stateChange', BridgeState.ERROR);
+      throw error;
+    }
 
     this.state = BridgeState.READY;
+    this.lastClientState = State.Running;
     this.outputChannel.appendLine('[AnalyzerBridge] Analyzer backend ready');
     this.emit('stateChange', BridgeState.READY);
     this.emit('connected');
@@ -70,13 +102,17 @@ export class AnalyzerBridgeService extends EventEmitter {
   async shutdown(): Promise<void> {
     if (this.client) {
       try {
-        await this.client.stop();
+        this.isShuttingDown = true;
+        if (this.lastClientState === State.Running && this.client.isRunning()) {
+          await this.client.stop();
+        }
       } catch {
         // Ignore shutdown races during extension teardown.
       }
       this.client = null;
     }
 
+    this.lastClientState = State.Stopped;
     this.state = BridgeState.UNINITIALIZED;
     this.emit('stateChange', BridgeState.UNINITIALIZED);
   }
@@ -141,4 +177,25 @@ export class AnalyzerBridgeService extends EventEmitter {
       throw new Error(`RPC request failed: ${message}`);
     }
   }
+}
+
+function extractReadyStatus(response: unknown): string | undefined {
+  if (!response || typeof response !== 'object') {
+    return undefined;
+  }
+
+  const directStatus = (response as { status?: unknown }).status;
+  if (typeof directStatus === 'string') {
+    return directStatus;
+  }
+
+  const data = (response as { data?: unknown }).data;
+  if (data && typeof data === 'object') {
+    const nestedStatus = (data as { status?: unknown }).status;
+    if (typeof nestedStatus === 'string') {
+      return nestedStatus;
+    }
+  }
+
+  return undefined;
 }

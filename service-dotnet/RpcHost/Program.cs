@@ -16,6 +16,8 @@ namespace PowerBIModelingService.RpcHost;
 /// </summary>
 public static class Program
 {
+    internal const string BackendVersion = "0.1.11";
+
     public static async Task<int> Main()
     {
         Log.Logger = new LoggerConfiguration()
@@ -196,7 +198,7 @@ internal sealed class SimpleJsonRpcServer
                 await WriteResultAsync(request.Id, new
                 {
                     capabilities = new { },
-                    serverInfo = new { name = "PBIR Design Analyzer Backend", version = "0.1.11" },
+                    serverInfo = new { name = "PBIR Design Analyzer Backend", version = Program.BackendVersion },
                 }).ConfigureAwait(false);
                 return;
 
@@ -224,6 +226,7 @@ internal sealed class SimpleJsonRpcServer
                 {
                     status = "ready",
                     connected = false,
+                    version = Program.BackendVersion,
                 })).ConfigureAwait(false);
                 return;
 

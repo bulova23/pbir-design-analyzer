@@ -150,6 +150,18 @@ function resolveReportLocation(projectPath: string): PbirReportLocation | undefi
   };
 }
 
+function compareText(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
 function getOrderedPageIds(pagesRoot: string): string[] {
   const pagesMetadata = readJsonFile(path.join(pagesRoot, 'pages.json'));
   const pageOrder = pagesMetadata?.pageOrder;
@@ -164,7 +176,8 @@ function getOrderedPageIds(pagesRoot: string): string[] {
   return fs
     .readdirSync(pagesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
+    .map((entry) => entry.name)
+    .sort(compareText);
 }
 
 function buildThemeNode(location: PbirReportLocation): PbirThemeNode | undefined {
@@ -201,7 +214,7 @@ function buildVisualNodes(pageFolder: string, workspaceRoot: string): PbirVisual
   }
 
   const visuals: PbirVisualNode[] = [];
-  for (const entry of fs.readdirSync(visualsRoot, { withFileTypes: true })) {
+  for (const entry of fs.readdirSync(visualsRoot, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
     if (!entry.isDirectory()) {
       continue;
     }

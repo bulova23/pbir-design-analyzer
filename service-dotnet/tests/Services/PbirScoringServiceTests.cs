@@ -149,6 +149,39 @@ public sealed class PbirScoringServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ScoreAsync_MultiPageReport_UsesDeterministicDirectoryOrderWhenPagesJsonMissing()
+    {
+        var tempDir = CreateTempPbirFolderWithoutPagesJson(
+            ("section-3", "Order Detail"),
+            ("section-1", "Overview"),
+            ("section-2", "Customer Analysis"));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.PageScores);
+        Assert.Collection(
+            result.PageScores!,
+            page => Assert.Equal("Overview", page.PageName),
+            page => Assert.Equal("Customer Analysis", page.PageName),
+            page => Assert.Equal("Order Detail", page.PageName));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_SinglePageMode_UsesStablePageName()
+    {
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("OverviewPage", """{"name":"OverviewPage","displayName":"Overview","visuals":[{"id":"v1","type":"barChart","x":0,"y":0,"width":100,"height":100}]}"""),
+            ("DetailPage", """{"name":"DetailPage","displayName":"Details","visuals":[{"id":"v1","type":"barChart","x":0,"y":0,"width":100,"height":100}]}"""));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir, config: null, pageName: "OverviewPage");
+
+        Assert.Equal("OverviewPage", result.ScoredPageName);
+        Assert.Equal(1, result.DataVisualCount);
+    }
+
+    [Fact]
     public async Task ScoreAsync_GestaltFeedbackIncludesCriterionPoints()
     {
         var tempDir = CreateTempPbirFolder(3);
@@ -406,6 +439,35 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.NotNull(result.VisualMetadata);
         Assert.Equal("Revenue Overview", result.VisualMetadata!.VisiblePageTitle);
         Assert.Equal("Region", Assert.Single(result.VisualMetadata.Visuals[0].CategoryHints));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_DirectoryVisualParser_OrdersVisualsDeterministically()
+    {
+        var tempDir = CreateTempPbirFolderWithDirectoryVisuals(
+            """{"displayName":"Page 1"}""",
+            ("visual-z",
+            """
+            {"name":"visual-z","position":{"x":240,"y":160,"width":120,"height":100},
+             "visual":{"visualType":"barChart"}}
+            """),
+            ("visual-a",
+            """
+            {"name":"visual-a","position":{"x":20,"y":20,"width":120,"height":100},
+             "visual":{"visualType":"card"}}
+            """),
+            ("visual-m",
+            """
+            {"name":"visual-m","position":{"x":120,"y":20,"width":120,"height":100},
+             "visual":{"visualType":"lineChart"}}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.Equal(
+            new[] { "visual-a", "visual-m", "visual-z" },
+            result.VisualMetadata!.Visuals.Select(visual => visual.VisualId).ToArray());
     }
 
     [Fact]
@@ -1665,7 +1727,7 @@ public sealed class PbirScoringServiceTests : IDisposable
         var svc = BuildScoringService();
 
         // Single-page mode so top-level result.PerStateScores carries the bookmark overlay.
-        var result = await svc.ScoreAsync(tempDir, config: null, pageName: "Page 1");
+        var result = await svc.ScoreAsync(tempDir, config: null, pageName: "Page1");
 
         Assert.NotNull(result.PerStateScores);
         Assert.Equal(3, result.PerStateScores!.Count);
@@ -1934,6 +1996,30 @@ public sealed class PbirScoringServiceTests : IDisposable
         var pageOrderJson = string.Join(",", pageOrder.Select(pageId => $"\"{pageId}\""));
         File.WriteAllText(Path.Combine(pagesRoot, "pages.json"),
             $$"""{"pageOrder":[{{pageOrderJson}}]}""");
+
+        foreach (var (pageId, displayName) in pages)
+        {
+            var pageDir = Path.Combine(pagesRoot, pageId);
+            Directory.CreateDirectory(pageDir);
+            File.WriteAllText(Path.Combine(pageDir, "page.json"),
+                $$"""{"displayName":"{{displayName}}","visuals":[{"id":"v1","type":"barChart","x":0,"y":0,"width":100,"height":100}]}""");
+        }
+
+        return tmp;
+    }
+
+    private string CreateTempPbirFolderWithoutPagesJson(
+        params (string PageId, string DisplayName)[] pages)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "pbir-score-" + Guid.NewGuid().ToString("N"));
+        var reportRoot = Path.Combine(tmp, "TestReport.Report");
+        var defDir = Path.Combine(reportRoot, "definition");
+        var pagesRoot = Path.Combine(defDir, "pages");
+        Directory.CreateDirectory(pagesRoot);
+        _tempDirs.Add(tmp);
+
+        File.WriteAllText(Path.Combine(defDir, "report.json"),
+            """{"id":"test","name":"TestReport","theme":{"name":"CY24SU10"}}""");
 
         foreach (var (pageId, displayName) in pages)
         {

@@ -62,6 +62,7 @@ public sealed class PbirTreeBuilder
         {
             orderedPageIds = Directory.Exists(pagesRoot)
                 ? Directory.GetDirectories(pagesRoot)
+                    .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
                     .Select(Path.GetFileName)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .Select(name => name!)
@@ -113,7 +114,9 @@ public sealed class PbirTreeBuilder
             return visuals;
         }
 
-        var visualFolders = Directory.GetDirectories(visualsRoot);
+        var visualFolders = Directory.GetDirectories(visualsRoot)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+            .ToArray();
         foreach (var visualFolder in visualFolders)
         {
             var visualJsonPath = Path.Combine(visualFolder, "visual.json");

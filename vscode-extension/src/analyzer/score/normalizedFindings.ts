@@ -45,6 +45,18 @@ function sanitizeIdPart(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+function compareText(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
 function splitFeedbackText(text: string): {
   title: string;
   summary: string;
@@ -146,7 +158,7 @@ function inferFindingScope(pageName: string | undefined, item: FrameworkFeedback
 function inferAffectedPages(pageName: string | undefined, item: FrameworkFeedbackItem): string[] {
   const affectedPages = item.affectedVisuals?.map((visual) => visual.pageName) ?? [];
   if (affectedPages.length > 0) {
-    return [...new Set(affectedPages)];
+    return [...new Set(affectedPages)].sort(compareText);
   }
 
   return pageName ? [pageName] : [];
@@ -300,7 +312,7 @@ function buildBenchmarkFinding(
 }
 
 function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison'>): void {
-  for (const [frameworkKey, items] of Object.entries(page.feedback ?? {})) {
+  for (const [frameworkKey, items] of Object.entries(page.feedback ?? {}).sort(([left], [right]) => compareText(left, right))) {
     for (const item of items) {
       const finding = buildFrameworkFinding(frameworkKey, item, page.pageName);
       if (finding) {
@@ -327,7 +339,7 @@ function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, '
 function dedupeFindings(findings: NormalizedFinding[]): NormalizedFinding[] {
   const seen = new Set<string>();
   return findings.filter((finding) => {
-    const key = `${finding.title}|${finding.summary}|${finding.affectedPages.join('|')}`;
+    const key = `${finding.title}|${finding.summary}|${[...finding.affectedPages].sort(compareText).join('|')}`;
     if (seen.has(key)) {
       return false;
     }
@@ -350,6 +362,42 @@ function severityRank(severity: NormalizedFindingSeverity): number {
   }
 }
 
+function compareEvidence(
+  left: NormalizedFinding['evidence'][number],
+  right: NormalizedFinding['evidence'][number],
+): number {
+  return compareText(
+    `${left.kind}|${left.pageName ?? ''}|${left.frameworkKey ?? ''}|${left.visualId ?? ''}|${left.label}|${left.detail ?? ''}`,
+    `${right.kind}|${right.pageName ?? ''}|${right.frameworkKey ?? ''}|${right.visualId ?? ''}|${right.label}|${right.detail ?? ''}`,
+  );
+}
+
+function normalizeFinding(finding: NormalizedFinding): NormalizedFinding {
+  return {
+    ...finding,
+    affectedPages: [...finding.affectedPages].sort(compareText),
+    frameworkImpact: [...finding.frameworkImpact].sort(compareText),
+    evidence: [...finding.evidence].sort(compareEvidence),
+  };
+}
+
+export function compareNormalizedFindings(left: NormalizedFinding, right: NormalizedFinding): number {
+  const severityDelta = severityRank(left.severity) - severityRank(right.severity);
+  if (severityDelta !== 0) {
+    return severityDelta;
+  }
+
+  const confidenceDelta = right.confidence - left.confidence;
+  if (confidenceDelta !== 0) {
+    return confidenceDelta;
+  }
+
+  return compareText(
+    `${left.scope}|${left.impactArea}|${left.title}|${left.summary}|${left.id}`,
+    `${right.scope}|${right.impactArea}|${right.title}|${right.summary}|${right.id}`,
+  );
+}
+
 export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[] {
   const findings: NormalizedFinding[] = [];
 
@@ -362,7 +410,7 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
       pushPageFindings(findings, page);
     }
   } else {
-    for (const [frameworkKey, items] of Object.entries(result.feedback ?? {})) {
+    for (const [frameworkKey, items] of Object.entries(result.feedback ?? {}).sort(([left], [right]) => compareText(left, right))) {
       for (const item of items) {
         const finding = buildFrameworkFinding(frameworkKey, item, result.scoredPageName);
         if (finding) {
@@ -386,12 +434,7 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
     }
   }
 
-  return dedupeFindings(findings).sort((left, right) => {
-    const severityDelta = severityRank(left.severity) - severityRank(right.severity);
-    if (severityDelta !== 0) {
-      return severityDelta;
-    }
-
-    return right.confidence - left.confidence;
-  });
+  return dedupeFindings(findings)
+    .map(normalizeFinding)
+    .sort(compareNormalizedFindings);
 }

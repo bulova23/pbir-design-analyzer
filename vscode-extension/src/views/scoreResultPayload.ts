@@ -34,7 +34,7 @@ import { buildFabricReadinessFindings } from '../analyzer/fabric/readiness/readi
 import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
-import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
+import { buildNormalizedFindings, compareNormalizedFindings } from '../analyzer/score/normalizedFindings';
 import { buildOverviewSummary } from '../analyzer/score/overviewSummary';
 import { buildPagePurposeAnalysis } from '../analyzer/score/pagePurposeAnalysis';
 import { getReviewPresentationPersonaProfiles } from '../analyzer/score/personaPresentation';
@@ -824,7 +824,7 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     normalized.normalizedFindings = [
       ...(normalized.normalizedFindings ?? []),
       ...buildFabricReadinessFindings(normalized, normalized.readinessAssessment),
-    ];
+    ].sort(compareNormalizedFindings);
   }
   normalized.fixPlan = buildFixPlan(normalized.normalizedFindings);
   normalized.fixOpportunities = buildFixOpportunities(normalized);

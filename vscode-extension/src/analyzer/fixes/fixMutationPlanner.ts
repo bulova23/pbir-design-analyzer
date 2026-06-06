@@ -8,6 +8,18 @@ import type {
   VisualMetadataItem,
 } from '../contracts/scorePanel';
 
+function compareText(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
 interface ReportDefinitionPaths {
   definitionRoot: string;
   reportJsonPath: string;
@@ -15,6 +27,7 @@ interface ReportDefinitionPaths {
   pages: Array<{
     pageId: string;
     pageName: string;
+    displayName: string;
     pageJsonPath: string;
     visualFiles: Map<string, string>;
   }>;
@@ -52,22 +65,25 @@ export function resolveReportDefinitionPaths(reportPath: string): ReportDefiniti
   const pagesJsonPath = path.join(pagesRoot, 'pages.json');
   const pageOrder = fs.existsSync(pagesJsonPath)
     ? ((readJsonFile(pagesJsonPath).pageOrder as unknown[]) ?? []).filter((entry): entry is string => typeof entry === 'string')
-    : fs.readdirSync(pagesRoot).filter((entry) => fs.statSync(path.join(pagesRoot, entry)).isDirectory());
+    : fs.readdirSync(pagesRoot)
+      .filter((entry) => fs.statSync(path.join(pagesRoot, entry)).isDirectory())
+      .sort(compareText);
 
   const pages = pageOrder.map((pageId) => {
     const pageDir = path.join(pagesRoot, pageId);
     const pageJsonPath = path.join(pageDir, 'page.json');
     const pageJson = fs.existsSync(pageJsonPath) ? readJsonFile(pageJsonPath) : {};
-    const pageName = typeof pageJson.displayName === 'string'
-      ? pageJson.displayName
-      : typeof pageJson.name === 'string'
+    const pageName = typeof pageJson.name === 'string'
         ? pageJson.name
         : pageId;
+    const displayName = typeof pageJson.displayName === 'string'
+      ? pageJson.displayName
+      : pageName;
     const visualsRoot = path.join(pageDir, 'visuals');
     const visualFiles = new Map<string, string>();
 
     if (fs.existsSync(visualsRoot)) {
-      for (const visualId of fs.readdirSync(visualsRoot)) {
+      for (const visualId of fs.readdirSync(visualsRoot).sort(compareText)) {
         const visualJsonPath = path.join(visualsRoot, visualId, 'visual.json');
         if (fs.existsSync(visualJsonPath)) {
           visualFiles.set(visualId, visualJsonPath);
@@ -78,6 +94,7 @@ export function resolveReportDefinitionPaths(reportPath: string): ReportDefiniti
     return {
       pageId,
       pageName,
+      displayName,
       pageJsonPath,
       visualFiles,
     };
@@ -114,7 +131,17 @@ function getPlanningPages(result: ScoreResult): PlanningPage[] {
 }
 
 function findPage(paths: ReportDefinitionPaths, pageName: string) {
-  return paths.pages.find((page) => page.pageName === pageName);
+  return paths.pages.find((page) => page.pageName === pageName || page.displayName === pageName);
+}
+
+function isSupportedMutationCategory(category: FixOpportunityCategory): boolean {
+  switch (category) {
+    case 'title':
+    case 'semanticColor':
+      return false;
+    default:
+      return true;
+  }
 }
 
 function findTitleVisual(page: PlanningPage | undefined): VisualMetadataItem | undefined {
@@ -376,6 +403,10 @@ export function planMutationsForCategory(args: {
   pageName?: string;
   affectedPages: string[];
 }): FixMutation[] {
+  if (!isSupportedMutationCategory(args.category)) {
+    return [];
+  }
+
   const paths = resolveReportDefinitionPaths(args.result.reportPath);
   if (!paths) {
     return [];

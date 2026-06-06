@@ -9,6 +9,7 @@ export const PBIR_ANALYZER_COMMANDS = {
   openProject: 'pbirAnalyzer.openProject',
   refreshReports: 'pbirAnalyzer.refreshReports',
   scoreReport: 'pbirAnalyzer.scoreReport',
+  copyScoreDiagnostics: 'pbirAnalyzer.copyScoreDiagnostics',
   configureScoring: 'pbirAnalyzer.configureScoring',
   checkGovernance: 'pbirAnalyzer.checkGovernance',
   exportGovernanceReport: 'pbirAnalyzer.exportGovernanceReport',
@@ -92,6 +93,7 @@ export function registerCommands(
 
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.refreshReports, 'pbir.refreshTree');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.scoreReport, 'pbir.scoreReport');
+  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.copyScoreDiagnostics, 'pbir.copyScoreDiagnostics');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.checkGovernance, 'pbir.governanceCheck');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportGovernanceReport, 'pbir.exportGovernanceReport');
   registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportReviewWorkflow, 'pbir.exportReviewWorkflow');

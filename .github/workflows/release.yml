@@ -25,8 +25,12 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: macos-latest
+  build-targets:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [win32-x64, linux-x64, darwin-x64, darwin-arm64]
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
       IS_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease || 'false' }}
@@ -72,29 +76,50 @@ jobs:
         working-directory: vscode-extension
         run: npm test
 
-      - name: Package VSIX
+      - name: Package target VSIX
         working-directory: vscode-extension
-        run: npm run package
-
-      - name: Resolve VSIX path
-        id: vsix
-        shell: bash
-        run: |
-          TAG_VERSION="${RELEASE_TAG#v}"
-          VSIX_PATH="$GITHUB_WORKSPACE/vscode-extension/pbir-design-analyzer-$TAG_VERSION.vsix"
-          if [[ ! -f "$VSIX_PATH" ]]; then
-            echo "VSIX not found"
-            exit 1
-          fi
-          echo "path=$VSIX_PATH" >> "$GITHUB_OUTPUT"
+        run: node scripts/package-vsix.mjs --target ${{ matrix.target }}
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pbir-design-analyzer-${{ env.RELEASE_TAG }}
-          path: ${{ steps.vsix.outputs.path }}
+          name: pbir-design-analyzer-${{ matrix.target }}
+          path: vscode-extension/pbir-design-analyzer-*-${{ matrix.target }}.vsix
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build-targets
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+      IS_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease || 'false' }}
+      PUBLISH_MARKETPLACE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publish_marketplace || 'true' }}
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Download packaged VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-vsix
+          pattern: pbir-design-analyzer-*
+          merge-multiple: true
 
       - name: Create or update GitHub release
         env:
@@ -106,10 +131,16 @@ jobs:
             PRERELEASE_FLAG="--prerelease"
           fi
 
+          VSIX_FILES=(dist-vsix/*.vsix)
+          if [[ ! -f "${VSIX_FILES[0]}" ]]; then
+            echo "No VSIX files found"
+            exit 1
+          fi
+
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "${{ steps.vsix.outputs.path }}" --clobber
+            gh release upload "$RELEASE_TAG" "${VSIX_FILES[@]}" --clobber
           else
-            gh release create "$RELEASE_TAG" "${{ steps.vsix.outputs.path }}" \
+            gh release create "$RELEASE_TAG" "${VSIX_FILES[@]}" \
               --title "$RELEASE_TAG" \
               --generate-notes \
               $PRERELEASE_FLAG
@@ -127,4 +158,6 @@ jobs:
             exit 1
           fi
 
-          npx @vscode/vsce publish --packagePath "${{ steps.vsix.outputs.path }}" --skip-duplicate
+          for package_path in ../dist-vsix/*.vsix; do
+            npx @vscode/vsce publish --packagePath "$package_path" --skip-duplicate
+          done

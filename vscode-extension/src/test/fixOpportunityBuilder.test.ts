@@ -203,7 +203,7 @@ describe('buildFixOpportunities', () => {
     }
   });
 
-  it('builds a title normalization opportunity from remediation intent', () => {
+  it('keeps title remediation advisory until schema-correct write support exists', () => {
     const reportPath = createTempReport();
     const result: ScoreResult = {
       gestaltScore: 0,
@@ -230,23 +230,10 @@ describe('buildFixOpportunities', () => {
 
     const opportunities = buildFixOpportunities(result);
 
-    expect(opportunities).toHaveLength(1);
-    expect(opportunities[0]).toMatchObject({
-      remediationItemId: 'fix-story',
-      category: 'title',
-      state: 'Previewed',
-      targetObjectIds: ['title-1'],
-    });
-    expect(opportunities[0].mutations[0]).toMatchObject({
-      targetObjectId: 'title-1',
-      mutationType: 'setPosition',
-      propertyPath: 'position.y',
-      before: 180,
-      after: 24,
-    });
+    expect(opportunities).toEqual([]);
   });
 
-  it('builds opportunities from single-page scoredPageName and top-level visual metadata', () => {
+  it('keeps single-page title remediation advisory until schema-correct write support exists', () => {
     const reportPath = createTempReport();
     const singlePage = pageScore();
     const result: ScoreResult = {
@@ -275,23 +262,7 @@ describe('buildFixOpportunities', () => {
 
     const opportunities = buildFixOpportunities(result);
 
-    expect(opportunities).toHaveLength(1);
-    expect(opportunities[0]).toMatchObject({
-      remediationItemId: 'fix-story',
-      category: 'title',
-      affectedPages: ['Overview'],
-      targetObjectIds: ['title-1'],
-    });
-    expect(opportunities[0].mutations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          targetObjectId: 'title-1',
-          propertyPath: 'position.y',
-          before: 180,
-          after: 24,
-        }),
-      ]),
-    );
+    expect(opportunities).toEqual([]);
   });
 
   it('builds a layout normalization opportunity for layout remediation', () => {
@@ -345,7 +316,7 @@ describe('buildFixOpportunities', () => {
     );
   });
 
-  it('builds cross-page standards opportunities for title anchors and semantic colors', () => {
+  it('builds only supported cross-page standards opportunities', () => {
     const reportPath = createTempReport();
     const result: ScoreResult = {
       gestaltScore: 0,
@@ -396,10 +367,8 @@ describe('buildFixOpportunities', () => {
 
     const opportunities = buildFixOpportunities(result);
 
-    expect(opportunities).toHaveLength(2);
-    expect(opportunities.map((item: { category: string }) => item.category)).toEqual(
-      expect.arrayContaining(['crossPageConsistency', 'semanticColor']),
-    );
+    expect(opportunities).toHaveLength(1);
+    expect(opportunities[0].category).toBe('crossPageConsistency');
   });
 
   it('keeps unsupported remediation items advisory by returning no opportunities', () => {

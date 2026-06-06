@@ -28,6 +28,10 @@ import { enrichFixPlanWithAdvisoryContent } from '../analyzer/proposalEnrichment
 import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
+import {
+  getRecordedBackendIssue,
+  getRecordedBackendLaunchDiagnostics,
+} from '../languageServer/analyzerBackendClient';
 import { resolveWebviewAssets } from './webviewAssets';
 import { buildFixWorkflowPayload, normalizeScoreResultPayload } from './scoreResultPayload';
 import { revealVisualInPbirExplorer } from './pbirExplorerReveal';
@@ -62,9 +66,11 @@ import {
   recordFixSessionRollback,
 } from '../analyzer/fixes/fixSessionHistory';
 import { evaluateFixOutcome, summarizeBatchFixOutcomes } from '../analyzer/fixes/fixOutcomeEvaluator';
+import { buildScoreDeterminismDiagnostics } from '../analyzer/score/scoreDiagnostics';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
+  private static readonly diagnosticsOutput = vscode.window.createOutputChannel('PBIR Score Diagnostics');
 
   private readonly panel: vscode.WebviewPanel;
   private readonly bridge: AnalyzerBridgeService | undefined;
@@ -86,6 +92,7 @@ export class PbirScorePanel {
   private fixSelectionApprovalState: NonNullable<ScorePanelState['fixSelection']>['approvalState'] = 'NeedsPreview';
   private fixApplySessions: FixApplySessionRecord[] = [];
   private fixWorkflowMessage: string | undefined;
+  private lastScoreDiagnosticsJson: string | undefined;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -117,6 +124,16 @@ export class PbirScorePanel {
     context.subscriptions.push({ dispose: () => instance.dispose() });
     await instance.refresh();
     return instance;
+  }
+
+  static async copyCurrentScoreDiagnostics(): Promise<boolean> {
+    if (!PbirScorePanel.instance?.lastScoreDiagnosticsJson) {
+      return false;
+    }
+
+    await vscode.env.clipboard.writeText(PbirScorePanel.instance.lastScoreDiagnosticsJson);
+    PbirScorePanel.diagnosticsOutput.show(true);
+    return true;
   }
 
   private constructor(
@@ -953,6 +970,7 @@ export class PbirScorePanel {
           },
         );
         this.currentResult = normalizedResult;
+        await this.captureScoreDiagnostics(normalizedResult);
         const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
         const reviewPacketPreview = buildReviewWorkflowExportData(
           normalizedResult,
@@ -965,9 +983,12 @@ export class PbirScorePanel {
       this.panel.title = 'PBIR Optimization Report';
 
       if (!this.bridge) {
+        const recordedIssue = getRecordedBackendIssue();
         this.postMessage({
           type: 'error',
-          message: 'LSP bridge not available. Is the .NET service running?',
+          message: recordedIssue
+            ? `${recordedIssue.message} See the PBIR Design Analyzer output channel for backend diagnostics.`
+            : 'LSP bridge not available. Is the .NET service running?',
         });
         return;
       }
@@ -1002,6 +1023,7 @@ export class PbirScorePanel {
         },
       );
       this.currentResult = normalizedResult;
+      await this.captureScoreDiagnostics(normalizedResult);
       const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
       const reviewPacketPreview = buildReviewWorkflowExportData(
         normalizedResult,
@@ -1142,6 +1164,40 @@ export class PbirScorePanel {
 
   private getNonce(): string {
     return Array.from({ length: 32 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+  }
+
+  private async captureScoreDiagnostics(result: ScoreResult): Promise<void> {
+    const diagnostics = buildScoreDeterminismDiagnostics({
+      result,
+      reportPath: this.reportPath,
+      extensionVersion: String(this.context.extension.packageJSON.version ?? 'unknown'),
+      backendVersion: await this.readBackendVersion(),
+      backendLaunchDiagnostics: getRecordedBackendLaunchDiagnostics(),
+    });
+
+    this.lastScoreDiagnosticsJson = JSON.stringify(diagnostics, null, 2);
+    PbirScorePanel.diagnosticsOutput.appendLine(`=== ${new Date().toISOString()} :: ${path.basename(this.reportPath)} ===`);
+    PbirScorePanel.diagnosticsOutput.appendLine(this.lastScoreDiagnosticsJson);
+    PbirScorePanel.diagnosticsOutput.appendLine('');
+  }
+
+  private async readBackendVersion(): Promise<string | undefined> {
+    if (!this.bridge) {
+      return undefined;
+    }
+
+    try {
+      const response = await this.bridge.executeRequest('model/ping', {}) as {
+        success?: boolean;
+        data?: { version?: unknown };
+      };
+
+      return response?.success && typeof response.data?.version === 'string'
+        ? response.data.version
+        : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   dispose(): void {

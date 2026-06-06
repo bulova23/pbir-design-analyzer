@@ -1,26 +1,32 @@
 # PBIR Design Analyzer Roadmap
 
-This roadmap reflects the post-`0.4.0` product direction after the review workspace stabilization, deterministic fix-opportunity follow-up release, Phase 2 hardening, and Phase 3 proposal-enrichment implementation landed on the active branch.
+This roadmap reflects the post-`0.5.0` product direction after the review workspace expansion, Fabric App review foundations, screenshot and semantic-model evidence, cross-platform packaging, and backend hardening landed on the active branch.
 
-## Current Release: 0.4.0
+## Current Release: 0.5.0
 
-`0.4.0` extends the core review and deterministic fix workflow with grouped deterministic safety controls and advisory proposal enrichment:
+`0.5.0` establishes the first cross-platform Analytics Experience Review Platform release with:
 
 - Overview
 - Issues
 - Fix Plan
-- deterministic Fix Opportunities for supported remediation items
-- advisory proposal enrichment with fallback-safe `AI-enriched guidance`
+- advisory proposal enrichment
 - Evidence
+- Fabric App Readiness
+- Fabric App Review foundations
+- screenshot evidence
+- semantic-model evidence
+- analyzable surfaces
+- surface discovery
+- analyzer registry
+- analyzer profiles
+- target-specific VSIX packages for Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
 - secondary Export
-- normalized findings
-- smart collapse defaults
-- intent confirmation and review feedback
-- workspace review modes
-- cross-page matrix navigation
-- preview/apply/rollback/re-analysis trust loop
+- deterministic preview/apply/rollback trust loop for supported PBIR fix categories
 
-It builds on the `0.3.1` single-page planner follow-up, which closed the gap where page-level scoring needed top-level `scoredPageName + visualMetadata` support when `pageScores` are absent.
+Packaging note for the shipped `0.5.0` set:
+
+- Windows arm64 uses a self-contained backend package for startup reliability on Windows 11 ARM
+- the other current targets remain framework-dependent
 
 The next roadmap epics build on that foundation without reopening the scoring architecture.
 
@@ -47,7 +53,7 @@ Phase 3 proposal enrichment is also now implemented on the active branch as an a
 
 ## Analytics Experience Review Platform
 
-The platform direction now extends beyond PBIR-only review through the new `Analyzable Surface` architecture:
+The platform direction now centers on a broader Analytics Experience Review Platform through the new `Analyzable Surface` architecture:
 
 - analyzable surface
 - surface discovery

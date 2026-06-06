@@ -8,21 +8,21 @@ import type { NormalizedFinding, PageScore, ScoreResult, VisualMetadataItem } fr
 
 function visual(overrides: Partial<VisualMetadataItem> = {}): VisualMetadataItem {
   return {
-    visualId: 'title-1',
-    visualType: 'textbox',
-    x: 100,
-    y: 180,
-    width: 400,
-    height: 48,
+    visualId: 'chart-1',
+    visualType: 'barChart',
+    x: 103,
+    y: 220,
+    width: 390,
+    height: 200,
     isHidden: false,
     isNavigationElement: false,
     isDecorative: false,
     isSlicer: false,
-    visibleTitleText: 'Overview Title',
+    visibleTitleText: 'Chart 1',
     visibleSubtitleText: undefined,
-    textBoxText: 'Overview Title',
-    bestVisibleText: 'Overview Title',
-    hasVisibleTitleIntent: true,
+    textBoxText: undefined,
+    bestVisibleText: 'Chart 1',
+    hasVisibleTitleIntent: false,
     hasLegend: false,
     hasAxisLabels: false,
     hasDataLabels: false,
@@ -81,17 +81,17 @@ function pageScore(): PageScore {
 
 function finding(): NormalizedFinding {
   return {
-    id: 'story-finding',
-    title: 'storytelling issue',
-    summary: 'story issue',
+    id: 'layout-finding',
+    title: 'layout issue',
+    summary: 'layout issue',
     severity: 'high',
     confidence: 88,
     scope: 'page',
     detectionType: 'deterministic',
     affectedPages: ['Overview'],
-    impactArea: 'storytelling',
-    frameworkImpact: ['Narrative Design'],
-    recommendation: 'clarify title',
+    impactArea: 'layout',
+    frameworkImpact: ['Gestalt Principles'],
+    recommendation: 'align visuals',
     sourceKind: 'framework',
     sourceSection: 'issues',
     evidence: [],
@@ -103,16 +103,16 @@ function createReportRoot(): string {
   const reportRoot = path.join(tempDir, 'Sales.Report');
   const definitionRoot = path.join(reportRoot, 'definition');
   const overviewPageRoot = path.join(definitionRoot, 'pages', 'OverviewPage');
-  fs.mkdirSync(path.join(overviewPageRoot, 'visuals', 'title-1'), { recursive: true });
+  fs.mkdirSync(path.join(overviewPageRoot, 'visuals', 'chart-1'), { recursive: true });
   fs.writeFileSync(path.join(reportRoot, 'definition.pbir'), '{}');
   fs.writeFileSync(path.join(definitionRoot, 'report.json'), JSON.stringify({ name: 'Sales' }));
   fs.writeFileSync(path.join(definitionRoot, 'pages', 'pages.json'), JSON.stringify({ pageOrder: ['OverviewPage'] }));
   fs.writeFileSync(path.join(overviewPageRoot, 'page.json'), JSON.stringify({ name: 'OverviewPage', displayName: 'Overview' }));
-  fs.writeFileSync(path.join(overviewPageRoot, 'visuals', 'title-1', 'visual.json'), JSON.stringify({
-    name: 'title-1',
-    position: { x: 100, y: 180, width: 400, height: 48 },
-    title: { text: 'Overview Title' },
-    visual: { visualType: 'textbox' },
+  fs.writeFileSync(path.join(overviewPageRoot, 'visuals', 'chart-1', 'visual.json'), JSON.stringify({
+    name: 'chart-1',
+    position: { x: 103, y: 220, width: 390, height: 200 },
+    title: { text: 'Chart 1' },
+    visual: { visualType: 'barChart' },
   }));
   return reportRoot;
 }
@@ -138,18 +138,18 @@ function opportunity(reportPath: string): FixOpportunity {
     scoredAt: '2026-05-31T18:00:00.000Z',
     normalizedFindings: [finding()],
     fixPlan: [{
-      id: 'fix-story',
-      title: 'Clarify page purpose and narrative framing',
-      detail: 'Resolve page purpose ambiguity.',
+      id: 'fix-layout',
+      title: 'Reduce visual density and align layout',
+      detail: 'Resolve layout drift.',
       severity: 'high',
       effort: 'low',
       impact: 'high',
-      why: 'Improves page purpose clarity for executive readers.',
+      why: 'Improves scanability and alignment.',
       scope: 'page',
       affectedPages: ['Overview'],
-      recommendedAction: 'Standardize page title and anchor.',
-      resolvedOutcomes: ['Story clarity'],
-      sourceFindingIds: ['story-finding'],
+      recommendedAction: 'Snap visuals to the shared layout grid.',
+      resolvedOutcomes: ['Layout consistency'],
+      sourceFindingIds: ['layout-finding'],
     }],
     pageScores: [pageScore()],
   };
@@ -176,16 +176,17 @@ describe('fixApplyEngine', () => {
       appliedMutationCount: fix.mutations.length,
       validationErrors: [],
     });
-    const updated = JSON.parse(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')) as { position: { y: number } };
-    expect(updated.position.y).toBe(24);
+    const updated = JSON.parse(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')) as { position: { x: number; y: number } };
+    expect(updated.position.x).toBe(96);
+    expect(updated.position.y).toBe(192);
   });
 
   it('marks the opportunity stale instead of partially applying when before-values drift', () => {
     const reportPath = createReportRoot();
     const fix = opportunity(reportPath);
     const visualPath = fix.mutations[0].targetFile;
-    const visualJson = JSON.parse(fs.readFileSync(visualPath, 'utf8')) as { position: { y: number } };
-    visualJson.position.y = 999;
+    const visualJson = JSON.parse(fs.readFileSync(visualPath, 'utf8')) as { position: { x: number } };
+    visualJson.position.x = 999;
     fs.writeFileSync(visualPath, JSON.stringify(visualJson), 'utf8');
 
     const result = applyFixOpportunity(fix);
@@ -213,13 +214,13 @@ describe('fixApplyEngine', () => {
     const second = {
       ...opportunity(reportPath),
       id: 'fix-z',
-      title: 'Secondary title alignment',
-      targetObjectIds: ['title-2'],
+      title: 'Secondary layout alignment',
+      targetObjectIds: ['chart-2'],
       mutations: [{
         ...opportunity(reportPath).mutations[0],
         id: 'mutation-z',
-        targetObjectId: 'title-2',
-        targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+        targetObjectId: 'chart-2',
+        targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
         propertyPath: 'position.x',
         before: 80,
         after: 24,
@@ -228,8 +229,8 @@ describe('fixApplyEngine', () => {
         id: 'rollback-fix-z',
         fixOpportunityId: 'fix-z',
         fileBackups: [{
-          targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
-          beforeContent: '{"name":"title-2","position":{"x":80,"y":180,"width":400,"height":48},"title":{"text":"Overview Title"},"visual":{"visualType":"textbox"}}',
+          targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+          beforeContent: '{"name":"chart-2","position":{"x":80,"y":220,"width":390,"height":200},"title":{"text":"Chart 2"},"visual":{"visualType":"barChart"}}',
         }],
         reverseMutations: [],
       },
@@ -255,8 +256,8 @@ describe('fixApplyEngine', () => {
       mutations: [{
         ...opportunity(reportPath).mutations[0],
         id: 'mutation-b',
-        targetObjectId: 'title-2',
-        targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+        targetObjectId: 'chart-2',
+        targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
         before: 80,
         after: 24,
       }],
@@ -264,8 +265,8 @@ describe('fixApplyEngine', () => {
         id: 'rollback-fix-b',
         fixOpportunityId: 'fix-b',
         fileBackups: [{
-          targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
-          beforeContent: '{"name":"title-2","position":{"x":999,"y":180,"width":400,"height":48},"title":{"text":"Overview Title"},"visual":{"visualType":"textbox"}}',
+          targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+          beforeContent: '{"name":"chart-2","position":{"x":999,"y":220,"width":390,"height":200},"title":{"text":"Chart 2"},"visual":{"visualType":"barChart"}}',
         }],
         reverseMutations: [],
       },
@@ -304,12 +305,12 @@ describe('fixApplyEngine', () => {
     const second = {
       ...opportunity(reportPath),
       id: 'fix-z',
-      targetObjectIds: ['title-2'],
+      targetObjectIds: ['chart-2'],
       mutations: [{
         ...opportunity(reportPath).mutations[0],
         id: 'mutation-z',
-        targetObjectId: 'title-2',
-        targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
+        targetObjectId: 'chart-2',
+        targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
         propertyPath: 'position.x',
         before: 80,
         after: 24,
@@ -318,8 +319,8 @@ describe('fixApplyEngine', () => {
         id: 'rollback-fix-z',
         fixOpportunityId: 'fix-z',
         fileBackups: [{
-          targetFile: first.mutations[0].targetFile.replace('title-1', 'title-2'),
-          beforeContent: '{"name":"title-2","position":{"x":80,"y":180,"width":400,"height":48},"title":{"text":"Overview Title"},"visual":{"visualType":"textbox"}}',
+          targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+          beforeContent: '{"name":"chart-2","position":{"x":80,"y":220,"width":390,"height":200},"title":{"text":"Chart 2"},"visual":{"visualType":"barChart"}}',
         }],
         reverseMutations: [],
       },

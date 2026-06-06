@@ -2,135 +2,72 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
-## Unreleased
+## 0.5.0 — 2026-06-05
 
-### Fabric App Review Mode Foundations
+### Release Position
 
-- Added the second real analyzable surface:
-  - Fabric App Surface
-- Added Fabric App surface discovery with explicit supported, unsupported, and ambiguous states plus user-facing reason messages.
-- Added the advisory Fabric App Review Analyzer as the first implementation slice of Fabric App Review Mode.
-- Added bounded repo evidence extraction for:
-  - TypeScript layout evidence
-  - navigation evidence
-  - design token evidence
-- Added Fabric App review findings into the existing shared findings model for:
-  - navigation issues
-  - layout and dashboard composition issues
-  - token inconsistencies
-  - storytelling and executive readability issues
-- Added advisory Fabric App remediation into the existing Fix Plan without creating any Fabric App mutation path.
-- Added Fabric App review evidence into the existing Evidence workspace with file-traceable references.
-- Added local host-side Fabric App review execution so supported repos can be reviewed without depending on PBIR backend scoring.
-- Preserved the trust boundary:
-  - Fabric App review is advisory only
-  - no Fabric App fixes
-  - no repo mutation
-  - no code generation
-  - no governance expansion
-  - no screenshot intelligence
-  - no Fabric App mutation authority
+- First cross-platform Analytics Experience Review Platform release
+- Shared review workspace for PBIR reports and analytical Fabric Apps
+- Story Assessment, Issues, Fix Plan, Evidence, Fabric App Readiness, Fabric App Review, and AI Proposal Enrichment positioned as one integrated platform
 
-### Fabric App Review Evidence Expansion
+### New
 
-- Expanded Fabric App review evidence quality without expanding governance or mutation scope.
-- Added bounded repo evidence extraction for:
-  - screenshot evidence
-  - semantic-model usage evidence
-- Added richer Fabric App finding traceability so advisory findings can reference:
-  - TypeScript layout evidence
-  - navigation evidence
-  - design-token evidence
-  - screenshot evidence
-  - semantic-model evidence
-- Updated the Evidence workspace to render categorized Fabric App evidence sections for:
-  - TypeScript Evidence
-  - Navigation Evidence
-  - Design Token Evidence
-  - Screenshot Evidence
-  - Semantic Model Evidence
-- Added graceful degradation behavior:
-  - Fabric App review still completes when screenshots are absent
-  - Fabric App review still completes when semantic-model artifacts are absent
-  - the workspace shows explicit missing-evidence messaging instead of failing or inventing evidence
-- Preserved the advisory-only boundary:
-  - no governance expansion
-  - no AI refactoring
-  - no Fabric App mutations
-  - no code generation
-  - deterministic preview/apply/rollback remains PBIR-only
+- Fabric App Readiness Assessment
+- Fabric App Review Mode foundations
+- screenshot evidence
+- semantic-model evidence
+- analyzable surface architecture
+- surface discovery
+- analyzer registry
+- analyzer profiles
 
-### Fabric App Readiness Assessment
+### Improved
 
-- Added foundational `Analyzable Surface` support for PBIR reports, including explicit `surfaceType`, `analyzerType`, and `analyzerProfile` metadata in the shared score-panel result contract.
-- Added PBIR surface discovery plus analyzer registration and default selection for the advisory `Fabric App Readiness Analyzer`.
-- Added deterministic readiness scoring for PBIR reports and pages across:
-  - layout portability
-  - interaction portability
-  - narrative portability
-  - semantic-model suitability
-  - navigation portability
-  - governance portability
-  - accessibility portability
-  - visualization-as-code opportunity
-- Added advisory readiness outputs:
-  - overall readiness score and band
-  - candidate pages
-  - migration blockers
-  - unsupported patterns
-  - redesign-required areas
-  - recommended next actions
-- Added readiness findings into the existing workspace issue model:
-  - Good Fabric App Candidate
-  - Migration Blocker
-  - Redesign Required
-  - Unsupported Pattern
-  - Visualization Opportunity
-- Added readiness-specific advisory remediation to Fix Plan without creating any new mutation path.
-- Added readiness summary badges to Overview and readiness evidence to the Evidence workspace.
-- Preserved the execution trust boundary:
-  - readiness findings are advisory only
-  - no Fabric App code generation
-  - no Fabric App mutation
-  - no bypass of deterministic preview/apply/rollback/re-analysis
+- cross-platform VSIX packaging for Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
+- backend startup reliability
+- runtime detection
+- degraded-mode messaging
+- richer evidence-driven review across metadata, navigation, screenshots, semantic-model usage, and code-derived signals
+- backend startup diagnostics now report selected target, resolved backend path, runtime packaging mode, runtime detection, preflight exit details, and handshake failure reasons
+- VSIX packaging now stages each target in isolation with a build lock, preventing backend cross-contamination across target artifacts
+- Windows arm64 now ships as a self-contained backend target for `0.5.0`
+
+### Safety
+
+- deterministic fix-engine hardening
+- safer mutation planning with unsafe title and semantic-color writes held back until schema-correct support exists
+- severity outcome correction
+- real backend readiness handshake and backend state monitoring
+- stable single-page PBIR routing by page name
 
 ### Validation
 
 - Passed:
-  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/screenshotEvidence.test.ts src/test/semanticModelEvidence.test.ts src/test/fabricAppReviewAnalyzer.test.ts`
-  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
-  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/surfaceDiscovery.test.ts src/test/analyzerRegistry.test.ts src/test/typescriptEvidence.test.ts src/test/navigationEvidence.test.ts src/test/designTokenEvidence.test.ts src/test/fabricAppReviewAnalyzer.test.ts src/test/scoreResultPayload.test.ts`
-  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
   - `cd vscode-extension && npm test`
   - `cd vscode-extension && npm run compile`
   - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-- Real Fabric App smoke:
-  - ran the current extension build in an isolated VS Code extension host against a Rayfin-based Fabric App sample repo
-  - confirmed the review opened the existing shared workspace as `Fabric App Review`
-  - confirmed `surfaceType: fabricApp`, `analyzerType: fabricAppReview`, and `analyzerProfile: fabricAppQuality`
-  - confirmed advisory findings, fix-plan guidance, and evidence across:
-    - TypeScript layout
-    - navigation
-    - design tokens
-    - screenshots
-    - semantic-model usage
-  - confirmed a supported no-auxiliary-evidence variant still reviewed successfully with:
-    - `screenshot: 0`
-    - `semanticModel: 0`
-    - no extension-host errors
-  - confirmed Fabric App review remained advisory only with `fixOpportunityCount: 0`
-  - confirmed the official Microsoft Rayfin todo scaffold classified as:
-    - `status: ambiguous`
-    - `reasonCode: ambiguousAnalyticsSurface`
-  - limitation:
-    - `npm run compile` alone removes the extension-host entry bundle from `dist/`
-    - extension-host smoke requires `npm run bundle:extension` after compile, or `npm test` / `npm run build`
-  - limitation:
-    - the real Fabric App smoke still depends on a temporary local Rayfin-based analytical fixture and temporary `@vscode/test-electron` harness outside the repo
-- Real PBIR smoke:
-  - `node vscode-extension/scripts/phase2-deterministic-host-smoke.mjs`
-  - confirmed the extension host still scored the real `Sales & Production.pbip` fixture and completed the deterministic grouped workflow smoke
-  - limitation: the existing smoke harness does not yet assert readiness-specific UI fields on the real fixture
+  - `cd vscode-extension && npm run package:all`
+- Built and inspected platform-targeted VSIX artifacts:
+  - Windows x64
+  - Windows arm64
+  - Linux x64
+  - macOS x64
+  - macOS arm64
+- Remaining runtime verification gap:
+  - live backend startup on Windows x64, Linux x64, and macOS x64 was not executed locally in the macOS arm64 release-prep session
+- Windows arm64 release decision:
+  - keep the self-contained Windows arm64 target in the final `0.5.0` package set because fresh scoring succeeded on Windows 11 ARM after the backend runtime strategy change
+  - document the larger package size as intentional because the backend bundles the .NET runtime for that target
+
+### Packaging Notes
+
+- final `0.5.0` manual upload set:
+  - `pbir-design-analyzer-0.5.0-win32-x64.vsix`
+  - `pbir-design-analyzer-0.5.0-win32-arm64.vsix`
+  - `pbir-design-analyzer-0.5.0-linux-x64.vsix`
+  - `pbir-design-analyzer-0.5.0-darwin-x64.vsix`
+  - `pbir-design-analyzer-0.5.0-darwin-arm64.vsix`
+- the icon PNG remains transparent in source and in the packaged extension; a light tile in the VS Code extension details page is treated as VS Code rendering behavior, not a packaging defect
 
 ## 0.4.0 — 2026-06-02
 

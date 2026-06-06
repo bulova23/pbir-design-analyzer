@@ -198,6 +198,24 @@
   - `docs/superpowers/plans/2026-06-02-ai-proposal-enrichment-plan.md`
 - Defined the new advisory architecture layer as:
   - `Issues`
+
+## 2026-06-06 Framework Score Diagnostics Expansion
+
+- Confirmed the remaining `0.5.0` cross-platform mismatch is no longer fingerprinting, ordering, or normalized-findings drift because Windows ARM64 and macOS ARM64 now share the same PBIR fingerprint and issue payload.
+- Expanded score diagnostics to emit:
+  - overall framework scores
+  - per-page framework scores
+- Validated the new diagnostics shape with:
+  - `cd vscode-extension && npx jest src/test/scoreDiagnostics.test.ts --runInBand`
+- Publication remains blocked pending one more cross-platform capture to pinpoint the drifting framework-level numeric score component.
+
+## 2026-06-06 Manual Marketplace Upload Research
+
+- Verified that official VS Code publishing docs support:
+  - manual VSIX upload through the publisher management page
+  - platform-specific extensions as separate Marketplace packages
+- Verified via local `@vscode/vsce` implementation that duplicate publish detection is target-aware, using extension version plus target platform.
+- Updated `docs/RELEASING.md` with a conservative manual `0.5.0` upload procedure, recommended target order, and stop conditions if the portal appears to replace rather than append target packages.
   - `Remediation Queue`
   - `AI Proposal Enrichment`
   - `Fix Opportunity Engine`
@@ -571,3 +589,14 @@
 - Reworked the source material into repo-aware guidance for VS Code webviews and PBIR review surfaces instead of copying the external skill verbatim.
 - Added `.codex/skills/README.md` to make the repo-local skill inventory easier to discover.
 - Normalized `.agent-memory/current-focus.md` and `.agent-memory/repo-map.md` so Tier 1 repo-contract validation passes again.
+- 2026-06-05: Release hardening sprint in progress for 0.4.0. Cross-platform VSIX packaging now builds for Windows x64, Linux x64, macOS x64, and macOS arm64; unsafe title and semantic-color mutation planning is disabled pending schema-correct support; backend readiness now uses a real ping handshake with degraded-mode fallback; stable single-page PBIR routing now uses page names rather than display labels.
+- 2026-06-05: Prepared the 0.5.0 release as the first cross-platform Analytics Experience Review Platform release. Bumped extension metadata to 0.5.0, refreshed marketplace and README positioning, added a 0.5.0 release summary, rebuilt Windows x64 / Linux x64 / macOS x64 / macOS arm64 VSIX artifacts, and verified target-specific backend binaries by package inspection. Remaining risk: live backend startup on Windows x64, Linux x64, and macOS x64 was not executed locally in the macOS arm64 session.
+- 2026-06-05: Added Windows ARM64 packaging support for the pending 0.5.0 release. Extended runtime and packaging target maps to `win32-arm64` / `win-arm64`, updated `package:all` and the release workflow, built five target-specific VSIX artifacts, and confirmed the Windows ARM64 package contains a PE32+ Aarch64 backend binary. Remaining risk: live backend startup still needs validation on real Windows x64, Windows ARM64, Linux x64, and macOS x64 environments.
+- 2026-06-05: Windows ARM64 scoring failure triage for `0.5.0`. Added backend launch diagnostics, backend preflight probing, clearer score-panel startup errors, and safer language-client shutdown handling; changed the Windows ARM64 private test package to a self-contained backend; then removed Windows ARM64 from `package:all`, release workflow targets, and supported-platform docs because real-device scoring was failing and this session could not complete the required Windows 11 ARM smoke.
+- 2026-06-05: Fixed a release-blocking packaging contamination risk by isolating backend staging per target and adding a packaging lock. Rebuilt the four public `0.5.0` VSIX artifacts cleanly and confirmed Windows x64 stayed a small framework-dependent package while the private Windows ARM64 investigation build remained the only self-contained package.
+- 2026-06-05: Fixed a cross-platform scoring determinism bug before `0.5.0` publication by sorting backend fallback page/visual enumeration, normalizing visual order before heuristics, adding deterministic score diagnostics plus report fingerprinting, adding regression tests, and revalidating with `npm test`, `npm run compile`, `dotnet test -c Release`, and `npm run package:all`. Remaining risk: real cross-platform smoke still needs matching diagnostic snapshots from the same report copy on multiple machines.
+- 2026-06-05: Documented the cross-platform determinism smoke workflow across the root README, extension README, how-to guide, and release guide, and added a repo-side JSON comparison script so manual Windows/macOS diagnostics can be compared deterministically instead of by inspection.
+- 2026-06-05: Normalized the remaining extension-side fallback ordering in the local PBIR tree, fix mutation planner, and repo evidence collector; added focused regression tests for those paths plus the score-diagnostics command; then reran the full local release validation sweep successfully. Remaining blocker: real cross-platform diagnostic capture and comparison still requires external machine runs.
+- 2026-06-05: Updated the extension icon to use a transparent PNG background while preserving the green bars and green magnifying glass. Verified the logo mark visually on dark and light preview composites so Marketplace and VS Code theme backgrounds show through cleanly.
+- 2026-06-06: Confirmed the `0.5.0` score drift was caused by different saved framework-weight configs across machines, not runtime math. Confirmed `win32-arm64` VSIX is large because it is intentionally self-contained and bundles the .NET 8 runtime, while the other current target packages remain framework-dependent.
+- 2026-06-06: Rebuilt the final `0.5.0` five-target VSIX set from a clean state, updated release docs for manual Marketplace upload, documented the Windows arm64 self-contained backend and icon rendering note, and verified package contents and target isolation.

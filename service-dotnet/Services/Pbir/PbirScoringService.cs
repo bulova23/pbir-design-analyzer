@@ -178,7 +178,7 @@ public sealed class PbirScoringService
     /// with a message in all framework feedback items.
     /// </summary>
     /// <param name="location">The PBIR report location (contains path to report.json and page definitions).</param>
-    /// <param name="pageName">The exact page name to score (case-sensitive). Must match a page's DisplayName.</param>
+    /// <param name="pageName">The exact page name to score (case-sensitive). Must match a page's stable PBIR name.</param>
     /// <returns>A <see cref="ScoreResult"/> with page-specific scores in the top-level properties.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown if the page name is not found. The exception message lists all available page names.
@@ -195,10 +195,10 @@ public sealed class PbirScoringService
         var navigationScoring = ExtractNavigationScoringSettings(config);
 
         // Find the requested page
-        var page = allPages.FirstOrDefault(p => p.DisplayName == pageName);
+        var page = allPages.FirstOrDefault(p => p.Name == pageName);
         if (page is null)
         {
-            var availablePages = string.Join(", ", allPages.Select(p => $"'{p.DisplayName}'"));
+            var availablePages = string.Join(", ", allPages.Select(p => $"'{p.Name}'"));
             var errorMsg = $"Page '{pageName}' not found. Available pages: {availablePages}";
             _logger.LogWarning("[Scoring] {Error}", errorMsg);
             
@@ -2764,6 +2764,7 @@ public sealed class PbirScoringService
                 
                 pages.Add(new PageData
                 {
+                    Name = pageJson["name"]?.GetValue<string>() ?? Path.GetFileName(pageDir),
                     DisplayName = displayName,
                     Visuals = visuals,
                     Canvas = ParseCanvasMetadata(pageJson),
@@ -2807,6 +2808,7 @@ public sealed class PbirScoringService
         }
 
         return Directory.GetDirectories(pagesRoot)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
             .Select(Path.GetFileName)
             .Where(pageId => !string.IsNullOrWhiteSpace(pageId))
             .Select(pageId => pageId!)
@@ -2836,7 +2838,7 @@ public sealed class PbirScoringService
                 sourceContext: $"page visual '{visualId}'"));
         }
 
-        return visuals;
+        return OrderVisualsDeterministically(visuals);
     }
     
     /// <summary>
@@ -2850,7 +2852,8 @@ public sealed class PbirScoringService
         
         if (!Directory.Exists(visualsDir)) return visuals;
         
-        foreach (var visualDir in Directory.GetDirectories(visualsDir))
+        foreach (var visualDir in Directory.GetDirectories(visualsDir)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal))
         {
             var visualJsonPath = Path.Combine(visualDir, "visual.json");
             if (!File.Exists(visualJsonPath)) continue;
@@ -2899,7 +2902,19 @@ public sealed class PbirScoringService
             }
         }
         
-        return visuals;
+        return OrderVisualsDeterministically(visuals);
+    }
+
+    private static List<VisualData> OrderVisualsDeterministically(IEnumerable<VisualData> visuals)
+    {
+        return visuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ThenBy(visual => visual.W)
+            .ThenBy(visual => visual.H)
+            .ThenBy(visual => visual.Id, StringComparer.Ordinal)
+            .ThenBy(visual => visual.Type, StringComparer.Ordinal)
+            .ToList();
     }
 
     private static CanvasMetadata? ParseCanvasMetadata(JsonObject pageJson)
@@ -7568,6 +7583,7 @@ public sealed class PbirScoringService
 
     private sealed record PageData
     {
+        public required string Name { get; init; }
         public required string DisplayName { get; init; }
         public List<VisualData> Visuals { get; init; } = [];
         public CanvasMetadata? Canvas { get; init; }

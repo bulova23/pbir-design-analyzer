@@ -21,6 +21,32 @@ PBIR Design Analyzer is a local review tool for Power BI PBIP/PBIR reports. In `
 3. Wait for the **PBIR Optimization Report** webview to open.
 4. Start in **Overview**.
 
+## Cross-Platform Score Diagnostics
+
+Use **PBIR Design Analyzer: Copy Score Diagnostics** after scoring when you need to compare the same report across machines.
+
+The diagnostic payload includes:
+
+- extension version
+- backend version
+- platform and architecture
+- analyzer type and analyzer profile
+- overall score
+- issue counts
+- readiness score and readiness band
+- page processing order
+- finding IDs and evidence counts
+- report fingerprint
+
+For release validation, matching report fingerprints must produce matching score outputs.
+
+To compare two saved diagnostic payloads locally:
+
+```bash
+cd vscode-extension
+node scripts/compare-score-diagnostics.mjs /path/to/first.json /path/to/second.json
+```
+
 ## Overview
 
 Overview is the landing summary.

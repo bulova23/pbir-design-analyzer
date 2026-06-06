@@ -74,15 +74,27 @@ describe('evaluateFixOutcome', () => {
     expect(summary.outcome.entries[0]).toMatchObject({ findingId: 'layout-finding', status: 'Improved' });
   });
 
-  it('marks unchanged severity as unexpected outcome state', () => {
+  it('marks unchanged severity as unchanged', () => {
     const summary = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'high' }), scoreResult({ id: 'layout-finding', severity: 'high' }));
+    expect(summary.nextState).toBe('Applied');
+    expect(summary.outcome.entries[0]).toMatchObject({ findingId: 'layout-finding', status: 'Unchanged' });
+  });
+
+  it('marks worsened severity as unexpected outcome state', () => {
+    const summary = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'medium' }), scoreResult({ id: 'layout-finding', severity: 'high' }));
+    expect(summary.nextState).toBe('AppliedWithUnexpectedOutcome');
+    expect(summary.outcome.entries[0]).toMatchObject({ findingId: 'layout-finding', status: 'Unexpected' });
+  });
+
+  it('marks missing previous findings that still exist as unexpected', () => {
+    const summary = evaluateFixOutcome(opportunity, scoreResult(undefined), scoreResult({ id: 'layout-finding', severity: 'low' }));
     expect(summary.nextState).toBe('AppliedWithUnexpectedOutcome');
     expect(summary.outcome.entries[0]).toMatchObject({ findingId: 'layout-finding', status: 'Unexpected' });
   });
 
   it('builds grouped batch outcome summaries without changing individual entry semantics', () => {
     const first = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'high' }), scoreResult(undefined));
-    const second = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'high' }), scoreResult({ id: 'layout-finding', severity: 'high' }));
+    const second = evaluateFixOutcome(opportunity, scoreResult({ id: 'layout-finding', severity: 'medium' }), scoreResult({ id: 'layout-finding', severity: 'high' }));
 
     const grouped = summarizeBatchFixOutcomes([
       { opportunityId: 'fix-1', title: opportunity.title, outcome: first.outcome, state: first.nextState },

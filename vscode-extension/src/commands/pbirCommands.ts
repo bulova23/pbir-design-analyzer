@@ -20,6 +20,7 @@ export const PBIR_COMMANDS = {
     getTree: 'pbir.getTree',
     refreshTree: 'pbir.refreshTree',
     scoreReport: 'pbir.scoreReport',
+    copyScoreDiagnostics: 'pbir.copyScoreDiagnostics',
     governanceCheck: 'pbir.governanceCheck',
     exportGovernanceReport: 'pbir.exportGovernanceReport',
     exportReviewWorkflow: 'pbir.exportReviewWorkflow',
@@ -95,12 +96,12 @@ function resolveCommandTarget(
     const rawNode = (target.rawNode ?? {}) as { displayName?: unknown; name?: unknown };
     const resolvedPageName = target.kind === 'page'
         ? (
-            typeof rawNode.displayName === 'string' && rawNode.displayName.length > 0
-                ? rawNode.displayName
+            typeof rawNode.name === 'string' && rawNode.name.length > 0
+                ? rawNode.name
                 : typeof target.label === 'string' && target.label.length > 0
                     ? target.label
-                    : typeof rawNode.name === 'string' && rawNode.name.length > 0
-                        ? rawNode.name
+                    : typeof rawNode.displayName === 'string' && rawNode.displayName.length > 0
+                        ? rawNode.displayName
                         : undefined
         )
         : pageNameArg;
@@ -150,6 +151,18 @@ export function registerPbirCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.refreshTree, () => {
             pbirTreeProvider?.refresh();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.copyScoreDiagnostics, async () => {
+            const copied = await PbirScorePanel.copyCurrentScoreDiagnostics();
+            if (!copied) {
+                void vscode.window.showWarningMessage('No score diagnostics are available yet. Run Score Report first.');
+                return;
+            }
+
+            void vscode.window.showInformationMessage('Current score diagnostics copied to the clipboard.');
         })
     );
 

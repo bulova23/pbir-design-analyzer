@@ -2,9 +2,14 @@ import { EventEmitter } from 'events';
 
 export type LanguageClientOptions = any;
 export type ServerOptions = any;
+export enum State {
+  Stopped = 0,
+  Starting = 1,
+  Running = 2,
+}
 
 export class LanguageClient {
-  private state = 0;
+  private state = State.Stopped;
   private stateEmitter = new EventEmitter();
   constructor(
     public id: string,
@@ -18,11 +23,11 @@ export class LanguageClient {
   }
 
   isRunning() {
-    return this.state === 1;
+    return this.state === State.Running;
   }
 
   async stop() {
-    this.state = 0;
-    this.stateEmitter.emit('state', { newState: 0 });
+    this.state = State.Stopped;
+    this.stateEmitter.emit('state', { newState: State.Stopped });
   }
 }
