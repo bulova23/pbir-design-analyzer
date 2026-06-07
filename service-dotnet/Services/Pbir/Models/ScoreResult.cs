@@ -388,6 +388,12 @@ public sealed class ScoreResult
     public List<PageScore>? PageScores { get; set; }
 
     /// <summary>
+    /// Gets or sets the stable PBIR page identifier of the specific page scored (if single-page mode).
+    /// <c>null</c> when scoring the entire report.
+    /// </summary>
+    public string? ScoredPageId { get; set; }
+
+    /// <summary>
     /// Gets or sets the name of the specific page scored (if single-page mode).
     /// <c>null</c> when scoring the entire report.
     /// Set in single-page mode to identify which page produced the top-level scores.

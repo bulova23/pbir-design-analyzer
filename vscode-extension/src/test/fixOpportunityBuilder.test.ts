@@ -47,6 +47,7 @@ function visual(overrides: Partial<VisualMetadataItem> = {}): VisualMetadataItem
 
 function pageScore(overrides: Partial<PageScore> = {}): PageScore {
   return {
+    pageId: 'OverviewPage',
     pageName: 'Overview',
     gestaltScore: 80,
     cognitiveLoadScore: 75,
@@ -159,8 +160,22 @@ function createTempReport(): string {
   fs.writeFileSync(path.join(overviewPageRoot, 'visuals', 'title-1', 'visual.json'), JSON.stringify({
     name: 'title-1',
     position: { x: 100, y: 180, width: 400, height: 48 },
-    title: { text: 'Overview Title' },
-    visual: { visualType: 'textbox' },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Overview Title\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
     background: { color: '#ff0000' },
   }));
   fs.writeFileSync(path.join(overviewPageRoot, 'visuals', 'nav-1', 'visual.json'), JSON.stringify({
@@ -184,8 +199,22 @@ function createTempReport(): string {
   fs.writeFileSync(path.join(detailPageRoot, 'visuals', 'title-2', 'visual.json'), JSON.stringify({
     name: 'title-2',
     position: { x: 220, y: 140, width: 420, height: 48 },
-    title: { text: 'Details Title' },
-    visual: { visualType: 'textbox' },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Details Title\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
     background: { color: '#00ff00' },
   }));
 
@@ -203,7 +232,7 @@ describe('buildFixOpportunities', () => {
     }
   });
 
-  it('keeps title remediation advisory until schema-correct write support exists', () => {
+  it('builds title remediation opportunities when schema-correct title support exists', () => {
     const reportPath = createTempReport();
     const result: ScoreResult = {
       gestaltScore: 0,
@@ -230,10 +259,26 @@ describe('buildFixOpportunities', () => {
 
     const opportunities = buildFixOpportunities(result);
 
-    expect(opportunities).toEqual([]);
+    expect(opportunities).toHaveLength(1);
+    expect(opportunities[0]).toMatchObject({
+      category: 'title',
+      affectedPages: ['Overview'],
+      targetObjectIds: ['title-1'],
+    });
+    expect(opportunities[0].mutations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetObjectId: 'title-1',
+          propertyPath: 'title.text',
+          before: 'Overview Title',
+          after: 'Overview',
+          storagePath: ['visual', 'visualContainerObjects', 'title', 0, 'properties', 'text', 'expr', 'Literal', 'Value'],
+        }),
+      ]),
+    );
   });
 
-  it('keeps single-page title remediation advisory until schema-correct write support exists', () => {
+  it('builds single-page title opportunities when the scored page has stable identity metadata', () => {
     const reportPath = createTempReport();
     const singlePage = pageScore();
     const result: ScoreResult = {
@@ -254,6 +299,7 @@ describe('buildFixOpportunities', () => {
       recommendations: [],
       reportPath,
       scoredAt: '2026-05-31T18:00:00.000Z',
+      scoredPageId: 'OverviewPage',
       scoredPageName: 'Overview',
       visualMetadata: singlePage.visualMetadata,
       normalizedFindings: [finding('story-finding', 'storytelling')],
@@ -262,7 +308,11 @@ describe('buildFixOpportunities', () => {
 
     const opportunities = buildFixOpportunities(result);
 
-    expect(opportunities).toEqual([]);
+    expect(opportunities).toHaveLength(1);
+    expect(opportunities[0]).toMatchObject({
+      category: 'title',
+      affectedPages: ['Overview'],
+    });
   });
 
   it('builds a layout normalization opportunity for layout remediation', () => {

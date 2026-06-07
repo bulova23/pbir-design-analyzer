@@ -2,6 +2,49 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.5.1 — 2026-06-06
+
+### Trust Restoration
+
+- Hardened the deterministic fix engine so supported PBIR mutations now resolve against stable page identities and fail closed when page targeting is ambiguous.
+- Added schema-correct title mutation support using PBIR container-object storage paths and PBIR literal shaping instead of flat dotted-property writes.
+- Kept unsupported mutation families closed by default so the deterministic path only executes against explicitly supported mutation categories.
+
+### Reliability
+
+- Replaced direct fix writes with atomic temp-file plus rename orchestration for single-fix and batch-fix execution.
+- Added deterministic rollback-on-failure so failed persistence or failed validation restores pre-apply file content instead of leaving partially mutated reports behind.
+- Added post-write mutation validation to prevent silent corruption when written values do not round-trip to the expected PBIR state.
+- Documented and enforced the current safe fallback strategy:
+  - supported deterministic mutations use atomic validated canonical JSON rewrites when format-preserving surgical patching is not yet available
+
+### Governance And Workflow
+
+- Governance checks now read the report theme directly from PBIR metadata instead of trusting user-entered theme identifiers.
+- Screenshot upload now opens the active score panel and triggers the intended upload workflow instead of re-running report scoring.
+
+### Safety Tests
+
+- Expanded deterministic fix coverage for:
+  - schema-correct title writes
+  - stale-target detection after title drift
+  - duplicate display-name ambiguity fail-closed behavior
+  - batch persistence failure with rollback protection
+  - PBIR-derived governance theme verification
+  - screenshot-upload command routing
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npx jest src/test/fixMutationPlanner.test.ts src/test/fixOpportunityBuilder.test.ts --runInBand`
+  - `cd vscode-extension && npx jest src/test/fixApplyEngine.test.ts --runInBand`
+  - `cd vscode-extension && npx jest src/test/fixMutationPlanner.test.ts src/test/fixApplyEngine.test.ts --runInBand`
+  - `cd vscode-extension && npx jest src/test/fixMutationPlanner.test.ts src/test/fixOpportunityBuilder.test.ts src/test/fixApplyEngine.test.ts --runInBand`
+  - `cd vscode-extension && npx jest src/test/pbirGovernanceCommand.test.ts src/test/pbirUploadScreenshotsCommand.test.ts --runInBand`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
 ## 0.5.0 — 2026-06-05
 
 ### Release Position

@@ -39,6 +39,45 @@ type WorkspaceGovernanceSettings = {
     approvedThemeIds: string[];
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function resolveReportJsonPath(reportPath: string): string {
+    if (reportPath.toLowerCase().endsWith('.report')) {
+        return path.join(reportPath, 'definition', 'report.json');
+    }
+
+    const reportFolderName = `${path.basename(reportPath, path.extname(reportPath))}.Report`;
+    return path.join(reportPath, reportFolderName, 'definition', 'report.json');
+}
+
+function readThemeIdFromPbir(reportPath: string): string {
+    try {
+        const reportJsonPath = resolveReportJsonPath(reportPath);
+        if (!fs.existsSync(reportJsonPath)) {
+            return '';
+        }
+
+        const reportJson = JSON.parse(fs.readFileSync(reportJsonPath, 'utf8')) as Record<string, unknown>;
+        const theme = isRecord(reportJson.theme) ? reportJson.theme : undefined;
+        const themeName = typeof theme?.name === 'string' ? theme.name.trim() : '';
+
+        if (themeName.length > 0) {
+            return themeName;
+        }
+
+        const themeHref = typeof theme?.href === 'string' ? theme.href.trim() : '';
+        if (themeHref.length === 0) {
+            return '';
+        }
+
+        return path.basename(themeHref, path.extname(themeHref));
+    } catch {
+        return '';
+    }
+}
+
 type PbirTreeItemLike = {
     kind?: unknown;
     label?: unknown;
@@ -290,25 +329,9 @@ export function registerPbirCommands(
             }
 
             const workspaceGovernance = readWorkspaceGovernanceSettings();
-            let themeId = '';
-
-            if (workspaceGovernance.enabled && workspaceGovernance.approvedThemeIds.length > 0) {
-                const input = await vscode.window.showInputBox({
-                    prompt: 'Enter the report theme name required by the workspace governance policy',
-                    placeHolder: workspaceGovernance.approvedThemeIds[0] ?? 'CorporateBlue',
-                    ignoreFocusOut: true,
-                    validateInput: (value) =>
-                        value.trim().length > 0
-                            ? undefined
-                            : 'Theme name is required when approved themes are configured.',
-                });
-
-                if (typeof input === 'undefined') {
-                    return;
-                }
-
-                themeId = input.trim();
-            }
+            const themeId = workspaceGovernance.enabled && workspaceGovernance.approvedThemeIds.length > 0
+                ? readThemeIdFromPbir(reportPath)
+                : '';
 
             type GovernanceResult = {
                 policyState?: string;
@@ -550,9 +573,7 @@ export function registerPbirCommands(
             // Open the score panel so the upload dialog has context
             const bridge = getBridge();
             const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
-            void panel;
-            // Trigger upload via command to the panel's active session
-            await vscode.commands.executeCommand('pbir.scoreReport', reportPath);
+            await panel.requestScreenshotUpload();
         })
     );
 

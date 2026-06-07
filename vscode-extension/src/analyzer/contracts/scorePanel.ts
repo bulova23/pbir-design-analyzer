@@ -344,6 +344,7 @@ export interface PageVisualMetadataSummary {
 }
 
 export interface PageScore {
+  pageId?: string;
   pageName: string;
   gestaltScore: number;
   cognitiveLoadScore: number;
@@ -790,6 +791,8 @@ export interface FixMutation {
   targetObjectId: string;
   targetFile: string;
   propertyPath: string;
+  storagePath?: Array<string | number>;
+  storageValueFormat?: 'plain' | 'pbirStringLiteral';
   mutationType: FixMutationType;
   before: unknown;
   after: unknown;
@@ -1004,6 +1007,7 @@ export interface ScoreResult {
   navigationVisualCount?: number;
   hiddenVisualCount?: number;
   pageScores?: PageScore[];
+  scoredPageId?: string;
   scoredPageName?: string;
   scoringErrors?: Record<string, string>;
   reportConsistencySummary?: ReportConsistencySummary;

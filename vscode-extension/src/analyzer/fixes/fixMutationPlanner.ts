@@ -34,6 +34,7 @@ interface ReportDefinitionPaths {
 }
 
 interface PlanningPage {
+  pageId?: string;
   pageName: string;
   visualMetadata?: PageVisualMetadataSummary;
 }
@@ -115,6 +116,7 @@ function snapDown32(value: number): number {
 function getPlanningPages(result: ScoreResult): PlanningPage[] {
   if (result.pageScores && result.pageScores.length > 0) {
     return result.pageScores.map((page) => ({
+      pageId: page.pageId,
       pageName: page.pageName,
       visualMetadata: page.visualMetadata,
     }));
@@ -122,6 +124,7 @@ function getPlanningPages(result: ScoreResult): PlanningPage[] {
 
   if (result.scoredPageName && result.visualMetadata) {
     return [{
+      pageId: result.scoredPageId,
       pageName: result.scoredPageName,
       visualMetadata: result.visualMetadata,
     }];
@@ -130,18 +133,78 @@ function getPlanningPages(result: ScoreResult): PlanningPage[] {
   return [];
 }
 
-function findPage(paths: ReportDefinitionPaths, pageName: string) {
-  return paths.pages.find((page) => page.pageName === pageName || page.displayName === pageName);
+function selectPlanningPage(pages: PlanningPage[], pageName: string): PlanningPage | undefined {
+  const matches = pages.filter((page) => page.pageName === pageName);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function findPage(paths: ReportDefinitionPaths, planningPage: PlanningPage | undefined) {
+  if (!planningPage) {
+    return undefined;
+  }
+
+  if (planningPage.pageId) {
+    return paths.pages.find((page) => page.pageId === planningPage.pageId);
+  }
+
+  const matches = paths.pages.filter((page) => page.displayName === planningPage.pageName);
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 function isSupportedMutationCategory(category: FixOpportunityCategory): boolean {
   switch (category) {
-    case 'title':
     case 'semanticColor':
       return false;
     default:
       return true;
   }
+}
+
+function getValueAtPath(source: unknown, storagePath: Array<string | number>): unknown {
+  return storagePath.reduce<unknown>((current, segment) => {
+    if (typeof segment === 'number') {
+      return Array.isArray(current) ? current[segment] : undefined;
+    }
+
+    return isRecord(current) ? current[segment] : undefined;
+  }, source);
+}
+
+function decodePbirStringLiteral(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  if (value.length >= 2 && value.startsWith('\'') && value.endsWith('\'')) {
+    return value.slice(1, -1).replace(/''/g, '\'');
+  }
+
+  return value;
+}
+
+function resolveTitleStoragePath(visualJson: Record<string, unknown>): { storagePath: Array<string | number>; before: string; storageValueFormat: 'plain' | 'pbirStringLiteral' } | undefined {
+  const pbirPath: Array<string | number> = ['visual', 'visualContainerObjects', 'title', 0, 'properties', 'text', 'expr', 'Literal', 'Value'];
+  const pbirValue = getValueAtPath(visualJson, pbirPath);
+  const decodedPbirValue = decodePbirStringLiteral(pbirValue);
+  if (decodedPbirValue !== undefined) {
+    return {
+      storagePath: pbirPath,
+      before: decodedPbirValue,
+      storageValueFormat: 'pbirStringLiteral',
+    };
+  }
+
+  const legacyPath: Array<string | number> = ['title', 'text'];
+  const legacyValue = getValueAtPath(visualJson, legacyPath);
+  if (typeof legacyValue === 'string') {
+    return {
+      storagePath: legacyPath,
+      before: legacyValue,
+      storageValueFormat: 'plain',
+    };
+  }
+
+  return undefined;
 }
 
 function findTitleVisual(page: PlanningPage | undefined): VisualMetadataItem | undefined {
@@ -152,10 +215,9 @@ function findTitleVisual(page: PlanningPage | undefined): VisualMetadataItem | u
 function buildTitleMutations(
   paths: ReportDefinitionPaths,
   page: PlanningPage | undefined,
-  pageName: string,
 ): FixMutation[] {
   const titleVisual = findTitleVisual(page);
-  const pageDef = findPage(paths, pageName);
+  const pageDef = findPage(paths, page);
   if (!titleVisual || !pageDef) {
     return [];
   }
@@ -165,14 +227,21 @@ function buildTitleMutations(
     return [];
   }
 
+  const titleTarget = resolveTitleStoragePath(readJsonFile(targetFile));
+  if (!titleTarget || !page) {
+    return [];
+  }
+
   const mutations: FixMutation[] = [];
   if (titleVisual.y !== 24) {
     mutations.push({
       id: `${titleVisual.visualId}-position-y`,
-      pageName,
+      pageName: page.pageName,
       targetObjectId: titleVisual.visualId,
       targetFile,
       propertyPath: 'position.y',
+      storagePath: ['position', 'y'],
+      storageValueFormat: 'plain',
       mutationType: 'setPosition',
       before: titleVisual.y,
       after: 24,
@@ -182,26 +251,30 @@ function buildTitleMutations(
   if (titleVisual.x !== 24) {
     mutations.push({
       id: `${titleVisual.visualId}-position-x`,
-      pageName,
+      pageName: page.pageName,
       targetObjectId: titleVisual.visualId,
       targetFile,
       propertyPath: 'position.x',
+      storagePath: ['position', 'x'],
+      storageValueFormat: 'plain',
       mutationType: 'setPosition',
       before: titleVisual.x,
       after: 24,
     });
   }
 
-  const desiredTitle = pageName;
-  if (titleVisual.bestVisibleText !== desiredTitle) {
+  const desiredTitle = page.pageName;
+  if (titleTarget.before !== desiredTitle) {
     mutations.push({
       id: `${titleVisual.visualId}-title-text`,
-      pageName,
+      pageName: page.pageName,
       targetObjectId: titleVisual.visualId,
       targetFile,
       propertyPath: 'title.text',
+      storagePath: titleTarget.storagePath,
+      storageValueFormat: titleTarget.storageValueFormat,
       mutationType: 'setTitleText',
-      before: titleVisual.bestVisibleText,
+      before: titleTarget.before,
       after: desiredTitle,
     });
   }
@@ -214,7 +287,7 @@ function buildLayoutMutations(
   page: PlanningPage | undefined,
   pageName: string,
 ): FixMutation[] {
-  const pageDef = findPage(paths, pageName);
+  const pageDef = findPage(paths, page);
   if (!page?.visualMetadata || !pageDef) {
     return [];
   }
@@ -237,6 +310,8 @@ function buildLayoutMutations(
           targetObjectId: visual.visualId,
           targetFile,
           propertyPath: 'position.x',
+          storagePath: ['position', 'x'],
+          storageValueFormat: 'plain',
           mutationType: 'setPosition',
           before: visual.x,
           after: snappedX,
@@ -249,6 +324,8 @@ function buildLayoutMutations(
           targetObjectId: visual.visualId,
           targetFile,
           propertyPath: 'position.y',
+          storagePath: ['position', 'y'],
+          storageValueFormat: 'plain',
           mutationType: 'setPosition',
           before: visual.y,
           after: snappedY,
@@ -276,7 +353,7 @@ function buildNavigationMutations(
   const anchorY = Math.min(...navigationVisuals.map((entry) => entry.visual.y));
 
   return navigationVisuals.flatMap(({ pageName, visual }) => {
-    const pageDef = findPage(paths, pageName);
+    const pageDef = findPage(paths, pages.find((page) => page.pageName === pageName));
     const targetFile = pageDef?.visualFiles.get(visual.visualId);
     if (!targetFile) {
       return [];
@@ -290,6 +367,8 @@ function buildNavigationMutations(
         targetObjectId: visual.visualId,
         targetFile,
         propertyPath: 'position.x',
+        storagePath: ['position', 'x'],
+        storageValueFormat: 'plain',
         mutationType: 'setNavigationPlacement',
         before: visual.x,
         after: anchorX,
@@ -302,6 +381,8 @@ function buildNavigationMutations(
         targetObjectId: visual.visualId,
         targetFile,
         propertyPath: 'position.y',
+        storagePath: ['position', 'y'],
+        storageValueFormat: 'plain',
         mutationType: 'setNavigationPlacement',
         before: visual.y,
         after: anchorY,
@@ -314,8 +395,8 @@ function buildNavigationMutations(
 function buildCrossPageTitleMutations(paths: ReportDefinitionPaths, pages: PlanningPage[], affectedPages: string[]): FixMutation[] {
   const titleVisuals = pages
     .filter((page) => affectedPages.includes(page.pageName))
-    .map((page) => ({ pageName: page.pageName, visual: findTitleVisual(page) }))
-    .filter((entry): entry is { pageName: string; visual: VisualMetadataItem } => Boolean(entry.visual));
+    .map((page) => ({ page, visual: findTitleVisual(page) }))
+    .filter((entry): entry is { page: PlanningPage; visual: VisualMetadataItem } => Boolean(entry.visual));
 
   if (titleVisuals.length < 2) {
     return [];
@@ -323,8 +404,8 @@ function buildCrossPageTitleMutations(paths: ReportDefinitionPaths, pages: Plann
 
   const anchorX = Math.min(...titleVisuals.map((entry) => entry.visual.x));
   const anchorY = Math.min(...titleVisuals.map((entry) => entry.visual.y));
-  return titleVisuals.flatMap(({ pageName, visual }) => {
-    const pageDef = findPage(paths, pageName);
+  return titleVisuals.flatMap(({ page, visual }) => {
+    const pageDef = findPage(paths, page);
     const targetFile = pageDef?.visualFiles.get(visual.visualId);
     if (!targetFile) {
       return [];
@@ -333,10 +414,12 @@ function buildCrossPageTitleMutations(paths: ReportDefinitionPaths, pages: Plann
     if (visual.x !== anchorX) {
       mutations.push({
         id: `${visual.visualId}-cross-title-x`,
-        pageName,
+        pageName: page.pageName,
         targetObjectId: visual.visualId,
         targetFile,
         propertyPath: 'position.x',
+        storagePath: ['position', 'x'],
+        storageValueFormat: 'plain',
         mutationType: 'setPosition',
         before: visual.x,
         after: anchorX,
@@ -345,10 +428,12 @@ function buildCrossPageTitleMutations(paths: ReportDefinitionPaths, pages: Plann
     if (visual.y !== anchorY) {
       mutations.push({
         id: `${visual.visualId}-cross-title-y`,
-        pageName,
+        pageName: page.pageName,
         targetObjectId: visual.visualId,
         targetFile,
         propertyPath: 'position.y',
+        storagePath: ['position', 'y'],
+        storageValueFormat: 'plain',
         mutationType: 'setPosition',
         before: visual.y,
         after: anchorY,
@@ -378,7 +463,7 @@ function buildSemanticColorMutations(paths: ReportDefinitionPaths, pages: Planni
       return [];
     }
 
-    const pageDef = findPage(paths, assignment.sourcePageName);
+    const pageDef = findPage(paths, pages.find((page) => page.pageName === assignment.sourcePageName));
     const targetFile = pageDef?.visualFiles.get(assignment.sourceVisualId);
     if (!targetFile) {
       return [];
@@ -413,11 +498,11 @@ export function planMutationsForCategory(args: {
   }
 
   const pages = getPlanningPages(args.result);
-  const selectedPage = args.pageName ? pages.find((page) => page.pageName === args.pageName) : undefined;
+  const selectedPage = args.pageName ? selectPlanningPage(pages, args.pageName) : undefined;
 
   switch (args.category) {
     case 'title':
-      return args.pageName ? buildTitleMutations(paths, selectedPage, args.pageName) : [];
+      return args.pageName ? buildTitleMutations(paths, selectedPage) : [];
     case 'alignment':
       return args.pageName ? buildLayoutMutations(paths, selectedPage, args.pageName) : [];
     case 'navigation':

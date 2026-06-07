@@ -218,6 +218,25 @@
 - Updated `docs/RELEASING.md` with a conservative manual `0.5.0` upload procedure, recommended target order, and stop conditions if the portal appears to replace rather than append target packages.
   - `Remediation Queue`
   - `AI Proposal Enrichment`
+
+## 2026-06-06 Engineering Hardening Planning
+
+- Reviewed the remaining open `0.5.0` hardening issues and grouped them into three epics:
+  - `Safe Deterministic Fix Engine`
+  - `Platform & Runtime Reliability`
+  - `Performance & Scalability`
+- Added the planning-only roadmap documents:
+  - `docs/superpowers/specs/2026-06-06-engineering-hardening-design.md`
+  - `docs/superpowers/plans/2026-06-06-engineering-hardening-plan.md`
+- Captured recommended, non-committed release buckets:
+  - Recommended `0.5.1` for deterministic fix trust repair plus adjacent trust fixes
+  - Recommended `0.5.2` for runtime/platform coherence
+  - Recommended `0.6.0` for scale, protocol, and analyzer-configuration maturity
+- Explicitly documented:
+  - dependency mapping
+  - architectural boundaries
+  - ship-together versus ship-independently guidance
+  - validation and rollout expectations for future implementation
   - `Fix Opportunity Engine`
   - `Deterministic Mutation Layer`
 - Preserved the permanent execution trust boundary:
@@ -600,3 +619,4 @@
 - 2026-06-05: Updated the extension icon to use a transparent PNG background while preserving the green bars and green magnifying glass. Verified the logo mark visually on dark and light preview composites so Marketplace and VS Code theme backgrounds show through cleanly.
 - 2026-06-06: Confirmed the `0.5.0` score drift was caused by different saved framework-weight configs across machines, not runtime math. Confirmed `win32-arm64` VSIX is large because it is intentionally self-contained and bundles the .NET 8 runtime, while the other current target packages remain framework-dependent.
 - 2026-06-06: Rebuilt the final `0.5.0` five-target VSIX set from a clean state, updated release docs for manual Marketplace upload, documented the Windows arm64 self-contained backend and icon rendering note, and verified package contents and target isolation.
+- 2026-06-06: Implemented Recommended `0.5.1` trust-restoration scope only. Added stable page-ID deterministic mutation routing, schema-correct PBIR title mutation shaping, atomic temp-file plus rename writes, rollback-on-failure, post-write validation, PBIR-derived governance theme verification, and direct screenshot-upload workflow triggering. Focused checkpoint validation plus full `npm test`, `npm run compile`, and `dotnet test -c Release` all passed. Packaging intentionally deferred.

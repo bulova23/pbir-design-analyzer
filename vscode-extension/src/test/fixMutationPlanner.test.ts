@@ -41,7 +41,8 @@ function visual(overrides: Partial<VisualMetadataItem> = {}): VisualMetadataItem
 
 function pageScore(overrides: Partial<PageScore> = {}): PageScore {
   return {
-    pageName: 'OverviewPage',
+    pageId: 'OverviewPage',
+    pageName: 'Overview',
     gestaltScore: 80,
     cognitiveLoadScore: 75,
     dataInkScore: 70,
@@ -57,7 +58,7 @@ function pageScore(overrides: Partial<PageScore> = {}): PageScore {
     feedback: {},
     recommendations: [],
     visualMetadata: {
-      pageName: 'OverviewPage',
+      pageName: 'Overview',
       visiblePageTitle: 'Overview Title',
       strictVisiblePageTitle: undefined,
       canvasWidth: 1280,
@@ -94,14 +95,42 @@ function createTempReport(): string {
   fs.writeFileSync(path.join(overviewPageRoot, 'visuals', 'title-1', 'visual.json'), JSON.stringify({
     name: 'title-1',
     position: { x: 100, y: 180, width: 400, height: 48 },
-    title: { text: 'Overview Title' },
-    visual: { visualType: 'textbox' },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Overview Title\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
   }));
   fs.writeFileSync(path.join(detailPageRoot, 'visuals', 'title-2', 'visual.json'), JSON.stringify({
     name: 'title-2',
     position: { x: 220, y: 140, width: 420, height: 48 },
-    title: { text: 'Details Title' },
-    visual: { visualType: 'textbox' },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Details Title\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
     background: { color: '#00ff00' },
   }));
   return reportRoot;
@@ -121,6 +150,62 @@ function createTempReportWithoutPagesJson(): string {
   fs.writeFileSync(path.join(aPageRoot, 'page.json'), JSON.stringify({ name: 'AlphaPage', displayName: 'Alpha' }));
   fs.writeFileSync(path.join(zPageRoot, 'visuals', 'visual-z', 'visual.json'), JSON.stringify({ name: 'visual-z', visual: { visualType: 'textbox' } }));
   fs.writeFileSync(path.join(aPageRoot, 'visuals', 'visual-a', 'visual.json'), JSON.stringify({ name: 'visual-a', visual: { visualType: 'textbox' } }));
+  return reportRoot;
+}
+
+function createTempReportWithDuplicateDisplayNames(): string {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-fix-mutation-planner-'));
+  const reportRoot = path.join(tempDir, 'Sales.Report');
+  const definitionRoot = path.join(reportRoot, 'definition');
+  const alphaPageRoot = path.join(definitionRoot, 'pages', 'AlphaPage');
+  const betaPageRoot = path.join(definitionRoot, 'pages', 'BetaPage');
+  fs.mkdirSync(path.join(alphaPageRoot, 'visuals', 'title-a'), { recursive: true });
+  fs.mkdirSync(path.join(betaPageRoot, 'visuals', 'title-b'), { recursive: true });
+  fs.writeFileSync(path.join(reportRoot, 'definition.pbir'), '{}');
+  fs.writeFileSync(path.join(definitionRoot, 'report.json'), JSON.stringify({ name: 'Sales' }));
+  fs.writeFileSync(path.join(definitionRoot, 'pages', 'pages.json'), JSON.stringify({ pageOrder: ['AlphaPage', 'BetaPage'] }));
+  fs.writeFileSync(path.join(alphaPageRoot, 'page.json'), JSON.stringify({ name: 'AlphaPage', displayName: 'Overview' }));
+  fs.writeFileSync(path.join(betaPageRoot, 'page.json'), JSON.stringify({ name: 'BetaPage', displayName: 'Overview' }));
+  fs.writeFileSync(path.join(alphaPageRoot, 'visuals', 'title-a', 'visual.json'), JSON.stringify({
+    name: 'title-a',
+    position: { x: 100, y: 180, width: 400, height: 48 },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Alpha Overview\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
+  }));
+  fs.writeFileSync(path.join(betaPageRoot, 'visuals', 'title-b', 'visual.json'), JSON.stringify({
+    name: 'title-b',
+    position: { x: 220, y: 140, width: 420, height: 48 },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Beta Overview\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
+  }));
   return reportRoot;
 }
 
@@ -146,11 +231,12 @@ function result(reportPath: string): ScoreResult {
     pageScores: [
       pageScore(),
       pageScore({
-        pageName: 'DetailPage',
+        pageId: 'DetailPage',
+        pageName: 'Details',
         visualMetadata: {
           ...pageScore().visualMetadata!,
-          pageName: 'DetailPage',
-          semanticColorMap: [{ semanticKey: 'status:on-track', color: '#00ff00', sourceVisualId: 'title-2', sourcePageName: 'DetailPage' }],
+          pageName: 'Details',
+          semanticColorMap: [{ semanticKey: 'status:on-track', color: '#00ff00', sourceVisualId: 'title-2', sourcePageName: 'Details' }],
           visuals: [visual({ visualId: 'title-2', x: 220, y: 140 })],
         },
       }),
@@ -188,17 +274,80 @@ describe('fixMutationPlanner', () => {
     expect([...paths!.pages[1].visualFiles.keys()]).toEqual(['visual-z']);
   });
 
-  it('keeps title mutations disabled until schema-correct support exists', () => {
+  it('fails closed when display-name targeting is ambiguous across duplicate pages', () => {
+    const reportPath = createTempReportWithDuplicateDisplayNames();
+    const duplicateResult: ScoreResult = {
+      ...result(reportPath),
+      pageScores: [
+        pageScore({
+          pageId: 'AlphaPage',
+          pageName: 'Overview',
+          visualMetadata: {
+            ...pageScore().visualMetadata!,
+            pageName: 'Overview',
+            visuals: [visual({ visualId: 'title-a', bestVisibleText: 'Alpha Overview', textBoxText: 'Alpha Overview', visibleTitleText: 'Alpha Overview' })],
+          },
+        }),
+        pageScore({
+          pageId: 'BetaPage',
+          pageName: 'Overview',
+          visualMetadata: {
+            ...pageScore().visualMetadata!,
+            pageName: 'Overview',
+            visuals: [visual({ visualId: 'title-b', bestVisibleText: 'Beta Overview', textBoxText: 'Beta Overview', visibleTitleText: 'Beta Overview' })],
+          },
+        }),
+      ],
+    };
+
+    const mutations = planMutationsForCategory({
+      category: 'title',
+      result: duplicateResult,
+      pageName: 'Overview',
+      affectedPages: ['Overview'],
+    });
+
+    expect(mutations).toEqual([]);
+  });
+
+  it('plans title mutations using stable page identity and schema-correct title paths', () => {
     const reportPath = createTempReport();
 
     const mutations = planMutationsForCategory({
       category: 'title',
       result: result(reportPath),
-      pageName: 'OverviewPage',
-      affectedPages: ['OverviewPage'],
+      pageName: 'Overview',
+      affectedPages: ['Overview'],
     });
 
-    expect(mutations).toEqual([]);
+    expect(mutations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pageName: 'Overview',
+          targetObjectId: 'title-1',
+          propertyPath: 'position.y',
+          before: 180,
+          after: 24,
+          storagePath: ['position', 'y'],
+        }),
+        expect.objectContaining({
+          pageName: 'Overview',
+          targetObjectId: 'title-1',
+          propertyPath: 'position.x',
+          before: 100,
+          after: 24,
+          storagePath: ['position', 'x'],
+        }),
+        expect.objectContaining({
+          pageName: 'Overview',
+          targetObjectId: 'title-1',
+          propertyPath: 'title.text',
+          before: 'Overview Title',
+          after: 'Overview',
+          storagePath: ['visual', 'visualContainerObjects', 'title', 0, 'properties', 'text', 'expr', 'Literal', 'Value'],
+        }),
+      ]),
+    );
   });
 
   it('keeps semantic color mutations disabled until schema-correct support exists', () => {
@@ -207,7 +356,7 @@ describe('fixMutationPlanner', () => {
     const mutations = planMutationsForCategory({
       category: 'semanticColor',
       result: result(reportPath),
-      affectedPages: ['OverviewPage', 'DetailPage'],
+      affectedPages: ['Overview', 'Details'],
     });
 
     expect(mutations).toEqual([]);

@@ -244,6 +244,7 @@ public sealed class PbirScoringService
                 PageCount       = 1,
                 Recommendations = recommendations,
                 ReportPath      = location.ReportRootPath,
+                ScoredPageId    = page.Name,
                 ScoredPageName  = pageName,
                 ScoredAt        = DateTimeOffset.UtcNow,
                 FrameworkWeights = frameworkWeights,
@@ -311,6 +312,7 @@ public sealed class PbirScoringService
             PageCount       = 1,
             Recommendations = recommendations,
             ReportPath      = location.ReportRootPath,
+            ScoredPageId    = page.Name,
             ScoredPageName  = pageName,
             ScoredAt        = DateTimeOffset.UtcNow,
             FrameworkWeights = frameworkWeights,
@@ -591,6 +593,7 @@ public sealed class PbirScoringService
                             : BuildBenchmarkComparison(page, emptyStorySummary, emptyIntentProfile, emptyActionability);
                         concurrentPageScores.Add((pageIndex, new PageScore
                         {
+                            PageId = page.Name,
                             PageName = page.DisplayName,
                             GestaltScore = 0,
                             CognitiveLoadScore = 0,
@@ -684,6 +687,7 @@ public sealed class PbirScoringService
                         : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
                     var pageScore = new PageScore
                     {
+                        PageId = page.Name,
                         PageName = page.DisplayName,
                         GestaltScore = finalGestalt,
                         CognitiveLoadScore = finalCogLoad,

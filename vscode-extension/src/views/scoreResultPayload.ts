@@ -703,6 +703,7 @@ function normalizePageScore(value: unknown): PageScore {
   const candidate = isRecord(value) ? value : {};
 
   return {
+    pageId: readOptionalString(candidate, 'pageId'),
     pageName: readOptionalString(candidate, 'pageName') ?? 'Page',
     gestaltScore: readRequiredNumber(candidate, 'gestaltScore'),
     cognitiveLoadScore: readRequiredNumber(candidate, 'cognitiveLoadScore'),
@@ -760,6 +761,7 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     pageScores: Array.isArray(pageScoresValue)
       ? pageScoresValue.map((page) => normalizePageScore(page))
       : undefined,
+    scoredPageId: readOptionalString(candidate, 'scoredPageId'),
     scoredPageName: readOptionalString(candidate, 'scoredPageName'),
     scoringErrors: readStringRecord(candidate, 'scoringErrors'),
     reportConsistencySummary: normalizeReportConsistencySummary(readProperty(candidate, 'reportConsistencySummary')),

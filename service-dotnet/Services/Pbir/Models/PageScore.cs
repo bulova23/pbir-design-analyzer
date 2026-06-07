@@ -8,6 +8,9 @@ namespace PowerBIModelingService.Services.Pbir.Models;
 /// </summary>
 public sealed class PageScore
 {
+    /// <summary>Gets or sets the stable PBIR page identifier.</summary>
+    public string? PageId { get; init; }
+
     /// <summary>Gets or sets the name of the page being scored.</summary>
     public required string PageName { get; init; }
 

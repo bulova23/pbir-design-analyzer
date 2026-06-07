@@ -136,6 +136,10 @@ export class PbirScorePanel {
     return true;
   }
 
+  async requestScreenshotUpload(): Promise<void> {
+    await this.handleUploadScreenshots();
+  }
+
   private constructor(
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,

@@ -117,6 +117,39 @@ function createReportRoot(): string {
   return reportRoot;
 }
 
+function createTitleReportRoot(): string {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-fix-apply-'));
+  const reportRoot = path.join(tempDir, 'Sales.Report');
+  const definitionRoot = path.join(reportRoot, 'definition');
+  const overviewPageRoot = path.join(definitionRoot, 'pages', 'OverviewPage');
+  fs.mkdirSync(path.join(overviewPageRoot, 'visuals', 'title-1'), { recursive: true });
+  fs.writeFileSync(path.join(reportRoot, 'definition.pbir'), '{}');
+  fs.writeFileSync(path.join(definitionRoot, 'report.json'), JSON.stringify({ name: 'Sales' }));
+  fs.writeFileSync(path.join(definitionRoot, 'pages', 'pages.json'), JSON.stringify({ pageOrder: ['OverviewPage'] }));
+  fs.writeFileSync(path.join(overviewPageRoot, 'page.json'), JSON.stringify({ name: 'OverviewPage', displayName: 'Overview' }));
+  fs.writeFileSync(path.join(overviewPageRoot, 'visuals', 'title-1', 'visual.json'), JSON.stringify({
+    name: 'title-1',
+    position: { x: 100, y: 180, width: 400, height: 48 },
+    visual: {
+      visualType: 'textbox',
+      visualContainerObjects: {
+        title: [{
+          properties: {
+            text: {
+              expr: {
+                Literal: {
+                  Value: '\'Overview Title\'',
+                },
+              },
+            },
+          },
+        }],
+      },
+    },
+  }));
+  return reportRoot;
+}
+
 function opportunity(reportPath: string): FixOpportunity {
   const result: ScoreResult = {
     gestaltScore: 0,
@@ -152,6 +185,77 @@ function opportunity(reportPath: string): FixOpportunity {
       sourceFindingIds: ['layout-finding'],
     }],
     pageScores: [pageScore()],
+  };
+
+  return buildFixOpportunities(result)[0];
+}
+
+function titleOpportunity(reportPath: string): FixOpportunity {
+  const result: ScoreResult = {
+    gestaltScore: 0,
+    cognitiveLoadScore: 0,
+    dataInkScore: 0,
+    accessibilityScore: 0,
+    visualBestPracticesScore: 0,
+    stephenFewScore: 0,
+    enterpriseGovernanceScore: 0,
+    tufteScore: 0,
+    graphicalPerceptionScore: 0,
+    densityScore: 0,
+    narrativeScore: 0,
+    compositeScore: 0,
+    feedback: {},
+    pageCount: 1,
+    recommendations: [],
+    reportPath,
+    scoredAt: '2026-06-06T13:00:00.000Z',
+    normalizedFindings: [{
+      id: 'story-finding',
+      title: 'story issue',
+      summary: 'story issue',
+      severity: 'high',
+      confidence: 90,
+      scope: 'page',
+      detectionType: 'deterministic',
+      affectedPages: ['Overview'],
+      impactArea: 'storytelling',
+      frameworkImpact: ['Narrative Design'],
+      recommendation: 'clarify page purpose',
+      sourceKind: 'framework',
+      sourceSection: 'issues',
+      evidence: [],
+    }],
+    fixPlan: [{
+      id: 'fix-story',
+      title: 'Clarify page purpose and narrative framing',
+      detail: 'Resolve page purpose ambiguity.',
+      severity: 'high',
+      effort: 'low',
+      impact: 'high',
+      why: 'Improves page purpose clarity.',
+      scope: 'page',
+      affectedPages: ['Overview'],
+      recommendedAction: 'Standardize the page title.',
+      resolvedOutcomes: ['Story clarity'],
+      sourceFindingIds: ['story-finding'],
+    }],
+    pageScores: [{
+      ...pageScore(),
+      pageId: 'OverviewPage',
+      visualMetadata: {
+        ...pageScore().visualMetadata!,
+        visuals: [visual({
+          visualId: 'title-1',
+          visualType: 'textbox',
+          x: 100,
+          y: 180,
+          hasVisibleTitleIntent: true,
+          bestVisibleText: 'Overview Title',
+          textBoxText: 'Overview Title',
+          visibleTitleText: 'Overview Title',
+        })],
+      },
+    }],
   };
 
   return buildFixOpportunities(result)[0];
@@ -206,6 +310,38 @@ describe('fixApplyEngine', () => {
     const rollbackResult = rollbackFixOpportunity(fix);
     expect(rollbackResult.state).toBe('RolledBack');
     expect(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')).toBe(original);
+  });
+
+  it('applies schema-correct title mutations through storage paths', () => {
+    const reportPath = createTitleReportRoot();
+    const fix = titleOpportunity(reportPath);
+
+    const result = applyFixOpportunity(fix);
+
+    expect(result.state).toBe('Applied');
+    const updated = JSON.parse(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')) as {
+      position: { x: number; y: number };
+      visual: { visualContainerObjects: { title: Array<{ properties: { text: { expr: { Literal: { Value: string } } } } }> } };
+    };
+    expect(updated.position.x).toBe(24);
+    expect(updated.position.y).toBe(24);
+    expect(updated.visual.visualContainerObjects.title[0].properties.text.expr.Literal.Value).toBe('\'Overview\'');
+  });
+
+  it('marks schema-correct title opportunities stale when the stored title drifts', () => {
+    const reportPath = createTitleReportRoot();
+    const fix = titleOpportunity(reportPath);
+    const titlePath = fix.mutations[0].targetFile;
+    const titleJson = JSON.parse(fs.readFileSync(titlePath, 'utf8')) as {
+      visual: { visualContainerObjects: { title: Array<{ properties: { text: { expr: { Literal: { Value: string } } } } }> } };
+    };
+    titleJson.visual.visualContainerObjects.title[0].properties.text.expr.Literal.Value = '\'Drifted Title\'';
+    fs.writeFileSync(titlePath, JSON.stringify(titleJson), 'utf8');
+
+    const result = applyFixOpportunity(fix);
+
+    expect(result.state).toBe('Stale');
+    expect(result.appliedMutationCount).toBe(0);
   });
 
   it('applies compatible opportunities in deterministic order', () => {
@@ -340,5 +476,53 @@ describe('fixApplyEngine', () => {
     expect(rollbackResult.state).toBe('RolledBack');
     expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
     expect(fs.readFileSync(second.mutations[0].targetFile, 'utf8')).toBe(originalSecond);
+  });
+
+  it('rolls back already-staged file changes when an atomic batch persistence step fails', () => {
+    const reportPath = createReportRoot();
+    const first = opportunity(reportPath);
+    const second = {
+      ...opportunity(reportPath),
+      id: 'fix-z',
+      targetObjectIds: ['chart-2'],
+      mutations: [{
+        ...opportunity(reportPath).mutations[0],
+        id: 'mutation-z',
+        targetObjectId: 'chart-2',
+        targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+        propertyPath: 'position.x',
+        storagePath: ['position', 'x'],
+        before: 80,
+        after: 24,
+      }],
+      rollbackPlan: {
+        id: 'rollback-fix-z',
+        fixOpportunityId: 'fix-z',
+        fileBackups: [{
+          targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+          beforeContent: '{"name":"chart-2","position":{"x":80,"y":220,"width":390,"height":200},"title":{"text":"Chart 2"},"visual":{"visualType":"barChart"}}',
+        }],
+        reverseMutations: [],
+      },
+    } satisfies FixOpportunity;
+
+    fs.mkdirSync(path.dirname(second.mutations[0].targetFile), { recursive: true });
+    fs.writeFileSync(second.mutations[0].targetFile, second.rollbackPlan.fileBackups[0].beforeContent, 'utf8');
+    const originalFirst = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
+    const originalSecond = fs.readFileSync(second.mutations[0].targetFile, 'utf8');
+    const secondDir = path.dirname(second.mutations[0].targetFile);
+    fs.chmodSync(second.mutations[0].targetFile, 0o400);
+    fs.chmodSync(secondDir, 0o500);
+
+    try {
+      const result = applyFixOpportunityBatch([first, second], '2026-06-06T14:00:00.000Z');
+      expect(result.state).toBe('FailedValidation');
+      expect(result.appliedMutationCount).toBe(0);
+      expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
+      expect(fs.readFileSync(second.mutations[0].targetFile, 'utf8')).toBe(originalSecond);
+    } finally {
+      fs.chmodSync(second.mutations[0].targetFile, 0o600);
+      fs.chmodSync(secondDir, 0o700);
+    }
   });
 });
