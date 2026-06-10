@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { PBIR_COMMANDS, registerPbirCommands } from '../commands/pbirCommands';
 
-describe('pbir.governanceCheck command', () => {
+describe('pbirAnalyzer.checkGovernance command', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -71,7 +71,7 @@ describe('pbir.governanceCheck command', () => {
     });
 
     registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => bridge as never);
-    const governanceHandler = getRegisteredHandler(PBIR_COMMANDS.governanceCheck);
+    const governanceHandler = getRegisteredHandler(PBIR_COMMANDS.checkGovernance);
 
     await governanceHandler('/tmp/Sales.Report');
 
@@ -114,11 +114,67 @@ describe('pbir.governanceCheck command', () => {
     });
 
     registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => bridge as never);
-    const governanceHandler = getRegisteredHandler(PBIR_COMMANDS.governanceCheck);
+    const governanceHandler = getRegisteredHandler(PBIR_COMMANDS.checkGovernance);
 
     await governanceHandler(reportPath);
 
     expect(vscode.window.showInputBox).not.toHaveBeenCalled();
+    expect(bridge.executeRequest).toHaveBeenCalledWith('model/pbir/governanceCheck', {
+      reportPath,
+      themeId: 'CorporateBlue',
+    });
+  });
+
+  it('falls back to legacy powerbi-modeling governance settings when pbirAnalyzer settings are not present', async () => {
+    const reportPath = createReportWithTheme('CorporateBlue');
+    const bridge = {
+      executeRequest: jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          policyState: 'configured',
+          blocked: false,
+          evaluatedScore: 88,
+          requiredThreshold: 80,
+        },
+      }),
+    };
+
+    const newConfig = {
+      get: jest.fn((key: string, defaultValue: unknown) => defaultValue),
+    };
+    const legacyConfig = {
+      get: jest.fn((key: string, defaultValue: unknown) => {
+        if (key === 'governance.enabled') {
+          return true;
+        }
+
+        if (key === 'governance.approvedThemeIds') {
+          return ['CorporateBlue'];
+        }
+
+        return defaultValue;
+      }),
+    };
+
+    (vscode.workspace.getConfiguration as jest.Mock).mockImplementation((section?: string) => {
+      if (section === 'pbirAnalyzer') {
+        return newConfig;
+      }
+
+      if (section === 'powerbi-modeling') {
+        return legacyConfig;
+      }
+
+      return { get: jest.fn((_key: string, defaultValue: unknown) => defaultValue) };
+    });
+
+    registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => bridge as never);
+    const governanceHandler = getRegisteredHandler(PBIR_COMMANDS.checkGovernance);
+
+    await governanceHandler(reportPath);
+
+    expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith('pbirAnalyzer');
+    expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith('powerbi-modeling');
     expect(bridge.executeRequest).toHaveBeenCalledWith('model/pbir/governanceCheck', {
       reportPath,
       themeId: 'CorporateBlue',

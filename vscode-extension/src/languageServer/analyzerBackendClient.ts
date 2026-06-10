@@ -9,6 +9,7 @@ import {
   ServerOptions,
   State,
 } from 'vscode-languageclient/node';
+import { getBackendOutputChannel, getBackendTraceOutputChannel } from '../platform/outputChannels';
 
 export interface BackendRuntimeDescriptor {
   runtimeId: 'win-x64' | 'win-arm64' | 'linux-x64' | 'osx-x64' | 'osx-arm64';
@@ -110,8 +111,8 @@ export function createAnalyzerBackendClient(
 
     const clientOptions: LanguageClientOptions = {
       documentSelector: [{ scheme: 'file' }],
-      outputChannel: vscode.window.createOutputChannel('PBIR Design Analyzer Backend'),
-      traceOutputChannel: vscode.window.createOutputChannel('PBIR Design Analyzer Backend Trace'),
+      outputChannel: getBackendOutputChannel(),
+      traceOutputChannel: getBackendTraceOutputChannel(),
       revealOutputChannelOn: RevealOutputChannelOn.Info,
       connectionOptions: { maxRestartCount: 3 },
     };

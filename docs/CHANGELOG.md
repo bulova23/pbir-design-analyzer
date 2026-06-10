@@ -2,6 +2,61 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.5.2 — 2026-06-10
+
+### Operational Coherence
+
+- Consolidated extension runtime logging onto shared singleton output channels for:
+  - general extension activity
+  - backend activity
+  - backend trace
+  - score diagnostics
+- Removed one-off output-channel creation during command error handling so diagnostics stay in the same predictable locations.
+
+### Namespace And Metadata
+
+- Promoted `pbirAnalyzer` as the canonical command, view, and configuration namespace.
+- Moved the explorer view ID to `pbirAnalyzer.explorer`.
+- Added legacy command aliases for the older `pbir.*` command family so existing command links and automation keep routing to the canonical registrations during migration.
+- Added canonical `pbirAnalyzer.governance.*` settings.
+- Kept legacy `powerbi-modeling.governance.*` fallback reads in code only, without continuing to expose those keys in release-facing contributed configuration metadata.
+
+### Runtime Posture
+
+- Declared unsupported posture for:
+  - untrusted workspaces
+  - virtual workspaces
+- Made telemetry behavior explicit for this release train:
+  - telemetry remains local-only and no-op
+  - no debug console event emission
+  - no production telemetry pipeline introduced in this scope
+
+### Docs And Supportability
+
+- Updated the troubleshooting guide so it matches the shipped command names, explorer label, and packaged-backend restart path.
+- Added regression coverage for:
+  - shared output-channel reuse
+  - manifest capability declarations
+  - canonical view/config metadata
+  - legacy governance-setting fallback
+  - legacy review-workflow command alias routing
+  - explicit no-op telemetry behavior
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npx jest src/test/outputChannels.test.ts src/test/packageManifest.test.ts src/test/pbirGovernanceCommand.test.ts src/test/pbirReviewWorkflowExportCommand.test.ts src/test/telemetryReporter.test.ts --runInBand`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run package:all`
+- VSIX inspection confirmed:
+  - packaged version remained `0.5.0`
+  - target-specific artifacts remained correct for Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
+  - backend binaries remained target-specific
+  - packaged manifest metadata used `pbirAnalyzer.explorer` plus explicit untrusted/virtual capability declarations
+  - no stale command/view/config identifiers remained in release-facing metadata
+
 ## 0.5.1 — 2026-06-06
 
 ### Trust Restoration

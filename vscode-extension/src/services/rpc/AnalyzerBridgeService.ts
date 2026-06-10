@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
-import * as vscode from 'vscode';
 import { LanguageClient, State } from 'vscode-languageclient/node';
+import { getBackendOutputChannel } from '../../platform/outputChannels';
 
 export enum BridgeState {
   UNINITIALIZED = 'uninitialized',
@@ -18,7 +18,7 @@ export class AnalyzerBridgeService extends EventEmitter {
   private client: LanguageClient | null = null;
   private state: BridgeState = BridgeState.UNINITIALIZED;
   private readonly defaultTimeout = 30000;
-  private readonly outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer Backend');
+  private readonly outputChannel = getBackendOutputChannel();
   private isShuttingDown = false;
   private lastClientState: State = State.Stopped;
 

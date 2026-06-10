@@ -69,4 +69,22 @@ describe('telemetry reporter', () => {
     // No error thrown — initialized without crashing
     telemetry.sendEvent('command.invoked', { commandName: 'pbir.scoreReport' });
   });
+
+  it('remains local-only and does not emit debug console telemetry even in development mode', () => {
+    const fakeContext = {
+      extension: { id: 'bcrowell.pbir-design-analyzer', packageJSON: { version: '0.1.13' } },
+      subscriptions: [],
+    } as unknown as vscode.ExtensionContext;
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    Object.defineProperty(vscode.env, 'isTelemetryEnabled', { value: true, configurable: true });
+    process.env.NODE_ENV = 'development';
+
+    telemetry.initialize(fakeContext);
+    telemetry.sendEvent('command.invoked', { commandName: 'pbirAnalyzer.scoreReport' });
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+
+    process.env.NODE_ENV = originalNodeEnv;
+  });
 });

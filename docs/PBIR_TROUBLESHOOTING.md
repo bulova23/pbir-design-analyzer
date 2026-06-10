@@ -36,17 +36,17 @@ ERROR: Page 'Sales Analysis' not found in report
 ### Resolution
 
 **Option 1: Use the Tree View (Recommended)**
-1. Open the **PBIR Reports** tree in the Activity Bar
+1. Open the **PBIR Design Analyzer** tree in the Activity Bar
 2. Expand your report
 3. Right-click the page you want to score
 4. Select **Score Page**
 5. The extension handles the exact name automatically
 
 **Option 2: Copy-Paste the Name**
-1. Open the **PBIR Reports** tree
+1. Open the **PBIR Design Analyzer** tree
 2. Find the page in the tree
 3. Open a Command Palette (`⌘⇧P`)
-4. Run **PBIR: Score Page**
+4. Run **PBIR Design Analyzer: Score Report** from the page context menu
 5. Paste the page name from the tree (exact match guaranteed)
 
 **Option 3: Verify the Page Exists**
@@ -99,8 +99,8 @@ ERROR: Page 'Sales Analysis' not found in report
 
 **To Force a Full Re-Render**:
 1. Close the Optimization Report panel
-2. Run **PBIR: Refresh Reports** from the Command Palette
-3. Re-run **PBIR: Score Report Quality**
+2. Run **PBIR Design Analyzer: Refresh Reports** from the Command Palette
+3. Re-run **PBIR Design Analyzer: Score Report**
 4. Panel should render correctly with tabs
 
 ### Prevention
@@ -136,8 +136,8 @@ If your scoring is **slower than "Expected Time"**, investigate.
 ### Resolution
 
 **Step 1: Check Backend Service**
-1. Run **Power BI MCP: Restart .NET Daemon** from the Command Palette
-2. Wait 10 seconds for the service to restart
+1. Run **Developer: Reload Window** from the Command Palette
+2. Wait for PBIR Design Analyzer to reactivate and restart its packaged backend
 3. Try scoring again
 
 **Step 2: Check Network**
@@ -162,7 +162,7 @@ If your scoring is **slower than "Expected Time"**, investigate.
 
 **Step 5: Try Scoring a Single Page**
 1. To isolate whether the issue is report-wide or specific:
-   - Run **PBIR: Score Page** on a single page
+   - Run **PBIR Design Analyzer: Score Report** on a single page from the explorer context menu
    - If it's fast (~0.5s), the report is large but functional
    - If it's slow, the page may have issues (complex visuals, etc.)
 
@@ -316,7 +316,7 @@ This is a rare rendering edge case, not typical behavior.
 
 2. **Close and re-score**:
    - Close the Optimization Report panel
-   - Run **PBIR: Score Report Quality** again
+   - Run **PBIR Design Analyzer: Score Report** again
    - Panel should render correctly (non-tabbed)
 
 3. **Check browser console**:
@@ -335,7 +335,7 @@ This is a rare rendering edge case, not typical behavior.
 ## Can't Select Pages from Tree View
 
 **Symptom**: 
-- PBIR Reports tree is empty or not showing pages
+- PBIR Design Analyzer tree is empty or not showing pages
 - "Right-click page" is not available
 - Tree shows "No PBIP model connected"
 
@@ -357,14 +357,14 @@ This is a rare rendering edge case, not typical behavior.
 **If tree shows report but no pages**:
 1. Check if the report is valid in Power BI Desktop
 2. Right-click the report in the tree and select **Refresh**
-3. Or: Run **PBIR: Refresh Reports** from the Command Palette
+3. Or: Run **PBIR Design Analyzer: Refresh Reports** from the Command Palette
 4. If still empty, the report may be malformed; open in Power BI Desktop to diagnose
 
 **If tree section missing**:
 1. Check if the Power BI Modeling MCP extension is installed
 2. Check if the extension is enabled (not disabled)
 3. Reload VS Code (`Ctrl+R` or `⌘R`)
-4. The PBIR Reports section should appear in the Activity Bar
+4. The PBIR Design Analyzer section should appear in the Activity Bar
 
 ### Prevention
 
@@ -432,7 +432,7 @@ Expected average: (75 + 70 + 75) / 3 = 73, not 72
 
 ### If Performance Degrades
 
-1. Restart the .NET backend: **Power BI MCP: Restart .NET Daemon**
+1. Reload the extension host with **Developer: Reload Window**
 2. Close and reopen VS Code
 3. Check system resources (Activity Monitor or Task Manager)
 4. Try scoring a smaller report to isolate the issue

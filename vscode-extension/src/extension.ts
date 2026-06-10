@@ -16,15 +16,15 @@ import {
 import { AnalyzerBridgeService, BridgeState } from './services/rpc/AnalyzerBridgeService';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { telemetry } from './telemetry/reporter';
+import { getExtensionOutputChannel, registerSharedOutputChannels } from './platform/outputChannels';
 
 let bridgeService: AnalyzerBridgeService | undefined;
 let daemonStatusBar: vscode.StatusBarItem | undefined;
 let backendClient: LanguageClient | undefined;
-let extensionOutput: vscode.OutputChannel | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
-  extensionOutput = vscode.window.createOutputChannel('PBIR Design Analyzer');
-  context.subscriptions.push(extensionOutput);
+  registerSharedOutputChannels(context);
+  const extensionOutput = getExtensionOutputChannel();
   extensionOutput.appendLine('PBIR Design Analyzer is activating...');
   extensionOutput.appendLine(`Extension id: ${context.extension.id}`);
   extensionOutput.appendLine(`Extension path: ${context.extensionPath}`);
@@ -175,9 +175,7 @@ async function autoLoadPbipProject(outputChannel: vscode.OutputChannel | undefin
 }
 
 export async function deactivate() {
-  if (extensionOutput) {
-    extensionOutput.appendLine('PBIR Design Analyzer deactivating');
-  }
+  getExtensionOutputChannel().appendLine('PBIR Design Analyzer deactivating');
 
   if (bridgeService) {
     await bridgeService.shutdown();

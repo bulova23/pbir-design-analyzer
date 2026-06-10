@@ -58,7 +58,7 @@ export class PbirTreeItem extends vscode.TreeItem {
 // ── Provider ─────────────────────────────────────────────────────────────────
 
 /**
- * VS Code TreeDataProvider for the `powerbiModeling.pbirExplorer` view.
+ * VS Code TreeDataProvider for the `pbirAnalyzer.explorer` view.
  *
  * Displays the PBIR report hierarchy:
  * ```

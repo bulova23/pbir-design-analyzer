@@ -16,6 +16,16 @@
   "engines": {
     "vscode": "^1.93.0"
   },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "PBIR Design Analyzer requires a trusted local workspace because it reads report files, launches a packaged backend, and can apply deterministic report fixes."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "PBIR Design Analyzer requires direct local filesystem access for PBIR/Fabric repo discovery, scoring, evidence handling, and deterministic fix workflows."
+    }
+  },
   "categories": [
     "Data Science",
     "Other"
@@ -33,7 +43,7 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onView:powerbiModeling.pbirExplorer",
+    "onView:pbirAnalyzer.explorer",
     "onCommand:pbirAnalyzer.openProject",
     "onCommand:pbirAnalyzer.refreshReports",
     "onCommand:pbirAnalyzer.scoreReport",
@@ -108,13 +118,13 @@
     "configuration": {
       "title": "PBIR Design Analyzer",
       "properties": {
-        "powerbi-modeling.governance.enabled": {
+        "pbirAnalyzer.governance.enabled": {
           "type": "boolean",
           "default": false,
           "description": "Enable governance enforcement mode. When true, reports must meet the minimum composite score and use an approved theme before publishing.",
           "scope": "window"
         },
-        "powerbi-modeling.governance.minimumCompositeScore": {
+        "pbirAnalyzer.governance.minimumCompositeScore": {
           "type": "number",
           "default": 70,
           "minimum": 0,
@@ -122,7 +132,7 @@
           "description": "Minimum composite quality score (0–100) required to pass governance and be eligible for publish. Scores below this threshold will block the publish action.",
           "scope": "window"
         },
-        "powerbi-modeling.governance.approvedThemeIds": {
+        "pbirAnalyzer.governance.approvedThemeIds": {
           "type": "array",
           "items": {
             "type": "string"
@@ -136,7 +146,7 @@
     "views": {
       "pbir-analyzer-container": [
         {
-          "id": "powerbiModeling.pbirExplorer",
+          "id": "pbirAnalyzer.explorer",
           "name": "PBIR Design Analyzer"
         }
       ]
@@ -145,46 +155,46 @@
       "view/title": [
         {
           "command": "pbirAnalyzer.openProject",
-          "when": "view == powerbiModeling.pbirExplorer",
+          "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@1"
         },
         {
           "command": "pbirAnalyzer.refreshReports",
-          "when": "view == powerbiModeling.pbirExplorer",
+          "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@2"
         },
         {
           "command": "pbirAnalyzer.scoreReport",
-          "when": "view == powerbiModeling.pbirExplorer",
+          "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@3"
         },
         {
           "command": "pbirAnalyzer.configureScoring",
-          "when": "view == powerbiModeling.pbirExplorer",
+          "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@4"
         },
         {
           "command": "pbirAnalyzer.checkGovernance",
-          "when": "view == powerbiModeling.pbirExplorer",
+          "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@5"
         }
       ],
       "view/item/context": [
         {
           "command": "pbirAnalyzer.scoreReport",
-          "when": "view == powerbiModeling.pbirExplorer && (viewItem == report || viewItem == page)",
+          "when": "view == pbirAnalyzer.explorer && (viewItem == report || viewItem == page)",
           "group": "1_analyze@1"
         },
         {
           "command": "pbirAnalyzer.checkGovernance",
-          "when": "view == powerbiModeling.pbirExplorer && viewItem == report",
+          "when": "view == pbirAnalyzer.explorer && viewItem == report",
           "group": "2_actions@1"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "powerbiModeling.pbirExplorer",
+        "view": "pbirAnalyzer.explorer",
         "contents": "No PBIP project open.\n[Open a PBIP project](command:pbirAnalyzer.openProject) to inspect report design, scoring, and governance."
       }
     ]

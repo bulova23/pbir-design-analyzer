@@ -7,6 +7,9 @@ import { PbirScorePanel } from '../views/PbirScorePanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
 import { telemetry } from '../telemetry/reporter';
+import { PBIR_COMMANDS, PBIR_VIEW_IDS } from '../platform/extensionIds';
+import { getExtensionOutputChannel } from '../platform/outputChannels';
+import { getAnalyzerSetting } from '../platform/settings';
 import {
   buildGovernanceExportData,
   exportAsJson,
@@ -15,19 +18,7 @@ import {
 } from '../analyzer/score/governanceExport';
 import type { ScoreResult } from '../analyzer/contracts/scorePanel';
 
-// PBIR command IDs — must match CommandDispatcher registrations
-export const PBIR_COMMANDS = {
-    getTree: 'pbir.getTree',
-    refreshTree: 'pbir.refreshTree',
-    scoreReport: 'pbir.scoreReport',
-    copyScoreDiagnostics: 'pbir.copyScoreDiagnostics',
-    governanceCheck: 'pbir.governanceCheck',
-    exportGovernanceReport: 'pbir.exportGovernanceReport',
-    exportReviewWorkflow: 'pbir.exportReviewWorkflow',
-    uploadScreenshots: 'pbir.uploadScreenshots',
-    attachScreenshot: 'pbir.attachScreenshot',
-    configureAuditProvider: 'pbir.configureAuditProvider',
-} as const;
+export { PBIR_COMMANDS };
 
 /** Shared provider instance (exported so register.ts can pass it to the treeview). */
 export let pbirTreeProvider: PbirTreeProvider | undefined;
@@ -154,9 +145,8 @@ function resolveCommandTarget(
 }
 
 function readWorkspaceGovernanceSettings(): WorkspaceGovernanceSettings {
-    const config = vscode.workspace.getConfiguration('powerbi-modeling');
-    const enabled = config.get<boolean>('governance.enabled', false) === true;
-    const approvedThemeIdsRaw = config.get<unknown>('governance.approvedThemeIds', []);
+    const enabled = getAnalyzerSetting<boolean>('governance.enabled', false) === true;
+    const approvedThemeIdsRaw = getAnalyzerSetting<unknown>('governance.approvedThemeIds', []);
     const approvedThemeIds = Array.isArray(approvedThemeIdsRaw)
         ? approvedThemeIdsRaw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         : [];
@@ -179,16 +169,16 @@ export function registerPbirCommands(
     pbirTreeProvider.setBridgeService(getBridge());
 
     // Wire provider into the treeview
-    const treeView = vscode.window.createTreeView('powerbiModeling.pbirExplorer', {
+    const treeView = vscode.window.createTreeView(PBIR_VIEW_IDS.explorer, {
         treeDataProvider: pbirTreeProvider,
         showCollapseAll: true,
     });
     registerPbirExplorerReveal(pbirTreeProvider, treeView);
     context.subscriptions.push(treeView);
 
-    // pbir.refreshTree — manual refresh command
+    // pbirAnalyzer.refreshReports — manual refresh command
     context.subscriptions.push(
-        vscode.commands.registerCommand(PBIR_COMMANDS.refreshTree, () => {
+        vscode.commands.registerCommand(PBIR_COMMANDS.refreshReports, () => {
             pbirTreeProvider?.refresh();
         })
     );
@@ -205,7 +195,7 @@ export function registerPbirCommands(
         })
     );
 
-    // pbir.scoreReport — opens score panel for the active PBIR report (T023)
+    // pbirAnalyzer.scoreReport — opens score panel for the active PBIR report (T023)
     // Feature 003: Enhanced to support per-page scoring when called from tree context menu
     /**
      * Scores a PBIR report and displays the Optimization Report panel.
@@ -291,27 +281,22 @@ export function registerPbirCommands(
                 const message = error instanceof Error
                     ? error.message
                     : 'Unknown error occurred while scoring report';
-                console.error('[pbir.scoreReport] Error:', error);
+                console.error('[pbirAnalyzer.scoreReport] Error:', error);
                 vscode.window.showErrorMessage(`Failed to score report: ${message}`);
-                
-                // Optional: Log to output channel for debugging
-                try {
-                    const outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer');
-                    outputChannel.appendLine(`[ERROR] ${message}`);
-                    outputChannel.appendLine(
-                        `Stack: ${error instanceof Error ? error.stack ?? 'No stack trace' : 'No stack trace'}`,
-                    );
-                } catch {
-                    // Silently ignore if output channel creation fails
-                }
+
+                const outputChannel = getExtensionOutputChannel();
+                outputChannel.appendLine(`[ERROR] ${message}`);
+                outputChannel.appendLine(
+                    `Stack: ${error instanceof Error ? error.stack ?? 'No stack trace' : 'No stack trace'}`,
+                );
             }
         })
     );
 
-    // pbir.governanceCheck — score first, then evaluate policy (T035)
+    // pbirAnalyzer.checkGovernance — score first, then evaluate policy (T035)
     context.subscriptions.push(
-        vscode.commands.registerCommand(PBIR_COMMANDS.governanceCheck, async (target?: PbirCommandTarget) => {
-            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.governanceCheck });
+        vscode.commands.registerCommand(PBIR_COMMANDS.checkGovernance, async (target?: PbirCommandTarget) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.checkGovernance });
             const bridge = getBridge();
             let reportPath = resolveCommandTarget(target).reportPath;
             if (!reportPath) {
@@ -398,7 +383,7 @@ export function registerPbirCommands(
         })
     );
 
-    // pbir.exportGovernanceReport — score the report then export governance summary to Markdown or JSON
+    // pbirAnalyzer.exportGovernanceReport — score the report then export governance summary to Markdown or JSON
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.exportGovernanceReport, async (target?: PbirCommandTarget) => {
             const bridge = getBridge();
@@ -556,13 +541,13 @@ export function registerPbirCommands(
                 const message = error instanceof Error
                     ? error.message
                     : 'Unknown error occurred while exporting review workflow';
-                console.error('[pbir.exportReviewWorkflow] Error:', error);
+                console.error('[pbirAnalyzer.exportReviewWorkflow] Error:', error);
                 vscode.window.showErrorMessage(`Failed to export review workflow: ${message}`);
             }
         })
     );
 
-    // pbir.uploadScreenshots — opens score panel then triggers screenshot upload via the active panel
+    // pbirAnalyzer.uploadScreenshots — opens score panel then triggers screenshot upload via the active panel
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.uploadScreenshots, async (target?: PbirCommandTarget) => {
             const reportPath = resolveCommandTarget(target).reportPath ?? resolveCommandTarget(pbirTreeProvider ? await pbirTreeProvider.getChildren().then((items) => items?.[0]).catch(() => undefined) : undefined).reportPath;
@@ -577,7 +562,7 @@ export function registerPbirCommands(
         })
     );
 
-    // pbir.configureAuditProvider — provider picker + key entry, stored in SecretStorage
+    // pbirAnalyzer.configureAuditProvider — provider picker + key entry, stored in SecretStorage
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.configureAuditProvider, async () => {
             const { runProviderSetupFlow } = await import('../analyzer/audit/providers/providerSetup');

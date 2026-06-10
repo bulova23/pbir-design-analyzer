@@ -28,6 +28,7 @@ import { enrichFixPlanWithAdvisoryContent } from '../analyzer/proposalEnrichment
 import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
+import { getDiagnosticsOutputChannel } from '../platform/outputChannels';
 import {
   getRecordedBackendIssue,
   getRecordedBackendLaunchDiagnostics,
@@ -70,7 +71,7 @@ import { buildScoreDeterminismDiagnostics } from '../analyzer/score/scoreDiagnos
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
-  private static readonly diagnosticsOutput = vscode.window.createOutputChannel('PBIR Score Diagnostics');
+  private static readonly diagnosticsOutput = getDiagnosticsOutputChannel();
 
   private readonly panel: vscode.WebviewPanel;
   private readonly bridge: AnalyzerBridgeService | undefined;

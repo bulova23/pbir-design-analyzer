@@ -4,19 +4,10 @@ import { resolvePbirProjectPath } from '../analyzer/project/pathing';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { registerPbirCommands, pbirTreeProvider } from './pbirCommands';
 import { PbirConfigPanel } from '../views/PbirConfigPanel';
+import { LEGACY_PBIR_COMMAND_ALIASES, PBIR_COMMANDS } from '../platform/extensionIds';
+import { getExtensionOutputChannel } from '../platform/outputChannels';
 
-export const PBIR_ANALYZER_COMMANDS = {
-  openProject: 'pbirAnalyzer.openProject',
-  refreshReports: 'pbirAnalyzer.refreshReports',
-  scoreReport: 'pbirAnalyzer.scoreReport',
-  copyScoreDiagnostics: 'pbirAnalyzer.copyScoreDiagnostics',
-  configureScoring: 'pbirAnalyzer.configureScoring',
-  checkGovernance: 'pbirAnalyzer.checkGovernance',
-  exportGovernanceReport: 'pbirAnalyzer.exportGovernanceReport',
-  exportReviewWorkflow: 'pbirAnalyzer.exportReviewWorkflow',
-  uploadScreenshots: 'pbirAnalyzer.uploadScreenshots',
-  configureAuditProvider: 'pbirAnalyzer.configureAuditProvider',
-} as const;
+export { PBIR_COMMANDS };
 
 async function promptForPbirProjectPath(): Promise<string | undefined> {
   const selection = await vscode.window.showOpenDialog({
@@ -75,28 +66,22 @@ export function registerCommands(
 ): void {
   registerPbirCommands(context, getDotnetBridge);
 
-  const outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer');
-  context.subscriptions.push(outputChannel);
+  const outputChannel = getExtensionOutputChannel();
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(PBIR_ANALYZER_COMMANDS.openProject, async () => {
+    vscode.commands.registerCommand(PBIR_COMMANDS.openProject, async () => {
       await openPbirProject(outputChannel);
     }),
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(PBIR_ANALYZER_COMMANDS.configureScoring, async () => {
+    vscode.commands.registerCommand(PBIR_COMMANDS.configureScoring, async () => {
       outputChannel.appendLine(`[${new Date().toISOString()}] Opening scoring configuration`);
       await PbirConfigPanel.createOrShow(context, getDotnetBridge());
     }),
   );
 
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.refreshReports, 'pbir.refreshTree');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.scoreReport, 'pbir.scoreReport');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.copyScoreDiagnostics, 'pbir.copyScoreDiagnostics');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.checkGovernance, 'pbir.governanceCheck');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportGovernanceReport, 'pbir.exportGovernanceReport');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportReviewWorkflow, 'pbir.exportReviewWorkflow');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.uploadScreenshots, 'pbir.uploadScreenshots');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.configureAuditProvider, 'pbir.configureAuditProvider');
+  for (const [legacyCommand, canonicalCommand] of Object.entries(LEGACY_PBIR_COMMAND_ALIASES)) {
+    registerCommandAlias(context, legacyCommand, canonicalCommand);
+  }
 }
