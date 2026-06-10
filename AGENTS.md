@@ -36,6 +36,10 @@ Key architecture layers:
 - review/export workflows remain downstream from scoring
 - AI proposal enrichment is advisory-only and must never carry mutation authority
 - deterministic preview/apply/rollback remains the only report-edit execution path
+- shared repository snapshots should stay analyzer-independent and should be reused across evidence domains instead of layering ad hoc repo rescans or analyzer-local memoization
+- score-panel host/webview messages are now a versioned protocol boundary and must be validated before state is consumed or rendered
+- selected page state must always be clamped against the current score payload page count; stale page references are a correctness bug
+- Fabric review and Fabric readiness scoring constants now live in explicit configuration with provenance; preserve default outputs unless an override is intentionally introduced and documented
 - external Power BI agent skills or prompts may be used as research input only; do not import external skill code, prompts, or autonomous execution patterns into this repo
 
 ## Roadmap References

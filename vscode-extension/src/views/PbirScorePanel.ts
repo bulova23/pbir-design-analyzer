@@ -13,9 +13,9 @@ import type {
   FixOpportunity,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
-  ScorePanelHostToWebviewMessage,
+  ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
-  ScorePanelWebviewToHostMessage,
+  ScorePanelWebviewToHostMessagePayload,
   ScoreRequestPayload,
   ScoreResult,
 } from '../analyzer/contracts/scorePanel';
@@ -50,6 +50,12 @@ import {
   normalizeReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreview';
 import {
+  buildScorePanelState,
+  clampSelectedPageIndex,
+  parseScorePanelWebviewMessage,
+  withScorePanelEnvelope,
+} from './scorePanelProtocol';
+import {
   loadReviewPacketPreviewOptions,
   saveReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreviewStore';
@@ -79,7 +85,7 @@ export class PbirScorePanel {
   private readonly disposables: vscode.Disposable[] = [];
   private isDisposed = false;
   private isReady = false;
-  private pendingMessages: ScorePanelHostToWebviewMessage[] = [];
+  private pendingMessages: ScorePanelHostToWebviewMessagePayload[] = [];
   private reportPath: string;
   private pageName: string | undefined;
   private currentResult: ScoreResult | undefined;
@@ -158,14 +164,22 @@ export class PbirScorePanel {
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
-      (message) => this.handleMessage(message as ScorePanelWebviewToHostMessage),
+      (message) => this.handleMessage(message),
       null,
       this.disposables,
     );
   }
 
-  private async handleMessage(message: ScorePanelWebviewToHostMessage): Promise<void> {
-    switch (message.type) {
+  private async handleMessage(message: unknown): Promise<void> {
+    const parsedMessage = parseScorePanelWebviewMessage(message);
+    if (!parsedMessage.ok) {
+      void vscode.window.showWarningMessage(parsedMessage.error);
+      return;
+    }
+
+    const payload = parsedMessage.message;
+
+    switch (payload.type) {
       case 'webviewReady':
         this.isReady = true;
         this.flushPendingMessages();
@@ -174,16 +188,19 @@ export class PbirScorePanel {
         await this.refresh();
         return;
       case 'selectTab':
-        this.selectedPageIndex = message.pageIndex;
+        this.selectedPageIndex = clampSelectedPageIndex(
+          payload.pageIndex,
+          this.pageNamesFromResult().length,
+        );
         return;
       case 'setIntentFeedback':
-        await this.handleSetIntentFeedback(message);
+        await this.handleSetIntentFeedback(payload);
         return;
       case 'revealVisual': {
-        const revealed = await revealVisualInPbirExplorer(message.pageName, message.visualId);
+        const revealed = await revealVisualInPbirExplorer(payload.pageName, payload.visualId);
         if (!revealed) {
           void vscode.window.showWarningMessage(
-            `Could not locate '${message.visualId}' on page '${message.pageName}' in the PBIR sidecar.`,
+            `Could not locate '${payload.visualId}' on page '${payload.pageName}' in the PBIR sidecar.`,
           );
         }
         return;
@@ -192,31 +209,31 @@ export class PbirScorePanel {
         await this.handleUploadScreenshots();
         return;
       case 'attachScreenshot':
-        await this.handleAttachScreenshot(message.pageName);
+        await this.handleAttachScreenshot(payload.pageName);
         return;
       case 'removeScreenshot':
-        await this.handleRemoveScreenshot(message.captureId);
+        await this.handleRemoveScreenshot(payload.captureId);
         return;
       case 'assignCapture':
-        await this.handleAssignCapture(message.captureId, message.targetPageName);
+        await this.handleAssignCapture(payload.captureId, payload.targetPageName);
         return;
       case 'analyzeCapture':
-        await this.handleAnalyzeCapture(message.captureId, message.pageName);
+        await this.handleAnalyzeCapture(payload.captureId, payload.pageName);
         return;
       case 'exportReviewWorkflow':
         await this.handleExportReviewWorkflow();
         return;
       case 'setReviewPacketPreviewProfile':
-        await this.handleSetReviewPacketPreviewProfile(message.profile);
+        await this.handleSetReviewPacketPreviewProfile(payload.profile);
         return;
       case 'setReviewPacketPreviewTemplateVariant':
-        await this.handleSetReviewPacketPreviewTemplateVariant(message.templateVariant);
+        await this.handleSetReviewPacketPreviewTemplateVariant(payload.templateVariant);
         return;
       case 'openReviewPacketPreview':
         await this.handleOpenReviewPacketPreview();
         return;
       case 'toggleFixOpportunitySelection':
-        await this.handleToggleFixOpportunitySelection(message.opportunityId);
+        await this.handleToggleFixOpportunitySelection(payload.opportunityId);
         return;
       case 'previewSelectedFixOpportunities':
         await this.handlePreviewSelectedFixOpportunities();
@@ -228,19 +245,19 @@ export class PbirScorePanel {
         await this.handleApplySelectedFixOpportunities();
         return;
       case 'rollbackFixSession':
-        await this.handleRollbackFixSession(message.sessionId);
+        await this.handleRollbackFixSession(payload.sessionId);
         return;
       case 'regenerateFixOpportunities':
-        await this.handleRegenerateFixOpportunities(message.opportunityIds);
+        await this.handleRegenerateFixOpportunities(payload.opportunityIds);
         return;
       case 'approveFixOpportunity':
-        await this.handleApproveFixOpportunity(message.opportunityId);
+        await this.handleApproveFixOpportunity(payload.opportunityId);
         return;
       case 'applyFixOpportunity':
-        await this.handleApplyFixOpportunity(message.opportunityId);
+        await this.handleApplyFixOpportunity(payload.opportunityId);
         return;
       case 'rollbackFixOpportunity':
-        await this.handleRollbackFixOpportunity(message.opportunityId);
+        await this.handleRollbackFixOpportunity(payload.opportunityId);
         return;
       case 'openSettings':
         await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
@@ -651,7 +668,7 @@ export class PbirScorePanel {
   }
 
   private async handleSetIntentFeedback(
-    message: Extract<ScorePanelWebviewToHostMessage, { type: 'setIntentFeedback' }>,
+    message: Extract<ScorePanelWebviewToHostMessagePayload, { type: 'setIntentFeedback' }>,
   ): Promise<void> {
     const session = await loadIntentFeedbackSession(this.context, this.reportPath);
     const analyzerVersion = String(this.context.extension.packageJSON?.version ?? 'unknown');
@@ -842,10 +859,13 @@ export class PbirScorePanel {
     });
     this.postMessage({
       type: 'scoreState',
-      state: {
+      state: buildScorePanelState({
         config,
         result: presentationResult,
-        selectedPageIndex: this.selectedPageIndex,
+        selectedPageIndex: clampSelectedPageIndex(
+          this.selectedPageIndex,
+          presentationResult.pageScores?.length ?? 0,
+        ),
         intentFeedback,
         fixSelection: fixWorkflow.fixSelection,
         fixApplySessions: fixWorkflow.fixApplySessions,
@@ -857,7 +877,7 @@ export class PbirScorePanel {
         ),
         reviewPacketPreviewProfile: this.reviewPacketPreviewOptions.profile,
         reviewPacketPreviewTemplateVariant: this.reviewPacketPreviewOptions.templateVariant,
-      },
+      }),
     });
   }
 
@@ -934,7 +954,7 @@ export class PbirScorePanel {
 
       if (surfaceDiscovery.surface.surfaceType === 'fabricApp') {
         this.panel.title = 'Fabric App Review';
-        const reviewResult = reviewFabricAppSurface(surfaceDiscovery.surface, 'fabricAppQuality');
+        const reviewResult = await reviewFabricAppSurface(surfaceDiscovery.surface, 'fabricAppQuality');
         const normalizedResult = await enrichFixPlanWithAdvisoryContent(
           normalizeScoreResultPayload({
             GestaltScore: reviewResult.qualityScore,
@@ -1061,20 +1081,20 @@ export class PbirScorePanel {
     }
   }
 
-  private postMessage(message: ScorePanelHostToWebviewMessage): void {
+  private postMessage(message: ScorePanelHostToWebviewMessagePayload): void {
     if (!this.isReady) {
       this.pendingMessages.push(message);
       return;
     }
 
-    void this.panel.webview.postMessage(message);
+    void this.panel.webview.postMessage(withScorePanelEnvelope(message));
   }
 
   private flushPendingMessages(): void {
     while (this.pendingMessages.length > 0) {
       const message = this.pendingMessages.shift();
       if (message) {
-        void this.panel.webview.postMessage(message);
+        void this.panel.webview.postMessage(withScorePanelEnvelope(message));
       }
     }
   }

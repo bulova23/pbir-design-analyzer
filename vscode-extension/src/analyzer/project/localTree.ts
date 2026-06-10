@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { createRepositorySnapshot, type RepositorySnapshot } from './repoSnapshot';
 import { resolvePbirWorkspaceRoot } from './pathing';
 
 export interface PbirThemeNode {
@@ -38,17 +39,17 @@ interface PbirReportLocation {
 
 type JsonRecord = Record<string, unknown>;
 
-function fileExists(targetPath: string): boolean {
+async function fileExists(targetPath: string): Promise<boolean> {
   try {
-    return fs.statSync(targetPath).isFile();
+    return (await fs.promises.stat(targetPath)).isFile();
   } catch {
     return false;
   }
 }
 
-function directoryExists(targetPath: string): boolean {
+async function directoryExists(targetPath: string): Promise<boolean> {
   try {
-    return fs.statSync(targetPath).isDirectory();
+    return (await fs.promises.stat(targetPath)).isDirectory();
   } catch {
     return false;
   }
@@ -58,9 +59,9 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function readJsonFile(filePath: string): JsonRecord | undefined {
+async function readJsonFile(filePath: string): Promise<JsonRecord | undefined> {
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+    const parsed = JSON.parse(await fs.promises.readFile(filePath, 'utf8')) as unknown;
     return isRecord(parsed) ? parsed : undefined;
   } catch {
     return undefined;
@@ -75,63 +76,73 @@ function toWorkspaceRelativePath(targetPath: string, workspaceRoot: string): str
   return path.relative(workspaceRoot, targetPath);
 }
 
-function resolveProjectRoot(projectPath: string): string | undefined {
+async function resolveProjectRoot(projectPath: string): Promise<string | undefined> {
   if (!projectPath) {
     return undefined;
   }
 
-  if (fileExists(projectPath) && projectPath.toLowerCase().endsWith('.pbip')) {
+  if (await fileExists(projectPath) && projectPath.toLowerCase().endsWith('.pbip')) {
     return path.dirname(projectPath);
   }
 
-  if (fileExists(projectPath) && path.basename(projectPath).toLowerCase() === 'definition.pbir') {
+  if (await fileExists(projectPath) && path.basename(projectPath).toLowerCase() === 'definition.pbir') {
     return path.dirname(projectPath);
   }
 
-  if (fileExists(projectPath) && path.basename(projectPath).toLowerCase() === 'report.json') {
+  if (await fileExists(projectPath) && path.basename(projectPath).toLowerCase() === 'report.json') {
     return path.dirname(path.dirname(projectPath));
   }
 
-  if (directoryExists(projectPath)) {
+  if (await directoryExists(projectPath)) {
     return projectPath;
   }
 
   return undefined;
 }
 
-function resolveReportRoot(projectRoot: string): string | undefined {
+async function resolveReportRoot(projectRoot: string): Promise<string | undefined> {
   if (projectRoot.toLowerCase().endsWith('.report')) {
     return projectRoot;
   }
 
-  if (fileExists(path.join(projectRoot, 'definition.pbir'))) {
+  if (await fileExists(path.join(projectRoot, 'definition.pbir'))) {
     return projectRoot;
   }
 
-  const reportFolders = fs
-    .readdirSync(projectRoot, { withFileTypes: true })
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = await fs.promises.readdir(projectRoot, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+
+  const reportFolders = entries
     .filter((entry) => entry.isDirectory() && entry.name.toLowerCase().endsWith('.report'))
     .map((entry) => path.join(projectRoot, entry.name));
 
-  return reportFolders.find((reportFolder) =>
-    fileExists(path.join(reportFolder, 'definition', 'report.json')),
-  );
+  for (const reportFolder of reportFolders) {
+    if (await fileExists(path.join(reportFolder, 'definition', 'report.json'))) {
+      return reportFolder;
+    }
+  }
+
+  return undefined;
 }
 
-function resolveReportLocation(projectPath: string): PbirReportLocation | undefined {
-  const projectRootPath = resolveProjectRoot(projectPath);
+async function resolveReportLocation(projectPath: string): Promise<PbirReportLocation | undefined> {
+  const projectRootPath = await resolveProjectRoot(projectPath);
   if (!projectRootPath) {
     return undefined;
   }
 
-  const reportRootPath = resolveReportRoot(projectRootPath);
+  const reportRootPath = await resolveReportRoot(projectRootPath);
   if (!reportRootPath) {
     return undefined;
   }
 
   const definitionPath = path.join(reportRootPath, 'definition');
   const reportJsonPath = path.join(definitionPath, 'report.json');
-  if (!fileExists(reportJsonPath)) {
+  if (!await fileExists(reportJsonPath)) {
     return undefined;
   }
 
@@ -162,26 +173,85 @@ function compareText(left: string, right: string): number {
   return 0;
 }
 
-function getOrderedPageIds(pagesRoot: string): string[] {
-  const pagesMetadata = readJsonFile(path.join(pagesRoot, 'pages.json'));
+function toSnapshotRelativePath(snapshot: RepositorySnapshot, targetPath: string): string {
+  return path.relative(snapshot.rootPath, targetPath).split(path.sep).join('/');
+}
+
+function tryResolveSnapshotFile(snapshot: RepositorySnapshot, relativePath: string) {
+  try {
+    return snapshot.resolveFile(relativePath);
+  } catch {
+    return undefined;
+  }
+}
+
+async function readSnapshotJson(
+  snapshot: RepositorySnapshot,
+  relativePath: string,
+): Promise<JsonRecord | undefined> {
+  const file = tryResolveSnapshotFile(snapshot, relativePath);
+  if (!file) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(await snapshot.readText(file)) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasSnapshotDirectory(snapshot: RepositorySnapshot, relativeDirPath: string): boolean {
+  const normalizedDir = relativeDirPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const prefix = normalizedDir.length > 0 ? `${normalizedDir}/` : '';
+  return snapshot.listFiles().some((file) => file.relativePath.startsWith(prefix));
+}
+
+async function getOrderedPageIds(
+  snapshot: RepositorySnapshot,
+  location: PbirReportLocation,
+): Promise<string[]> {
+  const pagesRoot = path.join(location.definitionPath, 'pages');
+  const pagesMetadata = await readSnapshotJson(
+    snapshot,
+    toSnapshotRelativePath(snapshot, path.join(pagesRoot, 'pages.json')),
+  );
   const pageOrder = pagesMetadata?.pageOrder;
   if (Array.isArray(pageOrder) && pageOrder.length > 0) {
     return pageOrder.filter((pageId): pageId is string => typeof pageId === 'string' && pageId.length > 0);
   }
 
-  if (!directoryExists(pagesRoot)) {
+  const pagesRootRelative = toSnapshotRelativePath(snapshot, pagesRoot);
+  if (!hasSnapshotDirectory(snapshot, pagesRootRelative)) {
     return [];
   }
 
-  return fs
-    .readdirSync(pagesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort(compareText);
+  const pageIds = new Set<string>();
+  const prefix = `${pagesRootRelative}/`;
+  for (const file of snapshot.listFiles()) {
+    if (!file.relativePath.startsWith(prefix)) {
+      continue;
+    }
+
+    const remainder = file.relativePath.slice(prefix.length);
+    const [pageId] = remainder.split('/');
+    if (pageId) {
+      pageIds.add(pageId);
+    }
+  }
+
+  return [...pageIds].sort(compareText);
 }
 
-function buildThemeNode(location: PbirReportLocation): PbirThemeNode | undefined {
-  const reportJson = readJsonFile(location.reportJsonPath);
+async function buildThemeNode(
+  snapshot: RepositorySnapshot,
+  location: PbirReportLocation,
+): Promise<PbirThemeNode | undefined> {
+  const reportJson = await readSnapshotJson(
+    snapshot,
+    toSnapshotRelativePath(snapshot, location.reportJsonPath),
+  );
   const theme = reportJson?.theme;
   if (!isRecord(theme)) {
     return undefined;
@@ -196,7 +266,7 @@ function buildThemeNode(location: PbirReportLocation): PbirThemeNode | undefined
       ? themeHref
       : path.join(location.definitionPath, themeHref);
 
-    sourcePath = fileExists(candidatePath)
+    sourcePath = tryResolveSnapshotFile(snapshot, toSnapshotRelativePath(snapshot, candidatePath))
       ? toWorkspaceRelativePath(candidatePath, location.workspaceRootPath)
       : themeHref;
   }
@@ -207,28 +277,44 @@ function buildThemeNode(location: PbirReportLocation): PbirThemeNode | undefined
   };
 }
 
-function buildVisualNodes(pageFolder: string, workspaceRoot: string): PbirVisualNode[] {
+async function buildVisualNodes(
+  snapshot: RepositorySnapshot,
+  pageFolder: string,
+  workspaceRoot: string,
+): Promise<PbirVisualNode[]> {
   const visualsRoot = path.join(pageFolder, 'visuals');
-  if (!directoryExists(visualsRoot)) {
+  const visualsRootRelative = toSnapshotRelativePath(snapshot, visualsRoot);
+  if (!hasSnapshotDirectory(snapshot, visualsRootRelative)) {
     return [];
   }
 
   const visuals: PbirVisualNode[] = [];
-  for (const entry of fs.readdirSync(visualsRoot, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
-    if (!entry.isDirectory()) {
+  const visualIds = new Set<string>();
+  const prefix = `${visualsRootRelative}/`;
+  for (const file of snapshot.listFiles()) {
+    if (!file.relativePath.startsWith(prefix)) {
       continue;
     }
 
-    const visualFolder = path.join(visualsRoot, entry.name);
+    const remainder = file.relativePath.slice(prefix.length);
+    const [visualId] = remainder.split('/');
+    if (visualId) {
+      visualIds.add(visualId);
+    }
+  }
+
+  for (const visualId of [...visualIds].sort(compareText)) {
+    const visualFolder = path.join(visualsRoot, visualId);
     const visualJsonPath = path.join(visualFolder, 'visual.json');
-    if (!fileExists(visualJsonPath)) {
+    const visualJsonRelative = toSnapshotRelativePath(snapshot, visualJsonPath);
+    if (!tryResolveSnapshotFile(snapshot, visualJsonRelative)) {
       continue;
     }
 
-    const visualJson = readJsonFile(visualJsonPath);
+    const visualJson = await readSnapshotJson(snapshot, visualJsonRelative);
     const visualSection = isRecord(visualJson?.visual) ? visualJson.visual : undefined;
     visuals.push({
-      name: typeof visualJson?.name === 'string' ? visualJson.name : entry.name,
+      name: typeof visualJson?.name === 'string' ? visualJson.name : visualId,
       visualType: typeof visualSection?.visualType === 'string' ? visualSection.visualType : undefined,
       path: toWorkspaceRelativePath(visualJsonPath, workspaceRoot),
     });
@@ -237,40 +323,49 @@ function buildVisualNodes(pageFolder: string, workspaceRoot: string): PbirVisual
   return visuals;
 }
 
-function buildPageNodes(location: PbirReportLocation): PbirPageNode[] {
-  const pagesRoot = path.join(location.definitionPath, 'pages');
+async function buildPageNodes(
+  snapshot: RepositorySnapshot,
+  location: PbirReportLocation,
+): Promise<PbirPageNode[]> {
   const pages: PbirPageNode[] = [];
 
-  for (const pageId of getOrderedPageIds(pagesRoot)) {
-    const pageFolder = path.join(pagesRoot, pageId);
+  for (const pageId of await getOrderedPageIds(snapshot, location)) {
+    const pageFolder = path.join(location.definitionPath, 'pages', pageId);
     const pageJsonPath = path.join(pageFolder, 'page.json');
-    if (!fileExists(pageJsonPath)) {
+    const pageJsonRelative = toSnapshotRelativePath(snapshot, pageJsonPath);
+    if (!tryResolveSnapshotFile(snapshot, pageJsonRelative)) {
       continue;
     }
 
-    const pageJson = readJsonFile(pageJsonPath);
+    const pageJson = await readSnapshotJson(snapshot, pageJsonRelative);
     const name = typeof pageJson?.name === 'string' ? pageJson.name : pageId;
     pages.push({
       name,
       displayName: typeof pageJson?.displayName === 'string' ? pageJson.displayName : name,
       path: toWorkspaceRelativePath(pageJsonPath, location.workspaceRootPath),
-      visuals: buildVisualNodes(pageFolder, location.workspaceRootPath),
+      visuals: await buildVisualNodes(snapshot, pageFolder, location.workspaceRootPath),
     });
   }
 
   return pages;
 }
 
-export function buildLocalPbirTree(projectPath: string): PbirReportNode | undefined {
-  const location = resolveReportLocation(projectPath);
+export async function buildLocalPbirTree(projectPath: string): Promise<PbirReportNode | undefined> {
+  const location = await resolveReportLocation(projectPath);
   if (!location) {
     return undefined;
   }
 
-  return {
-    name: location.reportName,
-    path: toWorkspaceRelativePath(location.reportJsonPath, location.workspaceRootPath),
-    theme: buildThemeNode(location),
-    pages: buildPageNodes(location),
-  };
+  const snapshot = await createRepositorySnapshot(location.projectRootPath, { maxDepth: 8 });
+
+  try {
+    return {
+      name: location.reportName,
+      path: toWorkspaceRelativePath(location.reportJsonPath, location.workspaceRootPath),
+      theme: await buildThemeNode(snapshot, location),
+      pages: await buildPageNodes(snapshot, location),
+    };
+  } finally {
+    snapshot.dispose();
+  }
 }

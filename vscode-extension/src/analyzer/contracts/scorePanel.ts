@@ -1083,7 +1083,12 @@ export interface ScoreRequestPayload {
   pageName?: string;
 }
 
-export interface ScorePanelState {
+export interface ScorePanelProtocolEnvelope {
+  protocolVersion: number;
+  schemaVersion: number;
+}
+
+export interface ScorePanelState extends ScorePanelProtocolEnvelope {
   config: DesignAnalyzerConfig;
   result: ScoreResult;
   selectedPageIndex: number;
@@ -1096,7 +1101,7 @@ export interface ScorePanelState {
   reviewPacketPreviewTemplateVariant?: ReviewWorkflowMarkdownTemplateVariant;
 }
 
-export type ScorePanelWebviewToHostMessage =
+export type ScorePanelWebviewToHostMessagePayload =
   | { type: 'webviewReady' }
   | { type: 'refresh' }
   | { type: 'selectTab'; pageIndex: number }
@@ -1130,9 +1135,15 @@ export type ScorePanelWebviewToHostMessage =
   | { type: 'rollbackFixOpportunity'; opportunityId: string }
   | { type: 'openSettings' };
 
-export type ScorePanelHostToWebviewMessage =
+export type ScorePanelWebviewToHostMessage =
+  ScorePanelProtocolEnvelope & ScorePanelWebviewToHostMessagePayload;
+
+export type ScorePanelHostToWebviewMessagePayload =
   | { type: 'loading' }
   | { type: 'scoreState'; state: ScorePanelState }
   | { type: 'error'; message: string }
   | { type: 'auditState'; audit: AuditState }
   | { type: 'auditAnalyzing'; captureId: string };
+
+export type ScorePanelHostToWebviewMessage =
+  ScorePanelProtocolEnvelope & ScorePanelHostToWebviewMessagePayload;

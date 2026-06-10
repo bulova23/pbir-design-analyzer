@@ -26,7 +26,7 @@ import type {
   ReviewerPersona,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
-  ScorePanelWebviewToHostMessage,
+  ScorePanelWebviewToHostMessagePayload,
   ScoreResult,
   VisualMetadataItem,
 } from '../../src/analyzer/contracts/scorePanel';
@@ -38,6 +38,10 @@ import {
 } from '../../src/analyzer/score/presentation';
 import { applyPersonaPresentation, getReviewPresentationPersonaProfiles } from '../../src/analyzer/score/personaPresentation';
 import { buildReviewerComments } from '../../src/analyzer/score/reviewerComments';
+import {
+  parseScorePanelHostMessage,
+  withScorePanelEnvelope,
+} from '../../src/views/scorePanelProtocol';
 import { buildContextAwareRemediationQueue, type ContextAwareRemediationQueue } from './remediationQueue';
 import {
   getAdvisoryPriorityLabel,
@@ -46,7 +50,7 @@ import {
 } from './proposalEnrichment';
 
 interface ScoreVsCodeApi {
-  postMessage(message: ScorePanelWebviewToHostMessage): void;
+  postMessage(message: unknown): void;
 }
 
 declare function acquireVsCodeApi(): ScoreVsCodeApi;
@@ -3290,6 +3294,7 @@ function renderAuditCoverageCard(
   audit: AuditState,
   pageNames: string[],
   vscode: ScoreVsCodeApi,
+  postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
 ): React.ReactNode {
   const { coverage, unmatchedCaptures, providerConfigured, providerName } = audit;
   const missingPages = coverage.totalPages - coverage.pagesWithCaptures;
@@ -3301,14 +3306,14 @@ function renderAuditCoverageCard(
         <div className="audit-coverage-actions">
           <button
             className="secondary-button"
-            onClick={() => vscode.postMessage({ type: 'uploadScreenshots' })}
+            onClick={() => postHostMessage({ type: 'uploadScreenshots' })}
             type="button"
           >
             Upload Screenshots
           </button>
           <button
             className="secondary-button"
-            onClick={() => vscode.postMessage({ type: 'openSettings' })}
+            onClick={() => postHostMessage({ type: 'openSettings' })}
             title="Open Design Analyzer Configuration to set up an AI provider"
             type="button"
           >
@@ -3352,7 +3357,7 @@ function renderAuditCoverageCard(
                   defaultValue=""
                   onChange={(e) => {
                     if (e.target.value) {
-                      vscode.postMessage({
+                      postHostMessage({
                         type: 'assignCapture',
                         captureId: capture.captureId,
                         targetPageName: e.target.value,
@@ -3367,7 +3372,7 @@ function renderAuditCoverageCard(
                 </select>
                 <button
                   className="audit-remove-button"
-                  onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                  onClick={() => postHostMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
                   title="Remove screenshot"
                   type="button"
                 >
@@ -3398,6 +3403,7 @@ function renderAuditPageSection(
   analyzingCaptureId: string | undefined,
   providerConfigured: boolean,
   vscode: ScoreVsCodeApi,
+  postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
 ): React.ReactNode {
   return (
     <section className="panel-card audit-page-section">
@@ -3405,7 +3411,7 @@ function renderAuditPageSection(
         <h2>Visual Audit — {pageName}</h2>
         <button
           className="secondary-button"
-          onClick={() => vscode.postMessage({ type: 'attachScreenshot', pageName })}
+          onClick={() => postHostMessage({ type: 'attachScreenshot', pageName })}
           type="button"
         >
           {auditPageState?.captures.length ? 'Replace / Add Screenshot' : 'Attach Screenshot'}
@@ -3431,7 +3437,7 @@ function renderAuditPageSection(
                         <button
                           className="primary-button audit-analyze-button"
                           disabled={isAnalyzing}
-                          onClick={() => vscode.postMessage({ type: 'analyzeCapture', captureId: capture.captureId, pageName })}
+                          onClick={() => postHostMessage({ type: 'analyzeCapture', captureId: capture.captureId, pageName })}
                           type="button"
                         >
                           {isAnalyzing ? 'Analyzing…' : 'Analyze'}
@@ -3439,7 +3445,7 @@ function renderAuditPageSection(
                       ) : null}
                       <button
                         className="audit-remove-button"
-                        onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                        onClick={() => postHostMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
                         title="Remove screenshot"
                         type="button"
                       >
@@ -3522,12 +3528,19 @@ export default function App(): JSX.Element {
     vscodeApiRef.current = acquireVsCodeApi();
   }
 
+  const postHostMessage = (message: ScorePanelWebviewToHostMessagePayload): void => {
+    vscodeApiRef.current?.postMessage(withScorePanelEnvelope(message));
+  };
+
   React.useEffect(() => {
     const handleMessage = (event: MessageEvent<ScorePanelHostToWebviewMessage>) => {
-      const message = event.data;
-      if (!message || typeof message !== 'object' || !('type' in message)) {
+      const parsedMessage = parseScorePanelHostMessage(event.data);
+      if (!parsedMessage.ok) {
+        setViewState({ kind: 'error', message: parsedMessage.error });
         return;
       }
+
+      const message = parsedMessage.message;
 
       if (message.type === 'loading') {
         setViewState({ kind: 'loading' });
@@ -3591,7 +3604,7 @@ export default function App(): JSX.Element {
     };
 
     window.addEventListener('message', handleMessage);
-    vscodeApiRef.current?.postMessage({ type: 'webviewReady' });
+    postHostMessage({ type: 'webviewReady' });
 
     return () => {
       window.removeEventListener('message', handleMessage);
@@ -3617,7 +3630,7 @@ export default function App(): JSX.Element {
           <p>{viewState.message}</p>
           <button
             className="primary-button"
-            onClick={() => vscodeApiRef.current?.postMessage({ type: 'refresh' })}
+            onClick={() => postHostMessage({ type: 'refresh' })}
             type="button"
           >
             Retry
@@ -3699,7 +3712,7 @@ export default function App(): JSX.Element {
       ? selectedPage.feedback?.[normalizedKey]
       : result.feedback?.[normalizedKey];
   const revealVisual = (visual: AffectedVisualReference) => {
-    vscodeApiRef.current?.postMessage({
+    postHostMessage({
       type: 'revealVisual',
       pageName: visual.pageName,
       visualId: visual.visualId,
@@ -3732,7 +3745,7 @@ export default function App(): JSX.Element {
         <div className="hero-actions">
           <button
             className="secondary-button"
-            onClick={() => vscodeApiRef.current?.postMessage({ type: 'refresh' })}
+            onClick={() => postHostMessage({ type: 'refresh' })}
             type="button"
           >
             Refresh
@@ -3768,7 +3781,7 @@ export default function App(): JSX.Element {
                   ...prev,
                   pageName: getIssueFilterPageForTab(pageScores, index),
                 }));
-                vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: index });
+                postHostMessage({ type: 'selectTab', pageIndex: index });
               }}
               type="button"
             >
@@ -3816,7 +3829,7 @@ export default function App(): JSX.Element {
             ...prev,
             pageName: 'all',
           }));
-          vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: 0 });
+          postHostMessage({ type: 'selectTab', pageIndex: 0 });
         },
       )}
 
@@ -3840,9 +3853,9 @@ export default function App(): JSX.Element {
             ...prev,
             pageName: getIssueFilterPageForTab(pageScores, nextTab),
           }));
-          vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: nextTab });
+          postHostMessage({ type: 'selectTab', pageIndex: nextTab });
         },
-        onExport: () => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' }),
+        onExport: () => postHostMessage({ type: 'exportReviewWorkflow' }),
       }) : null}
 
       {storySummary && pagePurposeAnalysis ? renderPagePurposeAnalysisSection({
@@ -3869,7 +3882,7 @@ export default function App(): JSX.Element {
           }));
           setSavedStoryNoteKey(undefined);
           const note = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
-          vscodeApiRef.current?.postMessage({
+          postHostMessage({
             type: 'setIntentFeedback',
             pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
             inferredIntent: storySummary.intentProfile,
@@ -3899,7 +3912,7 @@ export default function App(): JSX.Element {
           }
 
           const noteToSave = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
-          vscodeApiRef.current?.postMessage({
+          postHostMessage({
             type: 'setIntentFeedback',
             pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
             inferredIntent: storySummary.intentProfile,
@@ -3958,12 +3971,12 @@ export default function App(): JSX.Element {
               ? prev.filter((id) => id !== opportunityId)
               : [...prev, opportunityId]
           )),
-          (opportunityId) => vscodeApiRef.current?.postMessage({ type: 'toggleFixOpportunitySelection', opportunityId }),
-          () => vscodeApiRef.current?.postMessage({ type: 'previewSelectedFixOpportunities' }),
-          () => vscodeApiRef.current?.postMessage({ type: 'approveSelectedFixOpportunities' }),
-          () => vscodeApiRef.current?.postMessage({ type: 'applySelectedFixOpportunities' }),
-          (sessionId) => vscodeApiRef.current?.postMessage({ type: 'rollbackFixSession', sessionId }),
-          (opportunityIds) => vscodeApiRef.current?.postMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
+          (opportunityId) => postHostMessage({ type: 'toggleFixOpportunitySelection', opportunityId }),
+          () => postHostMessage({ type: 'previewSelectedFixOpportunities' }),
+          () => postHostMessage({ type: 'approveSelectedFixOpportunities' }),
+          () => postHostMessage({ type: 'applySelectedFixOpportunities' }),
+          (sessionId) => postHostMessage({ type: 'rollbackFixSession', sessionId }),
+          (opportunityIds) => postHostMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
         )}
       </div>
 
@@ -3987,9 +4000,9 @@ export default function App(): JSX.Element {
                   state.reviewPacketPreviewHtml,
                   state.reviewPacketPreviewProfile ?? 'consultant',
                   state.reviewPacketPreviewTemplateVariant ?? 'brandedConsultant',
-                  (profile) => vscodeApiRef.current?.postMessage({ type: 'setReviewPacketPreviewProfile', profile }),
-                  (templateVariant) => vscodeApiRef.current?.postMessage({ type: 'setReviewPacketPreviewTemplateVariant', templateVariant }),
-                  () => vscodeApiRef.current?.postMessage({ type: 'openReviewPacketPreview' }),
+                  (profile) => postHostMessage({ type: 'setReviewPacketPreviewProfile', profile }),
+                  (templateVariant) => postHostMessage({ type: 'setReviewPacketPreviewTemplateVariant', templateVariant }),
+                  () => postHostMessage({ type: 'openReviewPacketPreview' }),
                 )}
               </div>
             </details>
@@ -4115,7 +4128,7 @@ export default function App(): JSX.Element {
                 <span className="collapsible-caret" aria-hidden="true">▾</span>
               </summary>
               <div className="collapsible-body">
-                {renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!)}
+                {renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!, postHostMessage)}
               </div>
             </details>
           ) : null}
@@ -4133,6 +4146,7 @@ export default function App(): JSX.Element {
                   analyzingCaptureId,
                   audit.providerConfigured,
                   vscodeApiRef.current!,
+                  postHostMessage,
                 )}
               </div>
             </details>
@@ -4152,7 +4166,7 @@ export default function App(): JSX.Element {
         <div className="export-actions">
           <button
             className="primary-button"
-            onClick={() => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' })}
+            onClick={() => postHostMessage({ type: 'exportReviewWorkflow' })}
             type="button"
           >
             Export Review Summary
@@ -4160,7 +4174,7 @@ export default function App(): JSX.Element {
           {state.reviewPacketPreviewHtml ? (
             <button
               className="secondary-button"
-              onClick={() => vscodeApiRef.current?.postMessage({ type: 'openReviewPacketPreview' })}
+              onClick={() => postHostMessage({ type: 'openReviewPacketPreview' })}
               type="button"
             >
               Open Packet Preview

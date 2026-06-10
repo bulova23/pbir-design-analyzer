@@ -14,7 +14,7 @@ describe('extractTypeScriptEvidence', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('extracts layout, KPI, and dashboard composition evidence from analytics-facing TypeScript', () => {
+  it('extracts layout, KPI, and dashboard composition evidence from analytics-facing TypeScript', async () => {
     fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
     fs.writeFileSync(path.join(tempDir, 'src', 'ExecutiveDashboard.tsx'), `
       export function ExecutiveDashboard() {
@@ -31,7 +31,7 @@ describe('extractTypeScriptEvidence', () => {
       }
     `);
 
-    const evidence = extractTypeScriptEvidence(tempDir);
+    const evidence = await extractTypeScriptEvidence(tempDir);
 
     expect(evidence.layoutPatterns).toEqual(
       expect.arrayContaining([

@@ -14,12 +14,12 @@ describe('extractScreenshotEvidence', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('extracts matched screenshot evidence and preserves capture state details', () => {
+  it('extracts matched screenshot evidence and preserves capture state details', async () => {
     fs.mkdirSync(path.join(tempDir, 'screenshots'), { recursive: true });
     fs.writeFileSync(path.join(tempDir, 'screenshots', '01 Executive Overview - Default.png'), 'fake-image');
     fs.writeFileSync(path.join(tempDir, 'screenshots', '02 Sales Detail - Focus State.png'), 'fake-image');
 
-    const evidence = extractScreenshotEvidence(tempDir, ['Executive Overview', 'Sales Detail']);
+    const evidence = await extractScreenshotEvidence(tempDir, ['Executive Overview', 'Sales Detail']);
 
     expect(evidence.captures).toEqual(
       expect.arrayContaining([
@@ -37,8 +37,8 @@ describe('extractScreenshotEvidence', () => {
     expect(evidence.unmatchedCaptures).toHaveLength(0);
   });
 
-  it('degrades gracefully when screenshots are missing', () => {
-    const evidence = extractScreenshotEvidence(tempDir, ['Executive Overview']);
+  it('degrades gracefully when screenshots are missing', async () => {
+    const evidence = await extractScreenshotEvidence(tempDir, ['Executive Overview']);
 
     expect(evidence.captures).toEqual([]);
     expect(evidence.unmatchedCaptures).toEqual([]);

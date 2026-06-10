@@ -1,50 +1,17 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { extractStateName, matchFilenameToPages } from '../../audit/filenameMatching';
+import type { RepositorySnapshot } from '../../project/repoSnapshot';
+import { listSnapshotFiles, withRepositorySnapshot } from './repoEvidence';
 import type { ScreenshotEvidenceReport } from './reviewTypes';
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
-function safeReadDir(dirPath: string): fs.Dirent[] {
-  try {
-    return fs.readdirSync(dirPath, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-}
-
-function collectFiles(rootPath: string, maxDepth = 4): string[] {
-  const files: string[] = [];
-
-  function visit(currentPath: string, depth: number): void {
-    if (depth > maxDepth) {
-      return;
-    }
-
-    for (const entry of safeReadDir(currentPath)) {
-      if (entry.name === 'node_modules' || entry.name.startsWith('.git')) {
-        continue;
-      }
-
-      const fullPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        visit(fullPath, depth + 1);
-      } else {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  visit(rootPath, 0);
-  return files;
-}
-
-export function extractScreenshotEvidence(
-  rootPath: string,
+async function extractScreenshotEvidenceFromSnapshot(
+  snapshot: RepositorySnapshot,
   pageNames: string[],
-): ScreenshotEvidenceReport {
-  const files = collectFiles(rootPath)
-    .filter((filePath) => IMAGE_EXTENSIONS.has(path.extname(filePath).toLowerCase()))
+): Promise<ScreenshotEvidenceReport> {
+  const files = listSnapshotFiles(snapshot, (file) => IMAGE_EXTENSIONS.has(path.extname(file.relativePath).toLowerCase()))
+    .map((file) => file.relativePath)
     .sort((left, right) => left.localeCompare(right))
     .slice(0, 12);
 
@@ -58,7 +25,7 @@ export function extractScreenshotEvidence(
 
     if (match) {
       captures.push({
-        filePath: path.relative(rootPath, filePath),
+        filePath: filePath,
         fileName,
         pageName: match.pageName,
         stateName,
@@ -67,7 +34,7 @@ export function extractScreenshotEvidence(
     }
 
     unmatchedCaptures.push({
-      filePath: path.relative(rootPath, filePath),
+      filePath: filePath,
       fileName,
       stateName,
     });
@@ -77,4 +44,11 @@ export function extractScreenshotEvidence(
     captures,
     unmatchedCaptures,
   };
+}
+
+export async function extractScreenshotEvidence(
+  source: RepositorySnapshot | string,
+  pageNames: string[],
+): Promise<ScreenshotEvidenceReport> {
+  return withRepositorySnapshot(source, async (snapshot) => extractScreenshotEvidenceFromSnapshot(snapshot, pageNames));
 }

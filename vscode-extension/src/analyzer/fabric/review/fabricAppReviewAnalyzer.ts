@@ -1,5 +1,10 @@
 import type { AnalyzerProfileId } from '../../analyzers/types';
 import type { NormalizedFinding } from '../../contracts/scorePanel';
+import {
+  getDefaultFabricScoringConfig,
+  type FabricScoringConfig,
+} from '../config/fabricScoringConfig';
+import { createRepositorySnapshot } from '../../project/repoSnapshot';
 import type { AnalyzableSurface } from '../../surfaces/types';
 import { extractDesignTokenEvidence } from './designTokenEvidence';
 import { extractNavigationEvidence } from './navigationEvidence';
@@ -95,13 +100,14 @@ function buildFinding(params: {
   impactArea: NormalizedFinding['impactArea'];
   recommendation: string;
   evidence: FabricAppEvidenceItem[];
+  confidence: number;
 }): NormalizedFinding {
   return {
     id: params.id,
     title: params.title,
     summary: params.summary,
     severity: params.severity,
-    confidence: 82,
+    confidence: params.confidence,
     scope: 'report',
     detectionType: 'deterministic',
     affectedPages: [],
@@ -125,10 +131,12 @@ function buildFindings(
   tokenEvidence: DesignTokenEvidenceReport,
   screenshotEvidence: ScreenshotEvidenceReport,
   semanticModelEvidence: SemanticModelEvidenceReport,
+  scoringConfig: FabricScoringConfig,
 ): NormalizedFinding[] {
   const findings: NormalizedFinding[] = [];
   const screenshotItems = evidenceItemsFromScreenshots(screenshotEvidence);
   const semanticItems = evidenceItemsFromSemanticModel(semanticModelEvidence);
+  const confidence = scoringConfig.review.findingConfidence;
 
   if (tokenEvidence.bypasses.length > 0) {
     findings.push(buildFinding({
@@ -142,6 +150,7 @@ function buildFindings(
         ...evidenceItemsFromTokens({ tokens: [], bypasses: tokenEvidence.bypasses }),
         ...semanticItems.slice(0, 1),
       ],
+      confidence,
     }));
   }
 
@@ -158,6 +167,7 @@ function buildFindings(
         ...screenshotItems.slice(0, 2),
         ...semanticItems.slice(0, 1),
       ],
+      confidence,
     }));
   }
 
@@ -174,6 +184,7 @@ function buildFindings(
         ...screenshotItems.filter((item) => item.pageName?.toLowerCase().includes('overview')).slice(0, 1),
         ...semanticItems.slice(0, 1),
       ],
+      confidence,
     }));
   }
 
@@ -190,64 +201,79 @@ function buildFindings(
         ...screenshotItems.slice(0, 1),
         ...semanticItems.slice(0, 2),
       ],
+      confidence,
     }));
   }
 
   return findings;
 }
 
-function buildQualityScore(findings: NormalizedFinding[]): number {
-  let score = 82;
+function buildQualityScore(
+  findings: NormalizedFinding[],
+  scoringConfig: FabricScoringConfig,
+): number {
+  let score = scoringConfig.review.qualityScore.base;
+  const penalties = scoringConfig.review.qualityScore.penalties;
 
   for (const finding of findings) {
     if (finding.severity === 'high') {
-      score -= 18;
+      score -= penalties.high;
     } else if (finding.severity === 'medium') {
-      score -= 10;
+      score -= penalties.medium;
+    } else if (finding.severity === 'info') {
+      score -= penalties.info;
     } else {
-      score -= 5;
+      score -= penalties.low;
     }
   }
 
-  return Math.max(25, score);
+  return Math.max(scoringConfig.review.qualityScore.minimum, score);
 }
 
-export function reviewFabricAppSurface(
+export async function reviewFabricAppSurface(
   surface: AnalyzableSurface,
   _profile: AnalyzerProfileId = 'fabricAppQuality',
-): FabricAppReviewResult {
+  scoringConfig: FabricScoringConfig = getDefaultFabricScoringConfig(),
+): Promise<FabricAppReviewResult> {
   if (surface.surfaceType !== 'fabricApp') {
     throw new Error('FabricAppReviewAnalyzer accepts only Fabric App surfaces.');
   }
 
-  const typeScriptEvidence = extractTypeScriptEvidence(surface.sourceLocation);
-  const navigationEvidence = extractNavigationEvidence(surface.sourceLocation);
-  const tokenEvidence = extractDesignTokenEvidence(surface.sourceLocation);
-  const screenshotEvidence = extractScreenshotEvidence(
-    surface.sourceLocation,
-    navigationEvidence.routes.map((route) => route.label),
-  );
-  const semanticModelEvidence = extractSemanticModelEvidence(surface.sourceLocation);
-  const normalizedFindings = buildFindings(
-    typeScriptEvidence,
-    navigationEvidence,
-    tokenEvidence,
-    screenshotEvidence,
-    semanticModelEvidence,
-  );
-  const evidence = [
-    ...evidenceItemsFromTypeScript(typeScriptEvidence),
-    ...evidenceItemsFromNavigation(navigationEvidence),
-    ...evidenceItemsFromTokens(tokenEvidence),
-    ...evidenceItemsFromScreenshots(screenshotEvidence),
-    ...evidenceItemsFromSemanticModel(semanticModelEvidence),
-  ];
+  const snapshot = await createRepositorySnapshot(surface.sourceLocation);
 
-  return {
-    qualityScore: buildQualityScore(normalizedFindings),
-    summary: `Fabric App review produced ${normalizedFindings.length} finding(s) from TypeScript layout, navigation, design-token, screenshot, and semantic-model evidence.`,
-    remediationGuidance: [...new Set(normalizedFindings.map((finding) => finding.recommendation))],
-    evidence,
-    normalizedFindings,
-  };
+  try {
+    const typeScriptEvidence = await extractTypeScriptEvidence(snapshot);
+    const navigationEvidence = await extractNavigationEvidence(snapshot);
+    const tokenEvidence = await extractDesignTokenEvidence(snapshot);
+    const screenshotEvidence = await extractScreenshotEvidence(
+      snapshot,
+      navigationEvidence.routes.map((route) => route.label),
+    );
+    const semanticModelEvidence = await extractSemanticModelEvidence(snapshot);
+    const normalizedFindings = buildFindings(
+      typeScriptEvidence,
+      navigationEvidence,
+      tokenEvidence,
+      screenshotEvidence,
+      semanticModelEvidence,
+      scoringConfig,
+    );
+    const evidence = [
+      ...evidenceItemsFromTypeScript(typeScriptEvidence),
+      ...evidenceItemsFromNavigation(navigationEvidence),
+      ...evidenceItemsFromTokens(tokenEvidence),
+      ...evidenceItemsFromScreenshots(screenshotEvidence),
+      ...evidenceItemsFromSemanticModel(semanticModelEvidence),
+    ];
+
+    return {
+      qualityScore: buildQualityScore(normalizedFindings, scoringConfig),
+      summary: `Fabric App review produced ${normalizedFindings.length} finding(s) from TypeScript layout, navigation, design-token, screenshot, and semantic-model evidence.`,
+      remediationGuidance: [...new Set(normalizedFindings.map((finding) => finding.recommendation))],
+      evidence,
+      normalizedFindings,
+    };
+  } finally {
+    snapshot.dispose();
+  }
 }

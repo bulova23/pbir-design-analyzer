@@ -249,6 +249,31 @@
   - Phase 4 advanced AI refactoring
   - Phase 5 report design studio
 
+## 2026-06-10 Engineering Hardening 0.6.0 Implementation
+
+- Implemented the recommended `0.6.0` bundle only:
+  - shared repository snapshot seam
+  - async local-tree and Fabric evidence filesystem access
+  - shared-snapshot Fabric evidence reuse
+  - score-panel protocol/schema guards
+  - selected page-state clamping
+  - externalized Fabric scoring configuration with provenance
+- Added focused regression coverage for:
+  - repository snapshot lifecycle and reuse
+  - async PBIR fallback tree behavior
+  - host/webview protocol mismatch handling
+  - selected page-index normalization
+  - Fabric scoring config defaults and overrides
+- Completed validation:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package:all`
+- Verified packaged VSIX integrity for all five target artifacts and confirmed current release-facing namespace/capability metadata remained clean.
+- Remaining external smoke gap:
+  - local VS Code test-host launches still reported `vscode.workspace.isTrusted === true` even when started with `--disable-workspace-trust`
+  - true virtual-workspace blocked-posture runtime proof is still unavailable without a real virtual workspace provider/session
+
 ## 2026-06-02 Phase 3 AI Proposal Enrichment Resume And Implementation
 
 - Resumed the interrupted Phase 3 implementation from the current repo state instead of regenerating completed planning artifacts.

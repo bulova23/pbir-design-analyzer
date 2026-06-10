@@ -2,6 +2,58 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## 0.6.0 — 2026-06-10
+
+### Performance And Scalability
+
+- Added a shared repository snapshot seam for local PBIR fallback analysis and Fabric App review evidence extraction.
+- Reworked the highest-impact extension-host repo traversal paths onto async filesystem access:
+  - local PBIR tree fallback
+  - Fabric review evidence extraction
+- Eliminated repeated Fabric review repo walks by running TypeScript, navigation, token, screenshot, and semantic-model evidence extraction from one shared repository snapshot.
+
+### Protocol And State Hardening
+
+- Added explicit score-panel protocol and schema version metadata.
+- Added shared host/webview payload guards so invalid or mismatched score-panel messages fail early with a clear error instead of reaching deep React render paths.
+- Added selected page-state clamping on both the host and webview sides so stale `selectedPageIndex` values cannot point past the current page bounds after rescoring.
+
+### Scoring Configuration
+
+- Externalized Fabric review and Fabric readiness scoring constants into an inspectable shared configuration module with explicit provenance metadata.
+- Preserved existing default behavior while adding bounded internal override hooks for:
+  - Fabric review quality-score penalties and minimums
+  - semantic-model evidence limits
+  - readiness thresholds, classification boundaries, and finding confidences
+
+### Architecture Notes
+
+- The shared repository snapshot is analyzer-independent and intended for reuse across PBIR and Fabric analysis flows.
+- The score-panel host/webview seam is now a versioned contract rather than an implicitly shared object shape.
+- The current safe manual validation gap remains true virtual-workspace runtime proof; packaged metadata still declares the blocked posture explicitly.
+
+### Validation
+
+- Passed:
+  - `cd vscode-extension && npx jest src/test/repositorySnapshot.test.ts src/test/typescriptEvidence.test.ts src/test/navigationEvidence.test.ts src/test/designTokenEvidence.test.ts src/test/screenshotEvidence.test.ts src/test/semanticModelEvidence.test.ts src/test/fabricAppReviewAnalyzer.test.ts --runInBand`
+  - `cd vscode-extension && npx jest src/test/scorePanelProtocol.test.ts src/test/fabricScoringConfig.test.ts src/test/readinessScoring.test.ts webview-src/analyzer-score/App.test.tsx --runInBand`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package:all`
+- VSIX inspection confirmed:
+  - packaged version remained `0.5.0`
+  - target-specific artifacts remained correct for Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
+  - packaged manifest metadata still declares:
+    - `pbirAnalyzer.explorer`
+    - unsupported untrusted workspaces
+    - unsupported virtual workspaces
+  - no stale release-facing `powerbi-modeling.*` or old explorer/config identifiers were reintroduced
+- Workspace-posture smoke results:
+  - attempted an actual untrusted-workspace VS Code test-host launch with `--disable-workspace-trust`
+  - local extension-host runtime still reported `vscode.workspace.isTrusted === true`, so this environment could not prove the blocked posture beyond manifest declarations
+  - true virtual-workspace runtime validation remains unavailable locally because no virtual workspace provider/session is available in this environment
+
 ## 0.5.2 — 2026-06-10
 
 ### Operational Coherence

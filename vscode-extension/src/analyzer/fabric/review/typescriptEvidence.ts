@@ -1,4 +1,5 @@
-import { collectRepoFiles, readRepoText, toRelativePath } from './repoEvidence';
+import type { RepositorySnapshot } from '../../project/repoSnapshot';
+import { listSnapshotFiles, readSnapshotText, withRepositorySnapshot } from './repoEvidence';
 import type { TypeScriptEvidenceReport } from './reviewTypes';
 
 const LAYOUT_TERMS = ['dashboardlayout', 'layout', 'grid', 'stack', 'section'];
@@ -25,12 +26,19 @@ function matchesAny(text: string, terms: string[]): string[] {
   return terms.filter((term) => text.includes(term));
 }
 
-export function extractTypeScriptEvidence(rootPath: string): TypeScriptEvidenceReport {
-  const files = collectRepoFiles(rootPath).filter((filePath) => /\.(ts|tsx)$/i.test(filePath));
+async function extractTypeScriptEvidenceFromSnapshot(
+  snapshot: RepositorySnapshot,
+): Promise<TypeScriptEvidenceReport> {
+  const files = listSnapshotFiles(snapshot, (file) => /\.(ts|tsx)$/i.test(file.relativePath));
+  const report: TypeScriptEvidenceReport = {
+    layoutPatterns: [],
+    kpiPatterns: [],
+    compositionSignals: [],
+  };
 
-  return files.reduce<TypeScriptEvidenceReport>((report, filePath) => {
-    const content = readRepoText(filePath).toLowerCase();
-    const relativePath = toRelativePath(rootPath, filePath);
+  for (const file of files) {
+    const content = (await readSnapshotText(snapshot, file)).toLowerCase();
+    const relativePath = file.relativePath;
 
     const layoutMatches = matchesAny(content, LAYOUT_TERMS);
     if (layoutMatches.length > 0) {
@@ -55,11 +63,13 @@ export function extractTypeScriptEvidence(rootPath: string): TypeScriptEvidenceR
         summary: `Composition flow references ${compositionMatches.map((match) => DISPLAY_NAME_BY_TERM[match] ?? match).join(', ')}.`,
       });
     }
+  }
 
-    return report;
-  }, {
-    layoutPatterns: [],
-    kpiPatterns: [],
-    compositionSignals: [],
-  });
+  return report;
+}
+
+export async function extractTypeScriptEvidence(
+  source: RepositorySnapshot | string,
+): Promise<TypeScriptEvidenceReport> {
+  return withRepositorySnapshot(source, extractTypeScriptEvidenceFromSnapshot);
 }

@@ -2,11 +2,20 @@ import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from './App';
-import type { ScorePanelState } from '../../src/analyzer/contracts/scorePanel';
+import type {
+  ScorePanelState,
+  ScorePanelWebviewToHostMessagePayload,
+} from '../../src/analyzer/contracts/scorePanel';
+import { buildScorePanelState, withScorePanelEnvelope } from '../../src/views/scorePanelProtocol';
 
 const postMessage = jest.fn();
+let originalDispatchEvent: typeof window.dispatchEvent;
 
-const scoreState: ScorePanelState = {
+function expectLastPostedMessage(message: ScorePanelWebviewToHostMessagePayload): void {
+  expect(postMessage).toHaveBeenLastCalledWith(withScorePanelEnvelope(message));
+}
+
+const scoreState: ScorePanelState = buildScorePanelState({
   config: {
     frameworks: [
       { id: 'gestalt', name: 'Gestalt Principles', enabled: true, weight: 60 },
@@ -915,7 +924,7 @@ const scoreState: ScorePanelState = {
       },
     ],
   },
-};
+});
 
 const reviewPacketPreview = {
   reportPath: '/tmp/Sales.Report',
@@ -1009,16 +1018,38 @@ describe('Analyzer Score App', () => {
   beforeEach(() => {
     postMessage.mockReset();
     HTMLElement.prototype.scrollIntoView = jest.fn();
+    originalDispatchEvent = window.dispatchEvent.bind(window);
+    jest.spyOn(window, 'dispatchEvent').mockImplementation((event: Event) => {
+      if (event instanceof MessageEvent && event.type === 'message' && event.data && typeof event.data === 'object') {
+        const message = event.data as Record<string, unknown>;
+        const normalizedMessage = 'protocolVersion' in message
+          ? message
+          : withScorePanelEnvelope({
+              ...(message as { type: string }),
+              state: message.type === 'scoreState' && message.state && typeof message.state === 'object'
+                && !('protocolVersion' in (message.state as Record<string, unknown>))
+                ? buildScorePanelState(message.state as Omit<ScorePanelState, 'protocolVersion' | 'schemaVersion'>)
+                : message.state,
+            });
+        return originalDispatchEvent(new MessageEvent('message', { data: normalizedMessage }));
+      }
+
+      return originalDispatchEvent(event);
+    });
     (globalThis as unknown as { acquireVsCodeApi: () => { postMessage: typeof postMessage } }).acquireVsCodeApi =
       () => ({
         postMessage,
       });
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('renders the score state and posts tab selection back to the host', async () => {
     render(<App />);
 
-    expect(postMessage).toHaveBeenCalledWith({ type: 'webviewReady' });
+    expect(postMessage).toHaveBeenCalledWith(withScorePanelEnvelope({ type: 'webviewReady' }));
 
     await act(async () => {
       window.dispatchEvent(
@@ -1069,19 +1100,19 @@ describe('Analyzer Score App', () => {
     fireEvent.change(screen.getByLabelText(/preview profile/i), {
       target: { value: 'executive' },
     });
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setReviewPacketPreviewProfile',
       profile: 'executive',
     });
     fireEvent.change(screen.getByLabelText(/consultant template/i), {
       target: { value: 'standard' },
     });
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setReviewPacketPreviewTemplateVariant',
       templateVariant: 'standard',
     });
     fireEvent.click(screen.getByRole('button', { name: /open full packet/i }));
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'openReviewPacketPreview' });
+    expectLastPostedMessage({ type: 'openReviewPacketPreview' });
     expect(screen.getByText('Unreviewed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Not reviewed/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /export review summary/i }).length).toBeGreaterThan(0);
@@ -1127,7 +1158,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Intent Feedback')).toBeInTheDocument();
     expect(screen.getByText(/Does this match your intent\?/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'No' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Overview',
       inferredIntent: 'executiveOverview',
@@ -1140,7 +1171,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/The page currently reads as executiveOverview/i)).toBeInTheDocument();
     expect(screen.getByText(/Consider tightening the title, lead KPI band, or supporting visuals/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Overview',
       inferredIntent: 'executiveOverview',
@@ -1157,7 +1188,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Details' }));
 
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'selectTab',
       pageIndex: 2,
     });
@@ -1165,7 +1196,7 @@ describe('Analyzer Score App', () => {
     fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText((_, node) => node?.textContent === 'Intent profile: analyticalDeepDive')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /partially/i }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Details',
       inferredIntent: 'analyticalDeepDive',
@@ -1180,7 +1211,7 @@ describe('Analyzer Score App', () => {
       target: { value: 'Needs a clearer variance narrative before this can be review-ready.' },
     });
     fireEvent.click(screen.getByRole('button', { name: /save note/i }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Details',
       inferredIntent: 'analyticalDeepDive',
@@ -1216,7 +1247,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByRole('button', { name: 'Review page Details' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Review page Overview' })).not.toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /export review summary/i })[0]);
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'exportReviewWorkflow' });
+    expectLastPostedMessage({ type: 'exportReviewWorkflow' });
   });
 
   it('updates preview controls from host-owned state and hides consultant template outside consultant mode', async () => {
@@ -1284,7 +1315,7 @@ describe('Analyzer Score App', () => {
     fireEvent.click(screen.getByText(/show affected visuals/i));
     fireEvent.click(screen.getByRole('button', { name: /actionbutton/i }));
 
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'revealVisual',
       pageName: 'Overview',
       visualId: 'd8427472eb598a9b5946',
@@ -1307,13 +1338,31 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'refresh' });
+    expectLastPostedMessage({ type: 'refresh' });
+  });
+
+  it('fails clearly when the host protocol version diverges', async () => {
+    render(<App />);
+
+    await act(async () => {
+      originalDispatchEvent(new MessageEvent('message', {
+        data: {
+          type: 'scoreState',
+          protocolVersion: 999,
+          schemaVersion: 1,
+          state: scoreState,
+        },
+      }));
+    });
+
+    expect(await screen.findByText(/score panel protocol mismatch/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Scoring failed' })).toBeInTheDocument();
   });
 
   it('restores persisted intent feedback without changing displayed score', async () => {
     render(<App />);
 
-    expect(postMessage).toHaveBeenCalledWith({ type: 'webviewReady' });
+    expect(postMessage).toHaveBeenCalledWith(withScorePanelEnvelope({ type: 'webviewReady' }));
 
     await act(async () => {
       window.dispatchEvent(
@@ -2180,13 +2229,13 @@ describe('Analyzer Score App', () => {
     });
 
     fireEvent.click(screen.getByLabelText('Select Standardize overview title anchor'));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'toggleFixOpportunitySelection',
       opportunityId: 'fixopp-overview-title',
     });
 
     fireEvent.click(screen.getByLabelText('Select Normalize chart top spacing'));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'toggleFixOpportunitySelection',
       opportunityId: 'fixopp-overview-chart',
     });
@@ -2215,7 +2264,7 @@ describe('Analyzer Score App', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview selected' }));
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'previewSelectedFixOpportunities' });
+    expectLastPostedMessage({ type: 'previewSelectedFixOpportunities' });
 
     await act(async () => {
       window.dispatchEvent(
@@ -2292,7 +2341,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('chart-hero-1')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve selected' }));
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'approveSelectedFixOpportunities' });
+    expectLastPostedMessage({ type: 'approveSelectedFixOpportunities' });
 
     await act(async () => {
       window.dispatchEvent(
@@ -2332,7 +2381,7 @@ describe('Analyzer Score App', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply selected' }));
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'applySelectedFixOpportunities' });
+    expectLastPostedMessage({ type: 'applySelectedFixOpportunities' });
 
     await act(async () => {
       window.dispatchEvent(
@@ -2380,7 +2429,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/Resolved 1/i)).toBeInTheDocument();
     expect(screen.getByText(/Unexpected 1/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Roll back session' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'rollbackFixSession',
       sessionId: 'session-1',
     });
@@ -2427,7 +2476,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/Regenerate them before retrying/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Regenerate stale' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'regenerateFixOpportunities',
       opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
     });

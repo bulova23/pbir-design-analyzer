@@ -14,6 +14,10 @@ import {
   scorePageReadiness,
   scoreReadinessOverall,
 } from './readinessScoring';
+import {
+  getDefaultFabricScoringConfig,
+  type FabricScoringConfig,
+} from '../config/fabricScoringConfig';
 
 function averageDimension(
   pageAssessments: FabricAppPageReadinessAssessment[],
@@ -26,103 +30,123 @@ function averageDimension(
   return Math.round(pageAssessments.reduce((sum, page) => sum + selector(page.readinessDimensions), 0) / pageAssessments.length);
 }
 
-function buildPageBlockers(page: PageScore, dimensions: FabricAppReadinessDimensionScores): string[] {
+function buildPageBlockers(
+  page: PageScore,
+  dimensions: FabricAppReadinessDimensionScores,
+  scoringConfig: FabricScoringConfig,
+): string[] {
   const blockers: string[] = [];
+  const thresholds = scoringConfig.readiness.thresholds.blockers;
 
-  if ((page.visualMetadata?.slicerCount ?? 0) >= 4) {
+  if ((page.visualMetadata?.slicerCount ?? 0) >= thresholds.slicerHeavyCount) {
     blockers.push('High slicer dependence increases migration complexity.');
   }
 
-  if (dimensions.accessibilityPortability < 50) {
+  if (dimensions.accessibilityPortability < thresholds.accessibilityLowScore) {
     blockers.push('Low accessibility portability requires redesign before migration.');
   }
 
-  if (dimensions.navigationPortability < 50) {
+  if (dimensions.navigationPortability < thresholds.navigationLowScore) {
     blockers.push('Navigation complexity is likely too Power BI-specific for direct migration.');
   }
 
-  if (dimensions.layoutPortability < 45) {
+  if (dimensions.layoutPortability < thresholds.layoutLowScore) {
     blockers.push('Dense layout portability is weak and will require substantial restructuring.');
   }
 
   return blockers;
 }
 
-function buildUnsupportedPatterns(page: PageScore): string[] {
+function buildUnsupportedPatterns(page: PageScore, scoringConfig: FabricScoringConfig): string[] {
   const patterns: string[] = [];
   const hasHiddenVisual = page.visualMetadata?.visuals.some((visual) => visual.isHidden) ?? false;
+  const thresholds = scoringConfig.readiness.thresholds;
 
   if (hasHiddenVisual) {
     patterns.push('Hidden-visual state switching is difficult to translate directly.');
   }
 
-  if ((page.visualMetadata?.slicerCount ?? 0) >= 4) {
+  if ((page.visualMetadata?.slicerCount ?? 0) >= thresholds.blockers.slicerHeavyCount) {
     patterns.push('Slicer-heavy interaction models usually need redesign for Fabric Apps.');
   }
 
-  if ((page.visualMetadata?.visuals.filter((visual) => visual.isNavigationElement).length ?? 0) >= 2) {
+  if ((page.visualMetadata?.visuals.filter((visual) => visual.isNavigationElement).length ?? 0) >= thresholds.unsupportedPatterns.navigationVisualCount) {
     patterns.push('Power BI navigation shells may not map cleanly to app-native routing.');
   }
 
   return patterns;
 }
 
-function buildPositiveSignals(page: PageScore, dimensions: FabricAppReadinessDimensionScores): string[] {
+function buildPositiveSignals(
+  page: PageScore,
+  dimensions: FabricAppReadinessDimensionScores,
+  scoringConfig: FabricScoringConfig,
+): string[] {
   const signals: string[] = [];
+  const thresholds = scoringConfig.readiness.thresholds.positiveSignals;
 
   if ((page.visualMetadata?.visibleTitleVisualCount ?? 0) > 0) {
     signals.push('Clear visible page titling supports app information architecture.');
   }
 
-  if ((page.visualMetadata?.visualCount ?? 0) <= 6) {
+  if ((page.visualMetadata?.visualCount ?? 0) <= thresholds.focusedVisualCount) {
     signals.push('Focused visual scope is easier to recompose as an app surface.');
   }
 
-  if (dimensions.semanticModelSuitability >= 70) {
+  if (dimensions.semanticModelSuitability >= thresholds.semanticModelStructuredScore) {
     signals.push('Semantic-model usage appears structured enough for app migration.');
   }
 
-  if (dimensions.visualizationAsCodeOpportunity >= 70) {
+  if (dimensions.visualizationAsCodeOpportunity >= thresholds.codeFirstOpportunityScore) {
     signals.push('Visualization structure looks amenable to code-first recreation.');
   }
 
   return signals;
 }
 
-function buildMigrationNotes(page: PageScore, dimensions: FabricAppReadinessDimensionScores): string[] {
+function buildMigrationNotes(
+  page: PageScore,
+  dimensions: FabricAppReadinessDimensionScores,
+  scoringConfig: FabricScoringConfig,
+): string[] {
   const notes: string[] = [];
+  const thresholds = scoringConfig.readiness.thresholds.migrationNotes;
 
-  if (dimensions.narrativePortability < 60) {
+  if (dimensions.narrativePortability < thresholds.narrativeLowScore) {
     notes.push('Clarify the page narrative before treating it as an app candidate.');
   }
 
-  if (dimensions.navigationPortability < 65) {
+  if (dimensions.navigationPortability < thresholds.navigationLowScore) {
     notes.push('Simplify navigation and reduce cross-page shell complexity.');
   }
 
-  if (dimensions.semanticModelSuitability < 65) {
+  if (dimensions.semanticModelSuitability < thresholds.semanticModelLowScore) {
     notes.push('Strengthen semantic labeling and measure framing for app reuse.');
   }
 
   return notes;
 }
 
-function buildRedesignAreas(dimensions: FabricAppReadinessDimensionScores): string[] {
+function buildRedesignAreas(
+  dimensions: FabricAppReadinessDimensionScores,
+  scoringConfig: FabricScoringConfig,
+): string[] {
   const areas: string[] = [];
+  const thresholds = scoringConfig.readiness.thresholds.redesignAreas;
 
-  if (dimensions.layoutPortability < 60) {
+  if (dimensions.layoutPortability < thresholds.layoutLowScore) {
     areas.push('layout portability');
   }
 
-  if (dimensions.navigationPortability < 60) {
+  if (dimensions.navigationPortability < thresholds.navigationLowScore) {
     areas.push('navigation portability');
   }
 
-  if (dimensions.accessibilityPortability < 60) {
+  if (dimensions.accessibilityPortability < thresholds.accessibilityLowScore) {
     areas.push('accessibility portability');
   }
 
-  if (dimensions.narrativePortability < 60) {
+  if (dimensions.narrativePortability < thresholds.narrativeLowScore) {
     areas.push('narrative portability');
   }
 
@@ -164,22 +188,26 @@ function buildEvidence(page: PageScore, dimensions: FabricAppReadinessDimensionS
   ];
 }
 
-function buildPageAssessment(result: ScoreResult, page: PageScore): FabricAppPageReadinessAssessment {
-  const readinessDimensions = scorePageReadiness(result, page);
-  const blockers = buildPageBlockers(page, readinessDimensions);
-  const unsupportedPatterns = buildUnsupportedPatterns(page);
+function buildPageAssessment(
+  result: ScoreResult,
+  page: PageScore,
+  scoringConfig: FabricScoringConfig,
+): FabricAppPageReadinessAssessment {
+  const readinessDimensions = scorePageReadiness(result, page, scoringConfig);
+  const blockers = buildPageBlockers(page, readinessDimensions, scoringConfig);
+  const unsupportedPatterns = buildUnsupportedPatterns(page, scoringConfig);
   const readinessScore = scoreReadinessOverall(readinessDimensions);
 
   return {
     pageName: page.pageName,
     readinessScore,
     readinessDimensions,
-    candidateState: classifyPageCandidateState(readinessScore, blockers.length),
-    positiveSignals: buildPositiveSignals(page, readinessDimensions),
+    candidateState: classifyPageCandidateState(readinessScore, blockers.length, scoringConfig),
+    positiveSignals: buildPositiveSignals(page, readinessDimensions, scoringConfig),
     blockers,
     unsupportedPatterns,
-    redesignRequiredAreas: buildRedesignAreas(readinessDimensions),
-    migrationNotes: buildMigrationNotes(page, readinessDimensions),
+    redesignRequiredAreas: buildRedesignAreas(readinessDimensions, scoringConfig),
+    migrationNotes: buildMigrationNotes(page, readinessDimensions, scoringConfig),
     evidence: buildEvidence(page, readinessDimensions),
   };
 }
@@ -227,8 +255,9 @@ function buildRecommendedNextActions(assessment: FabricAppReadinessAssessment): 
 export function assessFabricAppReadiness(
   result: ScoreResult,
   _profile: AnalyzerProfileId = 'migrationReadiness',
+  scoringConfig: FabricScoringConfig = getDefaultFabricScoringConfig(),
 ): FabricAppReadinessAssessment {
-  const pageAssessments = (result.pageScores ?? []).map((page) => buildPageAssessment(result, page));
+  const pageAssessments = (result.pageScores ?? []).map((page) => buildPageAssessment(result, page, scoringConfig));
   const overallReadinessScore = pageAssessments.length > 0
     ? Math.round(pageAssessments.reduce((sum, page) => sum + page.readinessScore, 0) / pageAssessments.length)
     : 0;
@@ -238,7 +267,7 @@ export function assessFabricAppReadiness(
   const blockers = [...new Set(pageAssessments.flatMap((page) => page.blockers))];
   const unsupportedPatterns = [...new Set(pageAssessments.flatMap((page) => page.unsupportedPatterns))];
   const redesignRequiredAreas = [...new Set(pageAssessments.flatMap((page) => page.redesignRequiredAreas))];
-  const readinessBand = classifyReportReadinessBand(overallReadinessScore, candidatePages.length);
+  const readinessBand = classifyReportReadinessBand(overallReadinessScore, candidatePages.length, scoringConfig);
 
   const assessment: FabricAppReadinessAssessment = {
     overallReadinessScore,

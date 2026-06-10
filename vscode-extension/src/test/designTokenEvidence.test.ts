@@ -14,7 +14,7 @@ describe('extractDesignTokenEvidence', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('extracts token definitions and detects hard-coded bypasses', () => {
+  it('extracts token definitions and detects hard-coded bypasses', async () => {
     fs.mkdirSync(path.join(tempDir, 'src', 'theme'), { recursive: true });
     fs.writeFileSync(path.join(tempDir, 'src', 'theme', 'tokens.css'), `
       :root {
@@ -29,7 +29,7 @@ describe('extractDesignTokenEvidence', () => {
       }
     `);
 
-    const evidence = extractDesignTokenEvidence(tempDir);
+    const evidence = await extractDesignTokenEvidence(tempDir);
 
     expect(evidence.tokens).toEqual(
       expect.arrayContaining([

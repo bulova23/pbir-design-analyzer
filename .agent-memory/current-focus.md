@@ -6,54 +6,48 @@
 
 ## Current Objective
 
-- Complete the Recommended `0.5.2` operational-coherence bundle from the engineering hardening roadmap without expanding into `0.6.0`.
-- Keep the implementation limited to output-channel consolidation, namespace unification, capability declarations, telemetry posture clarification, and troubleshooting cleanup.
+- Recommended `0.6.0` is complete on the active branch.
+- Keep the next step focused on release integration, remaining external smoke gaps, and the next roadmap epic rather than reopening the `0.6.0` hardening scope.
 
 ## In Progress
 
-- Recommended `0.5.2` implementation is now complete for the approved scope:
-  - shared singleton output-channel registry for extension, backend, backend trace, and score diagnostics
-  - canonical `pbirAnalyzer` command/view/config namespace
-  - legacy `pbir.*` command alias routing for migration compatibility
-  - canonical `pbirAnalyzer.governance.*` settings with fallback reads from legacy `powerbi-modeling.governance.*` kept in code only
-  - explicit unsupported posture for untrusted workspaces and virtual workspaces
-  - explicit local-only/no-op telemetry posture
-  - troubleshooting guide cleanup to match shipped command names and backend restart flow
-  - focused regression coverage for output channels, manifest declarations, config fallback, alias routing, and telemetry behavior
+- Recommended `0.5.1`, `0.5.2`, and `0.6.0` are complete.
+- `0.6.0` delivered:
+  - shared repository snapshot seam
+  - async repository traversal for the local PBIR fallback tree and Fabric evidence extraction
+  - shared-snapshot Fabric evidence reuse
+  - host/webview protocol versioning and schema guards
+  - selected state validation
+  - externalized Fabric scoring configuration with provenance
 - Authoritative roadmap docs remain:
   - `docs/superpowers/specs/2026-06-06-engineering-hardening-design.md`
   - `docs/superpowers/plans/2026-06-06-engineering-hardening-plan.md`
 
 ## Blockers
 
-- No active blocker remains inside the Recommended `0.5.2` scope.
-- Remaining open hardening work is intentionally deferred to Recommended `0.6.0`.
+- No blocker remains inside the implemented `0.6.0` scope.
+- External validation gap remains for a true virtual-workspace runtime smoke.
+- Attempted untrusted-workspace runtime smoke still reported `vscode.workspace.isTrusted === true` under the local VS Code test host, so this environment could not prove the blocked posture beyond packaged manifest declarations.
 
 ## Validation Status
 
-- Focused checkpoint validation passed:
-  - `cd vscode-extension && npx jest src/test/outputChannels.test.ts src/test/packageManifest.test.ts src/test/pbirGovernanceCommand.test.ts src/test/pbirReviewWorkflowExportCommand.test.ts src/test/telemetryReporter.test.ts --runInBand`
-- Full required validation passed:
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `cd vscode-extension && npm run compile`
+- `0.6.0` validation passed:
+  - focused phase-by-phase Jest runs
   - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
   - `cd vscode-extension && npm run package:all`
-- Trusted-host VS Code smoke passed for:
-  - canonical explorer metadata
-  - legacy alias routing
-  - post-activation output-channel reuse
-- Actual blocked-host smoke for untrusted and virtual workspaces remains externally pending because the local VS Code test harness could not force a file workspace into untrusted mode and did not provide a true virtual workspace provider.
+- VSIX inspection confirmed version, target integrity, backend target specificity, and current release-facing namespace/capability metadata.
+- `0.5.2` validation remains on record as previously completed.
 
 ## Release Boundaries
 
-- Stop at Recommended `0.5.2`.
-- Do not start Recommended `0.6.0` scale/protocol work in this follow-up.
+- Stop at Recommended `0.6.0`.
 - Do not expand into new feature pillars while the remaining hardening roadmap items are still intentionally deferred.
 
 ## Next Recommended Step
 
-- Smoke-test the completed `0.5.2` runtime/platform changes in VS Code against a real PBIR workspace:
-  - actual untrusted-workspace blocked posture
-  - actual virtual-workspace blocked posture
-- If those two external posture checks are clean, move next into Recommended `0.6.0` only after explicit approval.
-- Keep shared repo snapshotting, async I/O, protocol versioning, selected state validation, and scale work deferred exactly as scoped in the hardening roadmap.
+- Keep the remaining runtime-validation gap explicit:
+  - rerun untrusted-workspace blocked-posture smoke in an environment that can actually produce `vscode.workspace.isTrusted === false`
+  - run a true virtual-workspace blocked-posture smoke once a virtual workspace provider/session is available
+- Start the next roadmap epic only after deciding whether that external smoke proof is required before release integration.

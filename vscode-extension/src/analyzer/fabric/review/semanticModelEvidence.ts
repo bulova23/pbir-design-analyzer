@@ -1,52 +1,10 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import type { RepositorySnapshot } from '../../project/repoSnapshot';
+import { getDefaultFabricScoringConfig } from '../config/fabricScoringConfig';
+import { listSnapshotFiles, readSnapshotText, withRepositorySnapshot } from './repoEvidence';
 import type { SemanticModelEvidenceReport } from './reviewTypes';
 
-const SIGNAL_LIMIT = 6;
 const FILE_PATTERN = /\.(ts|tsx|js|jsx|json)$/i;
 const SIGNAL_PATTERN = /\b(?:semanticModel|dataset|queryRef|measure|metric)\s*:/i;
-
-function safeReadDir(dirPath: string): fs.Dirent[] {
-  try {
-    return fs.readdirSync(dirPath, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-}
-
-function collectFiles(rootPath: string, maxDepth = 4): string[] {
-  const files: string[] = [];
-
-  function visit(currentPath: string, depth: number): void {
-    if (depth > maxDepth || files.length >= 40) {
-      return;
-    }
-
-    for (const entry of safeReadDir(currentPath)) {
-      if (entry.name === 'node_modules' || entry.name.startsWith('.git')) {
-        continue;
-      }
-
-      const fullPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        visit(fullPath, depth + 1);
-      } else if (FILE_PATTERN.test(entry.name)) {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  visit(rootPath, 0);
-  return files;
-}
-
-function readFileText(filePath: string): string {
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return '';
-  }
-}
 
 function summarizeSemanticSignal(line: string): string | undefined {
   const compact = line.replace(/\s+/g, ' ').trim();
@@ -68,21 +26,30 @@ function summarizeSemanticSignal(line: string): string | undefined {
   return compact.slice(0, 120);
 }
 
-export function extractSemanticModelEvidence(rootPath: string): SemanticModelEvidenceReport {
+async function extractSemanticModelEvidenceFromSnapshot(
+  snapshot: RepositorySnapshot,
+): Promise<SemanticModelEvidenceReport> {
   const signals: SemanticModelEvidenceReport['signals'] = [];
+  const signalLimit = getDefaultFabricScoringConfig().review.semanticModelSignalLimit;
+  const candidateFiles = listSnapshotFiles(
+    snapshot,
+    (file) => FILE_PATTERN.test(file.relativePath),
+  )
+    .slice(0, 40)
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 
-  for (const filePath of collectFiles(rootPath).sort((left, right) => left.localeCompare(right))) {
-    if (signals.length >= SIGNAL_LIMIT) {
+  for (const file of candidateFiles) {
+    if (signals.length >= signalLimit) {
       break;
     }
 
-    const text = readFileText(filePath);
+    const text = await readSnapshotText(snapshot, file);
     if (!text || !SIGNAL_PATTERN.test(text)) {
       continue;
     }
 
     for (const line of text.split(/\r?\n/)) {
-      if (signals.length >= SIGNAL_LIMIT) {
+      if (signals.length >= signalLimit) {
         break;
       }
 
@@ -92,11 +59,17 @@ export function extractSemanticModelEvidence(rootPath: string): SemanticModelEvi
       }
 
       signals.push({
-        filePath: path.relative(rootPath, filePath),
+        filePath: file.relativePath,
         summary,
       });
     }
   }
 
   return { signals };
+}
+
+export async function extractSemanticModelEvidence(
+  source: RepositorySnapshot | string,
+): Promise<SemanticModelEvidenceReport> {
+  return withRepositorySnapshot(source, extractSemanticModelEvidenceFromSnapshot);
 }

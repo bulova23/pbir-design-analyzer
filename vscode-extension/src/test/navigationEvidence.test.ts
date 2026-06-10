@@ -14,7 +14,7 @@ describe('extractNavigationEvidence', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('extracts route hierarchy and executive-to-detail flow signals', () => {
+  it('extracts route hierarchy and executive-to-detail flow signals', async () => {
     fs.mkdirSync(path.join(tempDir, 'src', 'routes'), { recursive: true });
     fs.writeFileSync(path.join(tempDir, 'src', 'routes', 'index.tsx'), `
       export const routes = [
@@ -24,7 +24,7 @@ describe('extractNavigationEvidence', () => {
       ];
     `);
 
-    const evidence = extractNavigationEvidence(tempDir);
+    const evidence = await extractNavigationEvidence(tempDir);
 
     expect(evidence.routes).toEqual(
       expect.arrayContaining([

@@ -1,16 +1,23 @@
-import { collectRepoFiles, readRepoText, toRelativePath } from './repoEvidence';
+import type { RepositorySnapshot } from '../../project/repoSnapshot';
+import { listSnapshotFiles, readSnapshotText, withRepositorySnapshot } from './repoEvidence';
 import type { DesignTokenEvidenceReport } from './reviewTypes';
 
 const TOKEN_PATTERN = /(--[a-z0-9-]+)\s*:/gi;
 const COLOR_BYPASS_PATTERN = /#[0-9a-f]{3,8}/gi;
 const SPACING_BYPASS_PATTERN = /\b(?:padding|margin|gap)\s*:\s*['"`]?\d+px/gi;
 
-export function extractDesignTokenEvidence(rootPath: string): DesignTokenEvidenceReport {
-  const files = collectRepoFiles(rootPath).filter((filePath) => /\.(ts|tsx|css|scss)$/i.test(filePath));
+async function extractDesignTokenEvidenceFromSnapshot(
+  snapshot: RepositorySnapshot,
+): Promise<DesignTokenEvidenceReport> {
+  const files = listSnapshotFiles(snapshot, (file) => /\.(ts|tsx|css|scss)$/i.test(file.relativePath));
+  const report: DesignTokenEvidenceReport = {
+    tokens: [],
+    bypasses: [],
+  };
 
-  return files.reduce<DesignTokenEvidenceReport>((report, filePath) => {
-    const text = readRepoText(filePath);
-    const relativePath = toRelativePath(rootPath, filePath);
+  for (const file of files) {
+    const text = await readSnapshotText(snapshot, file);
+    const relativePath = file.relativePath;
 
     for (const match of text.matchAll(TOKEN_PATTERN)) {
       report.tokens.push({
@@ -33,10 +40,13 @@ export function extractDesignTokenEvidence(rootPath: string): DesignTokenEvidenc
         summary: `Hard-coded spacing bypass detected: ${match[0]}.`,
       });
     }
+  }
 
-    return report;
-  }, {
-    tokens: [],
-    bypasses: [],
-  });
+  return report;
+}
+
+export async function extractDesignTokenEvidence(
+  source: RepositorySnapshot | string,
+): Promise<DesignTokenEvidenceReport> {
+  return withRepositorySnapshot(source, extractDesignTokenEvidenceFromSnapshot);
 }

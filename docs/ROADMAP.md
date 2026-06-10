@@ -2,6 +2,29 @@
 
 This roadmap reflects the post-`0.5.0` product direction after the review workspace expansion, Fabric App review foundations, screenshot and semantic-model evidence, cross-platform packaging, and backend hardening landed on the active branch.
 
+## Current Hardening Status
+
+The engineering hardening roadmap is now implemented through the recommended `0.6.0` bundle on the active branch:
+
+- `0.5.1` deterministic trust restoration
+- `0.5.2` operational coherence
+- `0.6.0` scalability and protocol maturity
+
+That means the current branch now includes:
+
+- shared repo snapshots for high-impact local analysis paths
+- async filesystem conversion on the local PBIR fallback tree and Fabric evidence flows
+- single-snapshot Fabric evidence reuse
+- versioned score-panel host/webview contracts with payload guards
+- selected page-state validation
+- externalized Fabric review and readiness scoring constants with provenance
+
+The next roadmap epic after this hardening pass remains:
+
+1. Consultant Deliverables & Export Platform
+2. Visual Intelligence & Screenshot Analysis
+3. Enterprise Governance & Advanced Review
+
 ## Current Release: 0.5.0
 
 `0.5.0` establishes the first cross-platform Analytics Experience Review Platform release with:

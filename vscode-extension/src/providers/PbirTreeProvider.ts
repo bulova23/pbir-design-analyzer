@@ -165,7 +165,7 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
             }
         }
 
-        const localTree = buildLocalPbirTree(this._projectPath);
+        const localTree = await buildLocalPbirTree(this._projectPath);
         if (localTree) {
             return [this._createReportItem(localTree)];
         }

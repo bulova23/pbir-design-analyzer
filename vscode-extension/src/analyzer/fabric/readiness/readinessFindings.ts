@@ -5,6 +5,10 @@ import type {
   NormalizedFindingSeverity,
   ScoreResult,
 } from '../../contracts/scorePanel';
+import {
+  getDefaultFabricScoringConfig,
+  type FabricScoringConfig,
+} from '../config/fabricScoringConfig';
 
 function sanitizeIdPart(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -43,8 +47,11 @@ function inferSeverity(text: string): NormalizedFindingSeverity {
 export function buildFabricReadinessFindings(
   result: ScoreResult,
   readiness: FabricAppReadinessAssessment,
+  scoringConfig: FabricScoringConfig = getDefaultFabricScoringConfig(),
 ): NormalizedFinding[] {
   const findings: NormalizedFinding[] = [];
+  const findingConfig = scoringConfig.readiness.findings;
+  const thresholds = scoringConfig.readiness.thresholds;
 
   if (readiness.candidatePages.length > 0) {
     findings.push({
@@ -52,7 +59,7 @@ export function buildFabricReadinessFindings(
       title: 'Good Fabric App Candidate',
       summary: readiness.migrationSummary,
       severity: readiness.readinessBand === 'strongCandidate' ? 'low' : 'info',
-      confidence: 82,
+      confidence: findingConfig.goodCandidateConfidence,
       scope: 'report',
       detectionType: 'deterministic',
       affectedPages: readiness.candidatePages,
@@ -76,7 +83,7 @@ export function buildFabricReadinessFindings(
       title: 'Migration Blocker',
       summary: blocker,
       severity: inferSeverity(blocker),
-      confidence: 88,
+      confidence: findingConfig.blockerConfidence,
       scope: 'report',
       detectionType: 'deterministic',
       affectedPages: readiness.pageAssessments
@@ -106,7 +113,7 @@ export function buildFabricReadinessFindings(
       title: 'Redesign Required',
       summary: `${page.pageName} needs redesign before it becomes a strong app migration candidate.`,
       severity: page.candidateState === 'keepAsReport' ? 'high' : 'medium',
-      confidence: 84,
+      confidence: findingConfig.redesignConfidence,
       scope: 'page',
       detectionType: 'deterministic',
       affectedPages: [page.pageName],
@@ -130,7 +137,7 @@ export function buildFabricReadinessFindings(
       title: 'Unsupported Pattern',
       summary: pattern,
       severity: inferSeverity(pattern),
-      confidence: 86,
+      confidence: findingConfig.unsupportedPatternConfidence,
       scope: 'report',
       detectionType: 'deterministic',
       affectedPages: readiness.pageAssessments
@@ -145,13 +152,13 @@ export function buildFabricReadinessFindings(
     });
   }
 
-  for (const page of readiness.pageAssessments.filter((entry) => entry.readinessDimensions.visualizationAsCodeOpportunity >= 55)) {
+  for (const page of readiness.pageAssessments.filter((entry) => entry.readinessDimensions.visualizationAsCodeOpportunity >= thresholds.visualizationOpportunityScore)) {
     findings.push({
       id: `fabric-readiness-viz-opportunity-${sanitizeIdPart(page.pageName)}`,
       title: 'Visualization Opportunity',
       summary: `${page.pageName} has structure that should translate relatively well into a code-first app surface.`,
       severity: 'info',
-      confidence: 76,
+      confidence: findingConfig.visualizationOpportunityConfidence,
       scope: 'page',
       detectionType: 'deterministic',
       affectedPages: [page.pageName],

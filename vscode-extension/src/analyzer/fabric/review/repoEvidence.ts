@@ -1,62 +1,40 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import {
+  createRepositorySnapshot,
+  type RepositorySnapshot,
+  type RepositorySnapshotFile,
+} from '../../project/repoSnapshot';
 
-function compareText(left: string, right: string): number {
-  if (left < right) {
-    return -1;
+export async function withRepositorySnapshot<T>(
+  source: RepositorySnapshot | string,
+  action: (snapshot: RepositorySnapshot) => Promise<T>,
+): Promise<T> {
+  if (typeof source !== 'string') {
+    return action(source);
   }
 
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
-}
-
-export function collectRepoFiles(rootPath: string, maxDepth = 4): string[] {
-  const files: string[] = [];
-
-  function visit(currentPath: string, depth: number): void {
-    if (depth > maxDepth) {
-      return;
-    }
-
-    let entries: fs.Dirent[] = [];
-    try {
-      entries = fs.readdirSync(currentPath, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    entries.sort((left, right) => compareText(left.name, right.name));
-
-    for (const entry of entries) {
-      if (entry.name === 'node_modules' || entry.name.startsWith('.git')) {
-        continue;
-      }
-
-      const fullPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        visit(fullPath, depth + 1);
-        continue;
-      }
-
-      files.push(fullPath);
-    }
-  }
-
-  visit(rootPath, 0);
-  return files.sort(compareText);
-}
-
-export function readRepoText(filePath: string): string {
+  const snapshot = await createRepositorySnapshot(source);
   try {
-    return fs.readFileSync(filePath, 'utf8');
+    return await action(snapshot);
+  } finally {
+    snapshot.dispose();
+  }
+}
+
+export function listSnapshotFiles(
+  snapshot: RepositorySnapshot,
+  predicate?: (file: RepositorySnapshotFile) => boolean,
+): RepositorySnapshotFile[] {
+  const files = snapshot.listFiles();
+  return predicate ? files.filter(predicate) : [...files];
+}
+
+export async function readSnapshotText(
+  snapshot: RepositorySnapshot,
+  file: RepositorySnapshotFile,
+): Promise<string> {
+  try {
+    return await snapshot.readText(file);
   } catch {
     return '';
   }
-}
-
-export function toRelativePath(rootPath: string, filePath: string): string {
-  return path.relative(rootPath, filePath) || path.basename(filePath);
 }

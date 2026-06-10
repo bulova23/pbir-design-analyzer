@@ -28,7 +28,7 @@ describe('reviewFabricAppSurface', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('orchestrates evidence extraction and returns advisory findings with remediation guidance', () => {
+  it('orchestrates evidence extraction and returns advisory findings with remediation guidance', async () => {
     fs.mkdirSync(path.join(tempDir, 'src', 'routes'), { recursive: true });
     fs.mkdirSync(path.join(tempDir, 'src', 'data'), { recursive: true });
     fs.mkdirSync(path.join(tempDir, 'src', 'theme'), { recursive: true });
@@ -74,7 +74,7 @@ describe('reviewFabricAppSurface', () => {
     `);
     fs.writeFileSync(path.join(tempDir, 'screenshots', '01 Executive Overview - Default.png'), 'fake-image');
 
-    const result = reviewFabricAppSurface(buildFabricSurface(tempDir), 'fabricAppQuality');
+    const result = await reviewFabricAppSurface(buildFabricSurface(tempDir), 'fabricAppQuality');
 
     expect(result.qualityScore).toBeGreaterThan(0);
     expect(result.summary).toContain('Fabric App');
