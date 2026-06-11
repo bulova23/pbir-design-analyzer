@@ -7,7 +7,27 @@
 ## Current Objective
 
 - Recommended `0.6.0` is complete on the active branch.
-- Keep the next step focused on release integration, remaining external smoke gaps, and the next roadmap epic rather than reopening the `0.6.0` hardening scope.
+- Story Assessment 2.0 validation planning is documented and the first implementation slice is now complete:
+  - Workstream 1 Validation Substrate
+  - Workstream 2 PBIR Expert Review Validation Framework
+- Story Assessment 2.0 Workstream 3 is complete:
+  - internal Signal Registry runtime extraction
+  - representative signal capture
+  - signal classification
+  - validation coverage
+- Story Assessment 2.0 Workstream 4 is now complete:
+  - internal archetype scoring
+  - matched and missed signal recording
+  - Level 1 validation harness
+  - promotion gate definition
+- Story Assessment 2.0 Workstream 5 is now complete:
+  - internal semantic coherence scoring
+  - dominant concept detection
+  - deterministic term clustering
+  - focused-versus-split coherence classification
+  - promotion-delayed competing-story detection
+  - expert-review validation support
+- Keep Story Assessment outputs internal-only until explicit promotion evidence exists.
 
 ## In Progress
 
@@ -22,6 +42,32 @@
 - Authoritative roadmap docs remain:
   - `docs/superpowers/specs/2026-06-06-engineering-hardening-design.md`
   - `docs/superpowers/plans/2026-06-06-engineering-hardening-plan.md`
+- New planning-only Story Assessment 2.0 docs now exist:
+  - `docs/superpowers/specs/2026-06-10-story-assessment-2-design-validation.md`
+  - `docs/superpowers/plans/2026-06-10-story-assessment-2-implementation-plan.md`
+- Story Assessment 2.0 foundation implementation now exists:
+  - internal-only validation substrate models
+  - PBIR validation corpus guidance
+  - reviewer rubric
+  - reviewer workflow
+  - validation observations placeholder
+- Story Assessment 2.0 runtime foundation now also exists:
+  - internal-only signal registry extraction in backend scoring
+  - representative layout, semantic, and context signal capture
+  - focused xUnit coverage for runtime capture and graceful degradation
+- Story Assessment 2.0 Workstream 4 validation foundation now also exists:
+  - internal-only best-fit archetype scoring for six planned archetypes
+  - matched/missed signal recording from the Signal Registry
+  - Level 1 reviewer-harness placeholders
+  - internal promotion gate thresholds for future contract eligibility
+  - focused archetype-validation xUnit coverage
+- Story Assessment 2.0 Workstream 5 validation foundation now also exists:
+  - internal-only semantic coherence scoring
+  - deterministic extracted-term normalization and token clustering
+  - dominant concept detection
+  - focused/split/sparse coherence classification
+  - precision-first competing-story detection with promotion-delayed status
+  - focused coherence-validation xUnit coverage
 
 ## Blockers
 
@@ -47,7 +93,12 @@
 
 ## Next Recommended Step
 
+- Review Workstream 5 outputs before proceeding further.
+- If Story Assessment 2.0 implementation continues later, start with Workstream 6 only:
+  - filter topology extraction
+  - reinforcement-only topology classification
+  - continued internal-only boundaries until Level 1 evidence supports promotion
+- Do not promote new Story Assessment fields to the score-panel contract until Level 1 validation evidence exists.
 - Keep the remaining runtime-validation gap explicit:
   - rerun untrusted-workspace blocked-posture smoke in an environment that can actually produce `vscode.workspace.isTrusted === false`
   - run a true virtual-workspace blocked-posture smoke once a virtual workspace provider/session is available
-- Start the next roadmap epic only after deciding whether that external smoke proof is required before release integration.

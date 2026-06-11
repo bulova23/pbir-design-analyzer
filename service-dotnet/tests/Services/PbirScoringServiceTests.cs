@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using PowerBIModelingService.Services;
@@ -12,6 +13,76 @@ namespace PowerBIModelingService.Tests.Services;
 /// </summary>
 public sealed class PbirScoringServiceTests : IDisposable
 {
+    private sealed record StorySignalRegistryEntrySnapshot(string Id, string? RawValue, bool Fired);
+    private sealed record StoryArchetypeMatchSnapshot(
+        string ArchetypeId,
+        double MatchScore,
+        string MatchConfidence,
+        List<string> MatchedSignals,
+        List<string> MissedSignals,
+        List<string> ExplanationHooks,
+        string ValidationStatus,
+        string PromotionEligibilityState);
+
+    private sealed record StoryAssessmentLevel1ValidationHarnessSnapshot(
+        string? ReviewerChoice,
+        string SystemChoice,
+        string? DisagreementReason,
+        string AccuracyRating,
+        string ConsistencyRating,
+        string ExplainabilityRating,
+        string ActionabilityRating);
+
+    private sealed record StoryAssessmentPromotionGateDefinitionSnapshot(
+        double MinimumClassificationAccuracy,
+        string MinimumExplanationQuality,
+        string MinimumGapUsefulnessPotential,
+        double MaximumFalsePositiveRate,
+        double ReviewerAgreementThresholdPlaceholder);
+
+    private sealed record StoryAssessmentArchetypeClassificationSnapshot(
+        string BestFitArchetypeId,
+        List<StoryArchetypeMatchSnapshot> ArchetypeResults,
+        StoryAssessmentLevel1ValidationHarnessSnapshot Level1ValidationHarness,
+        StoryAssessmentPromotionGateDefinitionSnapshot PromotionGateDefinition);
+
+    private sealed record StorySemanticTermEvidenceSnapshot(
+        string CanonicalTerm,
+        string RawText,
+        string Source,
+        double Weight);
+
+    private sealed record StorySemanticTermClusterSnapshot(
+        string ClusterId,
+        double Weight,
+        int SupportCount,
+        List<string> Terms,
+        string ExplanationHook);
+
+    private sealed record StorySemanticCoherenceLevel1ValidationHarnessSnapshot(
+        string? ReviewerCoherenceChoice,
+        string SystemCoherenceChoice,
+        string? ReviewerDominantConcept,
+        string SystemDominantConcept,
+        string? DisagreementReason,
+        string AccuracyRating,
+        string ConsistencyRating,
+        string ExplainabilityRating,
+        string ActionabilityRating);
+
+    private sealed record StorySemanticCoherenceAssessmentSnapshot(
+        double CoherenceScore,
+        string CoherenceClassification,
+        string? DominantConcept,
+        List<StorySemanticTermEvidenceSnapshot> ExtractedTerms,
+        List<StorySemanticTermClusterSnapshot> TermClusters,
+        string CompetingStoryStatus,
+        List<string> WeakDisagreementSignals,
+        List<string> ExplanationHooks,
+        string Confidence,
+        string ValidationStatus,
+        StorySemanticCoherenceLevel1ValidationHarnessSnapshot Level1ValidationHarness);
+
     private readonly List<string> _tempDirs = [];
 
     // ── CognitiveLoad: exactly 6 visuals ─────────────────────────────────────
@@ -1900,6 +1971,578 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Equal(0.0, result.CompositeScore);
     }
 
+    [Fact]
+    public async Task ScoreAsync_InternalStorySignalRegistry_CapturesRepresentativeLayoutSignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Executive Summary","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"k2","type":"card","x":200,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Margin"}},
+              {"id":"v1","type":"lineChart","x":0,"y":220,"width":480,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var entries = GetInternalStorySignalRegistryEntries(result);
+
+        var titleSignal = Assert.Single(entries, entry => entry.Id == "layout.meaningfulVisibleTitle");
+        Assert.True(titleSignal.Fired);
+        Assert.Equal("Revenue vs Target", titleSignal.RawValue);
+
+        var kpiSignal = Assert.Single(entries, entry => entry.Id == "layout.topScanKpiCount");
+        Assert.True(kpiSignal.Fired);
+        Assert.Equal("2", kpiSignal.RawValue);
+
+        var leadVisualSignal = Assert.Single(entries, entry => entry.Id == "layout.leadVisualType");
+        Assert.True(leadVisualSignal.Fired);
+        Assert.Equal("lineChart", leadVisualSignal.RawValue);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStorySignalRegistry_CapturesRepresentativeSemanticSignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Overview","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Variance by Region"}},
+              {"id":"trend1","type":"lineChart","x":220,"y":180,"width":420,"height":220,
+               "title":{"visible":true,"text":"Trend"},
+               "fieldRoles":{
+                 "category":[{"queryRef":"dimRegion[RegionKey]","displayName":"Sales Region","synonyms":["Region"],"description":"Regional business grouping"}],
+                 "value":[{"queryRef":"factSales[RevVar]","displayName":"Revenue Variance","synonyms":["Revenue Gap"],"description":"Difference between actual revenue and target revenue"}],
+                 "measure":[{"queryRef":"factSales[RevVar]","displayName":"Revenue Variance","synonyms":["Revenue Gap"],"description":"Difference between actual revenue and target revenue"}]
+               }}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var entries = GetInternalStorySignalRegistryEntries(result);
+
+        var metricSignal = Assert.Single(entries, entry => entry.Id == "semantic.primaryMetric");
+        Assert.True(metricSignal.Fired);
+        Assert.Equal("Revenue Variance", metricSignal.RawValue);
+
+        var dimensionSignal = Assert.Single(entries, entry => entry.Id == "semantic.primaryDimension");
+        Assert.True(dimensionSignal.Fired);
+        Assert.Equal("Sales Region", dimensionSignal.RawValue);
+
+        var metadataSignal = Assert.Single(entries, entry => entry.Id == "semantic.richMetadataSupport");
+        Assert.True(metadataSignal.Fired);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStorySignalRegistry_CapturesRepresentativeContextSignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Executive Review","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":120,
+               "title":{"visible":true,"text":"Region"}},
+              {"id":"k1","type":"card","x":260,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue vs Budget"}},
+              {"id":"k2","type":"card","x":460,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Margin YoY"}},
+              {"id":"v1","type":"lineChart","x":0,"y":220,"width":480,"height":220,
+               "title":{"visible":true,"text":"Revenue Last Year Trend"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var entries = GetInternalStorySignalRegistryEntries(result);
+
+        Assert.True(Assert.Single(entries, entry => entry.Id == "context.targetBenchmarkPresent").Fired);
+        Assert.True(Assert.Single(entries, entry => entry.Id == "context.priorPeriodContext").Fired);
+        Assert.True(Assert.Single(entries, entry => entry.Id == "context.slicerPresent").Fired);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStorySignalRegistry_PartialInputDegradesGracefully()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Sparse Page","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Overview"}},
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var entries = GetInternalStorySignalRegistryEntries(result);
+
+        Assert.NotEmpty(entries);
+        Assert.True(Assert.Single(entries, entry => entry.Id == "layout.meaningfulVisibleTitle").Fired);
+        Assert.False(Assert.Single(entries, entry => entry.Id == "semantic.primaryDimension").Fired);
+        Assert.False(Assert.Single(entries, entry => entry.Id == "semantic.richMetadataSupport").Fired);
+    }
+
+    [Theory]
+    [InlineData(
+        "PerformanceMonitor",
+        """
+        {"displayName":"Performance Monitor","visuals":[
+          {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+           "textbox":{"visible":true,"text":"Performance Monitor"}},
+          {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+           "title":{"visible":true,"text":"Revenue vs Target"}},
+          {"id":"k2","type":"card","x":200,"y":60,"width":180,"height":120,
+           "title":{"visible":true,"text":"Margin"}},
+          {"id":"v1","type":"barChart","x":0,"y":220,"width":480,"height":220,
+           "title":{"visible":true,"text":"Revenue by Region"},
+           "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+        ]}
+        """)]
+    [InlineData(
+        "TrendException",
+        """
+        {"displayName":"Trend and Exception","visuals":[
+          {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+           "textbox":{"visible":true,"text":"Trend and Exception Monitor"}},
+          {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+           "title":{"visible":true,"text":"Revenue vs Target"}},
+          {"id":"v1","type":"lineChart","x":0,"y":220,"width":520,"height":220,
+           "title":{"visible":true,"text":"Revenue Last Year Trend"},
+           "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}}
+        ]}
+        """)]
+    [InlineData(
+        "Ranking",
+        """
+        {"displayName":"Top Regions","visuals":[
+          {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+           "textbox":{"visible":true,"text":"Top Regions by Revenue"}},
+          {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+           "title":{"visible":true,"text":"Top 10 Regions"},
+           "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+        ]}
+        """)]
+    [InlineData(
+        "Comparison",
+        """
+        {"displayName":"Product Comparison","visuals":[
+          {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+           "textbox":{"visible":true,"text":"Actual vs Budget by Product"}},
+          {"id":"v1","type":"clusteredColumnChart","x":0,"y":140,"width":520,"height":260,
+           "title":{"visible":true,"text":"Actual vs Budget"},
+           "fieldRoles":{"category":["Product"],"value":["Revenue"],"measure":["Revenue"]}}
+        ]}
+        """)]
+    [InlineData(
+        "Decomposition",
+        """
+        {"displayName":"Revenue Mix","visuals":[
+          {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+           "textbox":{"visible":true,"text":"Revenue Share by Segment"}},
+          {"id":"v1","type":"stackedColumnChart","x":0,"y":140,"width":520,"height":260,
+           "title":{"visible":true,"text":"Segment Share"},
+           "fieldRoles":{"category":["Segment"],"value":["Revenue"],"measure":["Revenue"]}}
+        ]}
+        """)]
+    [InlineData(
+        "NarrativeWalkthrough",
+        """
+        {"displayName":"Sales Story","visuals":[
+          {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+           "textbox":{"visible":true,"text":"Why Revenue Changed: Story Walkthrough"}},
+          {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+           "title":{"visible":true,"text":"Revenue"}},
+          {"id":"v1","type":"lineChart","x":0,"y":220,"width":520,"height":220,
+           "title":{"visible":true,"text":"Revenue Trend"},
+           "fieldRoles":{
+             "category":[{"queryRef":"Date[Month]","displayName":"Month","synonyms":["Month"],"description":"Month of sale"}],
+             "value":[{"queryRef":"Sales[Revenue]","displayName":"Revenue","synonyms":["Revenue"],"description":"Net revenue"}],
+             "measure":[{"queryRef":"Sales[Revenue]","displayName":"Revenue","synonyms":["Revenue"],"description":"Net revenue"}]
+           }},
+          {"id":"v2","type":"barChart","x":560,"y":220,"width":420,"height":220,
+           "title":{"visible":true,"text":"Revenue by Segment"},
+           "fieldRoles":{
+             "category":[{"queryRef":"DimSegment[Segment]","displayName":"Segment","synonyms":["Segment"],"description":"Customer segment"}],
+             "value":[{"queryRef":"Sales[Revenue]","displayName":"Revenue","synonyms":["Revenue"],"description":"Net revenue"}],
+             "measure":[{"queryRef":"Sales[Revenue]","displayName":"Revenue","synonyms":["Revenue"],"description":"Net revenue"}]
+           }}
+        ]}
+        """)]
+    public async Task ScoreAsync_InternalArchetypeClassification_SelectsExpectedArchetype(string expectedArchetypeId, string pageJson)
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(pageJson);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.Equal(expectedArchetypeId, classification.BestFitArchetypeId);
+        Assert.Equal(expectedArchetypeId, classification.Level1ValidationHarness.SystemChoice);
+        Assert.NotEmpty(classification.ArchetypeResults);
+        Assert.Equal(6, classification.ArchetypeResults.Count);
+        Assert.Contains(classification.ArchetypeResults, match => match.ArchetypeId == expectedArchetypeId && match.MatchScore > 0.5d);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalArchetypeClassification_WeakMixedSignalsProduceLowerConfidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Mixed Signals","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Overview"}},
+              {"id":"v1","type":"lineChart","x":0,"y":140,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"},
+               "fieldRoles":{"category":["Segment"],"value":["Revenue"],"measure":["Revenue"]}},
+              {"id":"v2","type":"stackedColumnChart","x":460,"y":140,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Share"},
+               "fieldRoles":{"category":["Category"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var classification = GetInternalArchetypeClassification(result);
+        var bestMatch = Assert.Single(classification.ArchetypeResults.Where(match => match.ArchetypeId == classification.BestFitArchetypeId));
+
+        Assert.Equal("Low", bestMatch.MatchConfidence);
+        Assert.True(bestMatch.MatchScore < 0.75d, $"Expected a subdued match score but got {bestMatch.MatchScore}.");
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalArchetypeClassification_RecordsMatchedAndMissedSignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Top Regions","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Top Regions by Revenue"}},
+              {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+               "title":{"visible":true,"text":"Top 10 Regions"},
+               "fieldRoles":{"category":["Region"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var classification = GetInternalArchetypeClassification(result);
+        var ranking = Assert.Single(classification.ArchetypeResults.Where(match => match.ArchetypeId == "Ranking"));
+
+        Assert.Contains(ranking.MatchedSignals, signal => signal.Contains("layout.leadVisualType", StringComparison.Ordinal));
+        Assert.Contains(ranking.MatchedSignals, signal => signal.Contains("semantic.primaryDimension", StringComparison.Ordinal));
+        Assert.Contains(ranking.MissedSignals, signal => signal.Contains("semantic.primaryMetric", StringComparison.Ordinal));
+        Assert.NotEmpty(ranking.ExplanationHooks);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalArchetypeClassification_AmbiguousContextsDoNotOverclaimHighConfidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Comparison Mix","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Share vs Trend"}},
+              {"id":"v1","type":"lineChart","x":0,"y":140,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":["Month"],"value":["Revenue"],"measure":["Revenue"]}},
+              {"id":"v2","type":"stackedColumnChart","x":460,"y":140,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Share by Segment"},
+               "fieldRoles":{"category":["Segment"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var classification = GetInternalArchetypeClassification(result);
+        var bestMatch = Assert.Single(classification.ArchetypeResults.Where(match => match.ArchetypeId == classification.BestFitArchetypeId));
+
+        Assert.NotEqual("High", bestMatch.MatchConfidence);
+        Assert.NotEqual("ReadyForPromotionReview", bestMatch.PromotionEligibilityState);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalArchetypeClassification_RemainsInternalOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Performance Monitor","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Performance Monitor"}},
+              {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var publicPropertyNames = typeof(ScoreResult)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("InternalStoryAssessmentArchetypeClassification", publicPropertyNames);
+        Assert.DoesNotContain("StoryAssessmentArchetypeClassification", publicPropertyNames);
+        Assert.NotNull(GetInternalArchetypeClassification(result));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalArchetypeClassification_DefinesLevel1HarnessAndPromotionGate()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Performance Monitor","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Performance Monitor"}},
+              {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.Null(classification.Level1ValidationHarness.ReviewerChoice);
+        Assert.Null(classification.Level1ValidationHarness.DisagreementReason);
+        Assert.Equal("NotAssessed", classification.Level1ValidationHarness.AccuracyRating);
+        Assert.Equal("NotAssessed", classification.Level1ValidationHarness.ConsistencyRating);
+        Assert.Equal("NotAssessed", classification.Level1ValidationHarness.ExplainabilityRating);
+        Assert.Equal("NotAssessed", classification.Level1ValidationHarness.ActionabilityRating);
+
+        Assert.True(classification.PromotionGateDefinition.MinimumClassificationAccuracy > 0.0d);
+        Assert.Equal("Strong", classification.PromotionGateDefinition.MinimumExplanationQuality);
+        Assert.Equal("Mixed", classification.PromotionGateDefinition.MinimumGapUsefulnessPotential);
+        Assert.True(classification.PromotionGateDefinition.MaximumFalsePositiveRate >= 0.0d);
+        Assert.True(classification.PromotionGateDefinition.ReviewerAgreementThresholdPlaceholder > 0.0d);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_HighCoherencePagesScoreHigh()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Performance","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Performance Overview"}},
+              {"id":"v1","type":"lineChart","x":0,"y":120,"width":520,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month trend"}],
+                 "measure":[{"displayName":"Revenue","synonyms":["Revenue"],"description":"Revenue performance"}]
+               }},
+              {"id":"v2","type":"barChart","x":540,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Region","description":"Revenue region view"}],
+                 "measure":[{"displayName":"Revenue","synonyms":["Revenue"],"description":"Revenue performance"}]
+               }}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        Assert.True(coherence.CoherenceScore >= 60d, $"Expected high coherence but got {coherence.CoherenceScore}.");
+        Assert.Equal("Focused", coherence.CoherenceClassification);
+        Assert.Equal("revenue", coherence.DominantConcept);
+        Assert.Equal("None", coherence.CompetingStoryStatus);
+        Assert.Equal("High", coherence.Confidence);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_NoisyPagesScoreLow()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Mixed Operational Notes","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Inventory Backlog"},
+               "fieldRoles":{"category":[{"displayName":"Warehouse"}],"measure":[{"displayName":"Backlog"}]}},
+              {"id":"v2","type":"lineChart","x":460,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Training Completion"},
+               "fieldRoles":{"category":[{"displayName":"Employee"}],"measure":[{"displayName":"Completion"}]}},
+              {"id":"v3","type":"table","x":0,"y":380,"width":420,"height":220,
+               "title":{"visible":true,"text":"Support Tickets"},
+               "fieldRoles":{"category":[{"displayName":"Support Queue"}],"measure":[{"displayName":"Ticket Count"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        Assert.True(coherence.CoherenceScore < 40d, $"Expected low coherence but got {coherence.CoherenceScore}.");
+        Assert.NotEqual("High", coherence.Confidence);
+        Assert.NotEmpty(coherence.TermClusters);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_SplitTopicPagesDetectCompetingStory()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue and Inventory Review","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":620,"height":40,
+               "textbox":{"visible":true,"text":"Revenue and Inventory Review"}},
+              {"id":"v1","type":"lineChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue value"}]
+               }},
+              {"id":"v2","type":"barChart","x":460,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Inventory Backlog"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Inventory Warehouse","description":"Inventory warehouse"}],
+                 "measure":[{"displayName":"Inventory","description":"Inventory backlog"}]
+               }},
+              {"id":"v3","type":"card","x":0,"y":380,"width":200,"height":120,
+               "title":{"visible":true,"text":"Revenue KPI"}},
+              {"id":"v4","type":"card","x":240,"y":380,"width":200,"height":120,
+               "title":{"visible":true,"text":"Inventory KPI"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        Assert.Equal("Split", coherence.CoherenceClassification);
+        Assert.Equal("StrongCandidatePromotionDelayed", coherence.CompetingStoryStatus);
+        Assert.Equal("PromotionDelayedRequiresStrongerValidation", coherence.ValidationStatus);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_DominantConceptIsDeterministic()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Segment"}],"measure":[{"displayName":"Revenue"}]}},
+              {"id":"v2","type":"lineChart","x":460,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Monthly Revenue"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var first = GetInternalSemanticCoherenceAssessment(await svc.ScoreAsync(tempDir));
+        var second = GetInternalSemanticCoherenceAssessment(await svc.ScoreAsync(tempDir));
+
+        Assert.Equal("revenue", first.DominantConcept);
+        Assert.Equal(first.DominantConcept, second.DominantConcept);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_TermOrderingIsDeterministic()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Segment"}],"measure":[{"displayName":"Revenue"}]}},
+              {"id":"v2","type":"lineChart","x":460,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Monthly Revenue"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        var orderedTerms = coherence.ExtractedTerms.Select(term => term.CanonicalTerm).ToList();
+        var sortedTerms = orderedTerms.OrderBy(term => term, StringComparer.Ordinal).ToList();
+
+        Assert.Equal(sortedTerms, orderedTerms);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_SparseMetadataDegradesGracefully()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220},
+              {"id":"v2","type":"card","x":460,"y":120,"width":220,"height":120}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        Assert.Equal("Sparse", coherence.CoherenceClassification);
+        Assert.Equal("None", coherence.CompetingStoryStatus);
+        Assert.Equal("Low", coherence.Confidence);
+        Assert.Equal("Internal", coherence.ValidationStatus);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_RemainsInternalOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Segment"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var publicPropertyNames = typeof(ScoreResult)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("InternalStorySemanticCoherenceAssessment", publicPropertyNames);
+        Assert.DoesNotContain("StorySemanticCoherenceAssessment", publicPropertyNames);
+        Assert.NotNull(GetInternalSemanticCoherenceAssessment(result));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_WeakMetadataDisagreementStaysDiagnosticOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Overview"}},
+              {"id":"v1","type":"lineChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Month"}],"measure":[{"displayName":"Revenue"}]}},
+              {"id":"v2","type":"card","x":460,"y":120,"width":220,"height":120,
+               "title":{"visible":true,"text":"Margin Watch"},
+               "fieldRoles":{"measure":[{"displayName":"Margin","description":"Margin change"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        Assert.Equal("WeakDiagnosticOnly", coherence.CompetingStoryStatus);
+        Assert.NotEmpty(coherence.WeakDisagreementSignals);
+        Assert.NotEqual("PromotionDelayedRequiresStrongerValidation", coherence.ValidationStatus);
+    }
+
     // ── IDisposable ───────────────────────────────────────────────────────────
 
     /// <inheritdoc/>
@@ -1945,6 +2588,164 @@ public sealed class PbirScoringServiceTests : IDisposable
             ["density"] = density,
             ["narrative"] = narrative,
         };
+    }
+
+    private static List<StorySignalRegistryEntrySnapshot> GetInternalStorySignalRegistryEntries(ScoreResult result)
+    {
+        var registryProperty = typeof(ScoreResult).GetProperty(
+            "InternalStorySignalRegistry",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(registryProperty);
+
+        var registry = registryProperty!.GetValue(result);
+        Assert.NotNull(registry);
+
+        var entriesProperty = registry!.GetType().GetProperty("Entries", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(entriesProperty);
+
+        var entries = entriesProperty!.GetValue(registry) as System.Collections.IEnumerable;
+        Assert.NotNull(entries);
+
+        return entries!
+            .Cast<object>()
+            .Select(entry =>
+            {
+                var type = entry.GetType();
+                return new StorySignalRegistryEntrySnapshot(
+                    Id: type.GetProperty("Id", BindingFlags.Instance | BindingFlags.Public)!.GetValue(entry)?.ToString() ?? string.Empty,
+                    RawValue: type.GetProperty("RawValue", BindingFlags.Instance | BindingFlags.Public)!.GetValue(entry)?.ToString(),
+                    Fired: (bool)(type.GetProperty("Fired", BindingFlags.Instance | BindingFlags.Public)!.GetValue(entry) ?? false));
+            })
+            .ToList();
+    }
+
+    private static StoryAssessmentArchetypeClassificationSnapshot GetInternalArchetypeClassification(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "InternalStoryAssessmentArchetypeClassification",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        var classification = property!.GetValue(result);
+        Assert.NotNull(classification);
+
+        var classificationType = classification!.GetType();
+        var bestFitArchetypeId = classificationType.GetProperty("BestFitArchetypeId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(classification)?.ToString() ?? string.Empty;
+
+        var archetypeResults = ((System.Collections.IEnumerable)classificationType.GetProperty("ArchetypeResults", BindingFlags.Instance | BindingFlags.Public)!.GetValue(classification)!)
+            .Cast<object>()
+            .Select(match =>
+            {
+                var type = match.GetType();
+                return new StoryArchetypeMatchSnapshot(
+                    ArchetypeId: type.GetProperty("ArchetypeId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty,
+                    MatchScore: (double)(type.GetProperty("MatchScore", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match) ?? 0d),
+                    MatchConfidence: type.GetProperty("MatchConfidence", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty,
+                    MatchedSignals: ReadStringList(type.GetProperty("MatchedSignals", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)),
+                    MissedSignals: ReadStringList(type.GetProperty("MissedSignals", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)),
+                    ExplanationHooks: ReadStringList(type.GetProperty("ExplanationHooks", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)),
+                    ValidationStatus: type.GetProperty("ValidationStatus", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty,
+                    PromotionEligibilityState: type.GetProperty("PromotionEligibilityState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty);
+            })
+            .ToList();
+
+        var level1Harness = classificationType.GetProperty("Level1ValidationHarness", BindingFlags.Instance | BindingFlags.Public)!.GetValue(classification)!;
+        var level1Type = level1Harness.GetType();
+        var level1Snapshot = new StoryAssessmentLevel1ValidationHarnessSnapshot(
+            ReviewerChoice: level1Type.GetProperty("ReviewerChoice", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString(),
+            SystemChoice: level1Type.GetProperty("SystemChoice", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString() ?? string.Empty,
+            DisagreementReason: level1Type.GetProperty("DisagreementReason", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString(),
+            AccuracyRating: level1Type.GetProperty("AccuracyRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString() ?? string.Empty,
+            ConsistencyRating: level1Type.GetProperty("ConsistencyRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString() ?? string.Empty,
+            ExplainabilityRating: level1Type.GetProperty("ExplainabilityRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString() ?? string.Empty,
+            ActionabilityRating: level1Type.GetProperty("ActionabilityRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(level1Harness)?.ToString() ?? string.Empty);
+
+        var promotionGate = classificationType.GetProperty("PromotionGateDefinition", BindingFlags.Instance | BindingFlags.Public)!.GetValue(classification)!;
+        var promotionType = promotionGate.GetType();
+        var promotionSnapshot = new StoryAssessmentPromotionGateDefinitionSnapshot(
+            MinimumClassificationAccuracy: (double)(promotionType.GetProperty("MinimumClassificationAccuracy", BindingFlags.Instance | BindingFlags.Public)!.GetValue(promotionGate) ?? 0d),
+            MinimumExplanationQuality: promotionType.GetProperty("MinimumExplanationQuality", BindingFlags.Instance | BindingFlags.Public)!.GetValue(promotionGate)?.ToString() ?? string.Empty,
+            MinimumGapUsefulnessPotential: promotionType.GetProperty("MinimumGapUsefulnessPotential", BindingFlags.Instance | BindingFlags.Public)!.GetValue(promotionGate)?.ToString() ?? string.Empty,
+            MaximumFalsePositiveRate: (double)(promotionType.GetProperty("MaximumFalsePositiveRate", BindingFlags.Instance | BindingFlags.Public)!.GetValue(promotionGate) ?? 0d),
+            ReviewerAgreementThresholdPlaceholder: (double)(promotionType.GetProperty("ReviewerAgreementThresholdPlaceholder", BindingFlags.Instance | BindingFlags.Public)!.GetValue(promotionGate) ?? 0d));
+
+        return new StoryAssessmentArchetypeClassificationSnapshot(
+            BestFitArchetypeId: bestFitArchetypeId,
+            ArchetypeResults: archetypeResults,
+            Level1ValidationHarness: level1Snapshot,
+            PromotionGateDefinition: promotionSnapshot);
+    }
+
+    private static StorySemanticCoherenceAssessmentSnapshot GetInternalSemanticCoherenceAssessment(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "InternalStorySemanticCoherenceAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        var assessment = property!.GetValue(result);
+        Assert.NotNull(assessment);
+
+        var type = assessment!.GetType();
+        var extractedTerms = ((System.Collections.IEnumerable)type.GetProperty("ExtractedTerms", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!)
+            .Cast<object>()
+            .Select(term =>
+            {
+                var termType = term.GetType();
+                return new StorySemanticTermEvidenceSnapshot(
+                    CanonicalTerm: termType.GetProperty("CanonicalTerm", BindingFlags.Instance | BindingFlags.Public)!.GetValue(term)?.ToString() ?? string.Empty,
+                    RawText: termType.GetProperty("RawText", BindingFlags.Instance | BindingFlags.Public)!.GetValue(term)?.ToString() ?? string.Empty,
+                    Source: termType.GetProperty("Source", BindingFlags.Instance | BindingFlags.Public)!.GetValue(term)?.ToString() ?? string.Empty,
+                    Weight: (double)(termType.GetProperty("Weight", BindingFlags.Instance | BindingFlags.Public)!.GetValue(term) ?? 0d));
+            })
+            .ToList();
+
+        var termClusters = ((System.Collections.IEnumerable)type.GetProperty("TermClusters", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!)
+            .Cast<object>()
+            .Select(cluster =>
+            {
+                var clusterType = cluster.GetType();
+                return new StorySemanticTermClusterSnapshot(
+                    ClusterId: clusterType.GetProperty("ClusterId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(cluster)?.ToString() ?? string.Empty,
+                    Weight: (double)(clusterType.GetProperty("Weight", BindingFlags.Instance | BindingFlags.Public)!.GetValue(cluster) ?? 0d),
+                    SupportCount: (int)(clusterType.GetProperty("SupportCount", BindingFlags.Instance | BindingFlags.Public)!.GetValue(cluster) ?? 0),
+                    Terms: ReadStringList(clusterType.GetProperty("Terms", BindingFlags.Instance | BindingFlags.Public)!.GetValue(cluster)),
+                    ExplanationHook: clusterType.GetProperty("ExplanationHook", BindingFlags.Instance | BindingFlags.Public)!.GetValue(cluster)?.ToString() ?? string.Empty);
+            })
+            .ToList();
+
+        var harness = type.GetProperty("Level1ValidationHarness", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!;
+        var harnessType = harness.GetType();
+        var harnessSnapshot = new StorySemanticCoherenceLevel1ValidationHarnessSnapshot(
+            ReviewerCoherenceChoice: harnessType.GetProperty("ReviewerCoherenceChoice", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString(),
+            SystemCoherenceChoice: harnessType.GetProperty("SystemCoherenceChoice", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString() ?? string.Empty,
+            ReviewerDominantConcept: harnessType.GetProperty("ReviewerDominantConcept", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString(),
+            SystemDominantConcept: harnessType.GetProperty("SystemDominantConcept", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString() ?? string.Empty,
+            DisagreementReason: harnessType.GetProperty("DisagreementReason", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString(),
+            AccuracyRating: harnessType.GetProperty("AccuracyRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString() ?? string.Empty,
+            ConsistencyRating: harnessType.GetProperty("ConsistencyRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString() ?? string.Empty,
+            ExplainabilityRating: harnessType.GetProperty("ExplainabilityRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString() ?? string.Empty,
+            ActionabilityRating: harnessType.GetProperty("ActionabilityRating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(harness)?.ToString() ?? string.Empty);
+
+        return new StorySemanticCoherenceAssessmentSnapshot(
+            CoherenceScore: (double)(type.GetProperty("CoherenceScore", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? 0d),
+            CoherenceClassification: type.GetProperty("CoherenceClassification", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            DominantConcept: type.GetProperty("DominantConcept", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString(),
+            ExtractedTerms: extractedTerms,
+            TermClusters: termClusters,
+            CompetingStoryStatus: type.GetProperty("CompetingStoryStatus", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            WeakDisagreementSignals: ReadStringList(type.GetProperty("WeakDisagreementSignals", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            ExplanationHooks: ReadStringList(type.GetProperty("ExplanationHooks", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            Confidence: type.GetProperty("Confidence", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            ValidationStatus: type.GetProperty("ValidationStatus", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            Level1ValidationHarness: harnessSnapshot);
+    }
+
+    private static List<string> ReadStringList(object? value)
+    {
+        return value is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().Select(item => item?.ToString() ?? string.Empty).ToList()
+            : [];
     }
 
     /// <summary>

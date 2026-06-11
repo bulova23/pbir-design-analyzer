@@ -171,4 +171,22 @@ public sealed class PageScore
     /// <c>null</c> when no cross-page consistency summary has been attached.
     /// </summary>
     public ReportConsistencySummary? ReportConsistency { get; init; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment signal registry captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StorySignalRegistry? InternalStorySignalRegistry { get; init; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment archetype classification captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StoryAssessmentArchetypeClassification? InternalStoryAssessmentArchetypeClassification { get; init; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment semantic coherence assessment captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StorySemanticCoherenceAssessment? InternalStorySemanticCoherenceAssessment { get; init; }
 }

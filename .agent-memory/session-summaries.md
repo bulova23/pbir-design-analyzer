@@ -219,6 +219,50 @@
   - `Remediation Queue`
   - `AI Proposal Enrichment`
 
+## 2026-06-10 Story Assessment 2.0 Validation Planning
+
+- Wrote a planning-only validation architecture spec for Story Assessment 2.0:
+  - `docs/superpowers/specs/2026-06-10-story-assessment-2-design-validation.md`
+- Wrote a separate implementation plan:
+  - `docs/superpowers/plans/2026-06-10-story-assessment-2-implementation-plan.md`
+- Locked the roadmap direction to:
+  - PBIR-first validation
+  - staged validation-first promotion
+  - Level 1 expert review before contract exposure
+  - Level 2 formal corpus before platform-critical trust
+  - four-dimension evaluation across accuracy, consistency, explainability, and actionability
+- Explicitly kept Fabric App and Report Design Studio out of the first promotion gate while classifying signals for future cross-surface applicability.
+
+## 2026-06-10 Story Assessment Validation Substrate And Review Foundation
+
+- Implemented only Workstream 1 and Workstream 2 from the Story Assessment 2.0 plan.
+- Added internal-only backend validation substrate models in:
+  - `service-dotnet/Services/Pbir/Models/StoryAssessmentValidationModels.cs`
+- Added focused xUnit coverage in:
+  - `service-dotnet/tests/StoryAssessmentValidationModelsTests.cs`
+- Added PBIR-first validation foundation docs:
+  - `docs/story-assessment/2026-06-10-pbir-validation-corpus-guidance.md`
+  - `docs/story-assessment/2026-06-10-reviewer-rubric.md`
+  - `docs/story-assessment/2026-06-10-reviewer-workflow.md`
+  - `docs/story-assessment/2026-06-10-validation-observations.md`
+- Preserved the boundary that current Story Assessment payloads and UI remain unchanged.
+
+## 2026-06-11 Story Assessment Signal Registry Runtime Extraction
+
+- Implemented only Workstream 3 from the Story Assessment 2.0 plan.
+- Added internal runtime Story Signal Registry capture inside backend scoring without exposing any new public payload fields.
+- Captured representative signals across:
+  - layout
+  - semantic
+  - context
+- Stored the registry on internal-only `ScoreResult` and `PageScore` properties for future validation work.
+- Added focused xUnit coverage for:
+  - representative signal capture
+  - graceful degradation on partial PBIR input
+  - registry remaining internal-only
+- Validation passed with:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
 ## 2026-06-06 Engineering Hardening Planning
 
 - Reviewed the remaining open `0.5.0` hardening issues and grouped them into three epics:
@@ -647,3 +691,5 @@
 - 2026-06-06: Implemented Recommended `0.5.1` trust-restoration scope only. Added stable page-ID deterministic mutation routing, schema-correct PBIR title mutation shaping, atomic temp-file plus rename writes, rollback-on-failure, post-write validation, PBIR-derived governance theme verification, and direct screenshot-upload workflow triggering. Focused checkpoint validation plus full `npm test`, `npm run compile`, and `dotnet test -c Release` all passed. Packaging intentionally deferred.
 - 2026-06-10: Implemented Recommended `0.5.2` operational-coherence scope only. Consolidated runtime output channels, promoted `pbirAnalyzer` as the canonical command/view/config namespace, kept legacy `pbir.*` command aliases and deprecated `powerbi-modeling.governance.*` settings for migration compatibility, declared unsupported untrusted/virtual workspace posture, made telemetry explicitly local-only/no-op, and updated troubleshooting docs. Validation passed with focused Jest coverage plus full `cd vscode-extension && npm run compile` and `cd vscode-extension && npm test`. Packaging and `service-dotnet` validation were intentionally deferred.
 - 2026-06-10: Completed the remaining `0.5.2` validation. `dotnet test service-dotnet/tests/Tests.csproj -c Release` passed, `cd vscode-extension && npm run package:all` rebuilt all five target VSIX artifacts, and packaged inspection confirmed target-specific backend binaries plus clean `pbirAnalyzer` release metadata with explicit blocked-workspace capabilities. A trusted-host VS Code smoke passed for explorer metadata, legacy alias routing, and output-channel reuse. Actual untrusted/virtual blocked-host smoke remained externally pending because the local test harness always opened the file workspace as trusted and did not provide a true virtual workspace provider.
+- 2026-06-11: Implemented Story Assessment 2.0 Workstream 4 only. Added backend-internal archetype classification for Performance Monitor, Trend + Exception, Ranking, Comparison, Decomposition, and Narrative Walkthrough; recorded matched/missed signals plus explanation hooks, validation status, and promotion eligibility; added a Level 1 reviewer harness placeholder and promotion-gate definition; preserved the public score contract and UI unchanged; and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` with `149` passing tests.
+- 2026-06-11: Implemented Story Assessment 2.0 Workstream 5 only. Added backend-internal semantic coherence scoring with deterministic term extraction and token clustering, dominant concept detection, focused/split/sparse coherence classification, precision-first competing-story detection that remains promotion-delayed, and an expert-review validation harness; preserved the public score contract and UI unchanged; and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` with `163` passing tests.

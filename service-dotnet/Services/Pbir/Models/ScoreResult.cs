@@ -377,6 +377,24 @@ public sealed class ScoreResult
     /// <summary>Gets or sets the report-level cross-page consistency summary when full-report scoring is used.</summary>
     public ReportConsistencySummary? ReportConsistencySummary { get; set; }
 
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment signal registry captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StorySignalRegistry? InternalStorySignalRegistry { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment archetype classification captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StoryAssessmentArchetypeClassification? InternalStoryAssessmentArchetypeClassification { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment semantic coherence assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StorySemanticCoherenceAssessment? InternalStorySemanticCoherenceAssessment { get; set; }
+
     // ── Per-Page Scores (Feature 003: Per-Page Scoring) ───────────────────────
 
     /// <summary>

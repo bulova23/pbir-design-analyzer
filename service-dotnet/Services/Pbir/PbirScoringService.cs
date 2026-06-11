@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -210,6 +211,9 @@ public sealed class PbirScoringService
         var pageVisuals = page.Visuals;
         var pageComposition = BuildVisualComposition(pageVisuals, navigationScoring);
         bool hasDataVisuals = pageComposition.DataVisualCount > 0;
+        var storySignalRegistry = BuildStorySignalRegistry(page);
+        var storyAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(storySignalRegistry);
+        var storySemanticCoherenceAssessment = BuildStorySemanticCoherenceAssessment(page);
         var pageStorySummary = InferPageStorySummary(page);
         var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
         var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
@@ -256,6 +260,9 @@ public sealed class PbirScoringService
                 PageIntentProfile = pageIntentProfile,
                 ActionabilityBreakdown = actionabilityBreakdown,
                 BenchmarkComparison = benchmarkComparison,
+                InternalStorySignalRegistry = storySignalRegistry,
+                InternalStoryAssessmentArchetypeClassification = storyAssessmentArchetypeClassification,
+                InternalStorySemanticCoherenceAssessment = storySemanticCoherenceAssessment,
             };
 #pragma warning restore CS0618
         }
@@ -324,6 +331,9 @@ public sealed class PbirScoringService
             PageIntentProfile = pageIntentProfile,
             ActionabilityBreakdown = actionabilityBreakdown,
             BenchmarkComparison = benchmarkComparison,
+            InternalStorySignalRegistry = storySignalRegistry,
+            InternalStoryAssessmentArchetypeClassification = storyAssessmentArchetypeClassification,
+            InternalStorySemanticCoherenceAssessment = storySemanticCoherenceAssessment,
         };
 #pragma warning restore CS0618
 
@@ -416,6 +426,13 @@ public sealed class PbirScoringService
         var navigationScoring = ExtractNavigationScoringSettings(config);
         var reportComposition = BuildVisualComposition(pages.SelectMany(p => p.Visuals), navigationScoring);
         bool hasDataVisuals = reportComposition.DataVisualCount > 0;
+        var topLevelStorySignalRegistry = pages.Count == 1
+            ? BuildStorySignalRegistry(pages[0], reportConsistencyContext?.Summary.Findings)
+            : null;
+        var topLevelStoryAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(topLevelStorySignalRegistry);
+        var topLevelStorySemanticCoherenceAssessment = pages.Count == 1
+            ? BuildStorySemanticCoherenceAssessment(pages[0])
+            : null;
 
         // Zero-visual guard — return 0 with explanation across all frameworks.
         if (!hasDataVisuals)
@@ -471,6 +488,9 @@ public sealed class PbirScoringService
                             BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory)))
                     : null,
                 ReportConsistencySummary = reportConsistencyContext?.Summary,
+                InternalStorySignalRegistry = topLevelStorySignalRegistry,
+                InternalStoryAssessmentArchetypeClassification = topLevelStoryAssessmentArchetypeClassification,
+                InternalStorySemanticCoherenceAssessment = topLevelStorySemanticCoherenceAssessment,
             };
 #pragma warning restore CS0618
         }
@@ -556,6 +576,9 @@ public sealed class PbirScoringService
                             BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory)))
                     : null,
                 ReportConsistencySummary = reportConsistencyContext?.Summary,
+                InternalStorySignalRegistry = topLevelStorySignalRegistry,
+                InternalStoryAssessmentArchetypeClassification = topLevelStoryAssessmentArchetypeClassification,
+                InternalStorySemanticCoherenceAssessment = topLevelStorySemanticCoherenceAssessment,
         };
 #pragma warning restore CS0618
 
@@ -591,6 +614,9 @@ public sealed class PbirScoringService
                         var emptyBenchmark = emptyStorySummary is null || emptyIntentProfile is null || emptyActionability is null
                             ? null
                             : BuildBenchmarkComparison(page, emptyStorySummary, emptyIntentProfile, emptyActionability);
+                        var emptyStorySignalRegistry = BuildStorySignalRegistry(page, emptyPageConsistencyNotes);
+                        var emptyStoryAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(emptyStorySignalRegistry);
+                        var emptyStorySemanticCoherenceAssessment = BuildStorySemanticCoherenceAssessment(page);
                         concurrentPageScores.Add((pageIndex, new PageScore
                         {
                             PageId = page.Name,
@@ -631,6 +657,9 @@ public sealed class PbirScoringService
                             PageIntentProfile = emptyIntentProfile,
                             ActionabilityBreakdown = emptyActionability,
                             BenchmarkComparison = emptyBenchmark,
+                            InternalStorySignalRegistry = emptyStorySignalRegistry,
+                            InternalStoryAssessmentArchetypeClassification = emptyStoryAssessmentArchetypeClassification,
+                            InternalStorySemanticCoherenceAssessment = emptyStorySemanticCoherenceAssessment,
                         }));
                         return;
                     }
@@ -685,6 +714,9 @@ public sealed class PbirScoringService
                     var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
                         ? null
                         : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
+                    var storySignalRegistry = BuildStorySignalRegistry(page, reportConsistencyNotes);
+                    var storyAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(storySignalRegistry);
+                    var storySemanticCoherenceAssessment = BuildStorySemanticCoherenceAssessment(page);
                     var pageScore = new PageScore
                     {
                         PageId = page.Name,
@@ -725,6 +757,9 @@ public sealed class PbirScoringService
                         PageIntentProfile = pageIntentProfile,
                         ActionabilityBreakdown = actionabilityBreakdown,
                         BenchmarkComparison = benchmarkComparison,
+                        InternalStorySignalRegistry = storySignalRegistry,
+                        InternalStoryAssessmentArchetypeClassification = storyAssessmentArchetypeClassification,
+                        InternalStorySemanticCoherenceAssessment = storySemanticCoherenceAssessment,
                         PerStateScores = pageOverlay?.PerStateScores,
                     };
                     concurrentPageScores.Add((pageIndex, pageScore));
@@ -4121,6 +4156,956 @@ public sealed class PbirScoringService
         return evidence;
     }
 
+    private static StorySignalRegistry BuildStorySignalRegistry(
+        PageData page,
+        IReadOnlyList<string>? reportConsistencyNotes = null)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        var visibleDataVisuals = analysis.VisibleDataVisuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        var leadVisual = analysis.SupportingDataVisuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .FirstOrDefault()
+            ?? visibleDataVisuals.FirstOrDefault();
+        var leadIntent = leadVisual is null ? null : InferChartIntent(leadVisual, page);
+        var semanticSignals = AnalyzeSemanticNarrativeSignals(analysis, leadVisual);
+        var targetBenchmarkPresent = ContainsAnyNarrativeKeyword(analysis.VisibleTexts, "target", "budget", "benchmark", "goal", "plan", "actual");
+        var priorPeriodContext = ContainsAnyNarrativeKeyword(analysis.VisibleTexts, "prior", "previous", "yoy", "mom", "qoq", "last month", "last year");
+        var slicerPresent = page.Visuals.Any(visual => !visual.IsHidden && visual.IsSlicer);
+
+        var entries = new List<StorySignalRegistryEntry>
+        {
+            CreateStorySignalEntry(
+                id: "layout.meaningfulVisibleTitle",
+                category: StorySignalCategory.Layout,
+                rawValue: analysis.VisibleTitle,
+                fired: analysis.HasMeaningfulVisibleTitle,
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Visible title or question anchor in the page scan path.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.DirectRemediation),
+            CreateStorySignalEntry(
+                id: "layout.topScanKpiCount",
+                category: StorySignalCategory.Layout,
+                rawValue: analysis.KpiCards.Count.ToString(CultureInfo.InvariantCulture),
+                fired: analysis.KpiCards.Count > 0,
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Count of KPI cards visible in the top scan path.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "layout.leadVisualType",
+                category: StorySignalCategory.Layout,
+                rawValue: leadVisual?.Type,
+                fired: !string.IsNullOrWhiteSpace(leadVisual?.Type),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "The leading visible data visual used in the narrative scan path.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "layout.supportingEvidenceFlow",
+                category: StorySignalCategory.Layout,
+                rawValue: analysis.HasSupportingEvidenceFlow.ToString(),
+                fired: analysis.HasSupportingEvidenceFlow,
+                contributionIntent: StorySignalContributionIntent.ShapesNarrativeConfidence,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Whether headline results are backed by supporting visuals in the same page flow.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "semantic.primaryMetric",
+                category: StorySignalCategory.Semantic,
+                rawValue: IsGenericStoryMetric(semanticSignals.PrimaryMetric) ? null : semanticSignals.PrimaryMetric,
+                fired: !IsGenericStoryMetric(semanticSignals.PrimaryMetric),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.Mixed,
+                explanationHook: "Primary measure inferred from field roles, titles, and semantic hints.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "semantic.primaryDimension",
+                category: StorySignalCategory.Semantic,
+                rawValue: semanticSignals.PrimaryDimension,
+                fired: !string.IsNullOrWhiteSpace(semanticSignals.PrimaryDimension),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.Mixed,
+                explanationHook: "Primary comparison or grouping dimension inferred from category metadata.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "semantic.richMetadataSupport",
+                category: StorySignalCategory.Semantic,
+                rawValue: semanticSignals.HasRichMetadataSupport.ToString(),
+                fired: semanticSignals.HasRichMetadataSupport,
+                contributionIntent: StorySignalContributionIntent.ShapesNarrativeConfidence,
+                remediability: StorySignalRemediability.SemanticModel,
+                explanationHook: "Aliases and descriptions reinforce the same business concept.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "context.targetBenchmarkPresent",
+                category: StorySignalCategory.Context,
+                rawValue: targetBenchmarkPresent.ToString(),
+                fired: targetBenchmarkPresent,
+                contributionIntent: StorySignalContributionIntent.SupportsDecisionContext,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Target, budget, or benchmark text appears in the visible narrative surface.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.DirectRemediation),
+            CreateStorySignalEntry(
+                id: "context.priorPeriodContext",
+                category: StorySignalCategory.Context,
+                rawValue: priorPeriodContext.ToString(),
+                fired: priorPeriodContext,
+                contributionIntent: StorySignalContributionIntent.SupportsDecisionContext,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Prior-period or delta wording appears in the visible narrative surface.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.DirectRemediation),
+            CreateStorySignalEntry(
+                id: "context.slicerPresent",
+                category: StorySignalCategory.Context,
+                rawValue: slicerPresent.ToString(),
+                fired: slicerPresent,
+                contributionIntent: StorySignalContributionIntent.SupportsExplorationContext,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "At least one visible slicer is present on the page.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Optional,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "context.crossPageConsistencyPenalty",
+                category: StorySignalCategory.Context,
+                rawValue: reportConsistencyNotes?.Count.ToString(CultureInfo.InvariantCulture),
+                fired: reportConsistencyNotes is { Count: > 0 },
+                contributionIntent: StorySignalContributionIntent.ShapesNarrativeConfidence,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Cross-page consistency notes may reduce narrative clarity confidence.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Optional,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.DiagnosticOnly),
+        };
+
+        if (leadIntent is not null)
+        {
+            entries.Add(CreateStorySignalEntry(
+                id: "layout.leadIntent",
+                category: StorySignalCategory.Layout,
+                rawValue: leadIntent.Intent,
+                fired: !string.IsNullOrWhiteSpace(leadIntent.Intent),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Inferred analytical intent of the lead chart.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance));
+        }
+
+        return new StorySignalRegistry { Entries = entries };
+    }
+
+    private static StoryAssessmentArchetypeClassification? BuildStoryAssessmentArchetypeClassification(
+        StorySignalRegistry? registry)
+    {
+        if (registry?.Entries is null || registry.Entries.Count == 0)
+        {
+            return null;
+        }
+
+        var entriesById = registry.Entries
+            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
+        var candidateResults = new[]
+        {
+            EvaluateArchetype(entriesById, StoryArchetypeId.PerformanceMonitor, BuildPerformanceMonitorExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.TrendException, BuildTrendExceptionExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.Ranking, BuildRankingExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.Comparison, BuildComparisonExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.Decomposition, BuildDecompositionExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.NarrativeWalkthrough, BuildNarrativeWalkthroughExpectations()),
+        }
+        .OrderByDescending(result => result.MatchScore)
+        .ThenBy(result => result.ArchetypeId.ToString(), StringComparer.Ordinal)
+        .ToList();
+
+        if (candidateResults.Count == 0)
+        {
+            return null;
+        }
+
+        var bestScore = candidateResults[0].MatchScore;
+        var secondBestScore = candidateResults.Count > 1 ? candidateResults[1].MatchScore : 0d;
+
+        var finalizedResults = candidateResults
+            .Select((result, index) => FinalizeArchetypeResult(
+                result,
+                marginToNearestCompetitor: index == 0 ? bestScore - secondBestScore : bestScore - result.MatchScore,
+                isBestFit: index == 0))
+            .ToList();
+
+        var bestFit = finalizedResults[0];
+        return new StoryAssessmentArchetypeClassification
+        {
+            BestFitArchetypeId = bestFit.ArchetypeId,
+            ArchetypeResults = finalizedResults,
+            Level1ValidationHarness = new StoryAssessmentLevel1ValidationHarness
+            {
+                ReviewerChoice = null,
+                SystemChoice = bestFit.ArchetypeId.ToString(),
+                DisagreementReason = null,
+                AccuracyRating = StoryAssessmentValidationRating.NotAssessed,
+                ConsistencyRating = StoryAssessmentValidationRating.NotAssessed,
+                ExplainabilityRating = StoryAssessmentValidationRating.NotAssessed,
+                ActionabilityRating = StoryAssessmentValidationRating.NotAssessed,
+            },
+            PromotionGateDefinition = new StoryAssessmentPromotionGateDefinition
+            {
+                MinimumClassificationAccuracy = 0.85d,
+                MinimumExplanationQuality = StoryAssessmentValidationRating.Strong,
+                MinimumGapUsefulnessPotential = StoryAssessmentValidationRating.Mixed,
+                MaximumFalsePositiveRate = 0.10d,
+                ReviewerAgreementThresholdPlaceholder = 0.80d,
+            },
+        };
+    }
+
+    private static StorySemanticCoherenceAssessment BuildStorySemanticCoherenceAssessment(PageData page)
+    {
+        var extractedTerms = ExtractSemanticCoherenceTerms(page);
+        if (extractedTerms.Count == 0)
+        {
+            return CreateSparseSemanticCoherenceAssessment();
+        }
+
+        var termClusters = BuildSemanticTermClusters(extractedTerms);
+        if (termClusters.Count == 0)
+        {
+            return CreateSparseSemanticCoherenceAssessment(extractedTerms);
+        }
+
+        var topCluster = termClusters[0];
+        var secondCluster = termClusters.Count > 1 ? termClusters[1] : null;
+        var totalClusterWeight = termClusters.Sum(cluster => cluster.Weight);
+        var totalEvidenceCount = extractedTerms.Count;
+        bool isSparse = totalEvidenceCount < 4 || totalClusterWeight < 3.5d || topCluster.SupportCount < 2;
+        var dominantShare = topCluster.Weight / Math.Max(totalClusterWeight, 1d);
+        double coherenceScore = isSparse
+            ? Math.Round(dominantShare * 35d, 2)
+            : Math.Round(Math.Min(100d, dominantShare * 70d + Math.Min(30d, topCluster.SupportCount * 5d)), 2);
+
+        bool strongCompetingStory = !isSparse &&
+            secondCluster is not null &&
+            MeetsStrongCompetingStoryThreshold(topCluster, secondCluster, extractedTerms);
+        bool weakDisagreement = !isSparse &&
+            secondCluster is not null &&
+            !strongCompetingStory &&
+            MeetsWeakDisagreementThreshold(topCluster, secondCluster, extractedTerms);
+
+        var coherenceClassification = isSparse
+            ? StorySemanticCoherenceClassification.Sparse
+            : strongCompetingStory || coherenceScore < 55d
+                ? StorySemanticCoherenceClassification.Split
+                : StorySemanticCoherenceClassification.Focused;
+        var competingStoryStatus = strongCompetingStory
+            ? StoryCompetingStoryStatus.StrongCandidatePromotionDelayed
+            : weakDisagreement
+                ? StoryCompetingStoryStatus.WeakDiagnosticOnly
+                : StoryCompetingStoryStatus.None;
+        var confidence = DetermineSemanticCoherenceConfidence(
+            coherenceScore,
+            totalEvidenceCount,
+            topCluster,
+            secondCluster,
+            isSparse,
+            weakDisagreement);
+        var validationStatus = competingStoryStatus == StoryCompetingStoryStatus.StrongCandidatePromotionDelayed
+            ? StorySemanticCoherenceValidationStatus.PromotionDelayedRequiresStrongerValidation
+            : !isSparse && confidence != StorySemanticCoherenceConfidence.Low
+                ? StorySemanticCoherenceValidationStatus.Level1Candidate
+                : StorySemanticCoherenceValidationStatus.Internal;
+        var dominantConcept = isSparse ? null : topCluster.ClusterId;
+        var weakDisagreementSignals = weakDisagreement && secondCluster is not null
+            ? new[]
+            {
+                $"Secondary cluster '{secondCluster.ClusterId}' remains distinct but below competing-story confidence thresholds.",
+                $"Top clusters differ by {Math.Round(Math.Abs(topCluster.Weight - secondCluster.Weight), 2).ToString(CultureInfo.InvariantCulture)} weighted support.",
+            }
+            : Array.Empty<string>();
+        var explanationHooks = BuildSemanticCoherenceExplanationHooks(
+            topCluster,
+            secondCluster,
+            coherenceClassification,
+            competingStoryStatus,
+            extractedTerms.Count,
+            weakDisagreementSignals);
+
+        return new StorySemanticCoherenceAssessment
+        {
+            CoherenceScore = coherenceScore,
+            CoherenceClassification = coherenceClassification,
+            DominantConcept = dominantConcept,
+            ExtractedTerms = extractedTerms,
+            TermClusters = termClusters,
+            CompetingStoryStatus = competingStoryStatus,
+            WeakDisagreementSignals = weakDisagreementSignals,
+            ExplanationHooks = explanationHooks,
+            Confidence = confidence,
+            ValidationStatus = validationStatus,
+            Level1ValidationHarness = new StorySemanticCoherenceLevel1ValidationHarness
+            {
+                ReviewerCoherenceChoice = null,
+                SystemCoherenceChoice = coherenceClassification.ToString(),
+                ReviewerDominantConcept = null,
+                SystemDominantConcept = dominantConcept ?? string.Empty,
+                DisagreementReason = null,
+                AccuracyRating = StoryAssessmentValidationRating.NotAssessed,
+                ConsistencyRating = StoryAssessmentValidationRating.NotAssessed,
+                ExplainabilityRating = StoryAssessmentValidationRating.NotAssessed,
+                ActionabilityRating = StoryAssessmentValidationRating.NotAssessed,
+            },
+        };
+    }
+
+    private static StorySemanticCoherenceAssessment CreateSparseSemanticCoherenceAssessment(
+        IReadOnlyList<StorySemanticTermEvidence>? extractedTerms = null)
+    {
+        return new StorySemanticCoherenceAssessment
+        {
+            CoherenceScore = 0d,
+            CoherenceClassification = StorySemanticCoherenceClassification.Sparse,
+            DominantConcept = null,
+            ExtractedTerms = extractedTerms ?? Array.Empty<StorySemanticTermEvidence>(),
+            TermClusters = Array.Empty<StorySemanticTermCluster>(),
+            CompetingStoryStatus = StoryCompetingStoryStatus.None,
+            WeakDisagreementSignals = Array.Empty<string>(),
+            ExplanationHooks =
+            [
+                "Sparse semantic metadata prevented a reliable coherence judgment.",
+            ],
+            Confidence = StorySemanticCoherenceConfidence.Low,
+            ValidationStatus = StorySemanticCoherenceValidationStatus.Internal,
+            Level1ValidationHarness = new StorySemanticCoherenceLevel1ValidationHarness
+            {
+                ReviewerCoherenceChoice = null,
+                SystemCoherenceChoice = StorySemanticCoherenceClassification.Sparse.ToString(),
+                ReviewerDominantConcept = null,
+                SystemDominantConcept = string.Empty,
+                DisagreementReason = null,
+                AccuracyRating = StoryAssessmentValidationRating.NotAssessed,
+                ConsistencyRating = StoryAssessmentValidationRating.NotAssessed,
+                ExplainabilityRating = StoryAssessmentValidationRating.NotAssessed,
+                ActionabilityRating = StoryAssessmentValidationRating.NotAssessed,
+            },
+        };
+    }
+
+    private static List<StorySemanticTermEvidence> ExtractSemanticCoherenceTerms(PageData page)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        var sourceEntries = new List<(string Source, string RawText, double Weight)>();
+
+        void AddSource(string source, string? rawText, double weight)
+        {
+            if (string.IsNullOrWhiteSpace(rawText))
+            {
+                return;
+            }
+
+            sourceEntries.Add((source, rawText!, weight));
+        }
+
+        AddSource("page.displayName", page.DisplayName, 1.25d);
+        AddSource("page.visibleTitle", analysis.VisibleTitle, 1.50d);
+
+        foreach (var visual in page.Visuals
+                     .Where(visual => !visual.IsHidden)
+                     .OrderBy(visual => visual.Y)
+                     .ThenBy(visual => visual.X)
+                     .ThenBy(visual => visual.Id, StringComparer.Ordinal))
+        {
+            AddSource($"visual.{visual.Id}.title", visual.Text.VisibleTitleText, 1.25d);
+            AddSource($"visual.{visual.Id}.subtitle", visual.Text.VisibleSubtitleText, 1.00d);
+            AddSource($"visual.{visual.Id}.textbox", visual.Text.TextBoxText, 1.20d);
+            if (!string.Equals(visual.BestVisibleText, visual.Text.VisibleTitleText, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(visual.BestVisibleText, visual.Text.TextBoxText, StringComparison.OrdinalIgnoreCase))
+            {
+                AddSource($"visual.{visual.Id}.visibleText", visual.BestVisibleText, 1.00d);
+            }
+
+            foreach (var hint in visual.FieldRoles.CategoryHints)
+            {
+                AddSource($"visual.{visual.Id}.category", hint, 1.00d);
+            }
+
+            foreach (var hint in visual.FieldRoles.SeriesHints)
+            {
+                AddSource($"visual.{visual.Id}.series", hint, 1.00d);
+            }
+
+            foreach (var hint in visual.FieldRoles.MeasureHints)
+            {
+                AddSource($"visual.{visual.Id}.measure", hint, 1.00d);
+            }
+
+            foreach (var hint in visual.FieldRoles.ValueHints)
+            {
+                AddSource($"visual.{visual.Id}.value", hint, 0.90d);
+            }
+        }
+
+        return sourceEntries
+            .Select(entry => new StorySemanticTermEvidence
+            {
+                CanonicalTerm = NormalizeSemanticCoherenceTerm(entry.RawText) ?? string.Empty,
+                RawText = entry.RawText,
+                Source = entry.Source,
+                Weight = entry.Weight,
+            })
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.CanonicalTerm))
+            .OrderBy(entry => entry.CanonicalTerm, StringComparer.Ordinal)
+            .ThenBy(entry => entry.Source, StringComparer.Ordinal)
+            .ThenBy(entry => entry.RawText, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string? NormalizeSemanticCoherenceTerm(string? rawText)
+    {
+        var normalized = NormalizeSemanticHint(rawText);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var tokenBuffer = Regex.Replace(normalized.ToLowerInvariant(), @"[^a-z0-9]+", " ", RegexOptions.CultureInvariant);
+        var tokens = tokenBuffer
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeSemanticCoherenceToken)
+            .Where(token => !string.IsNullOrWhiteSpace(token) && !IsSemanticCoherenceStopWord(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return tokens.Count == 0 ? null : string.Join(' ', tokens);
+    }
+
+    private static string NormalizeSemanticCoherenceToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return string.Empty;
+        }
+
+        var normalized = token.Trim();
+        if (normalized.Length > 4 && normalized.EndsWith("ies", StringComparison.Ordinal))
+        {
+            normalized = normalized[..^3] + "y";
+        }
+        else if (normalized.Length > 4 && normalized.EndsWith("es", StringComparison.Ordinal) &&
+                 (normalized.EndsWith("ches", StringComparison.Ordinal) ||
+                  normalized.EndsWith("shes", StringComparison.Ordinal) ||
+                  normalized.EndsWith("sses", StringComparison.Ordinal) ||
+                  normalized.EndsWith("xes", StringComparison.Ordinal) ||
+                  normalized.EndsWith("zes", StringComparison.Ordinal)))
+        {
+            normalized = normalized[..^2];
+        }
+        else if (normalized.Length > 3 && normalized.EndsWith('s') && !normalized.EndsWith("ss", StringComparison.Ordinal))
+        {
+            normalized = normalized[..^1];
+        }
+
+        return normalized;
+    }
+
+    private static bool IsSemanticCoherenceStopWord(string token) =>
+        token.Length < 3 ||
+        token is "the" or "and" or "for" or "with" or "from" or "into" or "onto" or "over" or "under" or
+            "page" or "chart" or "visual" or "dashboard" or "report" or "review" or "summary" or "detail" or
+            "details" or "analysis" or "view" or "metric" or "measure" or "value" or "count" or "total";
+
+    private static List<StorySemanticTermCluster> BuildSemanticTermClusters(
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        var clusterBuckets = new Dictionary<string, SemanticCoherenceClusterAccumulator>(StringComparer.Ordinal);
+
+        foreach (var term in extractedTerms)
+        {
+            var tokens = term.CanonicalTerm
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (tokens.Count == 0)
+            {
+                continue;
+            }
+
+            var tokenWeight = term.Weight / tokens.Count;
+            foreach (var token in tokens)
+            {
+                if (!clusterBuckets.TryGetValue(token, out var bucket))
+                {
+                    bucket = new SemanticCoherenceClusterAccumulator();
+                    clusterBuckets[token] = bucket;
+                }
+
+                bucket.Weight += tokenWeight;
+                bucket.Terms.Add(term.CanonicalTerm);
+                bucket.RawTexts.Add(term.RawText);
+            }
+        }
+
+        return clusterBuckets
+            .Select(pair => new StorySemanticTermCluster
+            {
+                ClusterId = pair.Key,
+                Weight = Math.Round(pair.Value.Weight, 2),
+                SupportCount = pair.Value.Terms.Count,
+                Terms = pair.Value.Terms
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(term => term, StringComparer.Ordinal)
+                    .ToList(),
+                ExplanationHook = $"Cluster '{pair.Key}' is supported by {pair.Value.Terms.Count} extracted term(s).",
+            })
+            .Where(cluster => cluster.Weight > 0d)
+            .OrderByDescending(cluster => cluster.Weight)
+            .ThenByDescending(cluster => cluster.SupportCount)
+            .ThenBy(cluster => cluster.ClusterId, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static bool MeetsStrongCompetingStoryThreshold(
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster secondCluster,
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        if (topCluster.SupportCount < 3 || secondCluster.SupportCount < 3)
+        {
+            return false;
+        }
+
+        if (topCluster.Weight < 2.0d || secondCluster.Weight < 2.0d)
+        {
+            return false;
+        }
+
+        var ratio = topCluster.Weight / Math.Max(secondCluster.Weight, 0.01d);
+        if (ratio > 1.20d || ratio < 0.83d)
+        {
+            return false;
+        }
+
+        if (!AreDistinctSemanticClusters(topCluster.ClusterId, secondCluster.ClusterId))
+        {
+            return false;
+        }
+
+        return CountExclusiveSupportingTerms(topCluster.ClusterId, secondCluster.ClusterId, extractedTerms) >= 2 &&
+               CountExclusiveSupportingTerms(secondCluster.ClusterId, topCluster.ClusterId, extractedTerms) >= 2;
+    }
+
+    private static bool MeetsWeakDisagreementThreshold(
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster secondCluster,
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        if (secondCluster.Weight < 0.5d || secondCluster.SupportCount < 1)
+        {
+            return false;
+        }
+
+        if (!AreDistinctSemanticClusters(topCluster.ClusterId, secondCluster.ClusterId))
+        {
+            return false;
+        }
+
+        var ratio = topCluster.Weight / Math.Max(secondCluster.Weight, 0.01d);
+        return ratio <= 3.00d && CountExclusiveSupportingTerms(secondCluster.ClusterId, topCluster.ClusterId, extractedTerms) >= 1;
+    }
+
+    private static int CountExclusiveSupportingTerms(
+        string clusterId,
+        string otherClusterId,
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        return extractedTerms.Count(term =>
+            ContainsSemanticCoherenceToken(term.CanonicalTerm, clusterId) &&
+            !ContainsSemanticCoherenceToken(term.CanonicalTerm, otherClusterId));
+    }
+
+    private static bool AreDistinctSemanticClusters(string firstClusterId, string secondClusterId) =>
+        !string.Equals(firstClusterId, secondClusterId, StringComparison.Ordinal);
+
+    private static bool ContainsSemanticCoherenceToken(string canonicalTerm, string token) =>
+        canonicalTerm
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(token, StringComparer.Ordinal);
+
+    private static StorySemanticCoherenceConfidence DetermineSemanticCoherenceConfidence(
+        double coherenceScore,
+        int totalEvidenceCount,
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster? secondCluster,
+        bool isSparse,
+        bool weakDisagreement)
+    {
+        if (isSparse)
+        {
+            return StorySemanticCoherenceConfidence.Low;
+        }
+
+        if (!weakDisagreement &&
+            coherenceScore >= 65d &&
+            totalEvidenceCount >= 6 &&
+            topCluster.SupportCount >= 4 &&
+            (secondCluster is null || topCluster.Weight - secondCluster.Weight >= 1.0d))
+        {
+            return StorySemanticCoherenceConfidence.High;
+        }
+
+        if (coherenceScore >= 40d && totalEvidenceCount >= 4)
+        {
+            return StorySemanticCoherenceConfidence.Medium;
+        }
+
+        return StorySemanticCoherenceConfidence.Low;
+    }
+
+    private static List<string> BuildSemanticCoherenceExplanationHooks(
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster? secondCluster,
+        StorySemanticCoherenceClassification coherenceClassification,
+        StoryCompetingStoryStatus competingStoryStatus,
+        int evidenceCount,
+        IReadOnlyList<string> weakDisagreementSignals)
+    {
+        var hooks = new List<string>
+        {
+            $"Dominant cluster '{topCluster.ClusterId}' has {topCluster.Weight.ToString("0.##", CultureInfo.InvariantCulture)} weighted support across {topCluster.SupportCount} term(s).",
+            $"Coherence classified as {coherenceClassification}.",
+            $"Semantic evidence count: {evidenceCount}.",
+        };
+
+        if (secondCluster is not null)
+        {
+            hooks.Add($"Secondary cluster '{secondCluster.ClusterId}' has {secondCluster.Weight.ToString("0.##", CultureInfo.InvariantCulture)} weighted support across {secondCluster.SupportCount} term(s).");
+        }
+
+        if (competingStoryStatus == StoryCompetingStoryStatus.StrongCandidatePromotionDelayed)
+        {
+            hooks.Add("Competing-story detection fired only after both leading clusters cleared the strong-support and near-equal thresholds.");
+        }
+        else if (weakDisagreementSignals.Count > 0)
+        {
+            hooks.AddRange(weakDisagreementSignals);
+        }
+
+        return hooks
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static StoryArchetypeMatchResult EvaluateArchetype(
+        IReadOnlyDictionary<string, StorySignalRegistryEntry> entriesById,
+        StoryArchetypeId archetypeId,
+        IReadOnlyList<ArchetypeExpectation> expectations)
+    {
+        double totalWeight = expectations.Sum(expectation => expectation.Weight);
+        double matchedWeight = 0d;
+        var matchedSignals = new List<string>();
+        var missedSignals = new List<string>();
+        var explanationHooks = new List<string>();
+
+        foreach (var expectation in expectations)
+        {
+            bool matched = expectation.IsMatched(entriesById);
+            if (matched)
+            {
+                matchedWeight += expectation.Weight;
+                matchedSignals.Add(expectation.DescribeMatched(entriesById));
+                explanationHooks.Add(expectation.GetExplanationHook(entriesById));
+            }
+            else
+            {
+                missedSignals.Add(expectation.DescribeMissed(entriesById));
+                explanationHooks.Add(expectation.GetExplanationHook(entriesById));
+            }
+        }
+
+        return new StoryArchetypeMatchResult
+        {
+            ArchetypeId = archetypeId,
+            MatchScore = totalWeight <= 0d ? 0d : Math.Round(matchedWeight / totalWeight, 2),
+            MatchConfidence = StoryArchetypeMatchConfidence.Low,
+            MatchedSignals = matchedSignals,
+            MissedSignals = missedSignals,
+            ExplanationHooks = explanationHooks
+                .Where(hook => !string.IsNullOrWhiteSpace(hook))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            ValidationStatus = StoryArchetypeValidationStatus.NeedsLevel1Review,
+            PromotionEligibilityState = StoryAssessmentPromotionEligibilityState.NotEligible,
+        };
+    }
+
+    private static StoryArchetypeMatchResult FinalizeArchetypeResult(
+        StoryArchetypeMatchResult result,
+        double marginToNearestCompetitor,
+        bool isBestFit)
+    {
+        var confidence = DetermineArchetypeMatchConfidence(result.MatchScore, marginToNearestCompetitor, result.MatchedSignals.Count, isBestFit);
+        var validationStatus = confidence switch
+        {
+            StoryArchetypeMatchConfidence.High when isBestFit => StoryArchetypeValidationStatus.ReadyForPromotionReview,
+            StoryArchetypeMatchConfidence.Low when isBestFit => StoryArchetypeValidationStatus.AmbiguousNeedsReview,
+            _ => StoryArchetypeValidationStatus.NeedsLevel1Review,
+        };
+        var promotionEligibilityState = confidence switch
+        {
+            StoryArchetypeMatchConfidence.High when isBestFit => StoryAssessmentPromotionEligibilityState.ReadyForPromotionReview,
+            StoryArchetypeMatchConfidence.Medium when isBestFit => StoryAssessmentPromotionEligibilityState.Level1ReviewCandidate,
+            _ => StoryAssessmentPromotionEligibilityState.NotEligible,
+        };
+
+        return new StoryArchetypeMatchResult
+        {
+            ArchetypeId = result.ArchetypeId,
+            MatchScore = result.MatchScore,
+            MatchConfidence = confidence,
+            MatchedSignals = result.MatchedSignals,
+            MissedSignals = result.MissedSignals,
+            ExplanationHooks = result.ExplanationHooks,
+            ValidationStatus = validationStatus,
+            PromotionEligibilityState = promotionEligibilityState,
+        };
+    }
+
+    private static StoryArchetypeMatchConfidence DetermineArchetypeMatchConfidence(
+        double matchScore,
+        double marginToNearestCompetitor,
+        int matchedSignalCount,
+        bool isBestFit)
+    {
+        if (isBestFit && matchScore >= 0.75d && marginToNearestCompetitor >= 0.15d && matchedSignalCount >= 4)
+        {
+            return StoryArchetypeMatchConfidence.High;
+        }
+
+        if (isBestFit && matchScore >= 0.55d && marginToNearestCompetitor >= 0.08d && matchedSignalCount >= 3)
+        {
+            return StoryArchetypeMatchConfidence.Medium;
+        }
+
+        if (!isBestFit && matchScore >= 0.60d)
+        {
+            return StoryArchetypeMatchConfidence.Medium;
+        }
+
+        return StoryArchetypeMatchConfidence.Low;
+    }
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildPerformanceMonitorExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.20d, entry => EntryRawValueEquals(entry, "comparison"), "lead intent comparison"),
+        ExpectSignal("layout.topScanKpiCount", 0.18d, entry => EntryRawIntAtLeast(entry, 1), "KPI layer present"),
+        ExpectSignal("context.targetBenchmarkPresent", 0.22d, entry => entry.Fired, "target or benchmark context present"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => TitleContainsAny(entry?.RawValue, "performance", "monitor", "kpi", "scorecard"), "monitor-oriented title"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.12d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.10d, entry => entry.Fired, "primary metric inferred"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildTrendExceptionExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.28d, entry => EntryRawValueEquals(entry, "trend"), "lead intent trend"),
+        ExpectSignal("context.priorPeriodContext", 0.18d, entry => entry.Fired, "prior-period context present"),
+        ExpectSignal("context.targetBenchmarkPresent", 0.16d, entry => entry.Fired, "target or benchmark context present"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => TitleContainsAny(entry?.RawValue, "trend", "exception", "variance", "risk", "alert", "monitor"), "trend/exception title cue"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.10d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.10d, entry => entry.Fired, "primary metric inferred"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildRankingExpectations() =>
+    [
+        ExpectSignal("layout.leadVisualType", 0.24d, entry => RawValueContainsAny(entry?.RawValue, "bar", "column"), "bar/column lead visual"),
+        ExpectSignal("layout.leadIntent", 0.16d, entry => EntryRawValueEquals(entry, "comparison"), "lead intent comparison"),
+        ExpectSignal("semantic.primaryDimension", 0.18d, entry => entry.Fired, "ranking dimension inferred"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.26d, entry => TitleContainsAny(entry?.RawValue, "top", "rank", "bottom", "highest", "lowest"), "ranking title cue"),
+        ExpectSignal("semantic.primaryMetric", 0.08d, entry => entry.Fired, "primary metric inferred"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.08d, entry => entry.Fired, "supporting evidence flow present"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildComparisonExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.24d, entry => EntryRawValueEquals(entry, "comparison"), "lead intent comparison"),
+        ExpectSignal("semantic.primaryDimension", 0.18d, entry => entry.Fired, "comparison dimension inferred"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.24d, entry => TitleContainsAny(entry?.RawValue, "vs", "versus", "compare", "comparison", "by"), "comparison title cue"),
+        ExpectSignal("context.targetBenchmarkPresent", 0.12d, entry => entry.Fired, "target/budget benchmark context present"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.12d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.10d, entry => entry.Fired, "primary metric inferred"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildDecompositionExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.30d, entry => EntryRawValueEquals(entry, "composition"), "lead intent composition"),
+        ExpectSignal("layout.leadVisualType", 0.20d, entry => RawValueContainsAny(entry?.RawValue, "stacked", "pie", "donut", "funnel"), "composition-oriented visual"),
+        ExpectSignal("semantic.primaryDimension", 0.15d, entry => entry.Fired, "decomposition dimension inferred"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.20d, entry => TitleContainsAny(entry?.RawValue, "share", "mix", "composition", "contribution", "breakdown"), "decomposition title cue"),
+        ExpectSignal("semantic.primaryMetric", 0.08d, entry => entry.Fired, "primary metric inferred"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.07d, entry => entry.Fired, "supporting evidence flow present"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildNarrativeWalkthroughExpectations() =>
+    [
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => entry?.Fired == true, "meaningful narrative title"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.24d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.14d, entry => entry.Fired, "primary metric inferred"),
+        ExpectSignal("semantic.primaryDimension", 0.10d, entry => entry.Fired, "supporting dimension inferred"),
+        ExpectSignal("semantic.richMetadataSupport", 0.10d, entry => entry.Fired, "rich metadata support present"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => TitleContainsAny(entry?.RawValue, "why", "story", "journey", "walkthrough", "explained"), "storytelling title cue"),
+        ExpectSignal("layout.leadIntent", 0.06d, entry => entry?.Fired == true, "lead analytical intent inferred"),
+    ];
+
+    private static ArchetypeExpectation ExpectSignal(
+        string signalId,
+        double weight,
+        Func<StorySignalRegistryEntry?, bool> predicate,
+        string narrativeLabel)
+    {
+        return new ArchetypeExpectation(
+            signalId,
+            weight,
+            entriesById => predicate(GetSignal(entriesById, signalId)),
+            entriesById => DescribeSignalState(GetSignal(entriesById, signalId), signalId, narrativeLabel, matched: true),
+            entriesById => DescribeSignalState(GetSignal(entriesById, signalId), signalId, narrativeLabel, matched: false),
+            entriesById => GetSignal(entriesById, signalId)?.ExplanationHook ?? narrativeLabel);
+    }
+
+    private static StorySignalRegistryEntry? GetSignal(
+        IReadOnlyDictionary<string, StorySignalRegistryEntry> entriesById,
+        string signalId) =>
+        entriesById.TryGetValue(signalId, out var entry) ? entry : null;
+
+    private static string DescribeSignalState(
+        StorySignalRegistryEntry? entry,
+        string signalId,
+        string narrativeLabel,
+        bool matched)
+    {
+        if (entry is null)
+        {
+            return $"{signalId}: {(matched ? "missing match target" : "missing")} ({narrativeLabel})";
+        }
+
+        var rawSuffix = string.IsNullOrWhiteSpace(entry.RawValue)
+            ? string.Empty
+            : $" [{entry.RawValue}]";
+        return $"{signalId}: {(matched ? "matched" : "missed")} {narrativeLabel}{rawSuffix}";
+    }
+
+    private static bool EntryRawValueEquals(StorySignalRegistryEntry? entry, string expectedValue) =>
+        entry is not null &&
+        string.Equals(entry.RawValue, expectedValue, StringComparison.OrdinalIgnoreCase);
+
+    private static bool EntryRawIntAtLeast(StorySignalRegistryEntry? entry, int minimum) =>
+        entry is not null &&
+        int.TryParse(entry.RawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedValue) &&
+        parsedValue >= minimum;
+
+    private static bool TitleContainsAny(string? rawTitle, params string[] keywords) =>
+        keywords.Any(keyword => TextContainsPhrase(rawTitle ?? string.Empty, keyword));
+
+    private static bool RawValueContainsAny(string? rawValue, params string[] snippets) =>
+        snippets.Any(snippet => rawValue?.Contains(snippet, StringComparison.OrdinalIgnoreCase) == true);
+
+    private static StorySignalRegistryEntry CreateStorySignalEntry(
+        string id,
+        StorySignalCategory category,
+        string? rawValue,
+        bool fired,
+        StorySignalContributionIntent contributionIntent,
+        StorySignalRemediability remediability,
+        string explanationHook,
+        StoryAssessmentSurfaceScope surfaceScope,
+        StorySignalRequirementRole requirementRole,
+        StorySignalEvidenceRole evidenceRole,
+        StoryAssessmentExplanationType explanationType,
+        StoryAssessmentActionabilityType actionabilityType)
+    {
+        return new StorySignalRegistryEntry
+        {
+            Id = id,
+            Category = category,
+            RawValue = rawValue,
+            Fired = fired,
+            ContributionIntent = contributionIntent,
+            Remediability = remediability,
+            ExplanationHook = explanationHook,
+            ReliabilityState = StorySignalReliabilityState.Candidate,
+            SurfaceScope = surfaceScope,
+            RequirementRole = requirementRole,
+            EvidenceRole = evidenceRole,
+            ExplanationType = explanationType,
+            ActionabilityType = actionabilityType,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            Evaluations = Array.Empty<StoryAssessmentDimensionEvaluation>(),
+        };
+    }
+
+    private sealed record ArchetypeExpectation(
+        string SignalId,
+        double Weight,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, bool> IsMatched,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, string> DescribeMatched,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, string> DescribeMissed,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, string> GetExplanationHook);
+
+    private sealed class SemanticCoherenceClusterAccumulator
+    {
+        public double Weight { get; set; }
+
+        public HashSet<string> Terms { get; } = new(StringComparer.Ordinal);
+
+        public HashSet<string> RawTexts { get; } = new(StringComparer.Ordinal);
+    }
+
     private static string CleanMetricLabel(string? label)
     {
         var normalized = NormalizeSemanticHint(label);
@@ -4185,7 +5170,11 @@ public sealed class PbirScoringService
             primaryMetric,
             primaryDimension,
             confidenceBonus,
-            evidence);
+            evidence,
+            HasRichSemanticSupport(leadMeasureCandidates, leadVisual?.FieldRoles.MeasureHints) ||
+                HasRichSemanticSupport(leadCategoryCandidates, leadVisual?.FieldRoles.CategoryHints),
+            HasSemanticTextAlignment(analysis.VisibleTitle, primaryMetric, primaryDimension) ||
+                HasSemanticTextAlignment(leadVisual?.BestVisibleText, primaryMetric, primaryDimension));
     }
 
     private static string BuildExecutiveHeadlinePhrase(string metricLabel)
@@ -7695,5 +8684,7 @@ public sealed class PbirScoringService
         string PrimaryMetric,
         string? PrimaryDimension,
         int ConfidenceBonus,
-        List<string> Evidence);
+        List<string> Evidence,
+        bool HasRichMetadataSupport,
+        bool HasSemanticTextAlignment);
 }
