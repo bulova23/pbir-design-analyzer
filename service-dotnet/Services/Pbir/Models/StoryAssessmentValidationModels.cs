@@ -245,6 +245,8 @@ internal sealed class StoryArchetypeMatchResult
 {
     public StoryArchetypeId ArchetypeId { get; init; }
 
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
     public double MatchScore { get; init; }
 
     public StoryArchetypeMatchConfidence MatchConfidence { get; init; }
@@ -258,6 +260,12 @@ internal sealed class StoryArchetypeMatchResult
     public StoryArchetypeValidationStatus ValidationStatus { get; init; }
 
     public StoryAssessmentPromotionEligibilityState PromotionEligibilityState { get; init; }
+
+    /// <summary>
+    /// Canonical lifecycle gate for downstream internal consumers.
+    /// Specialized archetype review posture remains secondary.
+    /// </summary>
+    public StoryAssessmentPromotionState PromotionState { get; init; }
 }
 
 /// <summary>
@@ -302,6 +310,16 @@ internal sealed class StoryAssessmentPromotionGateDefinition
 internal sealed class StoryAssessmentArchetypeClassification
 {
     public StoryArchetypeId BestFitArchetypeId { get; init; }
+
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public bool SuppressedBySpecialPageType { get; init; }
+
+    public required string ArchetypePromotionDisposition { get; init; }
+
+    public string? SpecialPageReason { get; init; }
 
     public IReadOnlyList<StoryArchetypeMatchResult> ArchetypeResults { get; init; } =
         Array.Empty<StoryArchetypeMatchResult>();
@@ -412,6 +430,10 @@ internal sealed class StorySemanticCoherenceAssessment
 {
     public double CoherenceScore { get; init; }
 
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public required string ScoringMode { get; init; }
+
     public StorySemanticCoherenceClassification CoherenceClassification { get; init; }
 
     public string? DominantConcept { get; init; }
@@ -434,5 +456,347 @@ internal sealed class StorySemanticCoherenceAssessment
 
     public StorySemanticCoherenceValidationStatus ValidationStatus { get; init; }
 
+    /// <summary>
+    /// Canonical lifecycle gate for downstream internal consumers.
+    /// Specialized coherence review posture remains secondary.
+    /// </summary>
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public IReadOnlyList<string> TuningDetails { get; init; } = Array.Empty<string>();
+
     public required StorySemanticCoherenceLevel1ValidationHarness Level1ValidationHarness { get; init; }
+}
+
+/// <summary>
+/// Internal-only special page classifications that should not be forced into generic analytical page archetypes.
+/// </summary>
+internal enum StorySpecialPageType
+{
+    Unknown,
+    Tooltip,
+    Qna,
+    WhatIf,
+    KeyInfluencers,
+    CustomerSegmentationDiagnostic,
+    MarketBasket,
+    ReferenceLegal,
+    ValidationSandbox,
+}
+
+/// <summary>
+/// Bounded confidence label for internal special-page detection.
+/// </summary>
+internal enum StorySpecialPageConfidence
+{
+    Low,
+    Medium,
+    High,
+}
+
+/// <summary>
+/// Evidence reference used by the internal special-page classifier.
+/// </summary>
+internal sealed class StorySpecialPageEvidenceReference
+{
+    public required string SourceType { get; init; }
+
+    public required string ReferenceId { get; init; }
+
+    public required string Summary { get; init; }
+}
+
+/// <summary>
+/// Internal-only special page assessment used to guard downstream Story Assessment stages.
+/// </summary>
+internal sealed class StorySpecialPageAssessment
+{
+    public StorySpecialPageType PageType { get; init; }
+
+    public StorySpecialPageConfidence Confidence { get; init; }
+
+    public IReadOnlyList<StorySpecialPageEvidenceReference> EvidenceReferences { get; init; } =
+        Array.Empty<StorySpecialPageEvidenceReference>();
+
+    public required string Reason { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public bool TreatAsPrimaryNarrativePage { get; init; }
+
+    public bool SuppressNormalStoryGaps { get; init; }
+
+    public bool SuppressGenericArchetypePromotion { get; init; }
+}
+
+/// <summary>
+/// Distinguishes slicer visuals from page-level and report-level filter scope.
+/// </summary>
+internal enum StoryFilterScope
+{
+    Slicer,
+    Page,
+    Report,
+}
+
+/// <summary>
+/// Classifies whether a topology signal is PBIR-specific, reusable, or diagnostic-only noise.
+/// </summary>
+internal enum StoryFilterTopologySignalClassification
+{
+    PbirSpecific,
+    CrossSurfaceCandidate,
+    DiagnosticOnly,
+}
+
+/// <summary>
+/// Captured internal representation of one filter control or filter scope artifact.
+/// </summary>
+internal sealed class StoryFilterTopologyFilter
+{
+    public required string SourceId { get; init; }
+
+    public StoryFilterScope Scope { get; init; }
+
+    public required string DisplayLabel { get; init; }
+
+    public IReadOnlyList<string> FieldHints { get; init; } = Array.Empty<string>();
+
+    public string? HierarchyPattern { get; init; }
+
+    public int HierarchyDepth { get; init; }
+
+    public string? PlacementZone { get; init; }
+}
+
+/// <summary>
+/// Internal-only validation result for one topology-derived signal.
+/// </summary>
+internal sealed class StoryFilterTopologySignal
+{
+    public required string Id { get; init; }
+
+    public StoryFilterTopologySignalClassification Classification { get; init; }
+
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public StoryFilterScope Scope { get; init; }
+
+    public bool Fired { get; init; }
+
+    public bool SupportsArchetypeReinforcement { get; init; }
+
+    /// <summary>
+    /// Canonical lifecycle gate for downstream internal consumers.
+    /// Topology-specific usefulness fields remain secondary.
+    /// </summary>
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public StoryAssessmentValidationRating AccuracyContribution { get; init; }
+
+    public StoryAssessmentValidationRating ExplainabilityContribution { get; init; }
+
+    public StoryAssessmentValidationRating ActionabilityContribution { get; init; }
+}
+
+/// <summary>
+/// Internal-only filter topology extraction, reinforcement, and usefulness assessment.
+/// </summary>
+internal sealed class StoryFilterTopologyAssessment
+{
+    public int SlicerCount { get; init; }
+
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public int PageFilterCount { get; init; }
+
+    public int ReportFilterCount { get; init; }
+
+    public IReadOnlyList<StoryFilterTopologyFilter> ExtractedFilters { get; init; } =
+        Array.Empty<StoryFilterTopologyFilter>();
+
+    public IReadOnlyList<string> HierarchyPatterns { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<string> TopologyCharacteristics { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<StoryFilterTopologySignal> Signals { get; init; } =
+        Array.Empty<StoryFilterTopologySignal>();
+
+    public IReadOnlyList<string> ReinforcedArchetypes { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<string> DiagnosticNotes { get; init; } =
+        Array.Empty<string>();
+
+    public StoryAssessmentValidationRating AccuracyContribution { get; init; }
+
+    public StoryAssessmentValidationRating ExplainabilityContribution { get; init; }
+
+    public StoryAssessmentValidationRating ActionabilityContribution { get; init; }
+}
+
+/// <summary>
+/// Internal-only remediation layer classification for story gaps.
+/// </summary>
+internal enum StoryGapRemediationLayer
+{
+    Report,
+    Model,
+    Restructure,
+}
+
+/// <summary>
+/// Internal-only actionability posture for a generated story gap.
+/// </summary>
+internal enum StoryGapActionabilityAssessment
+{
+    Actionable,
+    PartlyActionable,
+    NotActionable,
+}
+
+/// <summary>
+/// Internal-only indicator of how directly a gap affects the best-fit archetype.
+/// </summary>
+internal enum StoryGapArchetypeRelevance
+{
+    Primary,
+    Supporting,
+    Low,
+}
+
+/// <summary>
+/// Bounded confidence label for a generated story gap.
+/// </summary>
+internal enum StoryGapConfidence
+{
+    Low,
+    Medium,
+    High,
+}
+
+/// <summary>
+/// Evidence reference carried by an internal-only story gap.
+/// </summary>
+internal sealed class StoryGapEvidenceReference
+{
+    public required string SourceType { get; init; }
+
+    public required string ReferenceId { get; init; }
+
+    public required string Summary { get; init; }
+}
+
+/// <summary>
+/// Internal-only evidence-backed story gap candidate.
+/// </summary>
+internal sealed class StoryGapRecord
+{
+    public required string GapId { get; init; }
+
+    public required string Description { get; init; }
+
+    public IReadOnlyList<StoryGapEvidenceReference> EvidenceReferences { get; init; } =
+        Array.Empty<StoryGapEvidenceReference>();
+
+    public StoryGapRemediationLayer RemediationLayer { get; init; }
+
+    public StoryGapActionabilityAssessment ActionabilityAssessment { get; init; }
+
+    public StoryGapArchetypeRelevance ArchetypeRelevance { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public StoryGapConfidence Confidence { get; init; }
+
+    public bool IsFutureContractCandidate { get; init; }
+}
+
+/// <summary>
+/// Internal-only story gap assessment built from Story Assessment validation artifacts.
+/// </summary>
+internal sealed class StoryGapAssessment
+{
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public IReadOnlyList<StoryGapRecord> Gaps { get; init; } = Array.Empty<StoryGapRecord>();
+}
+
+/// <summary>
+/// Explicit bounded causes that can limit confidence in internal Story Assessment outputs.
+/// </summary>
+internal enum StoryConfidenceLowCause
+{
+    SparseEvidence,
+    ConflictingEvidence,
+    WeakArchetypeMatch,
+    LowSemanticCoherence,
+    MissingContext,
+}
+
+/// <summary>
+/// The four inspectable internal confidence-breakdown dimensions.
+/// </summary>
+internal enum StoryConfidenceBreakdownDimension
+{
+    Accuracy,
+    Consistency,
+    Explainability,
+    Actionability,
+}
+
+/// <summary>
+/// Internal-only per-dimension confidence explanation record.
+/// </summary>
+internal sealed class StoryConfidenceDimensionRecord
+{
+    public StoryConfidenceBreakdownDimension DimensionId { get; init; }
+
+    public required string DimensionLabel { get; init; }
+
+    public StoryAssessmentValidationRating Rating { get; init; }
+
+    public IReadOnlyList<string> ConfidenceDrivers { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> ConfidenceReducers { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> MissingSignals { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<StoryGapEvidenceReference> EvidenceReferences { get; init; } =
+        Array.Empty<StoryGapEvidenceReference>();
+
+    public required string Explanation { get; init; }
+
+    public StoryGapActionabilityAssessment Actionability { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+}
+
+/// <summary>
+/// Internal-only aggregate confidence explanation built from Story Assessment artifacts.
+/// </summary>
+internal sealed class StoryConfidenceBreakdownAssessment
+{
+    public StoryAssessmentSurfaceScope SurfaceScope { get; init; }
+
+    public StoryAssessmentPromotionState PromotionState { get; init; }
+
+    public IReadOnlyList<StoryConfidenceDimensionRecord> Dimensions { get; init; } =
+        Array.Empty<StoryConfidenceDimensionRecord>();
+
+    public IReadOnlyList<string> StrongestDimensions { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> WeakestDimensions { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<StoryConfidenceLowCause> LowConfidenceCauses { get; init; } =
+        Array.Empty<StoryConfidenceLowCause>();
 }

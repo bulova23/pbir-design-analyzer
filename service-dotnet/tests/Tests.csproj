@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../PbirDesignAnalyzer.Core.csproj" />
+    <ProjectReference Include="../tools/StoryAssessmentValidationExport/StoryAssessmentValidationExport.csproj" />
   </ItemGroup>
 
   <ItemGroup>

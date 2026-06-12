@@ -93,15 +93,28 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
         this._onDidChangeTreeData.fire();
     }
 
-    async findVisualItem(pageName: string, visualId: string): Promise<PbirTreeItem | undefined> {
+    async findReportItem(): Promise<PbirTreeItem | undefined> {
         const rootItems = await this.getChildren();
-        const reportItem = rootItems.find((item) => item.kind === 'report');
+        return rootItems.find((item) => item.kind === 'report');
+    }
+
+    async findPageItem(pageName: string): Promise<PbirTreeItem | undefined> {
+        const reportItem = await this.findReportItem();
         if (!reportItem) {
             return undefined;
         }
 
         const pageItems = await this.getChildren(reportItem);
-        const pageItem = pageItems.find((item) => this._matchesPage(item, pageName));
+        return pageItems.find((item) => this._matchesPage(item, pageName));
+    }
+
+    async findVisualItem(pageName: string, visualId: string): Promise<PbirTreeItem | undefined> {
+        const reportItem = await this.findReportItem();
+        if (!reportItem) {
+            return undefined;
+        }
+
+        const pageItem = await this.findPageItem(pageName);
         if (!pageItem) {
             return undefined;
         }

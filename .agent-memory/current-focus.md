@@ -27,11 +27,79 @@
   - focused-versus-split coherence classification
   - promotion-delayed competing-story detection
   - expert-review validation support
+- Story Assessment 2.0 Workstream 6 is now complete:
+  - internal filter topology extraction
+  - bounded archetype reinforcement
+  - PBIR-specific versus cross-surface versus diagnostic-only classification
+  - usefulness validation across accuracy, explainability, and actionability
+- Story Assessment 2.0 semantic cleanup before Workstream 7 is now complete:
+  - `PromotionState` is the canonical internal lifecycle field
+  - `StoryAssessmentSurfaceScope` is the canonical product-surface field
+  - filter location scope remains separate from product-surface scope
+  - direct `PageScore` public-contract non-leak coverage now exists
+- Story Assessment 2.0 Workstream 7A is now complete:
+  - internal-only Story Gap assessment generation
+  - evidence-backed internal gap records
+  - remediation-layer classification for report, model, and restructure
+  - low-confidence gap downgrade behavior
+  - malformed-input graceful degradation
+  - direct `ScoreResult` and `PageScore` internal-only non-leak coverage
+- Story Assessment 2.0 Workstream 7B is now complete:
+  - internal-only Confidence Breakdown assessment generation
+  - per-dimension internal records for accuracy, consistency, explainability, and actionability
+  - explicit low-confidence causes for sparse evidence, conflicting evidence, weak archetype match, low semantic coherence, and missing context
+  - evidence-linked confidence drivers, reducers, and missing signals
+  - direct `ScoreResult` and `PageScore` internal-only non-leak coverage
+- Story Assessment 2.0 Level 1 validation export harness is now complete:
+  - standalone backend-only CLI under `service-dotnet/tools/StoryAssessmentValidationExport`
+  - internal-only JSON and Markdown review artifacts
+  - per-page export of internal Story Assessment outputs
+  - no `RpcHost`, score-panel contract, or VS Code UI changes
 - Keep Story Assessment outputs internal-only until explicit promotion evidence exists.
 
 ## In Progress
 
+- Story Assessment 2.2 implementation is now in progress against:
+  - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
+  - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
+- Current execution goal:
+  - Phase 1 Deep Link Navigation
+  - Phase 2 Story Assessment Diff Mode
+  - Phase 3 combined workflow validation
+- Story Assessment 2.2 implementation is now complete in the extension layer:
+  - shared optional navigation target contract
+  - generic `navigateToTarget` protocol validation
+  - presentation-layer navigation target derivation with conservative fallback
+  - host reveal support for visual, page, and bounded report targets
+  - Story Assessment top-improvement navigation actions
+  - public-only Story Assessment snapshot builder, persistence store, and diff comparator
+  - compact `What Changed` Story Assessment block
+
+- Story Assessment 2.1 Guided Story Improvements implementation is now in progress against:
+  - `docs/superpowers/specs/2026-06-11-guided-story-improvements-design.md`
+  - `docs/superpowers/plans/2026-06-11-guided-story-improvements-plan.md`
+- Story Assessment 2.1 Guided Story Improvements is now implemented:
+  - score-panel presentation is now unified back into one Story Assessment narrative
+  - first UI-review refinements are now applied:
+    - public Story Type label
+    - Story Maturity labels
+    - absence-style Missing Signals
+    - top-three improvement cap
+    - problem → change → impact presentation
+  - narrow public Guided Story Improvements model
+  - validated six-gap mapping only
+  - hidden special-page suppression
+  - no separate Story Coaching / Guided Story Improvements card in the UI
+  - downstream Issues and Fix Plan consumption without duplication
+- Validation completed for the implementation slice:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run package:all`
 - Recommended `0.5.1`, `0.5.2`, and `0.6.0` are complete.
+- Extension release packaging is now aligned to `0.6.0`:
+  - `vscode-extension/package.json` version is `0.6.0`
+  - the five target-specific `0.6.0` VSIX artifacts were rebuilt successfully on 2026-06-11
 - `0.6.0` delivered:
   - shared repository snapshot seam
   - async repository traversal for the local PBIR fallback tree and Fabric evidence extraction
@@ -68,6 +136,57 @@
   - focused/split/sparse coherence classification
   - precision-first competing-story detection with promotion-delayed status
   - focused coherence-validation xUnit coverage
+- Story Assessment 2.0 Workstream 6 validation foundation now also exists:
+  - internal-only slicer/page/report filter topology extraction
+  - hierarchy-pattern and scope capture
+  - bounded reinforcement-only archetype scoring adjustments
+  - diagnostic-only noisy topology signal support
+  - focused topology-validation xUnit coverage
+- Story Assessment 2.0 semantic normalization now also exists:
+  - canonical lifecycle mapping through `PromotionState`
+  - canonical product-surface mapping through `StoryAssessmentSurfaceScope`
+  - explicit Workstream 7 internal-only guardrail
+- Story Assessment 2.0 Workstream 7A now also exists:
+  - internal-only `StoryGapAssessment` runtime generation
+  - missing-signal, semantic-coherence, and filter-topology gap shaping
+  - evidence-reference capture for signal, semantic, and topology sources
+  - bounded actionability downgrade for low-confidence gaps
+- Story Assessment 2.0 Workstream 7B now also exists:
+  - internal-only `StoryConfidenceBreakdownAssessment` runtime generation
+  - per-dimension rating, driver, reducer, missing-signal, and evidence-reference capture
+  - explicit strongest/weakest dimension summaries
+  - explicit low-confidence-cause classification
+- Story Assessment 2.0 validation export tooling now also exists:
+  - `dotnet run --project service-dotnet/tools/StoryAssessmentValidationExport -- <reportPath> [outputDir]`
+  - paired `story-assessment-validation.json` and `story-assessment-validation.md` outputs
+  - internal reflection-based shaping of backend-only Story Assessment data for Level 1 review
+- Story Assessment 2.0 backend accuracy tuning is now complete for the next validation slice:
+  - conservative internal special-page recognition
+  - archetype guardrails for special pages
+  - coherence tuning with diagnostic handling for non-primary pages
+  - higher-value Story Gap filtering
+  - validation export diagnostics for special-page review
+- Targeted false-positive tuning is now also complete:
+  - conservative `CustomerSegmentationDiagnostic` internal page type
+  - bounded compact `KeyInfluencers` alias handling
+  - real PBIR page-filter fallback through `filterConfig.filters`
+- Story Assessment 2.0 Level 1 promotion decision is now documented:
+  - filtered Story Gaps are the only outputs ready for narrow contract-promotion planning
+  - special-page handling remains a hidden guardrail only
+  - classification-heavy Story Assessment outputs remain internal
+- Story Assessment 2.1 Guided Story Improvements design and implementation plan are now documented:
+  - Option 3 selected: a dedicated subsection between Story Assessment and Issues
+  - the first user-facing slice stays limited to the six validated Story Gap categories
+  - Issues and Fix Plan are downstream consumers of Guided Story Improvements
+- Story Assessment 2.2 design and implementation plan are now documented:
+  - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
+  - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
+  - Deep Link Navigation is designed as a shared score-panel navigation-target layer
+  - Story Assessment Diff Mode is designed from public outputs only with extension-owned snapshot storage
+  - rollout recommendation:
+    - Phase 1: Deep Link Navigation
+    - Phase 2: Story Assessment Diff Mode
+    - Phase 3: combined workflow validation
 
 ## Blockers
 
@@ -77,6 +196,13 @@
 
 ## Validation Status
 
+- Story Assessment 2.2 extension validation passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/navigationTargets.test.ts src/test/storyAssessmentSnapshot.test.ts src/test/storyAssessmentSnapshotStore.test.ts src/test/scorePanelProtocol.test.ts src/test/scoreResultPayload.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Backend tests were not rerun because this slice stayed within extension presentation, protocol, storage, and webview behavior and did not change backend scoring behavior or backend-facing assumptions.
+
 - `0.6.0` validation passed:
   - focused phase-by-phase Jest runs
   - `cd vscode-extension && npm test`
@@ -85,6 +211,50 @@
   - `cd vscode-extension && npm run package:all`
 - VSIX inspection confirmed version, target integrity, backend target specificity, and current release-facing namespace/capability metadata.
 - `0.5.2` validation remains on record as previously completed.
+- Story Assessment 2.0 Workstream 6 validation passed:
+  - focused xUnit Workstream 6 coverage
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `171` passed, `0` failed
+- Story Assessment 2.0 semantic cleanup validation passed:
+  - focused xUnit semantic-cleanup coverage
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `175` passed, `0` failed
+- Story Assessment 2.0 Workstream 7A validation passed:
+  - focused xUnit story-gap coverage
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `186` passed, `0` failed
+- Story Assessment 2.0 Workstream 7B validation passed:
+  - focused xUnit confidence-breakdown coverage
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `197` passed, `0` failed
+- Story Assessment 2.0 validation export harness validation passed:
+  - JSON renderer tests
+  - Markdown renderer tests
+  - CLI smoke export against temp PBIR fixture
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `200` passed, `0` failed
+- Story Assessment 2.0 backend accuracy tuning validation passed:
+  - focused xUnit coverage for special-page recognition, archetype guardrails, coherence tuning, gap filtering, and export diagnostics
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `207` passed, `0` failed
+- Same-corpus Level 1 re-review passed with deterministic duplicate-report output and lower special-page false positives.
+- Targeted Level 1 false-positive tuning validation passed:
+  - focused xUnit coverage for customer diagnostic detection and compact key-influencer aliases
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `211` passed, `0` failed
+- Same-corpus rerun results:
+  - `Customer Analysis` no longer overclaims `PerformanceMonitor`; it now falls to `NarrativeWalkthrough`
+  - `RetKeyInf` remains unresolved on the corpus because the real page lacks bounded supporting cues
+  - duplicate-report export output remains deterministic
+- Promotion decision report completed:
+  - `docs/story-assessment/2026-06-11-level1-promotion-decision-report.md`
+  - recommendation: promote only filtered Story Gap candidates into narrow contract-planning work
+- Guided Story Improvements design and plan completed:
+  - `docs/superpowers/specs/2026-06-11-guided-story-improvements-design.md`
+  - `docs/superpowers/plans/2026-06-11-guided-story-improvements-plan.md`
+- Story Assessment 2.2 design and plan completed:
+  - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
+  - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
 
 ## Release Boundaries
 
@@ -93,12 +263,23 @@
 
 ## Next Recommended Step
 
-- Review Workstream 5 outputs before proceeding further.
-- If Story Assessment 2.0 implementation continues later, start with Workstream 6 only:
-  - filter topology extraction
-  - reinforcement-only topology classification
-  - continued internal-only boundaries until Level 1 evidence supports promotion
-- Do not promote new Story Assessment fields to the score-panel contract until Level 1 validation evidence exists.
+- The next recommended step is post-implementation validation follow-through, not broader promotion:
+  - keep Guided Story Improvements limited to the six validated categories now shipped
+  - re-run Level 1 review on a broader corpus before considering any additional Story Assessment exposure
+  - continue to keep archetype, coherence, confidence, competing-story, signal-registry, and special-page labels internal-only
+- For Story Assessment 2.2 implementation, keep the scope workflow-only:
+  - build Deep Link Navigation from shared presentation-layer navigation targets rather than backend Story Assessment promotion
+  - build Diff Mode from current public Story Assessment outputs only
+  - persist diff snapshots in extension-owned global storage, not repo files
+  - prefer independent ship gates for navigation and diff mode even if both stay under one 2.2 umbrella
+- Parallel follow-up:
+  - expand the Level 1 corpus before any broader Story Assessment promotion decision
+  - keep `RetKeyInf` and similar compact special-page variants on the unresolved watch list
+- Workstream 8 guardrail:
+  - consume internal Story Assessment fields only
+  - do not add new public Story Assessment fields beyond Guided Story Improvements without new validation evidence
+  - do not add new score-panel contract or UI fields until Level 1 validation evidence exists
+- Do not promote new Story Assessment fields beyond Guided Story Improvements to the score-panel contract until Level 1 validation evidence exists.
 - Keep the remaining runtime-validation gap explicit:
   - rerun untrusted-workspace blocked-posture smoke in an environment that can actually produce `vscode.workspace.isTrusted === false`
   - run a true virtual-workspace blocked-posture smoke once a virtual workspace provider/session is available

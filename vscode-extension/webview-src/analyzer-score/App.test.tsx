@@ -15,6 +15,19 @@ function expectLastPostedMessage(message: ScorePanelWebviewToHostMessagePayload)
   expect(postMessage).toHaveBeenLastCalledWith(withScorePanelEnvelope(message));
 }
 
+async function dispatchScoreState(state: ScorePanelState): Promise<void> {
+  await act(async () => {
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'scoreState',
+          state,
+        },
+      }),
+    );
+  });
+}
+
 const scoreState: ScorePanelState = buildScorePanelState({
   config: {
     frameworks: [
@@ -755,6 +768,49 @@ const scoreState: ScorePanelState = buildScorePanelState({
           topGaps: ['Exception visibility is weak.'],
           whyThisMatters: 'This page appears intended for executive review but lacks the decision context expected for that audience. Decision makers may misinterpret KPI values without targets or prior-period comparison.',
         },
+        guidedStoryImprovements: {
+          highPriorityImprovements: [
+            {
+              id: 'story-improvement-title',
+              title: 'Add a clearer page question or title',
+              summary: 'The page does not establish the decision or question early enough.',
+              rationale: 'A visible question anchor tells readers what to interpret before they scan the visuals.',
+              expectedImpact: 'Stronger scan path and faster narrative comprehension.',
+              priority: 'high',
+              relatedImpactArea: 'storytelling',
+            },
+            {
+              id: 'story-improvement-benchmark',
+              title: 'Add a visible benchmark or target',
+              summary: 'Key values still appear without an explicit performance frame.',
+              rationale: 'Readers need a visible point of comparison before deciding whether results are acceptable.',
+              expectedImpact: 'Faster decision framing and less KPI ambiguity.',
+              priority: 'high',
+              relatedImpactArea: 'benchmark',
+            },
+          ],
+          mediumPriorityImprovements: [
+            {
+              id: 'story-improvement-filters',
+              title: 'Tighten the filter path',
+              summary: 'Filters influence the reading path but do not currently reinforce one main takeaway.',
+              rationale: 'A tighter filter path reduces context switching and keeps the main story easier to follow.',
+              expectedImpact: 'Cleaner narrative flow after the lead decision cues are fixed.',
+              priority: 'medium',
+              relatedImpactArea: 'navigation',
+            },
+            {
+              id: 'story-improvement-prior-period',
+              title: 'Add trend or prior-period context',
+              summary: 'Readers cannot tell whether the current result is improving or declining.',
+              rationale: 'Add a prior-period comparison so readers can judge movement over time.',
+              expectedImpact: 'Clearer momentum context around current performance.',
+              priority: 'medium',
+              relatedImpactArea: 'benchmark',
+            },
+          ],
+          storyImprovementRationale: 'The page needs a stronger narrative frame before the visuals can do their job. Lead with the question and benchmark first, then simplify the supporting path.',
+        },
         visualMetadata: {
           pageName: 'Overview',
           visiblePageTitle: 'Executive Overview',
@@ -1137,9 +1193,12 @@ describe('Analyzer Score App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(screen.getAllByText(/Affected pages/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Story Assessment')).toBeInTheDocument();
-    expect(screen.getByText('Why This Matters')).toBeInTheDocument();
+    expect(screen.getByText('What We Believe This Page Is Trying To Say')).toBeInTheDocument();
     expect(screen.getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
-    expect(screen.getByText('Detected Story')).toBeInTheDocument();
+    const topLevelStorySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    expect(within(topLevelStorySection).getByText('Story Type')).toBeInTheDocument();
+    expect(within(topLevelStorySection).getByText('Executive Overview')).toBeInTheDocument();
+    expect(within(topLevelStorySection).getByText('Story Maturity')).toBeInTheDocument();
     expect(screen.getByText(/This page appears to summarize Revenue performance over time/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
@@ -1821,42 +1880,57 @@ describe('Analyzer Score App', () => {
     expect(commentaryPanel.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
   });
 
-  it('renders Story Assessment as a story-first workflow and preserves full reasoning on demand', async () => {
+  it('renders Story Assessment as a single narrative workflow and preserves full reasoning on demand', async () => {
     render(<App />);
 
-    await act(async () => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            type: 'scoreState',
-            state: scoreState,
-          },
-        }),
-      );
-    });
+    await dispatchScoreState(scoreState);
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
-    expect(screen.getByText('Story Assessment')).toBeInTheDocument();
-    expect(screen.getByText('Detected Story')).toBeInTheDocument();
-    expect(screen.getByText(/This page appears to summarize Revenue performance over time, with region comparison as supporting evidence\./i)).toBeInTheDocument();
-    expect(screen.getByText('Supported Decision')).toBeInTheDocument();
-    expect(screen.getByText(/This page should help leaders judge performance against expectations and decide whether intervention is needed\./i)).toBeInTheDocument();
-    expect(screen.getByText('Why This Matters')).toBeInTheDocument();
-    expect(screen.getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
-    const detectedStoryHeading = screen.getByText('Detected Story');
-    const whyThisMattersHeading = screen.getByText('Why This Matters');
-    const storyGapsHeading = screen.getByText('Story Gaps');
-    const storyGapsBlock = storyGapsHeading.closest('div') as HTMLElement;
-    const supportedDecisionHeading = screen.getByText('Supported Decision');
-    expect(detectedStoryHeading.compareDocumentPosition(supportedDecisionHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(supportedDecisionHeading.compareDocumentPosition(whyThisMattersHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(whyThisMattersHeading.compareDocumentPosition(storyGapsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText('Story Gaps')).toBeInTheDocument();
-    expect(within(storyGapsBlock).getByText(/Exception visibility is weak\./i)).toBeInTheDocument();
-    expect(screen.getByText(/Story Confidence: high/i)).toBeInTheDocument();
-    expect(screen.getByText(/Decision Support: 58\/100/i)).toBeInTheDocument();
-    expect(screen.getByText(/Benchmark: Mixed against expected/i)).toBeInTheDocument();
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+
+    expect(within(storySection).getByText('What We Believe This Page Is Trying To Say')).toBeInTheDocument();
+    expect(within(storySection).getByText(/This page appears to summarize Revenue performance over time, with region comparison as supporting evidence\./i)).toBeInTheDocument();
+    expect(within(storySection).getByText(/This page should help leaders judge performance against expectations and decide whether intervention is needed\./i)).toBeInTheDocument();
+    expect(within(storySection).getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
+    expect(within(storySection).getByText('Story Type')).toBeInTheDocument();
+    expect(within(storySection).getByText('Executive Overview')).toBeInTheDocument();
+    expect(within(storySection).getByText('Story Maturity')).toBeInTheDocument();
+    expect(within(storySection).getByText('Developing')).toBeInTheDocument();
+    expect(within(storySection).getByText('Strong Signals')).toBeInTheDocument();
+    expect(within(storySection).getByText('Missing Signals')).toBeInTheDocument();
+    expect(within(storySection).getByText('Top Story Improvements')).toBeInTheDocument();
+    const topImprovementsBlock = within(storySection).getByText('Top Story Improvements').closest('div') as HTMLElement;
+    expect(within(topImprovementsBlock).getByRole('heading', { name: 'Add a clearer page question or title' })).toBeInTheDocument();
+    expect(within(topImprovementsBlock).getByRole('heading', { name: 'Add a visible benchmark or target' })).toBeInTheDocument();
+    expect(within(topImprovementsBlock).getByRole('heading', { name: 'Tighten the filter path' })).toBeInTheDocument();
+    expect(within(topImprovementsBlock).queryByRole('heading', { name: 'Add trend or prior-period context' })).not.toBeInTheDocument();
+    expect(within(topImprovementsBlock).getByText(/Story Improvement Rationale/i)).toBeInTheDocument();
+    const missingSignalsBlock = within(storySection).getByText('Missing Signals').closest('div') as HTMLElement;
+    expect(within(missingSignalsBlock).getByText('No clear headline question')).toBeInTheDocument();
+    expect(within(missingSignalsBlock).getByText('No visible benchmark or target')).toBeInTheDocument();
+    expect(within(missingSignalsBlock).getByText('No focused filter path reinforcing one main takeaway')).toBeInTheDocument();
+    expect(within(missingSignalsBlock).queryByText('Add a clearer page question or title')).not.toBeInTheDocument();
+    expect(within(missingSignalsBlock).queryByText('Add a visible benchmark or target')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Supported Decision')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Why This Matters')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Decision Risk')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Guided Story Improvements')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText(/Story Confidence:/i)).not.toBeInTheDocument();
+
+    const storyIntentHeading = within(storySection).getByText('What We Believe This Page Is Trying To Say');
+    const storyTypeHeading = within(storySection).getByText('Story Type');
+    const storyMaturityHeading = within(storySection).getByText('Story Maturity');
+    const strongSignalsHeading = within(storySection).getByText('Strong Signals');
+    const missingSignalsHeading = within(storySection).getByText('Missing Signals');
+    const topImprovementsHeading = within(storySection).getByText('Top Story Improvements');
+
+    expect(storyIntentHeading.compareDocumentPosition(storyTypeHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(storyTypeHeading.compareDocumentPosition(storyMaturityHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(storyMaturityHeading.compareDocumentPosition(strongSignalsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(strongSignalsHeading.compareDocumentPosition(missingSignalsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(missingSignalsHeading.compareDocumentPosition(topImprovementsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
     expect(screen.queryByText('Inferred Page Story')).not.toBeInTheDocument();
     expect(screen.queryByText('Page Intent Profile')).not.toBeInTheDocument();
 
@@ -1866,24 +1940,219 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Intent Feedback')).toBeInTheDocument();
   });
 
-  it('derives decision risk from existing reasoning when applicable', async () => {
+  it('keeps story improvements inside Story Assessment and preserves prioritized recommendation wording without internal labels', async () => {
     render(<App />);
 
-    await act(async () => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            type: 'scoreState',
-            state: scoreState,
-          },
-        }),
-      );
+    await dispatchScoreState(scoreState);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    const storyAssessmentSection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    const issuesSection = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
+
+    expect(storyAssessmentSection.compareDocumentPosition(issuesSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Guided Story Improvements' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Story coaching/i)).not.toBeInTheDocument();
+
+    const improvementsSection = within(storyAssessmentSection).getByText('Top Story Improvements').closest('div') as HTMLElement;
+    const improvementTitles = within(improvementsSection).getAllByRole('heading', { level: 4 });
+    expect(improvementTitles.map((heading) => heading.textContent)).toEqual([
+      'Add a clearer page question or title',
+      'Add a visible benchmark or target',
+      'Tighten the filter path',
+    ]);
+    expect(within(improvementsSection).getByText(/The page does not establish the decision or question early enough\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).getByText(/A visible question anchor tells readers what to interpret before they scan the visuals\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).getByText(/Stronger scan path and faster narrative comprehension\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).getByText(/The page needs a stronger narrative frame before the visuals can do their job\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).queryByText(/Add trend or prior-period context/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/relatedImpactArea/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/Related impact area/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/Priority: high/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/Priority: medium/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/storyArchetype/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/coherence/i)).not.toBeInTheDocument();
+  });
+
+  it('renders a story navigation action when a top improvement includes a target and posts navigateToTarget on click', async () => {
+    render(<App />);
+
+    await dispatchScoreState({
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        pageScores: scoreState.result.pageScores?.map((page) => page.pageName !== 'Overview'
+          ? page
+          : {
+              ...page,
+              guidedStoryImprovements: {
+                ...page.guidedStoryImprovements!,
+                highPriorityImprovements: page.guidedStoryImprovements!.highPriorityImprovements.map((item, index) => index !== 0
+                  ? item
+                  : {
+                      ...item,
+                      navigationTarget: {
+                        kind: 'page',
+                        pageName: 'Overview',
+                        label: 'Open Overview page',
+                        reason: 'This recommendation affects page framing.',
+                        supportState: 'direct',
+                      },
+                    }),
+              },
+            }),
+      },
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
-    expect(screen.getByText('Decision Risk')).toBeInTheDocument();
-    expect(screen.getAllByText(/Decision makers may misinterpret KPI values without targets or prior-period comparison\./i).length).toBeGreaterThan(0);
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    const actionButton = within(storySection).getByRole('button', { name: 'Open target' });
+
+    expect(within(storySection).getByText('Open Overview page')).toBeInTheDocument();
+
+    fireEvent.click(actionButton);
+
+    expectLastPostedMessage({
+      type: 'navigateToTarget',
+      target: {
+        kind: 'page',
+        pageName: 'Overview',
+        label: 'Open Overview page',
+        reason: 'This recommendation affects page framing.',
+        supportState: 'direct',
+      },
+    });
+  });
+
+  it('renders a disabled explanatory state when a story navigation target is unavailable', async () => {
+    render(<App />);
+
+    await dispatchScoreState({
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        pageScores: scoreState.result.pageScores?.map((page) => page.pageName !== 'Overview'
+          ? page
+          : {
+              ...page,
+              guidedStoryImprovements: {
+                ...page.guidedStoryImprovements!,
+                highPriorityImprovements: page.guidedStoryImprovements!.highPriorityImprovements.map((item, index) => index !== 0
+                  ? item
+                  : {
+                      ...item,
+                      navigationTarget: {
+                        kind: 'page',
+                        pageName: 'Overview',
+                        label: 'Target unavailable',
+                        reason: 'No stable page target could be inferred from public metadata.',
+                        supportState: 'unavailable',
+                      },
+                    }),
+              },
+            }),
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    const disabledButton = within(storySection).getByRole('button', { name: 'Target unavailable' });
+
+    expect(disabledButton).toBeDisabled();
+    expect(within(storySection).getByText('No stable page target could be inferred from public metadata.')).toBeInTheDocument();
+  });
+
+  it('does not render a What Changed block when no prior story snapshot exists', async () => {
+    render(<App />);
+
+    await dispatchScoreState(scoreState);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    expect(within(storySection).queryByText('What Changed')).not.toBeInTheDocument();
+  });
+
+  it('renders a What Changed block from the prior snapshot and reuses navigation actions for new recommendations', async () => {
+    render(<App />);
+
+    await dispatchScoreState({
+      ...scoreState,
+      storyAssessmentCurrentSnapshot: {
+        reportPath: '/tmp/Sales.Report',
+        scoredAt: '2026-06-12T00:00:00.000Z',
+        pages: [],
+      },
+      storyAssessmentDiffByPage: {
+        Overview: {
+          pageName: 'Overview',
+          maturityChange: 'improved',
+          resolvedRecommendations: [
+            {
+              id: 'story-improvement-title',
+              title: 'Add a clearer page question or title',
+              summary: 'The page does not establish the decision or question early enough.',
+              rationale: 'A visible question anchor tells readers what to interpret before they scan the visuals.',
+              expectedImpact: 'Stronger scan path and faster narrative comprehension.',
+              priority: 'high',
+              relatedImpactArea: 'storytelling',
+            },
+          ],
+          newRecommendations: [
+            {
+              id: 'story-improvement-benchmark',
+              title: 'Add a visible benchmark or target',
+              summary: 'Key values still appear without an explicit performance frame.',
+              rationale: 'Readers need a visible point of comparison before deciding whether results are acceptable.',
+              expectedImpact: 'Faster decision framing and less KPI ambiguity.',
+              priority: 'high',
+              relatedImpactArea: 'benchmark',
+              navigationTarget: {
+                kind: 'visual',
+                pageName: 'Overview',
+                visualId: 'hero-kpi',
+                label: 'Open lead KPI visual',
+                reason: 'This recommendation is tied to the lead KPI.',
+                supportState: 'direct',
+              },
+            },
+          ],
+          unchangedRecommendations: [],
+          addedStrongSignals: ['Clear exception callout.'],
+          removedStrongSignals: [],
+          addedMissingSignals: [],
+          removedMissingSignals: ['No visible benchmark or target'],
+          summary: 'Story maturity improved. 1 recommendation resolved. 1 new recommendation added.',
+        },
+      },
+      storyAssessmentLastComparedAt: '2026-06-12T00:00:00.000Z',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    expect(within(storySection).getByText('What Changed')).toBeInTheDocument();
+    expect(within(storySection).getByText('Story maturity improved. 1 recommendation resolved. 1 new recommendation added.')).toBeInTheDocument();
+    expect(within(storySection).getByText('Resolved: Add a clearer page question or title')).toBeInTheDocument();
+    expect(within(storySection).getByText('New: Add a visible benchmark or target')).toBeInTheDocument();
+    expect(within(storySection).getByText('Added strong signal: Clear exception callout.')).toBeInTheDocument();
+    expect(within(storySection).getByText('Removed missing signal: No visible benchmark or target')).toBeInTheDocument();
+
+    fireEvent.click(within(storySection).getByRole('button', { name: 'Open target' }));
+
+    expectLastPostedMessage({
+      type: 'navigateToTarget',
+      target: {
+        kind: 'visual',
+        pageName: 'Overview',
+        visualId: 'hero-kpi',
+        label: 'Open lead KPI visual',
+        reason: 'This recommendation is tied to the lead KPI.',
+        supportState: 'direct',
+      },
+    });
   });
 
   it('renders Fix Plan as a differentiated remediation queue with action-specific rationale', async () => {

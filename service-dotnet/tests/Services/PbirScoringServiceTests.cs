@@ -22,7 +22,8 @@ public sealed class PbirScoringServiceTests : IDisposable
         List<string> MissedSignals,
         List<string> ExplanationHooks,
         string ValidationStatus,
-        string PromotionEligibilityState);
+        string PromotionEligibilityState,
+        string PromotionState);
 
     private sealed record StoryAssessmentLevel1ValidationHarnessSnapshot(
         string? ReviewerChoice,
@@ -44,7 +45,10 @@ public sealed class PbirScoringServiceTests : IDisposable
         string BestFitArchetypeId,
         List<StoryArchetypeMatchSnapshot> ArchetypeResults,
         StoryAssessmentLevel1ValidationHarnessSnapshot Level1ValidationHarness,
-        StoryAssessmentPromotionGateDefinitionSnapshot PromotionGateDefinition);
+        StoryAssessmentPromotionGateDefinitionSnapshot PromotionGateDefinition,
+        bool SuppressedBySpecialPageType,
+        string ArchetypePromotionDisposition,
+        string? SpecialPageReason);
 
     private sealed record StorySemanticTermEvidenceSnapshot(
         string CanonicalTerm,
@@ -81,7 +85,119 @@ public sealed class PbirScoringServiceTests : IDisposable
         List<string> ExplanationHooks,
         string Confidence,
         string ValidationStatus,
-        StorySemanticCoherenceLevel1ValidationHarnessSnapshot Level1ValidationHarness);
+        string PromotionState,
+        StorySemanticCoherenceLevel1ValidationHarnessSnapshot Level1ValidationHarness,
+        string ScoringMode,
+        List<string> TuningDetails);
+
+    private sealed record StoryFilterTopologyFilterSnapshot(
+        string SourceId,
+        string Scope,
+        string DisplayLabel,
+        List<string> FieldHints,
+        string? HierarchyPattern,
+        int HierarchyDepth,
+        string? PlacementZone);
+
+    private sealed record StoryFilterTopologySignalSnapshot(
+        string Id,
+        string Classification,
+        string SurfaceScope,
+        string Scope,
+        bool Fired,
+        bool SupportsArchetypeReinforcement,
+        string PromotionState,
+        string AccuracyContribution,
+        string ExplainabilityContribution,
+        string ActionabilityContribution);
+
+    private sealed record StoryFilterTopologyAssessmentSnapshot(
+        int SlicerCount,
+        int PageFilterCount,
+        int ReportFilterCount,
+        List<StoryFilterTopologyFilterSnapshot> ExtractedFilters,
+        List<string> HierarchyPatterns,
+        List<string> TopologyCharacteristics,
+        List<StoryFilterTopologySignalSnapshot> Signals,
+        List<string> ReinforcedArchetypes,
+        List<string> DiagnosticNotes,
+        string PromotionState,
+        string SurfaceScope,
+        string AccuracyContribution,
+        string ExplainabilityContribution,
+        string ActionabilityContribution);
+
+    private sealed record StoryGapEvidenceReferenceSnapshot(
+        string SourceType,
+        string ReferenceId,
+        string Summary);
+
+    private sealed record StorySpecialPageEvidenceReferenceSnapshot(
+        string SourceType,
+        string ReferenceId,
+        string Summary);
+
+    private sealed record StorySpecialPageAssessmentSnapshot(
+        string PageType,
+        string Confidence,
+        List<StorySpecialPageEvidenceReferenceSnapshot> EvidenceReferences,
+        string Reason,
+        string PromotionState,
+        string SurfaceScope,
+        bool TreatAsPrimaryNarrativePage,
+        bool SuppressNormalStoryGaps,
+        bool SuppressGenericArchetypePromotion);
+
+    private sealed record StoryGapRecordSnapshot(
+        string GapId,
+        string Description,
+        List<StoryGapEvidenceReferenceSnapshot> EvidenceReferences,
+        string RemediationLayer,
+        string ActionabilityAssessment,
+        string ArchetypeRelevance,
+        string PromotionState,
+        string Confidence,
+        bool IsFutureContractCandidate);
+
+    private sealed record StoryGapAssessmentSnapshot(
+        string SurfaceScope,
+        string PromotionState,
+        List<StoryGapRecordSnapshot> Gaps);
+
+    private sealed record GuidedStoryImprovementSnapshot(
+        string Id,
+        string Title,
+        string Summary,
+        string Rationale,
+        string ExpectedImpact,
+        string Priority,
+        string RelatedImpactArea);
+
+    private sealed record GuidedStoryImprovementsSnapshot(
+        List<GuidedStoryImprovementSnapshot> HighPriorityImprovements,
+        List<GuidedStoryImprovementSnapshot> MediumPriorityImprovements,
+        string StoryImprovementRationale);
+
+    private sealed record StoryConfidenceDimensionRecordSnapshot(
+        string DimensionId,
+        string DimensionLabel,
+        string Rating,
+        List<string> ConfidenceDrivers,
+        List<string> ConfidenceReducers,
+        List<string> MissingSignals,
+        List<StoryGapEvidenceReferenceSnapshot> EvidenceReferences,
+        string Explanation,
+        string Actionability,
+        string PromotionState,
+        string SurfaceScope);
+
+    private sealed record StoryConfidenceBreakdownAssessmentSnapshot(
+        string SurfaceScope,
+        string PromotionState,
+        List<StoryConfidenceDimensionRecordSnapshot> Dimensions,
+        List<string> StrongestDimensions,
+        List<string> WeakestDimensions,
+        List<string> LowConfidenceCauses);
 
     private readonly List<string> _tempDirs = [];
 
@@ -2328,6 +2444,366 @@ public sealed class PbirScoringServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ScoreAsync_InternalArchetypeClassification_UsesCanonicalPromotionState()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Performance Monitor","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Performance Monitor"}},
+              {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.All(classification.ArchetypeResults, match => Assert.NotEqual(string.Empty, match.PromotionState));
+        Assert.Contains(classification.ArchetypeResults, match => match.PromotionState == "Internal" || match.PromotionState == "Level1Validated");
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_DetectsTooltipAndSuppressesPrimaryNarrativePosture()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Net Sales Tooltip","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Tooltip details for Net Sales"}},
+              {"id":"v1","type":"card","x":0,"y":80,"width":220,"height":120,
+               "title":{"visible":true,"text":"Tooltip Revenue"}},
+              {"id":"v2","type":"barChart","x":260,"y":80,"width":360,"height":220,
+               "title":{"visible":true,"text":"Tooltip breakdown"},
+               "fieldRoles":{"category":["Region"],"measure":["Revenue Tooltip"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.Equal("Tooltip", specialPage.PageType);
+        Assert.False(specialPage.TreatAsPrimaryNarrativePage);
+        Assert.True(specialPage.SuppressGenericArchetypePromotion);
+        Assert.True(classification.SuppressedBySpecialPageType);
+        Assert.NotEmpty(specialPage.EvidenceReferences);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_DetectsQnaAndPreventsGenericComparisonClaim()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Q&A Revenue Questions","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Q&A ask a question about revenue"}},
+              {"id":"v1","type":"qnaVisual","x":0,"y":80,"width":520,"height":260,
+               "title":{"visible":true,"text":"Q&A Revenue Answers"},
+               "fieldRoles":{"category":["Question"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.Equal("Qna", specialPage.PageType);
+        Assert.True(specialPage.SuppressGenericArchetypePromotion);
+        Assert.NotEqual("Comparison", classification.BestFitArchetypeId);
+        Assert.True(classification.SuppressedBySpecialPageType);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_DetectsWhatIfKeyInfluencersAndMarketBasket()
+    {
+        var whatIfDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"What If Scenario Explorer","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"What If scenario analysis"}},
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":120,
+               "title":{"visible":true,"text":"Scenario Parameter"},
+               "fieldRoles":{"category":["What If Parameter"]}},
+              {"id":"v1","type":"lineChart","x":260,"y":80,"width":420,"height":220,
+               "title":{"visible":true,"text":"Scenario Revenue Outcome"},
+               "fieldRoles":{"category":["Scenario"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var keyInfluencersDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Key Influencers Revenue","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Key Influencers for revenue change"}},
+              {"id":"v1","type":"keyInfluencers","x":0,"y":80,"width":520,"height":260,
+               "title":{"visible":true,"text":"Key Influencers Revenue"},
+               "fieldRoles":{"category":["Influencer"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var marketBasketDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Market Basket Analysis","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Market Basket analysis for product pairs"}},
+              {"id":"v1","type":"tableEx","x":0,"y":80,"width":520,"height":260,
+               "title":{"visible":true,"text":"Basket Association Rules"},
+               "fieldRoles":{"category":["Product Pair"],"measure":["Support Lift"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var whatIf = GetInternalStorySpecialPageAssessment(await svc.ScoreAsync(whatIfDir));
+        var keyInfluencers = GetInternalStorySpecialPageAssessment(await svc.ScoreAsync(keyInfluencersDir));
+        var marketBasket = GetInternalStorySpecialPageAssessment(await svc.ScoreAsync(marketBasketDir));
+
+        Assert.Equal("WhatIf", whatIf.PageType);
+        Assert.Equal("KeyInfluencers", keyInfluencers.PageType);
+        Assert.Equal("MarketBasket", marketBasket.PageType);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_DetectsCustomerSegmentationDiagnosticAndDowngradesPerformanceMonitor()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Customer Analysis","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Customer segmentation analysis"}},
+              {"id":"v1","type":"barChart","x":0,"y":80,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Customer Segment"},
+               "fieldRoles":{"category":["Customer Segment"],"measure":["Revenue"]}},
+              {"id":"v2","type":"tableEx","x":440,"y":80,"width":420,"height":220,
+               "title":{"visible":true,"text":"Buyer Cohort Account Detail"},
+               "fieldRoles":{"category":["Buyer Cohort","Account Name"],"measure":["Margin"]}}
+            ],
+            "filterConfig":{"filters":[
+              {"name":"Filter1",
+               "field":{"Column":{"Expression":{"SourceRef":{"Entity":"Customers"}},"Property":"CustomerName"}},
+               "type":"Categorical"}
+            ]}}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.Equal("CustomerSegmentationDiagnostic", specialPage.PageType);
+        Assert.True(specialPage.SuppressGenericArchetypePromotion);
+        Assert.NotEqual("PerformanceMonitor", classification.BestFitArchetypeId);
+        Assert.True(classification.SuppressedBySpecialPageType);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_TruePerformanceMonitorPagesStillClassifyNormally()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Performance Monitor","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Performance Monitor"}},
+              {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"k2","type":"card","x":200,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Margin"}},
+              {"id":"v1","type":"barChart","x":0,"y":220,"width":480,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+        var classification = GetInternalArchetypeClassification(result);
+
+        Assert.Equal("Unknown", specialPage.PageType);
+        Assert.False(specialPage.SuppressGenericArchetypePromotion);
+        Assert.Equal("PerformanceMonitor", classification.BestFitArchetypeId);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_DetectsCompactKeyInfluencerVariantWhenSupportingEvidenceExists()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"RetKeyInf","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Drivers of returns"}},
+              {"id":"v1","type":"tableEx","x":0,"y":80,"width":520,"height":260,
+               "title":{"visible":true,"text":"Return driver detail"},
+               "fieldRoles":{"category":["Driver"],"measure":["Return Rate"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+
+        Assert.Equal("KeyInfluencers", specialPage.PageType);
+        Assert.True(specialPage.SuppressGenericArchetypePromotion);
+        Assert.NotEmpty(specialPage.EvidenceReferences);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_WeakCompactKeyInfluencerAbbreviationAloneDoesNotTrigger()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Driver","visuals":[
+              {"id":"v1","type":"card","x":0,"y":80,"width":220,"height":120,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"v2","type":"barChart","x":260,"y":80,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+
+        Assert.Equal("Unknown", specialPage.PageType);
+        Assert.False(specialPage.SuppressGenericArchetypePromotion);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_DetectsReferenceAndValidationPagesAndFiltersNormalGaps()
+    {
+        var legalDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Legal Reference","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":620,"height":80,
+               "textbox":{"visible":true,"text":"Legal disclaimer and reference information"}},
+              {"id":"t2","type":"textbox","x":0,"y":100,"width":620,"height":120,
+               "textbox":{"visible":true,"text":"Terms of use and support contacts"}}
+            ]}
+            """);
+        var validationDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Validation Sandbox","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":620,"height":80,
+               "textbox":{"visible":true,"text":"Validation sandbox test page"}},
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Sandbox Test Output"},
+               "fieldRoles":{"category":["Test Group"],"measure":["Validation Value"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var legalResult = await svc.ScoreAsync(legalDir);
+        var validationResult = await svc.ScoreAsync(validationDir);
+        var legalSpecial = GetInternalStorySpecialPageAssessment(legalResult);
+        var validationSpecial = GetInternalStorySpecialPageAssessment(validationResult);
+        var legalGaps = GetInternalStoryGapAssessment(legalResult);
+        var validationGaps = GetInternalStoryGapAssessment(validationResult);
+
+        Assert.Equal("ReferenceLegal", legalSpecial.PageType);
+        Assert.False(legalSpecial.TreatAsPrimaryNarrativePage);
+        Assert.True(legalSpecial.SuppressNormalStoryGaps);
+        Assert.Empty(legalGaps.Gaps);
+
+        Assert.Equal("ValidationSandbox", validationSpecial.PageType);
+        Assert.False(validationSpecial.TreatAsPrimaryNarrativePage);
+        Assert.True(validationSpecial.SuppressNormalStoryGaps);
+        Assert.Empty(validationGaps.Gaps);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_WeakCuesReturnUnknownAndNormalPagesRemainUnsuppressed()
+    {
+        var weakCueDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"measure":["Question Count"]}}
+            ]}
+            """);
+        var normalDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Performance Overview","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":520,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Performance Overview"}},
+              {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"v1","type":"lineChart","x":0,"y":220,"width":520,"height":220,
+               "title":{"visible":true,"text":"Revenue Last Year Trend"},
+               "fieldRoles":{"category":["Revenue Month"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var weakCue = GetInternalStorySpecialPageAssessment(await svc.ScoreAsync(weakCueDir));
+        var normal = GetInternalStorySpecialPageAssessment(await svc.ScoreAsync(normalDir));
+
+        Assert.Equal("Unknown", weakCue.PageType);
+        Assert.False(weakCue.SuppressNormalStoryGaps);
+        Assert.False(weakCue.SuppressGenericArchetypePromotion);
+
+        Assert.Equal("Unknown", normal.PageType);
+        Assert.True(normal.TreatAsPrimaryNarrativePage);
+        Assert.False(normal.SuppressGenericArchetypePromotion);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_TooltipGapFilteringKeepsOnlyTooltipClarityCandidates()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Returns Tooltip","visuals":[
+              {"id":"v1","type":"tableEx","x":0,"y":80,"width":360,"height":220,
+               "fieldRoles":{"category":["Region"],"measure":["Returns Tooltip"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var specialPage = GetInternalStorySpecialPageAssessment(result);
+        var gaps = GetInternalStoryGapAssessment(result);
+
+        Assert.Equal("Tooltip", specialPage.PageType);
+        Assert.All(gaps.Gaps, gap => Assert.Contains("layout", gap.GapId, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalSpecialPageAssessment_RemainsInternalOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Q&A Revenue Questions","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":420,"height":40,
+               "textbox":{"visible":true,"text":"Q&A ask a question about revenue"}},
+              {"id":"v1","type":"qnaVisual","x":0,"y":80,"width":520,"height":260,
+               "title":{"visible":true,"text":"Q&A Revenue Answers"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var publicResultPropertyNames = typeof(ScoreResult)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var publicPagePropertyNames = typeof(PageScore)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("InternalStorySpecialPageAssessment", publicResultPropertyNames);
+        Assert.DoesNotContain("StorySpecialPageAssessment", publicResultPropertyNames);
+        Assert.DoesNotContain("InternalStorySpecialPageAssessment", publicPagePropertyNames);
+        Assert.DoesNotContain("StorySpecialPageAssessment", publicPagePropertyNames);
+        Assert.Equal("Qna", GetInternalStorySpecialPageAssessment(result).PageType);
+    }
+
+    [Fact]
     public async Task ScoreAsync_InternalSemanticCoherence_HighCoherencePagesScoreHigh()
     {
         var tempDir = CreateTempPbirFolderFromPageJson(
@@ -2543,6 +3019,733 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.NotEqual("PromotionDelayedRequiresStrongerValidation", coherence.ValidationStatus);
     }
 
+    [Fact]
+    public async Task ScoreAsync_InternalSemanticCoherence_UsesCanonicalPromotionState()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue and Inventory Review","visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":620,"height":40,
+               "textbox":{"visible":true,"text":"Revenue and Inventory Review"}},
+              {"id":"v1","type":"lineChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue value"}]
+               }},
+              {"id":"v2","type":"barChart","x":460,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Inventory Backlog"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Inventory Warehouse","description":"Inventory warehouse"}],
+                 "measure":[{"displayName":"Inventory","description":"Inventory backlog"}]
+               }}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var coherence = GetInternalSemanticCoherenceAssessment(result);
+
+        Assert.Equal("Internal", coherence.PromotionState);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalFilterTopology_ExtractsSlicersPageFiltersAndReportFilters()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"name":"Page1","displayName":"Revenue Trend","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"s2","type":"slicer","x":0,"y":190,"width":220,"height":110,
+               "title":{"visible":true,"text":"Region"},
+               "fieldRoles":{"category":[{"displayName":"Region"}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":[{"displayName":"Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var topology = GetInternalFilterTopologyAssessment(result);
+
+        Assert.Equal(2, topology.SlicerCount);
+        Assert.Equal(1, topology.PageFilterCount);
+        Assert.Equal(1, topology.ReportFilterCount);
+        Assert.Contains(topology.HierarchyPatterns, pattern => pattern.Contains("year", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(topology.TopologyCharacteristics, characteristic => characteristic.Contains("left", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(topology.ExtractedFilters, filter => filter.Scope == "Report" && filter.DisplayLabel.Contains("Scenario", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(topology.ExtractedFilters, filter => filter.Scope == "Page" && filter.DisplayLabel.Contains("Business Unit", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalFilterTopology_ReinforcesArchetypesWithoutBecomingPrimaryNarrativeTruth()
+    {
+        const string pageJson =
+            """
+            {"name":"Page1","displayName":"Revenue Trend","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":[{"displayName":"Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """;
+        const string baselinePageJson =
+            """
+            {"name":"Page1","displayName":"Revenue Trend","visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":[{"displayName":"Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """;
+
+        var reinforcedDir = CreateTempPbirFolderFromPageAndReportJson(
+            pageJson,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var baselineDir = CreateTempPbirFolderFromPageAndReportJson(
+            baselinePageJson,
+            """{"id":"test","name":"TestReport","theme":{"name":"CY24SU10"}}""");
+        var svc = BuildScoringService();
+
+        var reinforcedResult = await svc.ScoreAsync(reinforcedDir);
+        var baselineResult = await svc.ScoreAsync(baselineDir);
+        var reinforcedClassification = GetInternalArchetypeClassification(reinforcedResult);
+        var baselineClassification = GetInternalArchetypeClassification(baselineResult);
+        var topology = GetInternalFilterTopologyAssessment(reinforcedResult);
+
+        var reinforcedTrend = Assert.Single(reinforcedClassification.ArchetypeResults.Where(match => match.ArchetypeId == "TrendException"));
+        var baselineTrend = Assert.Single(baselineClassification.ArchetypeResults.Where(match => match.ArchetypeId == "TrendException"));
+
+        Assert.True(reinforcedTrend.MatchScore > baselineTrend.MatchScore);
+        Assert.Contains("TrendException", topology.ReinforcedArchetypes);
+        Assert.Equal(baselineClassification.BestFitArchetypeId, reinforcedClassification.BestFitArchetypeId);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalFilterTopology_MalformedMetadataDegradesGracefully()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"name":"Page1","displayName":"Malformed Filters","pageFilters":[
+              "bad-filter",
+              {"field":"unexpected-shape"},
+              {"field":{"displayName":"Region"}}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":40,"width":220,"height":120,
+               "title":{"visible":true,"text":"Broken Date"},
+               "fieldRoles":{"category":"not-an-array"}},
+              {"id":"v1","type":"barChart","x":260,"y":120,"width":420,"height":240,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":[{"displayName":"Region"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              5,
+              {"field":{"displayName":"Scenario"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var topology = GetInternalFilterTopologyAssessment(result);
+
+        Assert.NotNull(topology);
+        Assert.True(topology.PageFilterCount >= 1);
+        Assert.True(topology.ReportFilterCount >= 1);
+        Assert.NotEmpty(topology.DiagnosticNotes);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalFilterTopology_LowValueSignalsRemainDiagnosticOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"name":"Page1","displayName":"Generic Filters","visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":180,"height":100,
+               "title":{"visible":true,"text":"Selection"}},
+              {"id":"s2","type":"slicer","x":980,"y":60,"width":180,"height":100,
+               "title":{"visible":true,"text":"Choice"}},
+              {"id":"v1","type":"table","x":240,"y":160,"width":720,"height":340,
+               "title":{"visible":true,"text":"General Listing"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var topology = GetInternalFilterTopologyAssessment(result);
+
+        Assert.Contains(topology.Signals, signal => signal.Classification == "DiagnosticOnly" && !signal.SupportsArchetypeReinforcement);
+        Assert.Empty(topology.ReinforcedArchetypes);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalFilterTopology_UsesCanonicalPromotionAndSurfaceScope()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"name":"Page1","displayName":"Revenue Trend","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":[{"displayName":"Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var topology = GetInternalFilterTopologyAssessment(result);
+
+        Assert.Equal("Internal", topology.PromotionState);
+        Assert.Equal("CrossSurfaceCandidate", topology.SurfaceScope);
+        Assert.Contains(topology.Signals, signal => signal.SurfaceScope == "CrossSurfaceCandidate");
+        Assert.Contains(topology.Signals, signal => signal.SurfaceScope == "PbirSpecific");
+        Assert.All(topology.Signals, signal => Assert.NotEqual(string.Empty, signal.PromotionState));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalFilterTopology_RemainsInternalOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"name":"Page1","displayName":"Revenue Trend","visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{"category":[{"displayName":"Month"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var publicPropertyNames = typeof(ScoreResult)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("InternalStoryFilterTopologyAssessment", publicPropertyNames);
+        Assert.DoesNotContain("StoryFilterTopologyAssessment", publicPropertyNames);
+        Assert.NotNull(GetInternalFilterTopologyAssessment(result));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStoryGaps_GeneratesGapFromMissingSignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Snapshot","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var gaps = GetInternalStoryGapAssessment(result);
+
+        Assert.Contains(gaps.Gaps, gap => gap.GapId == "gap.missing.context.targetBenchmarkPresent");
+        Assert.True(gaps.Gaps.Count(gap => gap.GapId.StartsWith("gap.missing.", StringComparison.Ordinal)) >= 2);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStoryGaps_TiesGapsToEvidenceAndClassifiesRemediationLayers()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"displayName":"Revenue and Inventory Review","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue value"}]
+               }},
+              {"id":"v2","type":"barChart","x":720,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Inventory Backlog"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Inventory Warehouse","description":"Inventory warehouse"}],
+                 "measure":[{"displayName":"Inventory","description":"Inventory backlog"}]
+               }}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var gaps = GetInternalStoryGapAssessment(result);
+
+        Assert.Contains(gaps.Gaps, gap => gap.RemediationLayer == "Model");
+        var semanticModelGap = gaps.Gaps.First(gap => gap.RemediationLayer == "Model");
+        Assert.NotEmpty(semanticModelGap.EvidenceReferences);
+        Assert.Contains(semanticModelGap.EvidenceReferences, evidence => evidence.SourceType == "semanticCoherence");
+
+        Assert.Contains(gaps.Gaps, gap => gap.RemediationLayer == "Restructure");
+        var restructureGap = gaps.Gaps.First(gap => gap.RemediationLayer == "Restructure");
+        Assert.Contains(restructureGap.EvidenceReferences, evidence => evidence.SourceType == "filterTopology" || evidence.SourceType == "semanticCoherence");
+
+        Assert.Contains(gaps.Gaps, gap => gap.RemediationLayer == "Report");
+        var reportGap = gaps.Gaps.First(gap => gap.RemediationLayer == "Report");
+        Assert.Contains(reportGap.EvidenceReferences, evidence => evidence.SourceType == "signalRegistry");
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStoryGaps_LowConfidenceGapsAreDowngraded()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220},
+              {"id":"v2","type":"card","x":460,"y":120,"width":220,"height":120}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var gaps = GetInternalStoryGapAssessment(result);
+
+        Assert.NotEmpty(gaps.Gaps);
+        Assert.All(
+            gaps.Gaps.Where(gap => gap.Confidence == "Low"),
+            gap => Assert.NotEqual("Actionable", gap.ActionabilityAssessment));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStoryGaps_MalformedInputDegradesGracefully()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"name":"Page1","displayName":"Malformed Filters","pageFilters":[
+              "bad-filter",
+              {"field":"unexpected-shape"},
+              {"field":{"displayName":"Region"}}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":40,"width":220,"height":120,
+               "title":{"visible":true,"text":"Broken Date"},
+               "fieldRoles":{"category":"not-an-array"}},
+              {"id":"v1","type":"barChart","x":260,"y":120,"width":420,"height":240,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":[{"displayName":"Region"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              5,
+              {"field":{"displayName":"Scenario"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var gaps = GetInternalStoryGapAssessment(result);
+
+        Assert.NotNull(gaps);
+        Assert.All(gaps.Gaps, gap => Assert.NotNull(gap.EvidenceReferences));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalStoryGaps_RemainInternalOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Segment"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var publicResultPropertyNames = typeof(ScoreResult)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var publicPagePropertyNames = typeof(PageScore)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("InternalStoryGapAssessment", publicResultPropertyNames);
+        Assert.DoesNotContain("StoryGapAssessment", publicResultPropertyNames);
+        Assert.DoesNotContain("InternalStoryGapAssessment", publicPagePropertyNames);
+        Assert.DoesNotContain("StoryGapAssessment", publicPagePropertyNames);
+        Assert.NotNull(GetInternalStoryGapAssessment(result));
+        Assert.NotNull(GetInternalStoryGapAssessment(Assert.Single(result.PageScores!)));
+    }
+
+    [Fact]
+    public void GuidedStoryImprovements_MapOnlyValidatedPublicGapCategories()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            "gap.missing.layout.meaningfulVisibleTitle",
+            "gap.missing.context.targetBenchmarkPresent",
+            "gap.missing.context.priorPeriodContext",
+            "gap.missing.semantic.primaryMetric",
+            "gap.missing.semantic.primaryDimension",
+            "gap.topology.scatteredFilters",
+            "gap.semantic.competingStoryMetadata");
+
+        var ids = improvements.HighPriorityImprovements
+            .Concat(improvements.MediumPriorityImprovements)
+            .Select(item => item.Id)
+            .ToList();
+
+        Assert.Contains("missing-title-question-anchor", ids);
+        Assert.Contains("missing-benchmark-target", ids);
+        Assert.Contains("missing-prior-period-context", ids);
+        Assert.Contains("missing-primary-metric", ids);
+        Assert.Contains("missing-primary-dimension", ids);
+        Assert.Contains("scattered-filters", ids);
+        Assert.DoesNotContain(ids, id => id.Contains("semantic", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ids, id => id.Contains("competing", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GuidedStoryImprovements_SuppressDiagnosticOnlyPages()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            new[] { "gap.missing.context.targetBenchmarkPresent", "gap.missing.semantic.primaryMetric" },
+            CreateSpecialPageAssessment("Qna", suppressNormalStoryGaps: false, treatAsPrimaryNarrativePage: false));
+
+        Assert.Empty(improvements.HighPriorityImprovements);
+        Assert.Empty(improvements.MediumPriorityImprovements);
+    }
+
+    [Fact]
+    public void GuidedStoryImprovements_UsePriorityMappingAndBoundedEscalation()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            "gap.missing.layout.meaningfulVisibleTitle",
+            "gap.missing.context.targetBenchmarkPresent",
+            "gap.missing.semantic.primaryMetric",
+            "gap.missing.semantic.primaryDimension",
+            "gap.missing.context.priorPeriodContext",
+            "gap.topology.scatteredFilters");
+
+        Assert.Contains(improvements.HighPriorityImprovements, item => item.Id == "missing-title-question-anchor");
+        Assert.Contains(improvements.HighPriorityImprovements, item => item.Id == "missing-benchmark-target");
+        Assert.Contains(improvements.HighPriorityImprovements, item => item.Id == "missing-primary-metric");
+        Assert.Contains(improvements.HighPriorityImprovements, item => item.Id == "missing-primary-dimension");
+        Assert.Contains(improvements.MediumPriorityImprovements, item => item.Id == "missing-prior-period-context");
+        Assert.Contains(improvements.MediumPriorityImprovements, item => item.Id == "scattered-filters");
+    }
+
+    [Fact]
+    public void GuidedStoryImprovements_WordingAvoidInternalSignalTerminology()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            "gap.missing.layout.meaningfulVisibleTitle",
+            "gap.missing.context.targetBenchmarkPresent",
+            "gap.topology.scatteredFilters");
+
+        var combinedText = string.Join(
+            " ",
+            improvements.HighPriorityImprovements
+                .Concat(improvements.MediumPriorityImprovements)
+                .SelectMany(item => new[]
+                {
+                    item.Title,
+                    item.Summary,
+                    item.Rationale,
+                    item.ExpectedImpact,
+                })
+                .Append(improvements.StoryImprovementRationale));
+
+        Assert.DoesNotContain("signal", combinedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("archetype", combinedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("coherence", combinedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("promotion", combinedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("surface scope", combinedText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_GeneratesFromInternalSignals()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"displayName":"Revenue Performance Overview","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Performance Overview"}},
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend vs Target"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month trend"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue performance"}]
+               }},
+              {"id":"v2","type":"barChart","x":820,"y":120,"width":320,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Region","description":"Revenue region view"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue performance"}]
+               }}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var breakdown = GetInternalStoryConfidenceBreakdownAssessment(result);
+
+        Assert.Equal(4, breakdown.Dimensions.Count);
+        Assert.Contains(breakdown.Dimensions, dimension => dimension.DimensionId == "Accuracy" && dimension.ConfidenceDrivers.Count > 0);
+        Assert.Contains(breakdown.Dimensions, dimension => dimension.DimensionId == "Explainability" && dimension.EvidenceReferences.Count > 0);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_MissingContextLowersConfidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Snapshot","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":140,"width":520,"height":260,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"],"measure":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var breakdown = GetInternalStoryConfidenceBreakdownAssessment(result);
+        var accuracy = Assert.Single(breakdown.Dimensions.Where(dimension => dimension.DimensionId == "Accuracy"));
+
+        Assert.Contains("MissingContext", breakdown.LowConfidenceCauses);
+        Assert.Contains(accuracy.MissingSignals, signal => signal.Contains("context.targetBenchmarkPresent", StringComparison.Ordinal));
+        Assert.DoesNotContain("Strong", new[] { accuracy.Rating });
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_SparseEvidenceLowersConfidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220},
+              {"id":"v2","type":"card","x":460,"y":120,"width":220,"height":120}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var breakdown = GetInternalStoryConfidenceBreakdownAssessment(result);
+
+        Assert.Contains("SparseEvidence", breakdown.LowConfidenceCauses);
+        Assert.Contains(breakdown.WeakestDimensions, dimension => dimension == "Consistency" || dimension == "Explainability");
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_StrongAlignedSignalsIncreaseConfidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"displayName":"Revenue Performance Overview","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Performance Overview"}},
+              {"id":"k1","type":"card","x":0,"y":60,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue vs Target"}},
+              {"id":"s1","type":"slicer","x":200,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":0,"y":220,"width":520,"height":220,
+               "title":{"visible":true,"text":"Revenue Last Year Trend"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month trend"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue performance"}]
+               }},
+              {"id":"v2","type":"barChart","x":560,"y":220,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Region"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Region","description":"Revenue region view"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue performance"}]
+               }}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var breakdown = GetInternalStoryConfidenceBreakdownAssessment(result);
+        var accuracy = Assert.Single(breakdown.Dimensions.Where(dimension => dimension.DimensionId == "Accuracy"));
+
+        Assert.Contains(breakdown.StrongestDimensions, dimension => dimension == "Accuracy" || dimension == "Explainability");
+        Assert.Contains(accuracy.ConfidenceDrivers, driver => driver.Contains("archetype", StringComparison.OrdinalIgnoreCase) || driver.Contains("semantic", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_ConflictingCoherenceLowersConfidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"displayName":"Revenue and Inventory Review","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue value"}]
+               }},
+              {"id":"v2","type":"barChart","x":720,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Inventory Backlog"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Inventory Warehouse","description":"Inventory warehouse"}],
+                 "measure":[{"displayName":"Inventory","description":"Inventory backlog"}]
+               }}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var breakdown = GetInternalStoryConfidenceBreakdownAssessment(result);
+        var consistency = Assert.Single(breakdown.Dimensions.Where(dimension => dimension.DimensionId == "Consistency"));
+
+        Assert.Contains("ConflictingEvidence", breakdown.LowConfidenceCauses);
+        Assert.Contains("LowSemanticCoherence", breakdown.LowConfidenceCauses);
+        Assert.Contains(consistency.ConfidenceReducers, reducer => reducer.Contains("competing", StringComparison.OrdinalIgnoreCase) || reducer.Contains("conflicting", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_LinksBackToEvidence()
+    {
+        var tempDir = CreateTempPbirFolderFromPageAndReportJson(
+            """
+            {"displayName":"Revenue Performance Overview","pageFilters":[
+              {"field":{"displayName":"Business Unit"},"scope":"page","filterType":"categorical"}
+            ],
+            "visuals":[
+              {"id":"t1","type":"textbox","x":0,"y":0,"width":560,"height":40,
+               "textbox":{"visible":true,"text":"Revenue Performance Overview"}},
+              {"id":"s1","type":"slicer","x":0,"y":60,"width":220,"height":110,
+               "title":{"visible":true,"text":"Date"},
+               "fieldRoles":{"category":[{"displayName":"Date Hierarchy","hierarchy":["Year","Quarter","Month"]}]}},
+              {"id":"v1","type":"lineChart","x":260,"y":120,"width":520,"height":220,
+               "title":{"visible":true,"text":"Revenue Trend vs Target"},
+               "fieldRoles":{
+                 "category":[{"displayName":"Revenue Month","description":"Revenue month trend"}],
+                 "measure":[{"displayName":"Revenue","description":"Revenue performance"}]
+               }}
+            ]}
+            """,
+            """
+            {"id":"test","name":"TestReport","theme":{"name":"CY24SU10"},"reportFilters":[
+              {"field":{"displayName":"Scenario"},"scope":"report","filterType":"categorical"}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var breakdown = GetInternalStoryConfidenceBreakdownAssessment(result);
+
+        Assert.All(
+            breakdown.Dimensions,
+            dimension => Assert.NotEmpty(dimension.EvidenceReferences));
+        Assert.Contains(
+            breakdown.Dimensions.SelectMany(dimension => dimension.EvidenceReferences),
+            evidence => evidence.SourceType is "signalRegistry" or "semanticCoherence" or "archetypeClassification" or "filterTopology" or "storyGap");
+    }
+
+    [Fact]
+    public async Task ScoreAsync_InternalConfidenceBreakdown_RemainsInternalOnly()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Revenue Overview","visuals":[
+              {"id":"v1","type":"barChart","x":0,"y":120,"width":420,"height":220,
+               "title":{"visible":true,"text":"Revenue by Segment"},
+               "fieldRoles":{"category":[{"displayName":"Revenue Segment"}],"measure":[{"displayName":"Revenue"}]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+        var publicResultPropertyNames = typeof(ScoreResult)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var publicPagePropertyNames = typeof(PageScore)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("InternalStoryConfidenceBreakdownAssessment", publicResultPropertyNames);
+        Assert.DoesNotContain("StoryConfidenceBreakdownAssessment", publicResultPropertyNames);
+        Assert.DoesNotContain("InternalStoryConfidenceBreakdownAssessment", publicPagePropertyNames);
+        Assert.DoesNotContain("StoryConfidenceBreakdownAssessment", publicPagePropertyNames);
+        Assert.NotNull(GetInternalStoryConfidenceBreakdownAssessment(result));
+        Assert.NotNull(GetInternalStoryConfidenceBreakdownAssessment(Assert.Single(result.PageScores!)));
+    }
+
     // ── IDisposable ───────────────────────────────────────────────────────────
 
     /// <inheritdoc/>
@@ -2645,7 +3848,8 @@ public sealed class PbirScoringServiceTests : IDisposable
                     MissedSignals: ReadStringList(type.GetProperty("MissedSignals", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)),
                     ExplanationHooks: ReadStringList(type.GetProperty("ExplanationHooks", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)),
                     ValidationStatus: type.GetProperty("ValidationStatus", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty,
-                    PromotionEligibilityState: type.GetProperty("PromotionEligibilityState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty);
+                    PromotionEligibilityState: type.GetProperty("PromotionEligibilityState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty,
+                    PromotionState: type.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(match)?.ToString() ?? string.Empty);
             })
             .ToList();
 
@@ -2673,7 +3877,10 @@ public sealed class PbirScoringServiceTests : IDisposable
             BestFitArchetypeId: bestFitArchetypeId,
             ArchetypeResults: archetypeResults,
             Level1ValidationHarness: level1Snapshot,
-            PromotionGateDefinition: promotionSnapshot);
+            PromotionGateDefinition: promotionSnapshot,
+            SuppressedBySpecialPageType: (bool)(classificationType.GetProperty("SuppressedBySpecialPageType", BindingFlags.Instance | BindingFlags.Public)?.GetValue(classification) ?? false),
+            ArchetypePromotionDisposition: classificationType.GetProperty("ArchetypePromotionDisposition", BindingFlags.Instance | BindingFlags.Public)?.GetValue(classification)?.ToString() ?? string.Empty,
+            SpecialPageReason: classificationType.GetProperty("SpecialPageReason", BindingFlags.Instance | BindingFlags.Public)?.GetValue(classification)?.ToString());
     }
 
     private static StorySemanticCoherenceAssessmentSnapshot GetInternalSemanticCoherenceAssessment(ScoreResult result)
@@ -2738,7 +3945,409 @@ public sealed class PbirScoringServiceTests : IDisposable
             ExplanationHooks: ReadStringList(type.GetProperty("ExplanationHooks", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
             Confidence: type.GetProperty("Confidence", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
             ValidationStatus: type.GetProperty("ValidationStatus", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
-            Level1ValidationHarness: harnessSnapshot);
+            PromotionState: type.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            Level1ValidationHarness: harnessSnapshot,
+            ScoringMode: type.GetProperty("ScoringMode", BindingFlags.Instance | BindingFlags.Public)?.GetValue(assessment)?.ToString() ?? string.Empty,
+            TuningDetails: ReadStringList(type.GetProperty("TuningDetails", BindingFlags.Instance | BindingFlags.Public)?.GetValue(assessment)));
+    }
+
+    private static StorySpecialPageAssessmentSnapshot GetInternalStorySpecialPageAssessment(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "InternalStorySpecialPageAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        return ReadStorySpecialPageAssessmentSnapshot(property!.GetValue(result));
+    }
+
+    private static StorySpecialPageAssessmentSnapshot GetInternalStorySpecialPageAssessment(PageScore result)
+    {
+        var property = typeof(PageScore).GetProperty(
+            "InternalStorySpecialPageAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        return ReadStorySpecialPageAssessmentSnapshot(property!.GetValue(result));
+    }
+
+    private static StorySpecialPageAssessmentSnapshot ReadStorySpecialPageAssessmentSnapshot(object? assessment)
+    {
+        Assert.NotNull(assessment);
+
+        var type = assessment!.GetType();
+        var evidenceReferences = ((System.Collections.IEnumerable?)type.GetProperty("EvidenceReferences", BindingFlags.Instance | BindingFlags.Public)?.GetValue(assessment) ?? Array.Empty<object>())
+            .Cast<object>()
+            .Select(reference =>
+            {
+                var referenceType = reference.GetType();
+                return new StorySpecialPageEvidenceReferenceSnapshot(
+                    SourceType: referenceType.GetProperty("SourceType", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty,
+                    ReferenceId: referenceType.GetProperty("ReferenceId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty,
+                    Summary: referenceType.GetProperty("Summary", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty);
+            })
+            .ToList();
+
+        return new StorySpecialPageAssessmentSnapshot(
+            PageType: type.GetProperty("PageType", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            Confidence: type.GetProperty("Confidence", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            EvidenceReferences: evidenceReferences,
+            Reason: type.GetProperty("Reason", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            PromotionState: type.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            SurfaceScope: type.GetProperty("SurfaceScope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            TreatAsPrimaryNarrativePage: (bool)(type.GetProperty("TreatAsPrimaryNarrativePage", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? false),
+            SuppressNormalStoryGaps: (bool)(type.GetProperty("SuppressNormalStoryGaps", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? false),
+            SuppressGenericArchetypePromotion: (bool)(type.GetProperty("SuppressGenericArchetypePromotion", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? false));
+    }
+
+    private static StoryFilterTopologyAssessmentSnapshot GetInternalFilterTopologyAssessment(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "InternalStoryFilterTopologyAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        var assessment = property!.GetValue(result);
+        Assert.NotNull(assessment);
+
+        var type = assessment!.GetType();
+        var extractedFilters = ((System.Collections.IEnumerable)type.GetProperty("ExtractedFilters", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!)
+            .Cast<object>()
+            .Select(filter =>
+            {
+                var filterType = filter.GetType();
+                return new StoryFilterTopologyFilterSnapshot(
+                    SourceId: filterType.GetProperty("SourceId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter)?.ToString() ?? string.Empty,
+                    Scope: filterType.GetProperty("Scope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter)?.ToString() ?? string.Empty,
+                    DisplayLabel: filterType.GetProperty("DisplayLabel", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter)?.ToString() ?? string.Empty,
+                    FieldHints: ReadStringList(filterType.GetProperty("FieldHints", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter)),
+                    HierarchyPattern: filterType.GetProperty("HierarchyPattern", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter)?.ToString(),
+                    HierarchyDepth: (int)(filterType.GetProperty("HierarchyDepth", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter) ?? 0),
+                    PlacementZone: filterType.GetProperty("PlacementZone", BindingFlags.Instance | BindingFlags.Public)!.GetValue(filter)?.ToString());
+            })
+            .ToList();
+
+        var signals = ((System.Collections.IEnumerable)type.GetProperty("Signals", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!)
+            .Cast<object>()
+            .Select(signal =>
+            {
+                var signalType = signal.GetType();
+                return new StoryFilterTopologySignalSnapshot(
+                    Id: signalType.GetProperty("Id", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    Classification: signalType.GetProperty("Classification", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    SurfaceScope: signalType.GetProperty("SurfaceScope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    Scope: signalType.GetProperty("Scope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    Fired: (bool)(signalType.GetProperty("Fired", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal) ?? false),
+                    SupportsArchetypeReinforcement: (bool)(signalType.GetProperty("SupportsArchetypeReinforcement", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal) ?? false),
+                    PromotionState: signalType.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    AccuracyContribution: signalType.GetProperty("AccuracyContribution", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    ExplainabilityContribution: signalType.GetProperty("ExplainabilityContribution", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty,
+                    ActionabilityContribution: signalType.GetProperty("ActionabilityContribution", BindingFlags.Instance | BindingFlags.Public)!.GetValue(signal)?.ToString() ?? string.Empty);
+            })
+            .ToList();
+
+        return new StoryFilterTopologyAssessmentSnapshot(
+            SlicerCount: (int)(type.GetProperty("SlicerCount", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? 0),
+            PageFilterCount: (int)(type.GetProperty("PageFilterCount", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? 0),
+            ReportFilterCount: (int)(type.GetProperty("ReportFilterCount", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment) ?? 0),
+            ExtractedFilters: extractedFilters,
+            HierarchyPatterns: ReadStringList(type.GetProperty("HierarchyPatterns", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            TopologyCharacteristics: ReadStringList(type.GetProperty("TopologyCharacteristics", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            Signals: signals,
+            ReinforcedArchetypes: ReadStringList(type.GetProperty("ReinforcedArchetypes", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            DiagnosticNotes: ReadStringList(type.GetProperty("DiagnosticNotes", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            PromotionState: type.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            SurfaceScope: type.GetProperty("SurfaceScope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            AccuracyContribution: type.GetProperty("AccuracyContribution", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            ExplainabilityContribution: type.GetProperty("ExplainabilityContribution", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            ActionabilityContribution: type.GetProperty("ActionabilityContribution", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty);
+    }
+
+    private static StoryGapAssessmentSnapshot GetInternalStoryGapAssessment(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "InternalStoryGapAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        return ReadStoryGapAssessmentSnapshot(property!.GetValue(result));
+    }
+
+    private static StoryGapAssessmentSnapshot GetInternalStoryGapAssessment(PageScore result)
+    {
+        var property = typeof(PageScore).GetProperty(
+            "InternalStoryGapAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        return ReadStoryGapAssessmentSnapshot(property!.GetValue(result));
+    }
+
+    private static StoryGapAssessmentSnapshot ReadStoryGapAssessmentSnapshot(object? assessment)
+    {
+        Assert.NotNull(assessment);
+
+        var type = assessment!.GetType();
+        var gaps = ((System.Collections.IEnumerable)type.GetProperty("Gaps", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!)
+            .Cast<object>()
+            .Select(gap =>
+            {
+                var gapType = gap.GetType();
+                var evidenceReferences = ((System.Collections.IEnumerable)gapType.GetProperty("EvidenceReferences", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)!)
+                    .Cast<object>()
+                    .Select(reference =>
+                    {
+                        var referenceType = reference.GetType();
+                        return new StoryGapEvidenceReferenceSnapshot(
+                            SourceType: referenceType.GetProperty("SourceType", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty,
+                            ReferenceId: referenceType.GetProperty("ReferenceId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty,
+                            Summary: referenceType.GetProperty("Summary", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty);
+                    })
+                    .ToList();
+
+                return new StoryGapRecordSnapshot(
+                    GapId: gapType.GetProperty("GapId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    Description: gapType.GetProperty("Description", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    EvidenceReferences: evidenceReferences,
+                    RemediationLayer: gapType.GetProperty("RemediationLayer", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    ActionabilityAssessment: gapType.GetProperty("ActionabilityAssessment", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    ArchetypeRelevance: gapType.GetProperty("ArchetypeRelevance", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    PromotionState: gapType.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    Confidence: gapType.GetProperty("Confidence", BindingFlags.Instance | BindingFlags.Public)!.GetValue(gap)?.ToString() ?? string.Empty,
+                    IsFutureContractCandidate: (bool)(gapType.GetProperty("IsFutureContractCandidate", BindingFlags.Instance | BindingFlags.Public)?.GetValue(gap) ?? false));
+            })
+            .ToList();
+
+        return new StoryGapAssessmentSnapshot(
+            SurfaceScope: type.GetProperty("SurfaceScope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            PromotionState: type.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            Gaps: gaps);
+    }
+
+    private static GuidedStoryImprovementsSnapshot GetGuidedStoryImprovements(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "GuidedStoryImprovements",
+            BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+
+        return ReadGuidedStoryImprovementsSnapshot(property!.GetValue(result));
+    }
+
+    private static GuidedStoryImprovementsSnapshot ReadGuidedStoryImprovementsSnapshot(object? value)
+    {
+        Assert.NotNull(value);
+
+        var type = value!.GetType();
+        return new GuidedStoryImprovementsSnapshot(
+            HighPriorityImprovements: ReadGuidedStoryImprovementList(type.GetProperty("HighPriorityImprovements", BindingFlags.Instance | BindingFlags.Public)!.GetValue(value)),
+            MediumPriorityImprovements: ReadGuidedStoryImprovementList(type.GetProperty("MediumPriorityImprovements", BindingFlags.Instance | BindingFlags.Public)!.GetValue(value)),
+            StoryImprovementRationale: type.GetProperty("StoryImprovementRationale", BindingFlags.Instance | BindingFlags.Public)!.GetValue(value)?.ToString() ?? string.Empty);
+    }
+
+    private static List<GuidedStoryImprovementSnapshot> ReadGuidedStoryImprovementList(object? value)
+    {
+        return ((System.Collections.IEnumerable?)value ?? Array.Empty<object>())
+            .Cast<object>()
+            .Select(item =>
+            {
+                var type = item.GetType();
+                return new GuidedStoryImprovementSnapshot(
+                    Id: type.GetProperty("Id", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty,
+                    Title: type.GetProperty("Title", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty,
+                    Summary: type.GetProperty("Summary", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty,
+                    Rationale: type.GetProperty("Rationale", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty,
+                    ExpectedImpact: type.GetProperty("ExpectedImpact", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty,
+                    Priority: type.GetProperty("Priority", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty,
+                    RelatedImpactArea: type.GetProperty("RelatedImpactArea", BindingFlags.Instance | BindingFlags.Public)!.GetValue(item)?.ToString() ?? string.Empty);
+            })
+            .ToList();
+    }
+
+    private static GuidedStoryImprovementsSnapshot BuildGuidedStoryImprovementsFromInternalGaps(
+        params string[] gapIds)
+    {
+        return BuildGuidedStoryImprovementsFromInternalGaps(gapIds, specialPageAssessment: null);
+    }
+
+    private static GuidedStoryImprovementsSnapshot BuildGuidedStoryImprovementsFromInternalGaps(
+        IEnumerable<string> gapIds,
+        object? specialPageAssessment)
+    {
+        var coreAssembly = typeof(ScoreResult).Assembly;
+        var assessmentType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryGapAssessment");
+        var recordType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryGapRecord");
+        var remediationLayerType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryGapRemediationLayer");
+        var actionabilityType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryGapActionabilityAssessment");
+        var archetypeRelevanceType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryGapArchetypeRelevance");
+        var promotionStateType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryAssessmentPromotionState");
+        var confidenceType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryGapConfidence");
+        var surfaceScopeType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryAssessmentSurfaceScope");
+
+        Assert.NotNull(assessmentType);
+        Assert.NotNull(recordType);
+        Assert.NotNull(remediationLayerType);
+        Assert.NotNull(actionabilityType);
+        Assert.NotNull(archetypeRelevanceType);
+        Assert.NotNull(promotionStateType);
+        Assert.NotNull(confidenceType);
+        Assert.NotNull(surfaceScopeType);
+
+        var records = gapIds.Select(gapId =>
+        {
+            var record = Activator.CreateInstance(recordType!);
+            Assert.NotNull(record);
+            SetProperty(record!, "GapId", gapId);
+            SetProperty(record!, "Description", $"Description for {gapId}");
+            SetProperty(record!, "EvidenceReferences", CreateEmptyTypedList(coreAssembly, "PowerBIModelingService.Services.Pbir.Models.StoryGapEvidenceReference"));
+            SetProperty(record!, "RemediationLayer", Enum.Parse(remediationLayerType!, "Report"));
+            SetProperty(record!, "ActionabilityAssessment", Enum.Parse(actionabilityType!, "Actionable"));
+            SetProperty(record!, "ArchetypeRelevance", Enum.Parse(archetypeRelevanceType!, "Primary"));
+            SetProperty(record!, "PromotionState", Enum.Parse(promotionStateType!, "Internal"));
+            SetProperty(record!, "Confidence", Enum.Parse(confidenceType!, "High"));
+            SetProperty(record!, "IsFutureContractCandidate", gapId.StartsWith("gap.missing.", StringComparison.Ordinal) || gapId == "gap.topology.scatteredFilters");
+            return record!;
+        }).ToList();
+
+        var assessment = Activator.CreateInstance(assessmentType!);
+        Assert.NotNull(assessment);
+        SetProperty(assessment!, "SurfaceScope", Enum.Parse(surfaceScopeType!, "CrossSurfaceCandidate"));
+        SetProperty(assessment!, "PromotionState", Enum.Parse(promotionStateType!, "Internal"));
+        SetProperty(assessment!, "Gaps", CreateTypedList(recordType!, records));
+
+        var method = typeof(PbirScoringService).GetMethod(
+            "BuildGuidedStoryImprovements",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        return ReadGuidedStoryImprovementsSnapshot(method!.Invoke(null, [assessment, specialPageAssessment]));
+    }
+
+    private static object CreateSpecialPageAssessment(
+        string pageType,
+        bool suppressNormalStoryGaps,
+        bool treatAsPrimaryNarrativePage)
+    {
+        var coreAssembly = typeof(ScoreResult).Assembly;
+        var assessmentType = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StorySpecialPageAssessment");
+        var pageTypeEnum = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StorySpecialPageType");
+        var confidenceEnum = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StorySpecialPageConfidence");
+        var promotionStateEnum = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryAssessmentPromotionState");
+        var surfaceScopeEnum = coreAssembly.GetType("PowerBIModelingService.Services.Pbir.Models.StoryAssessmentSurfaceScope");
+
+        Assert.NotNull(assessmentType);
+        Assert.NotNull(pageTypeEnum);
+        Assert.NotNull(confidenceEnum);
+        Assert.NotNull(promotionStateEnum);
+        Assert.NotNull(surfaceScopeEnum);
+
+        var assessment = Activator.CreateInstance(assessmentType!);
+        Assert.NotNull(assessment);
+        SetProperty(assessment!, "PageType", Enum.Parse(pageTypeEnum!, pageType));
+        SetProperty(assessment!, "Confidence", Enum.Parse(confidenceEnum!, "High"));
+        SetProperty(assessment!, "EvidenceReferences", CreateEmptyTypedList(coreAssembly, "PowerBIModelingService.Services.Pbir.Models.StorySpecialPageEvidenceReference"));
+        SetProperty(assessment!, "Reason", "Test special page");
+        SetProperty(assessment!, "PromotionState", Enum.Parse(promotionStateEnum!, "Internal"));
+        SetProperty(assessment!, "SurfaceScope", Enum.Parse(surfaceScopeEnum!, "PbirSpecific"));
+        SetProperty(assessment!, "TreatAsPrimaryNarrativePage", treatAsPrimaryNarrativePage);
+        SetProperty(assessment!, "SuppressNormalStoryGaps", suppressNormalStoryGaps);
+        SetProperty(assessment!, "SuppressGenericArchetypePromotion", true);
+        return assessment!;
+    }
+
+    private static void SetProperty(object target, string propertyName, object? value)
+    {
+        var property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+        property!.SetValue(target, value);
+    }
+
+    private static object CreateEmptyTypedList(Assembly assembly, string typeName)
+    {
+        var itemType = assembly.GetType(typeName);
+        Assert.NotNull(itemType);
+        return Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType!))!;
+    }
+
+    private static object CreateTypedList(Type itemType, IEnumerable<object> items)
+    {
+        var listType = typeof(List<>).MakeGenericType(itemType);
+        var list = Activator.CreateInstance(listType)!;
+        var addMethod = listType.GetMethod("Add");
+        Assert.NotNull(addMethod);
+
+        foreach (var item in items)
+        {
+            addMethod!.Invoke(list, [item]);
+        }
+
+        return list;
+    }
+
+    private static StoryConfidenceBreakdownAssessmentSnapshot GetInternalStoryConfidenceBreakdownAssessment(ScoreResult result)
+    {
+        var property = typeof(ScoreResult).GetProperty(
+            "InternalStoryConfidenceBreakdownAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        return ReadStoryConfidenceBreakdownAssessmentSnapshot(property!.GetValue(result));
+    }
+
+    private static StoryConfidenceBreakdownAssessmentSnapshot GetInternalStoryConfidenceBreakdownAssessment(PageScore result)
+    {
+        var property = typeof(PageScore).GetProperty(
+            "InternalStoryConfidenceBreakdownAssessment",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+
+        return ReadStoryConfidenceBreakdownAssessmentSnapshot(property!.GetValue(result));
+    }
+
+    private static StoryConfidenceBreakdownAssessmentSnapshot ReadStoryConfidenceBreakdownAssessmentSnapshot(object? assessment)
+    {
+        Assert.NotNull(assessment);
+
+        var type = assessment!.GetType();
+        var dimensions = ((System.Collections.IEnumerable)type.GetProperty("Dimensions", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)!)
+            .Cast<object>()
+            .Select(dimension =>
+            {
+                var dimensionType = dimension.GetType();
+                var evidenceReferences = ((System.Collections.IEnumerable)dimensionType.GetProperty("EvidenceReferences", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)!)
+                    .Cast<object>()
+                    .Select(reference =>
+                    {
+                        var referenceType = reference.GetType();
+                        return new StoryGapEvidenceReferenceSnapshot(
+                            SourceType: referenceType.GetProperty("SourceType", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty,
+                            ReferenceId: referenceType.GetProperty("ReferenceId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty,
+                            Summary: referenceType.GetProperty("Summary", BindingFlags.Instance | BindingFlags.Public)!.GetValue(reference)?.ToString() ?? string.Empty);
+                    })
+                    .ToList();
+
+                return new StoryConfidenceDimensionRecordSnapshot(
+                    DimensionId: dimensionType.GetProperty("DimensionId", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty,
+                    DimensionLabel: dimensionType.GetProperty("DimensionLabel", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty,
+                    Rating: dimensionType.GetProperty("Rating", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty,
+                    ConfidenceDrivers: ReadStringList(dimensionType.GetProperty("ConfidenceDrivers", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)),
+                    ConfidenceReducers: ReadStringList(dimensionType.GetProperty("ConfidenceReducers", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)),
+                    MissingSignals: ReadStringList(dimensionType.GetProperty("MissingSignals", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)),
+                    EvidenceReferences: evidenceReferences,
+                    Explanation: dimensionType.GetProperty("Explanation", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty,
+                    Actionability: dimensionType.GetProperty("Actionability", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty,
+                    PromotionState: dimensionType.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty,
+                    SurfaceScope: dimensionType.GetProperty("SurfaceScope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(dimension)?.ToString() ?? string.Empty);
+            })
+            .ToList();
+
+        return new StoryConfidenceBreakdownAssessmentSnapshot(
+            SurfaceScope: type.GetProperty("SurfaceScope", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            PromotionState: type.GetProperty("PromotionState", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)?.ToString() ?? string.Empty,
+            Dimensions: dimensions,
+            StrongestDimensions: ReadStringList(type.GetProperty("StrongestDimensions", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            WeakestDimensions: ReadStringList(type.GetProperty("WeakestDimensions", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)),
+            LowConfidenceCauses: ReadStringList(type.GetProperty("LowConfidenceCauses", BindingFlags.Instance | BindingFlags.Public)!.GetValue(assessment)));
     }
 
     private static List<string> ReadStringList(object? value)
@@ -2844,6 +4453,21 @@ public sealed class PbirScoringServiceTests : IDisposable
 
         File.WriteAllText(Path.Combine(defDir, "report.json"),
             """{"id":"test","name":"TestReport","pages":["Page1"],"theme":{"name":"CY24SU10"}}""");
+        File.WriteAllText(Path.Combine(pagesDir, "page.json"), pageJson);
+
+        return tmp;
+    }
+
+    private string CreateTempPbirFolderFromPageAndReportJson(string pageJson, string reportJson)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "pbir-score-" + Guid.NewGuid().ToString("N"));
+        var reportRoot = Path.Combine(tmp, "TestReport.Report");
+        var defDir = Path.Combine(reportRoot, "definition");
+        var pagesDir = Path.Combine(defDir, "pages", "Page1");
+        Directory.CreateDirectory(pagesDir);
+        _tempDirs.Add(tmp);
+
+        File.WriteAllText(Path.Combine(defDir, "report.json"), reportJson);
         File.WriteAllText(Path.Combine(pagesDir, "page.json"), pageJson);
 
         return tmp;

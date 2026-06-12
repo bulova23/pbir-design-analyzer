@@ -149,6 +149,9 @@ public sealed class PageScore
     /// <summary>Gets or sets the archetype and benchmark comparison for the page.</summary>
     public BenchmarkComparisonSummary? BenchmarkComparison { get; init; }
 
+    /// <summary>Gets or sets the safe public Guided Story Improvements promoted from validated Story Assessment gaps.</summary>
+    public GuidedStoryImprovements GuidedStoryImprovements { get; init; } = new();
+
     /// <summary>
     /// Gets or sets an error message if scoring failed for this page.
     /// <c>null</c> if page scored successfully. Non-null indicates partial failure.
@@ -185,8 +188,32 @@ public sealed class PageScore
     internal StoryAssessmentArchetypeClassification? InternalStoryAssessmentArchetypeClassification { get; init; }
 
     /// <summary>
+    /// Gets or sets the internal-only Story Assessment special-page assessment captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StorySpecialPageAssessment? InternalStorySpecialPageAssessment { get; init; }
+
+    /// <summary>
     /// Gets or sets the internal-only Story Assessment semantic coherence assessment captured during scoring.
     /// This remains out of the public score payload until validation promotion occurs.
     /// </summary>
     internal StorySemanticCoherenceAssessment? InternalStorySemanticCoherenceAssessment { get; init; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment filter topology assessment captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StoryFilterTopologyAssessment? InternalStoryFilterTopologyAssessment { get; init; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment story gap assessment captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StoryGapAssessment? InternalStoryGapAssessment { get; init; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment confidence breakdown captured during scoring.
+    /// This remains out of the public score payload until validation promotion occurs.
+    /// </summary>
+    internal StoryConfidenceBreakdownAssessment? InternalStoryConfidenceBreakdownAssessment { get; init; }
 }

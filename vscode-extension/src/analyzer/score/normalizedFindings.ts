@@ -2,6 +2,8 @@ import type {
   ActionabilityBreakdown,
   BenchmarkComparisonSummary,
   FrameworkFeedbackItem,
+  GuidedStoryImprovement,
+  GuidedStoryImprovements,
   NormalizedFinding,
   NormalizedFindingDetectionType,
   NormalizedFindingImpactArea,
@@ -311,7 +313,66 @@ function buildBenchmarkFinding(
   };
 }
 
-function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison'>): void {
+function guidedPriorityToSeverity(priority: GuidedStoryImprovement['priority']): NormalizedFindingSeverity {
+  switch (priority) {
+    case 'high':
+      return 'high';
+    case 'medium':
+      return 'medium';
+    default:
+      return 'low';
+  }
+}
+
+function buildGuidedStoryImprovementFinding(
+  pageName: string | undefined,
+  improvement: GuidedStoryImprovement,
+): NormalizedFinding {
+  return {
+    id: `${sanitizeIdPart(pageName ?? 'report')}-guided-story-${sanitizeIdPart(improvement.id)}`,
+    title: improvement.title,
+    summary: improvement.summary,
+    severity: guidedPriorityToSeverity(improvement.priority),
+    confidence: improvement.priority === 'high' ? 90 : 78,
+    scope: pageName ? 'page' : 'report',
+    detectionType: 'deterministic',
+    affectedPages: pageName ? [pageName] : [],
+    impactArea: improvement.relatedImpactArea,
+    frameworkImpact: ['Story Assessment'],
+    recommendation: improvement.rationale,
+    sourceKind: 'guidedStoryImprovement',
+    sourceSection: 'issues',
+    evidence: [
+      {
+        kind: 'storyAssessment',
+        label: 'Guided Story Improvements',
+        pageName,
+        detail: improvement.expectedImpact,
+      },
+    ],
+  };
+}
+
+function pushGuidedStoryImprovementFindings(
+  findings: NormalizedFinding[],
+  pageName: string | undefined,
+  guidedStoryImprovements: GuidedStoryImprovements | undefined,
+): boolean {
+  const improvements = guidedStoryImprovements
+    ? [
+        ...guidedStoryImprovements.highPriorityImprovements,
+        ...guidedStoryImprovements.mediumPriorityImprovements,
+      ]
+    : [];
+
+  for (const improvement of improvements) {
+    findings.push(buildGuidedStoryImprovementFinding(pageName, improvement));
+  }
+
+  return improvements.length > 0;
+}
+
+function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison' | 'guidedStoryImprovements'>): void {
   for (const [frameworkKey, items] of Object.entries(page.feedback ?? {}).sort(([left], [right]) => compareText(left, right))) {
     for (const item of items) {
       const finding = buildFrameworkFinding(frameworkKey, item, page.pageName);
@@ -321,14 +382,20 @@ function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, '
     }
   }
 
-  if (page.actionabilityBreakdown) {
+  const hasGuidedStoryImprovements = pushGuidedStoryImprovementFindings(
+    findings,
+    page.pageName,
+    page.guidedStoryImprovements,
+  );
+
+  if (!hasGuidedStoryImprovements && page.actionabilityBreakdown) {
     const actionabilityFinding = buildActionabilityFinding(page.pageName, page.actionabilityBreakdown);
     if (actionabilityFinding) {
       findings.push(actionabilityFinding);
     }
   }
 
-  if (page.benchmarkComparison) {
+  if (!hasGuidedStoryImprovements && page.benchmarkComparison) {
     const benchmarkFinding = buildBenchmarkFinding(page.pageName, page.benchmarkComparison);
     if (benchmarkFinding) {
       findings.push(benchmarkFinding);
@@ -419,14 +486,20 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
       }
     }
 
-    if (result.actionabilityBreakdown) {
+    const hasGuidedStoryImprovements = pushGuidedStoryImprovementFindings(
+      findings,
+      result.scoredPageName,
+      result.guidedStoryImprovements,
+    );
+
+    if (!hasGuidedStoryImprovements && result.actionabilityBreakdown) {
       const actionabilityFinding = buildActionabilityFinding(result.scoredPageName, result.actionabilityBreakdown);
       if (actionabilityFinding) {
         findings.push(actionabilityFinding);
       }
     }
 
-    if (result.benchmarkComparison) {
+    if (!hasGuidedStoryImprovements && result.benchmarkComparison) {
       const benchmarkFinding = buildBenchmarkFinding(result.scoredPageName, result.benchmarkComparison);
       if (benchmarkFinding) {
         findings.push(benchmarkFinding);

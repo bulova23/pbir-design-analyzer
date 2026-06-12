@@ -3,6 +3,7 @@ import type {
   IntentFeedbackConfirmation,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownTemplateVariant,
+  ScorePanelNavigationTarget,
   ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
@@ -39,6 +40,132 @@ function hasStringArray(value: Record<string, unknown>, key: string): boolean {
 
 function getPageCount(state: Pick<ScorePanelState, 'result'>): number {
   return Array.isArray(state.result.pageScores) ? state.result.pageScores.length : 0;
+}
+
+function hasOnlyAllowedKeys(value: Record<string, unknown>, allowedKeys: string[]): boolean {
+  return Object.keys(value).every((key) => allowedKeys.includes(key));
+}
+
+function validateGuidedStoryImprovement(value: unknown): string | undefined {
+  if (!isRecord(value)) {
+    return 'Guided Story Improvements recommendations must be objects.';
+  }
+
+  const allowedKeys = ['id', 'title', 'summary', 'rationale', 'expectedImpact', 'priority', 'relatedImpactArea', 'navigationTarget'];
+  if (!hasOnlyAllowedKeys(value, allowedKeys)) {
+    return 'Guided Story Improvements recommendations may only include safe public fields.';
+  }
+
+  const targetError = value.navigationTarget === undefined
+    ? undefined
+    : validateNavigationTarget(value.navigationTarget);
+  if (targetError) {
+    return targetError;
+  }
+
+  return undefined;
+}
+
+function validateNavigationTarget(value: unknown): string | undefined {
+  if (!isRecord(value)) {
+    return 'Score panel navigation targets must be objects.';
+  }
+
+  const allowedKeys = ['kind', 'pageName', 'visualId', 'reportElement', 'label', 'reason', 'supportState'];
+  if (!hasOnlyAllowedKeys(value, allowedKeys)) {
+    return 'Score panel navigation targets may only include approved public fields.';
+  }
+
+  const kind = readString(value, 'kind');
+  const label = readString(value, 'label');
+  const reason = readString(value, 'reason');
+  const supportState = readString(value, 'supportState');
+  const pageName = readString(value, 'pageName');
+  const visualId = readString(value, 'visualId');
+  const reportElement = readString(value, 'reportElement');
+
+  if (!kind || !label || !reason || !supportState) {
+    return 'Score panel navigation targets are missing required fields.';
+  }
+
+  if (!['visual', 'page', 'report'].includes(kind)) {
+    return 'Score panel navigation targets must use a supported kind.';
+  }
+
+  if (!['direct', 'fallback', 'unavailable'].includes(supportState)) {
+    return 'Score panel navigation targets must use a supported supportState.';
+  }
+
+  if (kind === 'visual' && (!pageName || !visualId)) {
+    return 'Score panel navigation targets for visuals must include pageName and visualId.';
+  }
+
+  if (kind === 'page' && !pageName) {
+    return 'Score panel navigation targets for pages must include pageName.';
+  }
+
+  if (kind === 'report' && reportElement !== undefined && !['reportJson', 'pageJson', 'themeJson'].includes(reportElement)) {
+    return 'Score panel navigation targets for reports must use a supported reportElement.';
+  }
+
+  return undefined;
+}
+
+function validateGuidedStoryImprovements(value: unknown): string | undefined {
+  if (!isRecord(value)) {
+    return 'Guided Story Improvements must be an object.';
+  }
+
+  const allowedKeys = ['highPriorityImprovements', 'mediumPriorityImprovements', 'storyImprovementRationale'];
+  if (!hasOnlyAllowedKeys(value, allowedKeys)) {
+    return 'Guided Story Improvements may only include the approved public fields.';
+  }
+
+  for (const key of ['highPriorityImprovements', 'mediumPriorityImprovements']) {
+    const entries = value[key];
+    if (entries !== undefined) {
+      if (!Array.isArray(entries)) {
+        return 'Guided Story Improvements recommendation groups must be arrays.';
+      }
+
+      for (const entry of entries) {
+        const error = validateGuidedStoryImprovement(entry);
+        if (error) {
+          return error;
+        }
+      }
+    }
+  }
+
+  if ('storyImprovementRationale' in value && typeof value.storyImprovementRationale !== 'string') {
+    return 'Guided Story Improvements rationale must be a string.';
+  }
+
+  return undefined;
+}
+
+function validateGuidedStoryImprovementsInResult(value: Record<string, unknown>): string | undefined {
+  const resultError = value.guidedStoryImprovements === undefined
+    ? undefined
+    : validateGuidedStoryImprovements(value.guidedStoryImprovements);
+  if (resultError) {
+    return resultError;
+  }
+
+  if (Array.isArray(value.pageScores)) {
+    for (const pageScore of value.pageScores) {
+      if (!isRecord(pageScore) || pageScore.guidedStoryImprovements === undefined) {
+        continue;
+      }
+
+      const pageError = validateGuidedStoryImprovements(pageScore.guidedStoryImprovements);
+      if (pageError) {
+        return pageError;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 export function clampSelectedPageIndex(selectedPageIndex: number, pageCount: number): number {
@@ -104,6 +231,11 @@ export function parseScorePanelState(value: unknown):
 
   if (!Array.isArray(value.intentFeedback)) {
     return { ok: false, error: 'Score panel state payload is missing intent feedback state.' };
+  }
+
+  const guidedStoryError = validateGuidedStoryImprovementsInResult(value.result);
+  if (guidedStoryError) {
+    return { ok: false, error: guidedStoryError };
   }
 
   return {
@@ -228,6 +360,18 @@ export function parseScorePanelWebviewMessage(value: unknown):
       return pageName && visualId
         ? { ok: true, message: { type, pageName, visualId } }
         : { ok: false, error: 'Score panel revealVisual message is missing required fields.' };
+    }
+    case 'navigateToTarget': {
+      const targetError = validateNavigationTarget(value.target);
+      return targetError
+        ? { ok: false, error: `Score panel navigateToTarget message is invalid. ${targetError}` }
+        : {
+            ok: true,
+            message: {
+              type,
+              target: value.target as ScorePanelNavigationTarget,
+            },
+          };
     }
     case 'attachScreenshot': {
       const pageName = readString(value, 'pageName');

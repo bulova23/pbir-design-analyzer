@@ -1,5 +1,13 @@
 # Session Summaries
 
+## 2026-06-12 Story Assessment 2.2
+
+- Implemented Story Assessment 2.2 in the extension layer from the approved 2026-06-12 design and plan.
+- Added additive score-panel navigation targets plus generic `navigateToTarget` protocol validation and host handling.
+- Added conservative presentation-layer target derivation for the six public Guided Story Improvements categories and propagated targets into downstream findings and fix-plan items.
+- Added extension-owned public Story Assessment snapshot persistence, snapshot comparison, and a compact Story Assessment `What Changed` block.
+- Validation passed with focused extension Jest runs, full `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`.
+
 ## 2026-05-26 to 2026-05-31
 
 - Built the `0.2.0` score-panel release foundation: semantic consistency analysis, chart-intent analysis, cross-page consistency, inferred page story and intent review, persisted review feedback, review packet preview/export, and packaging hardening.
@@ -218,6 +226,109 @@
 - Updated `docs/RELEASING.md` with a conservative manual `0.5.0` upload procedure, recommended target order, and stop conditions if the portal appears to replace rather than append target packages.
   - `Remediation Queue`
   - `AI Proposal Enrichment`
+
+## 2026-06-11 Guided Story Improvements Implementation
+
+- Implemented Story Assessment 2.1 as Guided Story Improvements powered by validated Story Assessment gaps.
+- Kept the public slice limited to six validated categories:
+  - Missing Title / Question Anchor
+  - Missing Benchmark / Target
+  - Missing Prior-Period Context
+  - Missing Primary Metric
+  - Missing Primary Dimension
+  - Scattered Filters
+- Added the compact score-panel subsection between Story Assessment and Issues.
+- Routed downstream Issues and Fix Plan through the new safe recommendation layer without exposing Story Assessment internals.
+- Validation passed with:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run package:all`
+
+## 2026-06-11 Story Assessment Special-Page Accuracy Tuning
+
+- Added a conservative internal `StorySpecialPageAssessment` pipeline for tooltip, Q&A, what-if, key-influencer, market-basket, reference/legal, and validation/sandbox pages.
+- Added archetype guardrails so special pages stop overclaiming generic `Comparison` and `PerformanceMonitor` outcomes while normal analytical pages keep the existing flow.
+- Tuned semantic coherence with title and primary-visual weighting, narrow analytics-term normalization, and a diagnostic mode for non-primary special pages.
+- Filtered Story Gaps toward higher-value actionable candidates and suppressed normal analytical gaps on reference/legal, validation/sandbox, and most tooltip scenarios.
+- Updated the internal validation export with special-page results, archetype suppression status, coherence tuning details, and per-gap future-contract-candidate flags.
+- Revalidated with `dotnet test service-dotnet/tests/Tests.csproj -c Release` and reran the same Level 1 corpus, reducing special-page false positives while preserving deterministic duplicate-report output.
+
+## 2026-06-11 Story Assessment Targeted False-Positive Tuning
+
+- Added a conservative internal `CustomerSegmentationDiagnostic` page type that only exists to downgrade generic `PerformanceMonitor` overclaims on customer/segmentation diagnostic pages.
+- Added bounded compact `KeyInfluencers` aliases, but kept a hard support requirement so alias text alone does not over-trigger.
+- Fixed internal page-filter fallback so real PBIR pages now contribute `filterConfig.filters` to Story Assessment analysis.
+- Revalidated with `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- Reran the same Level 1 corpus:
+  - `Customer Analysis` moved from `PerformanceMonitor` to `NarrativeWalkthrough`
+  - `RetKeyInf` remained unresolved on the real corpus because it still lacks bounded supporting cues
+  - duplicate `Sales & Production` output remained deterministic
+
+## 2026-06-11 Story Assessment Promotion Decision Report
+
+- Wrote `docs/story-assessment/2026-06-11-level1-promotion-decision-report.md`.
+- Decided that only filtered Story Gap candidates are ready for narrow contract-promotion design.
+- Kept special-page handling as a hidden guardrail only.
+- Kept Signal Registry, Special Page Assessment, Archetype Classification, Semantic Coherence internals, Filter Topology penalties, and Confidence Breakdown internal-only.
+- Recommended the first user-facing Story Assessment slice as a small advisory set of six Story Gap findings:
+  - missing title/question anchor
+  - missing benchmark/target
+  - missing prior-period context
+  - missing primary metric
+  - missing primary dimension
+  - scattered filters
+
+## 2026-06-11 Guided Story Improvements Design And Plan
+
+- Wrote `docs/superpowers/specs/2026-06-11-guided-story-improvements-design.md`.
+- Wrote `docs/superpowers/plans/2026-06-11-guided-story-improvements-plan.md`.
+- Chose Option 3:
+  - a dedicated `Guided Story Improvements` subsection between Story Assessment and Issues
+- Defined Guided Story Improvements as the source of truth for validated story recommendations, with Issues and Fix Plan as downstream consumers.
+- Kept the first user-facing slice limited to the six validated Story Gap categories and preserved all research-stage Story Assessment signals as internal-only.
+
+## 2026-06-12 Story Assessment 2.2 Design And Plan
+
+- Wrote `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`.
+- Wrote `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`.
+- Designed Deep Link Navigation as a shared score-panel navigation-target layer derived in the extension presentation tier from safe public payload plus page visual metadata.
+- Designed Story Assessment Diff Mode as a public-output-only snapshot and comparison workflow persisted in extension global storage rather than `workspaceState` or repo-local files.
+- Recommended phased rollout:
+  - Phase 1: Deep Link Navigation
+  - Phase 2: Story Assessment Diff Mode
+  - Phase 3: combined workflow validation
+
+## 2026-06-11 Story Assessment Workstream 7A
+
+- Implemented internal-only Story Gap validation output in the .NET scorer using existing Signal Registry, Archetype Classification, Semantic Coherence, and Filter Topology artifacts.
+- Added evidence-backed gap records with remediation-layer classification for `Report`, `Model`, and `Restructure`, plus low-confidence downgrade behavior.
+- Preserved public contract boundaries on both `ScoreResult` and `PageScore`.
+- Validation passed with:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `186` passed, `0` failed
+
+## 2026-06-11 Story Assessment Workstream 7B
+
+- Implemented internal-only Confidence Breakdown validation output in the .NET scorer using existing Signal Registry, Archetype Classification, Semantic Coherence, Filter Topology, and Story Gap artifacts.
+- Added per-dimension confidence records for `Accuracy`, `Consistency`, `Explainability`, and `Actionability`, with evidence-linked drivers, reducers, missing signals, strongest/weakest dimensions, and explicit low-confidence causes.
+- Preserved public contract boundaries on both `ScoreResult` and `PageScore`.
+- Validation passed with:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `197` passed, `0` failed
+
+## 2026-06-11 Story Assessment Level 1 Validation Export Harness
+
+- Added a standalone backend-only CLI at `service-dotnet/tools/StoryAssessmentValidationExport`.
+- The harness exports paired internal review artifacts:
+  - `story-assessment-validation.json`
+  - `story-assessment-validation.md`
+- Per-page exports include the current detected story plus internal Signal Registry, Archetype Classification, Semantic Coherence, Competing Story status, Filter Topology, Story Gaps, Confidence Breakdown, Promotion States, and Surface Scopes.
+- Documentation now includes the exact run command:
+  - `dotnet run --project service-dotnet/tools/StoryAssessmentValidationExport -- <reportPath> [outputDir]`
+- Validation passed with:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `200` passed, `0` failed
 
 ## 2026-06-10 Story Assessment 2.0 Validation Planning
 
@@ -693,3 +804,8 @@
 - 2026-06-10: Completed the remaining `0.5.2` validation. `dotnet test service-dotnet/tests/Tests.csproj -c Release` passed, `cd vscode-extension && npm run package:all` rebuilt all five target VSIX artifacts, and packaged inspection confirmed target-specific backend binaries plus clean `pbirAnalyzer` release metadata with explicit blocked-workspace capabilities. A trusted-host VS Code smoke passed for explorer metadata, legacy alias routing, and output-channel reuse. Actual untrusted/virtual blocked-host smoke remained externally pending because the local test harness always opened the file workspace as trusted and did not provide a true virtual workspace provider.
 - 2026-06-11: Implemented Story Assessment 2.0 Workstream 4 only. Added backend-internal archetype classification for Performance Monitor, Trend + Exception, Ranking, Comparison, Decomposition, and Narrative Walkthrough; recorded matched/missed signals plus explanation hooks, validation status, and promotion eligibility; added a Level 1 reviewer harness placeholder and promotion-gate definition; preserved the public score contract and UI unchanged; and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` with `149` passing tests.
 - 2026-06-11: Implemented Story Assessment 2.0 Workstream 5 only. Added backend-internal semantic coherence scoring with deterministic term extraction and token clustering, dominant concept detection, focused/split/sparse coherence classification, precision-first competing-story detection that remains promotion-delayed, and an expert-review validation harness; preserved the public score contract and UI unchanged; and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` with `163` passing tests.
+- 2026-06-11: Implemented Story Assessment 2.0 Workstream 6 only. Added backend-internal filter topology extraction for visible slicers plus page/report filters, hierarchy-pattern and scope capture, bounded reinforcement-only archetype scoring, PBIR-specific versus cross-surface versus diagnostic-only classification, usefulness ratings across accuracy/explainability/actionability, and graceful malformed-metadata handling; preserved the public score contract and UI unchanged; and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` with `171` passing tests.
+- 2026-06-11: Normalized Story Assessment 2.0 internal validation semantics before Workstream 7. Made `PromotionState` the canonical lifecycle field across archetype/coherence/topology outputs, normalized product-surface semantics around `StoryAssessmentSurfaceScope`, kept filter location scope separate, added direct `PageScore` public non-leak coverage, documented the Workstream 7 internal-only guardrail, and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` with `175` passing tests; public contracts and UI remained unchanged.
+- 2026-06-11: Promoted the extension package version to `0.6.0`, aligned the active release-facing README and roadmap references, rebuilt the full five-target VSIX set with `cd vscode-extension && npm run package:all`, and verified the new `0.6.0` artifacts exist on disk.
+- 2026-06-11: Unified the score-panel Story Assessment experience into one consultant-style narrative. Removed the separate Guided Story Improvements card from the UI, folded the safe recommendation payload into Story Assessment as story strength/signals/improvements, updated the webview guardrail tests, and passed `cd vscode-extension && npm test` plus `cd vscode-extension && npm run compile`.
+- 2026-06-11: Refined Story Assessment 2.1 from the first UI review without expanding scope. Added a public Story Type label from existing public cues, replaced Story Strength with Story Maturity, rewrote Missing Signals as absence statements, limited Top Story Improvements to three, reordered recommendation content to problem → change → impact, rebuilt the `0.6.0` VSIX set, and passed `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `cd vscode-extension && npm run package:all`.

@@ -57,7 +57,8 @@ export interface NormalizedFindingEvidenceReference {
     | 'navigation'
     | 'designToken'
     | 'screenshot'
-    | 'semanticModel';
+    | 'semanticModel'
+    | 'storyAssessment';
   label: string;
   pageName?: string;
   frameworkKey?: string;
@@ -81,6 +82,7 @@ export interface NormalizedFinding {
   sourceKind: string;
   sourceSection: 'issues' | 'evidence';
   evidence: NormalizedFindingEvidenceReference[];
+  navigationTarget?: ScorePanelNavigationTarget;
 }
 
 export interface SemanticColorAssignment {
@@ -157,6 +159,79 @@ export interface BenchmarkComparisonSummary {
   insight: string;
   strengths: string[];
   gaps: string[];
+}
+
+export type GuidedStoryImprovementPriority = 'high' | 'medium' | 'informational';
+export type ScorePanelNavigationTargetKind = 'visual' | 'page' | 'report';
+export type ScorePanelNavigationTargetSupportState = 'direct' | 'fallback' | 'unavailable';
+
+export interface ScorePanelNavigationTarget {
+  kind: ScorePanelNavigationTargetKind;
+  pageName?: string;
+  visualId?: string;
+  reportElement?: 'reportJson' | 'pageJson' | 'themeJson';
+  label: string;
+  reason: string;
+  supportState: ScorePanelNavigationTargetSupportState;
+}
+
+export interface GuidedStoryImprovement {
+  id: string;
+  title: string;
+  summary: string;
+  rationale: string;
+  expectedImpact: string;
+  priority: GuidedStoryImprovementPriority;
+  relatedImpactArea: NormalizedFindingImpactArea;
+  navigationTarget?: ScorePanelNavigationTarget;
+}
+
+export interface GuidedStoryImprovements {
+  highPriorityImprovements: GuidedStoryImprovement[];
+  mediumPriorityImprovements: GuidedStoryImprovement[];
+  storyImprovementRationale: string;
+}
+
+export type StoryAssessmentMaturity = 'Draft' | 'Developing' | 'Strong' | 'Mature';
+export type StoryAssessmentDiffChange = 'improved' | 'regressed' | 'unchanged';
+
+export interface StoryAssessmentRecommendationSnapshot {
+  id: string;
+  title: string;
+  summary: string;
+  rationale: string;
+  expectedImpact: string;
+  priority: GuidedStoryImprovementPriority;
+  relatedImpactArea: NormalizedFindingImpactArea;
+  navigationTarget?: ScorePanelNavigationTarget;
+}
+
+export interface StoryAssessmentPageSnapshot {
+  pageName: string;
+  storyMaturity: StoryAssessmentMaturity;
+  strongSignals: string[];
+  missingSignals: string[];
+  topImprovementIds: string[];
+  recommendations: StoryAssessmentRecommendationSnapshot[];
+}
+
+export interface StoryAssessmentReportSnapshot {
+  reportPath: string;
+  scoredAt: string;
+  pages: StoryAssessmentPageSnapshot[];
+}
+
+export interface StoryAssessmentDiffResult {
+  pageName: string;
+  maturityChange: StoryAssessmentDiffChange;
+  resolvedRecommendations: StoryAssessmentRecommendationSnapshot[];
+  newRecommendations: StoryAssessmentRecommendationSnapshot[];
+  unchangedRecommendations: StoryAssessmentRecommendationSnapshot[];
+  addedStrongSignals: string[];
+  removedStrongSignals: string[];
+  addedMissingSignals: string[];
+  removedMissingSignals: string[];
+  summary: string;
 }
 
 export interface IntentFeedbackEntry {
@@ -368,6 +443,7 @@ export interface PageScore {
   pageIntentProfile?: PageIntentProfile;
   actionabilityBreakdown?: ActionabilityBreakdown;
   benchmarkComparison?: BenchmarkComparisonSummary;
+  guidedStoryImprovements?: GuidedStoryImprovements;
   scoringError?: string;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
@@ -569,6 +645,7 @@ export interface FixPlanItem {
   recommendedAction: string;
   resolvedOutcomes: string[];
   sourceFindingIds: string[];
+  navigationTarget?: ScorePanelNavigationTarget;
 }
 
 // Phase 3 advisory output is presentation-only. It can improve proposal wording,
@@ -1015,6 +1092,7 @@ export interface ScoreResult {
   pageIntentProfile?: PageIntentProfile;
   actionabilityBreakdown?: ActionabilityBreakdown;
   benchmarkComparison?: BenchmarkComparisonSummary;
+  guidedStoryImprovements?: GuidedStoryImprovements;
   layoutScore?: number;
   themeScore?: number;
   governanceScore?: number;
@@ -1093,6 +1171,9 @@ export interface ScorePanelState extends ScorePanelProtocolEnvelope {
   result: ScoreResult;
   selectedPageIndex: number;
   intentFeedback: IntentFeedbackEntry[];
+  storyAssessmentCurrentSnapshot?: StoryAssessmentReportSnapshot;
+  storyAssessmentDiffByPage?: Record<string, StoryAssessmentDiffResult>;
+  storyAssessmentLastComparedAt?: string;
   fixSelection?: FixSelectionState;
   fixApplySessions?: FixApplySessionRecord[];
   reviewPacketPreview?: ReviewWorkflowExportData;
@@ -1115,6 +1196,7 @@ export type ScorePanelWebviewToHostMessagePayload =
     note?: string;
   }
   | { type: 'revealVisual'; pageName: string; visualId: string }
+  | { type: 'navigateToTarget'; target: ScorePanelNavigationTarget }
   | { type: 'uploadScreenshots' }
   | { type: 'attachScreenshot'; pageName: string }
   | { type: 'removeScreenshot'; captureId: string }

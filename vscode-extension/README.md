@@ -1,6 +1,6 @@
 # PBIR Design Analyzer
 
-PBIR Design Analyzer 0.5.0 is the first cross-platform Analytics Experience Review Platform release.
+PBIR Design Analyzer 0.6.0 is the current cross-platform Analytics Experience Review Platform release.
 
 It helps consultants, BI architects, analytics teams, Power BI developers, and Fabric developers review PBIR reports and analytical Fabric Apps through one shared workspace.
 
@@ -21,7 +21,7 @@ PBIR Design Analyzer is designed for real review work:
 - **AI Proposal Enrichment** to provide clearer explanations, prioritization guidance, business rationale, and expected outcomes without bypassing deterministic execution
 - **Cross-platform support** so the same workspace is available on Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
 
-## What’s New In 0.5.0
+## What’s New In 0.6.0
 
 ### New
 
@@ -243,10 +243,10 @@ Most review behavior and scoring emphasis are managed through the extension work
 
 Install the VSIX that matches your operating system and architecture. Each package includes the correct backend binary for its target platform.
 
-Runtime expectation for the public `0.5.0` packages:
+Runtime expectation for the public `0.6.0` packages:
 
 - Windows x64 requires the matching .NET 8 runtime
-- Windows arm64 ships with a self-contained backend for `0.5.0`
+- Windows arm64 ships with a self-contained backend for `0.6.0`
 - Linux x64 requires the matching .NET 8 runtime
 - macOS x64 requires the matching .NET 8 runtime
 - macOS arm64 requires the matching .NET 8 runtime
@@ -259,15 +259,15 @@ If the backend cannot be found or started, the extension enters degraded mode:
 - score, governance, and backend-dependent review commands stay unavailable
 - the status bar and startup messages explain what is missing
 
-## Final 0.5.0 VSIX Files
+## Final 0.6.0 VSIX Files
 
-The final `0.5.0` package set includes:
+The final `0.6.0` package set includes:
 
-- `pbir-design-analyzer-0.5.0-win32-x64.vsix`
-- `pbir-design-analyzer-0.5.0-win32-arm64.vsix`
-- `pbir-design-analyzer-0.5.0-linux-x64.vsix`
-- `pbir-design-analyzer-0.5.0-darwin-x64.vsix`
-- `pbir-design-analyzer-0.5.0-darwin-arm64.vsix`
+- `pbir-design-analyzer-0.6.0-win32-x64.vsix`
+- `pbir-design-analyzer-0.6.0-win32-arm64.vsix`
+- `pbir-design-analyzer-0.6.0-linux-x64.vsix`
+- `pbir-design-analyzer-0.6.0-darwin-x64.vsix`
+- `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
 
 Install the exact file that matches the target operating system and architecture.
 
@@ -279,9 +279,9 @@ If VS Code shows the icon on a light tile in the extension details page, treat t
 
 ## Manual Marketplace Publishing
 
-`0.5.0` is prepared for manual Marketplace upload by the release owner.
+`0.6.0` is prepared for manual Marketplace upload by the release owner.
 
-Keep all five target-specific VSIX files together for the same extension version and manually upload the full set for the `0.5.0` listing.
+Keep all five target-specific VSIX files together for the same extension version and manually upload the full set for the `0.6.0` listing.
 
 ## Scope
 

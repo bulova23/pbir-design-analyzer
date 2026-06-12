@@ -4,6 +4,181 @@ import * as path from 'path';
 import { buildFixWorkflowPayload, normalizeScoreResultPayload } from '../views/scoreResultPayload';
 
 describe('normalizeScoreResultPayload', () => {
+  it('maps safe Guided Story Improvements fields and omits unsafe research-stage fields', () => {
+    const normalized = normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      CompositeScore: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+      GuidedStoryImprovements: {
+        HighPriorityImprovements: [
+          {
+            Id: 'story-missing-title',
+            Title: 'Add a clearer page question or title',
+            Summary: 'The page does not establish its main question early enough.',
+            Rationale: 'Readers need a clear story anchor before interpreting the visuals.',
+            ExpectedImpact: 'Stronger narrative scan path.',
+            Priority: 'high',
+            RelatedImpactArea: 'storytelling',
+            ConfidenceBreakdown: {
+              Accuracy: 'low',
+            },
+          },
+        ],
+        MediumPriorityImprovements: [
+          {
+            Id: 'story-scattered-filters',
+            Title: 'Consolidate scattered filters',
+            Summary: 'Filter controls are split across multiple zones.',
+            Rationale: 'A single control zone creates a cleaner exploration entry point.',
+            ExpectedImpact: 'Cleaner reading flow.',
+            Priority: 'medium',
+            RelatedImpactArea: 'storytelling',
+            RawEvidenceIds: ['gap-1'],
+          },
+        ],
+        StoryImprovementRationale: 'The page needs a clearer narrative frame before the visuals can do their job.',
+        SignalRegistry: ['internal-only'],
+      },
+    });
+
+    expect(normalized.guidedStoryImprovements).toEqual({
+      highPriorityImprovements: [
+        {
+          id: 'story-missing-title',
+          title: 'Add a clearer page question or title',
+          summary: 'The page does not establish its main question early enough.',
+          rationale: 'Readers need a clear story anchor before interpreting the visuals.',
+          expectedImpact: 'Stronger narrative scan path.',
+          priority: 'high',
+          relatedImpactArea: 'storytelling',
+        },
+      ],
+      mediumPriorityImprovements: [
+        {
+          id: 'story-scattered-filters',
+          title: 'Consolidate scattered filters',
+          summary: 'Filter controls are split across multiple zones.',
+          rationale: 'A single control zone creates a cleaner exploration entry point.',
+          expectedImpact: 'Cleaner reading flow.',
+          priority: 'medium',
+          relatedImpactArea: 'storytelling',
+        },
+      ],
+      storyImprovementRationale: 'The page needs a clearer narrative frame before the visuals can do their job.',
+    });
+    expect(JSON.stringify(normalized.guidedStoryImprovements)).not.toContain('ConfidenceBreakdown');
+    expect(JSON.stringify(normalized.guidedStoryImprovements)).not.toContain('RawEvidenceIds');
+    expect(JSON.stringify(normalized.guidedStoryImprovements)).not.toContain('SignalRegistry');
+  });
+
+  it('keeps older payloads without Guided Story Improvements backward compatible', () => {
+    const normalized = normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      CompositeScore: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+    });
+
+    expect(normalized.guidedStoryImprovements).toBeUndefined();
+    expect(normalized.compositeScore).toBe(77);
+  });
+
+  it('uses Guided Story Improvements as the story-finding source of truth without duplicate inflation', () => {
+    const normalized = normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      CompositeScore: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredPageName: 'Overview',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+      ActionabilityBreakdown: {
+        Score: 52,
+        TargetBenchmarkPresent: false,
+        ExceptionVisibility: false,
+        UrgencySignaling: false,
+        PriorPeriodContext: false,
+        DrillPathPresent: true,
+        ExpectationLevel: 'high',
+        Strengths: [],
+        Gaps: ['Add a target or benchmark.'],
+        Summary: 'The page still lacks decision context.',
+      },
+      BenchmarkComparison: {
+        Archetype: 'executive scorecard',
+        BenchmarkLabel: 'Executive-ready benchmark',
+        ComparativePosition: 'below',
+        BeautifulButUseless: false,
+        Insight: 'The page is below the benchmark because it lacks comparison context.',
+        Strengths: [],
+        Gaps: ['Add a target or benchmark.'],
+      },
+      GuidedStoryImprovements: {
+        HighPriorityImprovements: [
+          {
+            Id: 'missing-benchmark-target',
+            Title: 'Add a benchmark or target',
+            Summary: 'The current result appears without a visible target, budget, or benchmark for comparison.',
+            Rationale: 'Readers need an explicit reference point to judge the result.',
+            ExpectedImpact: 'Clearer decision context around the headline numbers.',
+            Priority: 'high',
+            RelatedImpactArea: 'benchmark',
+          },
+        ],
+        MediumPriorityImprovements: [],
+        StoryImprovementRationale: 'The page has a story, but its decision frame is still weak.',
+      },
+    });
+
+    const storyFindings = normalized.normalizedFindings?.filter((finding) => finding.sourceKind === 'guidedStoryImprovement') ?? [];
+    expect(storyFindings).toHaveLength(1);
+    expect(storyFindings[0]).toMatchObject({
+      title: 'Add a benchmark or target',
+      impactArea: 'benchmark',
+      severity: 'high',
+    });
+    expect(normalized.normalizedFindings?.some((finding) => finding.sourceKind === 'actionability')).toBe(false);
+    expect(normalized.normalizedFindings?.some((finding) => finding.sourceKind === 'benchmark')).toBe(false);
+  });
+
   it('maps PascalCase score payloads to the webview contract', () => {
     const normalized = normalizeScoreResultPayload({
       GestaltScore: 84,

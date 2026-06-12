@@ -2,6 +2,36 @@
 
 All notable changes to PBIR Design Analyzer are recorded here.
 
+## Unreleased
+
+### Story Assessment 2.2
+
+- Added shared score-panel navigation targets for Story Assessment recommendations with additive protocol support for generic target navigation.
+- Extended the score-panel host and PBIR explorer reveal flow to support visual, page, and bounded report-target navigation while preserving existing visual reveal compatibility.
+- Added Story Assessment navigation actions for top improvements with conservative page fallback when a stable visual target cannot be inferred from public metadata.
+- Added extension-owned Story Assessment snapshot persistence and public-only diff mode:
+  - story maturity
+  - strong signals
+  - missing signals
+  - top improvement IDs
+  - safe recommendation fields
+  - optional navigation target
+- Added a compact What Changed block inside Story Assessment that compares the latest public snapshot against the previous persisted snapshot without writing files into the PBIR repo.
+
+### Guided Story Improvements
+
+- Added the first narrow Story Assessment promotion slice as Guided Story Improvements powered by validated Story Assessment gaps.
+- Limited the public promotion to six validated recommendation categories:
+  - Missing Title / Question Anchor
+  - Missing Benchmark / Target
+  - Missing Prior-Period Context
+  - Missing Primary Metric
+  - Missing Primary Dimension
+  - Scattered Filters
+- Added a compact Guided Story Improvements subsection in the score panel between Story Assessment and Issues.
+- Kept archetypes, semantic coherence, confidence breakdown, competing-story diagnostics, special-page labels, raw evidence IDs, and other research-stage Story Assessment internals out of the public contract and UI.
+- Fed Issues and Fix Plan from the safe Guided Story Improvements layer without changing non-story finding behavior.
+
 ## 0.6.0 — 2026-06-10
 
 ### Performance And Scalability

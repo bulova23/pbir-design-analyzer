@@ -1,6 +1,6 @@
 # PBIR Design Analyzer Roadmap
 
-This roadmap reflects the post-`0.5.0` product direction after the review workspace expansion, Fabric App review foundations, screenshot and semantic-model evidence, cross-platform packaging, and backend hardening landed on the active branch.
+This roadmap reflects the post-`0.6.0` product direction after the review workspace expansion, Fabric App review foundations, screenshot and semantic-model evidence, cross-platform packaging, and backend hardening landed on the active branch.
 
 ## Current Hardening Status
 
@@ -18,6 +18,13 @@ That means the current branch now includes:
 - versioned score-panel host/webview contracts with payload guards
 - selected page-state validation
 - externalized Fabric review and readiness scoring constants with provenance
+- the first Guided Story Improvements slice powered by validated Story Assessment gaps only
+
+Current Story Assessment promotion posture on the active branch:
+
+- Guided Story Improvements is now the only user-facing Story Assessment slice
+- it stays limited to six validated advisory categories
+- broader Story Assessment internals still remain intentionally hidden until more validation evidence exists
 
 The next roadmap epic after this hardening pass remains:
 
@@ -25,9 +32,9 @@ The next roadmap epic after this hardening pass remains:
 2. Visual Intelligence & Screenshot Analysis
 3. Enterprise Governance & Advanced Review
 
-## Current Release: 0.5.0
+## Current Release: 0.6.0
 
-`0.5.0` establishes the first cross-platform Analytics Experience Review Platform release with:
+`0.6.0` is the current cross-platform Analytics Experience Review Platform release with:
 
 - Overview
 - Issues
@@ -52,6 +59,26 @@ Packaging note for the shipped `0.5.0` set:
 - the other current targets remain framework-dependent
 
 The next roadmap epics build on that foundation without reopening the scoring architecture.
+
+## Story Assessment Promotion Boundary
+
+Implemented now:
+
+- Guided Story Improvements
+
+Still deferred:
+
+- archetype exposure
+- semantic coherence exposure
+- confidence breakdown exposure
+- competing-story exposure
+- special-page labels as product concepts
+
+The Story Assessment boundary remains:
+
+- advisory-only promotion from validated gaps
+- no mutation authority
+- no research-stage diagnostics in the public contract
 
 ## AI Fix Roadmap
 

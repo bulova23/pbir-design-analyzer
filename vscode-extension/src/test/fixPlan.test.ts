@@ -125,4 +125,84 @@ describe('buildFixPlan', () => {
       ]),
     );
   });
+
+  it('sequences Guided Story Improvements in the recommended story order while preserving non-story items', () => {
+    const findings: NormalizedFinding[] = [
+      {
+        id: 'overview-guided-story-missing-prior-period-context',
+        title: 'Add prior-period context',
+        summary: 'The page shows the current result, but not enough context about movement over time.',
+        severity: 'medium',
+        confidence: 78,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'benchmark',
+        frameworkImpact: ['Story Assessment'],
+        recommendation: 'Add prior-period context to the headline result.',
+        sourceKind: 'guidedStoryImprovement',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+      {
+        id: 'overview-guided-story-missing-title-question-anchor',
+        title: 'Add a clearer page question or title',
+        summary: 'The page does not establish its main question or decision early enough.',
+        severity: 'high',
+        confidence: 90,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'storytelling',
+        frameworkImpact: ['Story Assessment'],
+        recommendation: 'Add a clearer page question or title.',
+        sourceKind: 'guidedStoryImprovement',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+      {
+        id: 'overview-guided-story-scattered-filters',
+        title: 'Consolidate scattered filters',
+        summary: 'Filter controls are spread across the page instead of creating one clear exploration entry point.',
+        severity: 'medium',
+        confidence: 78,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'storytelling',
+        frameworkImpact: ['Story Assessment'],
+        recommendation: 'Consolidate scattered filters.',
+        sourceKind: 'guidedStoryImprovement',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+      {
+        id: 'cross-page-navigation',
+        title: 'navigation',
+        summary: 'Navigation patterns differ across the report.',
+        severity: 'medium',
+        confidence: 74,
+        scope: 'crossPage',
+        detectionType: 'deterministic',
+        affectedPages: ['Details'],
+        impactArea: 'navigation',
+        frameworkImpact: ['Enterprise Governance'],
+        recommendation: 'Keep navigation controls in one predictable zone.',
+        sourceKind: 'reportConsistency',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+    ];
+
+    const queue = buildFixPlan(findings);
+
+    expect(queue.slice(0, 3).map((item) => item.title)).toEqual([
+      'Add a clearer page question or title',
+      'Add prior-period context',
+      'Consolidate scattered filters',
+    ]);
+    expect(queue[3]).toMatchObject({
+      title: 'Standardize navigation cues',
+    });
+  });
 });

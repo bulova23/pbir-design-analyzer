@@ -59,7 +59,63 @@ interface RemediationBlueprint {
   why: string;
 }
 
+function getGuidedStoryImprovementBlueprint(finding: NormalizedFinding): RemediationBlueprint | undefined {
+  if (finding.sourceKind !== 'guidedStoryImprovement') {
+    return undefined;
+  }
+
+  switch (finding.id.split('-guided-story-')[1]) {
+    case 'missing-title-question-anchor':
+      return {
+        family: `guided-${finding.id}`,
+        title: 'Add a clearer page question or title',
+        why: 'Creates an explicit narrative entry point before readers interpret the visuals.',
+      };
+    case 'missing-benchmark-target':
+      return {
+        family: `guided-${finding.id}`,
+        title: 'Add a benchmark or target',
+        why: 'Gives the headline result an explicit comparison frame.',
+      };
+    case 'missing-primary-metric':
+      return {
+        family: `guided-${finding.id}`,
+        title: 'Make the primary metric more explicit',
+        why: 'Anchors the page around one clear headline measure.',
+      };
+    case 'missing-primary-dimension':
+      return {
+        family: `guided-${finding.id}`,
+        title: 'Clarify the primary comparison dimension',
+        why: 'Makes the comparison logic easier to read and explain.',
+      };
+    case 'missing-prior-period-context':
+      return {
+        family: `guided-${finding.id}`,
+        title: 'Add prior-period context',
+        why: 'Shows whether the current result is improving, declining, or holding steady.',
+      };
+    case 'scattered-filters':
+      return {
+        family: `guided-${finding.id}`,
+        title: 'Consolidate scattered filters',
+        why: 'Keeps controls from interrupting the main reading path.',
+      };
+    default:
+      return {
+        family: `guided-${finding.id}`,
+        title: finding.title,
+        why: 'Improves the page story through one focused narrative change.',
+      };
+  }
+}
+
 function getBlueprint(finding: NormalizedFinding): RemediationBlueprint {
+  const guidedBlueprint = getGuidedStoryImprovementBlueprint(finding);
+  if (guidedBlueprint) {
+    return guidedBlueprint;
+  }
+
   if (finding.sourceKind === 'fabricAppReview') {
     if (finding.impactArea === 'navigation') {
       return {
@@ -167,6 +223,25 @@ function getBlueprint(finding: NormalizedFinding): RemediationBlueprint {
 }
 
 function getResolvedOutcome(finding: NormalizedFinding): string {
+  if (finding.sourceKind === 'guidedStoryImprovement') {
+    switch (finding.id.split('-guided-story-')[1]) {
+      case 'missing-title-question-anchor':
+        return 'Story anchor';
+      case 'missing-benchmark-target':
+        return 'Benchmark context';
+      case 'missing-primary-metric':
+        return 'Primary metric clarity';
+      case 'missing-primary-dimension':
+        return 'Primary dimension clarity';
+      case 'missing-prior-period-context':
+        return 'Prior-period context';
+      case 'scattered-filters':
+        return 'Filter flow';
+      default:
+        return finding.title;
+    }
+  }
+
   if (finding.sourceKind === 'fabricAppReview') {
     switch (finding.impactArea) {
       case 'navigation':
@@ -225,6 +300,26 @@ function buildGroupKey(finding: NormalizedFinding): string {
     ? 'report'
     : finding.affectedPages.slice().sort().join('|');
   return `${blueprint.family}:${pageKey}`;
+}
+
+function getGuidedStoryImprovementSequenceRank(item: FixPlanItem): number {
+  const findingId = item.sourceFindingIds[0]?.split('-guided-story-')[1];
+  switch (findingId) {
+    case 'missing-title-question-anchor':
+      return 0;
+    case 'missing-benchmark-target':
+      return 1;
+    case 'missing-primary-metric':
+      return 2;
+    case 'missing-primary-dimension':
+      return 3;
+    case 'missing-prior-period-context':
+      return 4;
+    case 'scattered-filters':
+      return 5;
+    default:
+      return 99;
+  }
 }
 
 function inferImpact(findings: NormalizedFinding[]): FixPlanImpact {
@@ -295,6 +390,12 @@ export function buildFixPlan(findings: NormalizedFinding[] | undefined): FixPlan
       } satisfies FixPlanItem;
     })
     .sort((left, right) => {
+      const leftIsGuided = left.sourceFindingIds.some((id) => id.includes('-guided-story-'));
+      const rightIsGuided = right.sourceFindingIds.some((id) => id.includes('-guided-story-'));
+      if (leftIsGuided && rightIsGuided) {
+        return getGuidedStoryImprovementSequenceRank(left) - getGuidedStoryImprovementSequenceRank(right);
+      }
+
       const severityDiff = severityRank(left.severity) - severityRank(right.severity);
       if (severityDiff !== 0) {
         return severityDiff;

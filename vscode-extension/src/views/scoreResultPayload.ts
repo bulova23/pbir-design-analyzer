@@ -13,6 +13,8 @@ import type {
   ChartIntentSummary,
   FindingType,
   FrameworkFeedbackItem,
+  GuidedStoryImprovement,
+  GuidedStoryImprovements,
   PageIntentProfile,
   PageStorySummary,
   PageVisualMetadataSummary,
@@ -518,6 +520,58 @@ function normalizeBenchmarkComparison(value: unknown): BenchmarkComparisonSummar
   };
 }
 
+function normalizeGuidedStoryImprovement(value: unknown): GuidedStoryImprovement | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const id = readOptionalString(value, 'id');
+  const title = readOptionalString(value, 'title');
+  const summary = readOptionalString(value, 'summary');
+  const rationale = readOptionalString(value, 'rationale');
+  const expectedImpact = readOptionalString(value, 'expectedImpact');
+  const priority = readOptionalString(value, 'priority');
+  const relatedImpactArea = readOptionalString(value, 'relatedImpactArea');
+  if (!id || !title || !summary || !rationale || !expectedImpact || !priority || !relatedImpactArea) {
+    return undefined;
+  }
+
+  return {
+    id,
+    title,
+    summary,
+    rationale,
+    expectedImpact,
+    priority: priority as GuidedStoryImprovement['priority'],
+    relatedImpactArea: relatedImpactArea as GuidedStoryImprovement['relatedImpactArea'],
+  };
+}
+
+function normalizeGuidedStoryImprovements(value: unknown): GuidedStoryImprovements | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const storyImprovementRationale = readOptionalString(value, 'storyImprovementRationale');
+  if (storyImprovementRationale === undefined) {
+    return undefined;
+  }
+
+  return {
+    highPriorityImprovements: Array.isArray(readProperty(value, 'highPriorityImprovements'))
+      ? (readProperty(value, 'highPriorityImprovements') as unknown[])
+        .map((item) => normalizeGuidedStoryImprovement(item))
+        .filter((item): item is GuidedStoryImprovement => Boolean(item))
+      : [],
+    mediumPriorityImprovements: Array.isArray(readProperty(value, 'mediumPriorityImprovements'))
+      ? (readProperty(value, 'mediumPriorityImprovements') as unknown[])
+        .map((item) => normalizeGuidedStoryImprovement(item))
+        .filter((item): item is GuidedStoryImprovement => Boolean(item))
+      : [],
+    storyImprovementRationale,
+  };
+}
+
 function normalizeAffectedVisual(value: unknown): AffectedVisualReference | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -727,6 +781,7 @@ function normalizePageScore(value: unknown): PageScore {
     pageIntentProfile: normalizePageIntentProfile(readProperty(candidate, 'pageIntentProfile')),
     actionabilityBreakdown: normalizeActionabilityBreakdown(readProperty(candidate, 'actionabilityBreakdown')),
     benchmarkComparison: normalizeBenchmarkComparison(readProperty(candidate, 'benchmarkComparison')),
+    guidedStoryImprovements: normalizeGuidedStoryImprovements(readProperty(candidate, 'guidedStoryImprovements')),
     scoringError: readOptionalString(candidate, 'scoringError'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
@@ -769,6 +824,7 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     pageIntentProfile: normalizePageIntentProfile(readProperty(candidate, 'pageIntentProfile')),
     actionabilityBreakdown: normalizeActionabilityBreakdown(readProperty(candidate, 'actionabilityBreakdown')),
     benchmarkComparison: normalizeBenchmarkComparison(readProperty(candidate, 'benchmarkComparison')),
+    guidedStoryImprovements: normalizeGuidedStoryImprovements(readProperty(candidate, 'guidedStoryImprovements')),
     layoutScore: readOptionalNumber(candidate, 'layoutScore'),
     themeScore: readOptionalNumber(candidate, 'themeScore'),
     governanceScore: readOptionalNumber(candidate, 'governanceScore'),

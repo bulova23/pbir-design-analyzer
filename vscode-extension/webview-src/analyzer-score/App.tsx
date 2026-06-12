@@ -24,6 +24,8 @@ import type {
   ReviewPresentationPersona,
   ReviewPresentationPersonaProfile,
   ReviewerPersona,
+  ScorePanelNavigationTarget,
+  StoryAssessmentDiffResult,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
@@ -1606,9 +1608,256 @@ function getSupportedDecisionText(
   }
 }
 
+function normalizeStorySignal(text: string): string {
+  return text.trim().replace(/[.]+$/u, '');
+}
+
+function dedupeStorySignals(items: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+
+  for (const item of items) {
+    const normalized = item ? normalizeStorySignal(item) : '';
+    if (!normalized) {
+      continue;
+    }
+
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(normalized);
+  }
+
+  return deduped;
+}
+
+function getStoryTypeLabel(props: {
+  storySummary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>;
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>;
+}): string {
+  const { storySummary, analysis } = props;
+  const normalizedProfile = normalizeLegacyIntentProfile(storySummary.intentProfile);
+  const narrative = `${storySummary.inferredStory} ${analysis.whyThisMatters}`.toLowerCase();
+
+  if (normalizedProfile === 'executive') {
+    return 'Executive Overview';
+  }
+
+  if (normalizedProfile === 'operational') {
+    return 'Operational Performance Monitoring';
+  }
+
+  if (narrative.includes('trend') || narrative.includes('over time') || narrative.includes('prior-period')) {
+    return 'Trend Monitoring';
+  }
+
+  if (narrative.includes('compare') || narrative.includes('comparison')) {
+    return 'Comparative Analysis';
+  }
+
+  if (normalizedProfile === 'appendix') {
+    return 'Diagnostic Investigation';
+  }
+
+  return 'Diagnostic Investigation';
+}
+
+function getStoryMaturityLabel(props: {
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>;
+  guidedStoryImprovements: ScoreResult['guidedStoryImprovements'] | PageScore['guidedStoryImprovements'];
+}): 'Draft' | 'Developing' | 'Strong' | 'Mature' {
+  const { analysis, guidedStoryImprovements } = props;
+  const highPriorityCount = guidedStoryImprovements?.highPriorityImprovements.length ?? 0;
+  const mediumPriorityCount = guidedStoryImprovements?.mediumPriorityImprovements.length ?? 0;
+  const actionabilityScore = typeof analysis.actionabilityScore === 'number' ? analysis.actionabilityScore : 0;
+
+  if (highPriorityCount === 0 && mediumPriorityCount === 0 && actionabilityScore >= 85) {
+    return 'Mature';
+  }
+
+  if (highPriorityCount === 0 && mediumPriorityCount <= 1 && actionabilityScore >= 70) {
+    return 'Strong';
+  }
+
+  if (highPriorityCount >= 3 || actionabilityScore < 35) {
+    return 'Draft';
+  }
+
+  return 'Developing';
+}
+
+function buildStoryAssessmentNarrative(props: {
+  detectedStory: string;
+  supportedDecision: string;
+  whyThisMatters: string;
+}): string {
+  const { detectedStory, supportedDecision, whyThisMatters } = props;
+  return `${detectedStory} ${supportedDecision} ${whyThisMatters}`.trim();
+}
+
+function getStrongSignals(props: {
+  actionabilityBreakdown: ActionabilityBreakdown | undefined;
+  benchmarkComparison: BenchmarkComparisonSummary | undefined;
+  pageIntentProfile: PageIntentProfile | undefined;
+}): string[] {
+  const { actionabilityBreakdown, benchmarkComparison, pageIntentProfile } = props;
+  const signals = dedupeStorySignals([
+    ...(actionabilityBreakdown?.strengths ?? []),
+    ...(benchmarkComparison?.strengths ?? []),
+    ...(pageIntentProfile?.evidence ?? []).map((evidence) => evidence.length > 80 ? evidence.slice(0, 80).trim() : evidence.trim()),
+  ]);
+
+  return signals.slice(0, 4);
+}
+
+function getMissingSignals(props: {
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>;
+  guidedStoryImprovements: ScoreResult['guidedStoryImprovements'] | PageScore['guidedStoryImprovements'];
+  actionabilityBreakdown: ActionabilityBreakdown | undefined;
+  benchmarkComparison: BenchmarkComparisonSummary | undefined;
+}): string[] {
+  const { analysis, guidedStoryImprovements, actionabilityBreakdown, benchmarkComparison } = props;
+  const improvementAbsences = [
+    ...(guidedStoryImprovements?.highPriorityImprovements ?? []),
+    ...(guidedStoryImprovements?.mediumPriorityImprovements ?? []),
+  ].map((improvement) => {
+    const title = improvement.title.toLowerCase();
+    if (title.includes('question') || title.includes('title')) {
+      return 'No clear headline question';
+    }
+
+    if (title.includes('benchmark') || title.includes('target')) {
+      return 'No visible benchmark or target';
+    }
+
+    if (title.includes('prior-period') || title.includes('trend')) {
+      return 'No prior-period context';
+    }
+
+    if (title.includes('primary metric')) {
+      return 'No clear primary metric';
+    }
+
+    if (title.includes('primary dimension')) {
+      return 'No clear primary comparison anchor';
+    }
+
+    if (title.includes('filter')) {
+      return 'No focused filter path reinforcing one main takeaway';
+    }
+
+    return undefined;
+  });
+
+  const gapAbsences = [
+    ...analysis.topGaps,
+    ...(actionabilityBreakdown?.gaps ?? []),
+    ...(benchmarkComparison?.gaps ?? []),
+  ].map((gap) => {
+    const normalized = gap.toLowerCase();
+    if (normalized.includes('exception')) {
+      return 'No clear exception callout';
+    }
+
+    if (normalized.includes('target') || normalized.includes('benchmark')) {
+      return 'No visible benchmark or target';
+    }
+
+    if (normalized.includes('prior-period') || normalized.includes('movement over time')) {
+      return 'No prior-period context';
+    }
+
+    return undefined;
+  });
+
+  const gapLabels = dedupeStorySignals([
+    ...gapAbsences,
+    ...improvementAbsences,
+  ]);
+
+  return gapLabels.slice(0, 5);
+}
+
+function renderNavigationTargetAction(
+  target: ScorePanelNavigationTarget | undefined,
+  onNavigateToTarget: (target: ScorePanelNavigationTarget) => void,
+): React.ReactNode {
+  if (!target) {
+    return null;
+  }
+
+  const buttonLabel = target.supportState === 'unavailable' ? 'Target unavailable' : 'Open target';
+
+  return (
+    <div className="story-navigation-action">
+      <button
+        className="secondary-button story-navigation-button"
+        disabled={target.supportState === 'unavailable'}
+        onClick={() => onNavigateToTarget(target)}
+        type="button"
+      >
+        {buttonLabel}
+      </button>
+      <div className="story-navigation-copy">
+        <p className="story-navigation-label">{target.label}</p>
+        <p className="story-navigation-reason">{target.reason}</p>
+      </div>
+    </div>
+  );
+}
+
+function renderStoryAssessmentDiffBlock(
+  diff: StoryAssessmentDiffResult | undefined,
+  onNavigateToTarget: (target: ScorePanelNavigationTarget) => void,
+): React.ReactNode {
+  if (!diff) {
+    return null;
+  }
+
+  return (
+    <div className="page-purpose-block story-diff-block">
+      <h3>What Changed</h3>
+      <p className="story-diff-summary">{diff.summary}</p>
+      <div className="story-diff-list">
+        {diff.resolvedRecommendations.map((item) => (
+          <p className="story-diff-row" key={`resolved-${item.id}`}>Resolved: {item.title}</p>
+        ))}
+        {diff.newRecommendations.map((item) => (
+          <div className="story-diff-action-row" key={`new-${item.id}`}>
+            <p className="story-diff-row">New: {item.title}</p>
+            {renderNavigationTargetAction(item.navigationTarget, onNavigateToTarget)}
+          </div>
+        ))}
+        {diff.unchangedRecommendations.map((item) => (
+          <div className="story-diff-action-row" key={`unchanged-${item.id}`}>
+            <p className="story-diff-row">Still open: {item.title}</p>
+            {renderNavigationTargetAction(item.navigationTarget, onNavigateToTarget)}
+          </div>
+        ))}
+        {diff.addedStrongSignals.map((item) => (
+          <p className="story-diff-row" key={`added-strong-${item}`}>Added strong signal: {item}</p>
+        ))}
+        {diff.removedStrongSignals.map((item) => (
+          <p className="story-diff-row" key={`removed-strong-${item}`}>Removed strong signal: {item}</p>
+        ))}
+        {diff.addedMissingSignals.map((item) => (
+          <p className="story-diff-row" key={`added-missing-${item}`}>Added missing signal: {item}</p>
+        ))}
+        {diff.removedMissingSignals.map((item) => (
+          <p className="story-diff-row" key={`removed-missing-${item}`}>Removed missing signal: {item}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function renderPagePurposeAnalysisSection(props: {
   analysis: ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis'];
   storySummary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>;
+  guidedStoryImprovements: ScoreResult['guidedStoryImprovements'] | PageScore['guidedStoryImprovements'];
   pageIntentProfile: PageIntentProfile | undefined;
   selectedProfile: PageIntentProfileType;
   onProfileChange: (next: PageIntentProfileType) => void;
@@ -1619,6 +1868,8 @@ function renderPagePurposeAnalysisSection(props: {
   onConfirm: (next: IntentFeedbackConfirmation) => void;
   onNoteChange: (next: string) => void;
   onSaveNote: () => void;
+  onNavigateToTarget: (target: ScorePanelNavigationTarget) => void;
+  storyAssessmentDiff?: StoryAssessmentDiffResult;
   noteSaved: boolean;
   expanded: boolean;
   onToggleExpanded: () => void;
@@ -1626,6 +1877,7 @@ function renderPagePurposeAnalysisSection(props: {
   const {
     analysis,
     storySummary,
+    guidedStoryImprovements,
     pageIntentProfile,
     selectedProfile,
     onProfileChange,
@@ -1636,6 +1888,8 @@ function renderPagePurposeAnalysisSection(props: {
     onConfirm,
     onNoteChange,
     onSaveNote,
+    onNavigateToTarget,
+    storyAssessmentDiff,
     noteSaved,
     expanded,
     onToggleExpanded,
@@ -1647,55 +1901,115 @@ function renderPagePurposeAnalysisSection(props: {
 
   const detectedStory = getDetectedStoryText(storySummary, analysis);
   const supportedDecision = getSupportedDecisionText(analysis);
-  const decisionRisk = getDecisionRiskText(analysis);
+  const storyType = getStoryTypeLabel({ storySummary, analysis });
+  const storyMaturity = getStoryMaturityLabel({ analysis, guidedStoryImprovements });
+  const storyNarrative = buildStoryAssessmentNarrative({
+    detectedStory,
+    supportedDecision,
+    whyThisMatters: analysis.whyThisMatters,
+  });
+  const strongSignals = getStrongSignals({
+    actionabilityBreakdown,
+    benchmarkComparison,
+    pageIntentProfile,
+  });
+  const missingSignals = getMissingSignals({
+    analysis,
+    guidedStoryImprovements,
+    actionabilityBreakdown,
+    benchmarkComparison,
+  });
+  const topStoryImprovements = guidedStoryImprovements
+    ? [
+        ...guidedStoryImprovements.highPriorityImprovements,
+        ...guidedStoryImprovements.mediumPriorityImprovements,
+      ].slice(0, 3)
+    : [];
 
   return (
     <section className="panel-card page-purpose-card">
       <div className="issues-section-head">
         <div>
-          <p className="section-kicker">Story diagnostics</p>
+          <p className="section-kicker">Story assessment</p>
           <h2>Story Assessment</h2>
         </div>
         <p className="issues-section-copy">
-          Understand the story this page is trying to tell, the decision it supports, and what still prevents that story from working.
+          Read the page like a consultant: what it appears to say, what supports that story, what weakens it, and what should change first.
         </p>
       </div>
       <div className="page-purpose-summary">
         <div className="page-purpose-block">
-          <h3>Detected Story</h3>
-          <p className="page-purpose-lead">{detectedStory}</p>
+          <h3>What We Believe This Page Is Trying To Say</h3>
+          <p className="page-purpose-lead">{storyNarrative}</p>
         </div>
         <div className="page-purpose-block">
-          <h3>Supported Decision</h3>
-          <p className="overview-copy">{supportedDecision}</p>
+          <h3>Story Type</h3>
+          <p className="overview-copy">{storyType}</p>
         </div>
         <div className="page-purpose-block">
-          <h3>Why This Matters</h3>
-          <p className="overview-summary-copy">{analysis.whyThisMatters}</p>
-        </div>
-        {decisionRisk ? (
-          <div className="page-purpose-block">
-            <h3>Decision Risk</h3>
-            <p className="overview-copy">{decisionRisk}</p>
+          <h3>Story Maturity</h3>
+          <div className="story-strength-row">
+            <span className={`story-strength-badge story-strength-${storyMaturity.toLowerCase()}`}>{storyMaturity}</span>
+            <p className="overview-copy">
+              {storyMaturity === 'Mature'
+                ? 'The page story is already well framed and reads like a finished decision surface.'
+                : storyMaturity === 'Strong'
+                  ? 'The page already has a strong narrative frame and only needs minor reinforcement.'
+                  : storyMaturity === 'Developing'
+                    ? 'The page has useful content and a visible direction, but it still needs stronger decision context.'
+                    : 'The page is still forming its story and needs clearer anchors before readers can trust the takeaway.'}
+            </p>
           </div>
-        ) : null}
-        {analysis.topGaps.length > 0 ? (
-          <div className="page-purpose-block">
-            <h3>Story Gaps</h3>
+        </div>
+        <div className="page-purpose-block">
+          <h3>Strong Signals</h3>
+          {strongSignals.length > 0 ? (
             <ul className="story-gap-list">
-              {analysis.topGaps.map((gap) => (
+              {strongSignals.map((signal) => (
+                <li key={signal}>{signal}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="overview-copy">No strong supporting story signals were clear enough to promote on this page.</p>
+          )}
+        </div>
+        {missingSignals.length > 0 ? (
+          <div className="page-purpose-block">
+            <h3>Missing Signals</h3>
+            <ul className="story-gap-list">
+              {missingSignals.map((gap) => (
                 <li key={gap}>{gap}</li>
               ))}
             </ul>
           </div>
         ) : null}
-        <div className="overview-badges story-metric-badges">
-          {analysis.confidence ? <span className="overview-badge">Story Confidence: {analysis.confidence}</span> : null}
-          {typeof analysis.actionabilityScore === 'number' ? (
-            <span className="overview-badge">Decision Support: {analysis.actionabilityScore.toFixed(0)}/100</span>
-          ) : null}
-          {analysis.benchmarkStatus ? <span className="overview-badge">Benchmark: {analysis.benchmarkStatus}</span> : null}
-        </div>
+        {topStoryImprovements.length > 0 ? (
+          <div className="page-purpose-block">
+            <h3>Top Story Improvements</h3>
+            <div className="guided-story-layout guided-story-layout-embedded">
+              <ul className="guided-story-list">
+                {topStoryImprovements.map((improvement) => (
+                  <li className="guided-story-item" key={improvement.id}>
+                    <p className="guided-story-item-problem">{improvement.summary}</p>
+                    <h4 className="guided-story-item-title">{improvement.title}</h4>
+                    <p className="guided-story-item-summary">{improvement.rationale}</p>
+                    <p className="guided-story-item-impact">
+                      <strong>Expected impact:</strong> {improvement.expectedImpact}
+                    </p>
+                    {renderNavigationTargetAction(improvement.navigationTarget, onNavigateToTarget)}
+                  </li>
+                ))}
+              </ul>
+              {guidedStoryImprovements?.storyImprovementRationale.trim() ? (
+                <div className="guided-story-group guided-story-rationale">
+                  <p className="guided-story-rationale-label">Story Improvement Rationale</p>
+                  <p>{guidedStoryImprovements.storyImprovementRationale}</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {renderStoryAssessmentDiffBlock(storyAssessmentDiff, onNavigateToTarget)}
         <button className="secondary-button" onClick={onToggleExpanded} type="button">
           {expanded ? 'Hide Full Reasoning' : 'Show Full Reasoning'}
         </button>
@@ -3680,6 +3994,11 @@ export default function App(): JSX.Element {
     ?? (!multiPage ? (result.visualMetadata ?? pageScores[0]?.visualMetadata) : undefined);
   const pagePurposeAnalysis = selectedPage?.pagePurposeAnalysis
     ?? (!multiPage ? (result.pagePurposeAnalysis ?? pageScores[0]?.pagePurposeAnalysis) : undefined);
+  const guidedStoryImprovements = selectedPage?.guidedStoryImprovements
+    ?? (!multiPage ? (result.guidedStoryImprovements ?? pageScores[0]?.guidedStoryImprovements) : undefined);
+  const storyAssessmentDiff = viewState.state.storyAssessmentDiffByPage?.[
+    selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? ''
+  ];
   const reviewEntries = buildPageReviewEntries(pageScores, result, storyIntentFeedback);
   const personaProfiles = result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
   const personaPresentation = result.overviewSummary
@@ -3716,6 +4035,12 @@ export default function App(): JSX.Element {
       type: 'revealVisual',
       pageName: visual.pageName,
       visualId: visual.visualId,
+    });
+  };
+  const navigateToTarget = (target: ScorePanelNavigationTarget) => {
+    postHostMessage({
+      type: 'navigateToTarget',
+      target,
     });
   };
   const focusRecommendations = () => {
@@ -3861,6 +4186,7 @@ export default function App(): JSX.Element {
       {storySummary && pagePurposeAnalysis ? renderPagePurposeAnalysisSection({
         analysis: pagePurposeAnalysis,
         storySummary,
+        guidedStoryImprovements,
         pageIntentProfile: selectedPage?.pageIntentProfile ?? result.pageIntentProfile,
         selectedProfile: selectedIntentProfile,
         onProfileChange: (next) => setIntentProfileOverrides((prev) => ({ ...prev, [intentProfileKey]: next })),
@@ -3923,6 +4249,8 @@ export default function App(): JSX.Element {
           });
           setSavedStoryNoteKey(storyConfirmationKey);
         },
+        onNavigateToTarget: navigateToTarget,
+        storyAssessmentDiff,
         noteSaved: savedStoryNoteKey === storyConfirmationKey,
         expanded: pagePurposeExpanded,
         onToggleExpanded: () => setPagePurposeExpanded((prev) => !prev),

@@ -151,4 +151,55 @@ describe('buildContextAwareRemediationQueue', () => {
       findingCoverageLabel: '1 High',
     });
   });
+
+  it('preserves Guided Story Improvements ordering inside the story remediation queue', () => {
+    const guidedFindings: NormalizedFinding[] = [
+      {
+        id: 'overview-guided-story-missing-prior-period-context',
+        title: 'Add prior-period context',
+        summary: 'The page shows the current result, but not enough context about movement over time.',
+        severity: 'medium',
+        confidence: 78,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'benchmark',
+        frameworkImpact: ['Story Assessment'],
+        recommendation: 'Add prior-period context.',
+        sourceKind: 'guidedStoryImprovement',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+      {
+        id: 'overview-guided-story-missing-title-question-anchor',
+        title: 'Add a clearer page question or title',
+        summary: 'The page does not establish its main question or decision early enough.',
+        severity: 'high',
+        confidence: 90,
+        scope: 'page',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'storytelling',
+        frameworkImpact: ['Story Assessment'],
+        recommendation: 'Add a clearer page question or title.',
+        sourceKind: 'guidedStoryImprovement',
+        sourceSection: 'issues',
+        evidence: [],
+      },
+    ];
+
+    const queue = buildContextAwareRemediationQueue({
+      findings: guidedFindings,
+      selectedPageName: 'Overview',
+      filters: filters({
+        pageName: 'Overview',
+        dimension: 'story',
+      }),
+    });
+
+    expect(queue.items.map((item) => item.title)).toEqual([
+      'Add a clearer page question or title',
+      'Add prior-period context',
+    ]);
+  });
 });

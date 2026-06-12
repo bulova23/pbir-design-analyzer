@@ -13,6 +13,8 @@ import type {
   FixOpportunity,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
+  StoryAssessmentDiffResult,
+  StoryAssessmentReportSnapshot,
   ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
@@ -35,7 +37,7 @@ import {
 } from '../languageServer/analyzerBackendClient';
 import { resolveWebviewAssets } from './webviewAssets';
 import { buildFixWorkflowPayload, normalizeScoreResultPayload } from './scoreResultPayload';
-import { revealVisualInPbirExplorer } from './pbirExplorerReveal';
+import { revealNavigationTargetInPbirExplorer, revealVisualInPbirExplorer } from './pbirExplorerReveal';
 import { loadIntentFeedbackSession, saveIntentFeedbackSession, upsertIntentFeedback } from '../analyzer/intentFeedback/store';
 import {
   buildReviewWorkflowExportData,
@@ -73,6 +75,9 @@ import {
   recordFixSessionRollback,
 } from '../analyzer/fixes/fixSessionHistory';
 import { evaluateFixOutcome, summarizeBatchFixOutcomes } from '../analyzer/fixes/fixOutcomeEvaluator';
+import { attachNavigationTargets } from '../analyzer/score/navigationTargets';
+import { buildStoryAssessmentReportSnapshot, compareStoryAssessmentSnapshots } from '../analyzer/score/storyAssessmentSnapshot';
+import { loadStoryAssessmentSnapshot, saveStoryAssessmentSnapshot } from '../analyzer/score/storyAssessmentSnapshotStore';
 import { buildScoreDeterminismDiagnostics } from '../analyzer/score/scoreDiagnostics';
 
 export class PbirScorePanel {
@@ -100,6 +105,9 @@ export class PbirScorePanel {
   private fixApplySessions: FixApplySessionRecord[] = [];
   private fixWorkflowMessage: string | undefined;
   private lastScoreDiagnosticsJson: string | undefined;
+  private storyAssessmentCurrentSnapshot: StoryAssessmentReportSnapshot | undefined;
+  private storyAssessmentDiffByPage: Record<string, StoryAssessmentDiffResult> | undefined;
+  private storyAssessmentLastComparedAt: string | undefined;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -205,6 +213,15 @@ export class PbirScorePanel {
         }
         return;
       }
+      case 'navigateToTarget': {
+        const revealed = await revealNavigationTargetInPbirExplorer(payload.target);
+        if (!revealed) {
+          void vscode.window.showWarningMessage(
+            `Could not navigate to '${payload.target.label}'. ${payload.target.reason}`,
+          );
+        }
+        return;
+      }
       case 'uploadScreenshots':
         await this.handleUploadScreenshots();
         return;
@@ -289,10 +306,10 @@ export class PbirScorePanel {
       }
     }
 
-    return {
+    return attachNavigationTargets({
       ...result,
       fixOpportunities: merged,
-    };
+    });
   }
 
   private currentPreviewableOpportunities(): FixOpportunity[] {
@@ -867,6 +884,9 @@ export class PbirScorePanel {
           presentationResult.pageScores?.length ?? 0,
         ),
         intentFeedback,
+        storyAssessmentCurrentSnapshot: this.storyAssessmentCurrentSnapshot,
+        storyAssessmentDiffByPage: this.storyAssessmentDiffByPage,
+        storyAssessmentLastComparedAt: this.storyAssessmentLastComparedAt,
         fixSelection: fixWorkflow.fixSelection,
         fixApplySessions: fixWorkflow.fixApplySessions,
         reviewPacketPreview,
@@ -934,6 +954,26 @@ export class PbirScorePanel {
     this.postMessage({ type: 'auditState', audit: auditState });
   }
 
+  private async refreshStoryAssessmentState(result: ScoreResult): Promise<void> {
+    const currentSnapshot = buildStoryAssessmentReportSnapshot(result);
+    if (currentSnapshot.pages.length === 0) {
+      this.storyAssessmentCurrentSnapshot = undefined;
+      this.storyAssessmentDiffByPage = undefined;
+      this.storyAssessmentLastComparedAt = undefined;
+      return;
+    }
+
+    const priorSnapshot = await loadStoryAssessmentSnapshot(this.context, this.reportPath);
+    const diff = priorSnapshot
+      ? compareStoryAssessmentSnapshots(priorSnapshot, currentSnapshot)
+      : undefined;
+
+    this.storyAssessmentCurrentSnapshot = currentSnapshot;
+    this.storyAssessmentDiffByPage = diff?.byPage;
+    this.storyAssessmentLastComparedAt = priorSnapshot ? result.scoredAt : undefined;
+    await saveStoryAssessmentSnapshot(this.context, this.reportPath, currentSnapshot);
+  }
+
   private async refresh(): Promise<void> {
     this.postMessage({ type: 'loading' });
     const scoringStartMs = Date.now();
@@ -995,6 +1035,7 @@ export class PbirScorePanel {
           },
         );
         this.currentResult = normalizedResult;
+        await this.refreshStoryAssessmentState(normalizedResult);
         await this.captureScoreDiagnostics(normalizedResult);
         const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
         const reviewPacketPreview = buildReviewWorkflowExportData(
@@ -1048,6 +1089,7 @@ export class PbirScorePanel {
         },
       );
       this.currentResult = normalizedResult;
+      await this.refreshStoryAssessmentState(normalizedResult);
       await this.captureScoreDiagnostics(normalizedResult);
       const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
       const reviewPacketPreview = buildReviewWorkflowExportData(

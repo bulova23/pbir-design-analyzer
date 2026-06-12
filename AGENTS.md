@@ -1,5 +1,26 @@
 # Repository Guidelines
 
+Review this repository as if you were performing a pre-release architecture review before a v1.0 launch.
+
+Focus heavily on:
+- Architectural consistency
+- Future maintainability
+- AI-agent generated code quality
+- Overengineering
+- Unnecessary abstractions
+- Public contract stability
+- Backward compatibility risks
+- Testability
+- Technical debt accumulation
+
+Identify:
+- Areas that will become difficult to maintain in 6-12 months
+- Places where the architecture does not match the stated design documents
+- Features that should be refactored before adding new functionality
+- Any violation of existing architectural patterns used elsewhere in the repository
+
+Rank all findings by long-term risk.
+
 ## Project Structure & Module Organization
 `vscode-extension/` contains the shipped VS Code extension. Put extension runtime code in `src/`, React webviews in `webview-src/`, static assets in `resources/`, and Jest mocks in `tests/__mocks__/`. `service-dotnet/` contains the .NET 8 backend: `RpcHost/` is the packaged entrypoint, `Services/Pbir/` holds scoring, governance, and tree logic, and `tests/` holds xUnit coverage. Long-form specs, release notes, and troubleshooting live in `docs/`.
 
