@@ -171,7 +171,7 @@ describe('storyAssessmentSnapshot', () => {
         }),
       ]),
       actionabilityBreakdown: {
-        score: 30,
+        score: 20,
         targetBenchmarkPresent: false,
         exceptionVisibility: false,
         urgencySignaling: false,
@@ -185,7 +185,7 @@ describe('storyAssessmentSnapshot', () => {
       pagePurposeAnalysis: {
         inferredPurpose: 'Executive',
         confidence: 'high',
-        actionabilityScore: 30,
+        actionabilityScore: 20,
         benchmarkStatus: 'Below expected',
         topGaps: ['Exception visibility is weak.'],
         whyThisMatters: 'The page story is still weak.',

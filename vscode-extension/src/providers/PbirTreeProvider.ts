@@ -268,7 +268,7 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
             typeof item.label === 'string' ? item.label : undefined,
         ];
 
-        return candidates.some((candidate) => candidate === pageName);
+        return candidates.some((candidate) => this._matchesIdentifier(candidate, pageName));
     }
 
     private _matchesVisual(item: PbirTreeItem, visualId: string): boolean {
@@ -277,7 +277,19 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
         }
 
         const rawNode = item.rawNode as PbirVisualNode | undefined;
-        return rawNode?.name === visualId;
+        const candidates = [
+            rawNode?.id,
+            rawNode?.name,
+            typeof item.label === 'string' ? item.label : undefined,
+            item.resourceUri?.fsPath ? path.basename(path.dirname(item.resourceUri.fsPath)) : undefined,
+        ];
+
+        return candidates.some((candidate) => this._matchesIdentifier(candidate, visualId));
+    }
+
+    private _matchesIdentifier(candidate: string | undefined, expected: string): boolean {
+        return typeof candidate === 'string' &&
+            candidate.trim().localeCompare(expected.trim(), undefined, { sensitivity: 'accent' }) === 0;
     }
 
     /**

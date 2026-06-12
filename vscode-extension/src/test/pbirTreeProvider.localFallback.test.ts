@@ -116,4 +116,24 @@ describe('PbirTreeProvider local fallback', () => {
 
     expect(reportChildren.map((item) => item.label)).toEqual(['Corporate Theme', 'Customer Analysis', 'Overview']);
   });
+
+  it('resolves pages by either display name or internal PBIR page name', async () => {
+    const provider = new PbirTreeProvider();
+    provider.setProjectPath(pbipPath);
+
+    const displayNameMatch = await provider.findPageItem('Overview');
+    const internalNameMatch = await provider.findPageItem('OverviewPage');
+
+    expect(displayNameMatch?.label).toBe('Overview');
+    expect(internalNameMatch?.label).toBe('Overview');
+  });
+
+  it('resolves visuals by stable PBIR visual id even when the explorer label uses the visual display name', async () => {
+    const provider = new PbirTreeProvider();
+    provider.setProjectPath(pbipPath);
+
+    const visualItem = await provider.findVisualItem('Overview', 'SalesByRegion');
+
+    expect(visualItem?.label).toBe('Sales by Region (barChart)');
+  });
 });

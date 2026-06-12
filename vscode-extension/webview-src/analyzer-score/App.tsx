@@ -32,6 +32,7 @@ import type {
   ScoreResult,
   VisualMetadataItem,
 } from '../../src/analyzer/contracts/scorePanel';
+import { getStoryMaturityLabel } from '../../src/analyzer/score/storyAssessmentPresentation';
 import {
   basename,
   getEnabledFrameworks,
@@ -1663,30 +1664,6 @@ function getStoryTypeLabel(props: {
   }
 
   return 'Diagnostic Investigation';
-}
-
-function getStoryMaturityLabel(props: {
-  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>;
-  guidedStoryImprovements: ScoreResult['guidedStoryImprovements'] | PageScore['guidedStoryImprovements'];
-}): 'Draft' | 'Developing' | 'Strong' | 'Mature' {
-  const { analysis, guidedStoryImprovements } = props;
-  const highPriorityCount = guidedStoryImprovements?.highPriorityImprovements.length ?? 0;
-  const mediumPriorityCount = guidedStoryImprovements?.mediumPriorityImprovements.length ?? 0;
-  const actionabilityScore = typeof analysis.actionabilityScore === 'number' ? analysis.actionabilityScore : 0;
-
-  if (highPriorityCount === 0 && mediumPriorityCount === 0 && actionabilityScore >= 85) {
-    return 'Mature';
-  }
-
-  if (highPriorityCount === 0 && mediumPriorityCount <= 1 && actionabilityScore >= 70) {
-    return 'Strong';
-  }
-
-  if (highPriorityCount >= 3 || actionabilityScore < 35) {
-    return 'Draft';
-  }
-
-  return 'Developing';
 }
 
 function buildStoryAssessmentNarrative(props: {

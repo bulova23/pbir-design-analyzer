@@ -9,6 +9,7 @@ export interface PbirThemeNode {
 }
 
 export interface PbirVisualNode {
+  id?: string;
   name?: string;
   visualType?: string;
   path?: string;
@@ -314,6 +315,7 @@ async function buildVisualNodes(
     const visualJson = await readSnapshotJson(snapshot, visualJsonRelative);
     const visualSection = isRecord(visualJson?.visual) ? visualJson.visual : undefined;
     visuals.push({
+      id: visualId,
       name: typeof visualJson?.name === 'string' ? visualJson.name : visualId,
       visualType: typeof visualSection?.visualType === 'string' ? visualSection.visualType : undefined,
       path: toWorkspaceRelativePath(visualJsonPath, workspaceRoot),

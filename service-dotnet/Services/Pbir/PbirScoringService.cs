@@ -6955,22 +6955,51 @@ public sealed class PbirScoringService
             return string.Empty;
         }
 
-        var highCount = improvements.Count(improvement => string.Equals(improvement.Priority, "high", StringComparison.Ordinal));
-        var mediumCount = improvements.Count - highCount;
+        var ids = improvements
+            .Select(improvement => improvement.Id)
+            .ToHashSet(StringComparer.Ordinal);
 
-        if (highCount >= 3)
+        if (ids.Contains("missing-benchmark-target") && ids.Contains("missing-prior-period-context"))
         {
-            return "The page is missing several of the core ingredients that make its story easy to understand, so readers have to infer the headline, comparison frame, and main takeaway.";
+            return "The page clearly communicates current performance, but readers cannot tell whether results are good, bad, improving, or declining because benchmark and trend context are missing.";
         }
 
-        if (highCount >= 1)
+        if (ids.Contains("missing-primary-metric") && ids.Contains("scattered-filters"))
         {
-            return "The page has the start of a story, but one or two missing anchors still make the headline message harder to interpret quickly.";
+            return "The page has useful content, but the headline metric is not obvious enough and the filter path competes with the story instead of reinforcing it.";
         }
 
-        return mediumCount > 0
-            ? "The page story is mostly understandable, but a few supporting improvements would make the reading path cleaner and the decision context stronger."
-            : string.Empty;
+        if (ids.Contains("missing-title-question-anchor"))
+        {
+            return "The page has a recognizable story, but the headline question is still too implicit for readers to understand the point quickly.";
+        }
+
+        if (ids.Contains("missing-benchmark-target"))
+        {
+            return "The page surfaces a current result, but readers cannot judge whether it is on track because no visible benchmark or target anchors the interpretation.";
+        }
+
+        if (ids.Contains("missing-prior-period-context"))
+        {
+            return "The page shows current performance, but readers cannot tell whether it is improving or declining because prior-period context is missing.";
+        }
+
+        if (ids.Contains("missing-primary-metric"))
+        {
+            return "The page includes relevant evidence, but the headline metric is still too implicit for readers to identify the main takeaway quickly.";
+        }
+
+        if (ids.Contains("missing-primary-dimension"))
+        {
+            return "The page includes relevant evidence, but the main comparison group is not explicit enough for readers to see where the key comparison lives.";
+        }
+
+        if (ids.Contains("scattered-filters"))
+        {
+            return "The page story is understandable, but the filter path is fragmented enough to compete with the main reading flow.";
+        }
+
+        return "The page has a recognizable story, but a few missing anchors still make the reading path harder to interpret quickly.";
     }
 
     private static string BuildMissingSignalGapDescription(StorySignalRegistryEntry entry)

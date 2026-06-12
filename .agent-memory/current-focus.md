@@ -7,6 +7,11 @@
 ## Current Objective
 
 - Recommended `0.6.0` is complete on the active branch.
+- Story Assessment 2.2.1 release-blocking UX hardening is now complete:
+  - Open target deep-link navigation now resolves stable PBIR page and visual targets more reliably
+  - Story Maturity now uses a shared less-punitive calibration helper across the UI and diff snapshots
+  - Story Improvement Rationale now uses page-specific public wording instead of generic fallback text
+  - focused navigation and Story Assessment coverage was added in both Jest and xUnit
 - Story Assessment 2.0 validation planning is documented and the first implementation slice is now complete:
   - Workstream 1 Validation Substrate
   - Workstream 2 PBIR Expert Review Validation Framework
@@ -196,6 +201,15 @@
 
 ## Validation Status
 
+- Story Assessment 2.2.1 UX hardening validation passed:
+  - focused Jest:
+    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/pbirTreeProvider.localFallback.test.ts src/test/pbirScorePanel.navigation.test.ts src/test/storyAssessmentPresentation.test.ts src/test/pbirExplorerReveal.test.ts src/test/storyAssessmentSnapshot.test.ts`
+  - required extension validation:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - required backend validation because Story Improvement Rationale changed in backend scoring:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - manual smoke was not executed in this session; use a local VSIX install against a real PBIR report before release cut if release-manager confidence requires it
 - Story Assessment 2.2 extension validation passed:
   - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/navigationTargets.test.ts src/test/storyAssessmentSnapshot.test.ts src/test/storyAssessmentSnapshotStore.test.ts src/test/scorePanelProtocol.test.ts src/test/scoreResultPayload.test.ts`
   - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
@@ -264,6 +278,7 @@
 ## Next Recommended Step
 
 - The next recommended step is post-implementation validation follow-through, not broader promotion:
+  - run the documented local VSIX smoke for page-level target, visual-level target, and unresolved-target warning behavior if a release gate requires live editor confirmation
   - keep Guided Story Improvements limited to the six validated categories now shipped
   - re-run Level 1 review on a broader corpus before considering any additional Story Assessment exposure
   - continue to keep archetype, coherence, confidence, competing-story, signal-registry, and special-page labels internal-only

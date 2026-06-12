@@ -3505,6 +3505,44 @@ public sealed class PbirScoringServiceTests : IDisposable
     }
 
     [Fact]
+    public void GuidedStoryImprovements_RationaleReferencesPageSpecificMissingContext()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            "gap.missing.context.targetBenchmarkPresent",
+            "gap.missing.context.priorPeriodContext");
+
+        Assert.Contains("current performance", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("benchmark", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("trend", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("core ingredients", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GuidedStoryImprovements_RationaleStaysConsultantFriendlyWithoutInternalDiagnostics()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            "gap.missing.semantic.primaryMetric",
+            "gap.topology.scatteredFilters");
+
+        Assert.Contains("headline metric", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("filter path", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("gap.", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("diagnostic", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("signal", improvements.StoryImprovementRationale, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GuidedStoryImprovements_RationaleFallsBackGracefullyWhenLimitedDataIsAvailable()
+    {
+        var improvements = BuildGuidedStoryImprovementsFromInternalGaps(
+            "gap.missing.layout.meaningfulVisibleTitle");
+
+        Assert.Equal(
+            "The page has a recognizable story, but the headline question is still too implicit for readers to understand the point quickly.",
+            improvements.StoryImprovementRationale);
+    }
+
+    [Fact]
     public async Task ScoreAsync_InternalConfidenceBreakdown_GeneratesFromInternalSignals()
     {
         var tempDir = CreateTempPbirFolderFromPageAndReportJson(

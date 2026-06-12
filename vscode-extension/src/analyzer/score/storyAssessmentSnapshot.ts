@@ -10,6 +10,7 @@ import type {
   StoryAssessmentRecommendationSnapshot,
   StoryAssessmentReportSnapshot,
 } from '../contracts/scorePanel';
+import { getStoryMaturityLabel } from './storyAssessmentPresentation';
 
 export interface StoryAssessmentSnapshotDiff {
   byPage: Record<string, StoryAssessmentDiffResult>;
@@ -30,28 +31,6 @@ function dedupe(values: Array<string | undefined>): string[] {
   }
 
   return ordered;
-}
-
-function getStoryMaturity(page: PageScore): StoryAssessmentPageSnapshot['storyMaturity'] {
-  const highPriorityCount = page.guidedStoryImprovements?.highPriorityImprovements.length ?? 0;
-  const mediumPriorityCount = page.guidedStoryImprovements?.mediumPriorityImprovements.length ?? 0;
-  const actionabilityScore = typeof page.pagePurposeAnalysis?.actionabilityScore === 'number'
-    ? page.pagePurposeAnalysis.actionabilityScore
-    : 0;
-
-  if (highPriorityCount === 0 && mediumPriorityCount === 0 && actionabilityScore >= 85) {
-    return 'Mature';
-  }
-
-  if (highPriorityCount === 0 && mediumPriorityCount <= 1 && actionabilityScore >= 70) {
-    return 'Strong';
-  }
-
-  if (highPriorityCount >= 3 || actionabilityScore < 35) {
-    return 'Draft';
-  }
-
-  return 'Developing';
 }
 
 function getStrongSignals(page: PageScore): string[] {
@@ -151,7 +130,10 @@ function buildPageSnapshot(page: PageScore): StoryAssessmentPageSnapshot | undef
 
   return {
     pageName: page.pageName,
-    storyMaturity: getStoryMaturity(page),
+    storyMaturity: getStoryMaturityLabel({
+      analysis: page.pagePurposeAnalysis,
+      guidedStoryImprovements: page.guidedStoryImprovements,
+    }),
     strongSignals: getStrongSignals(page),
     missingSignals: getMissingSignals(page),
     topImprovementIds: recommendations.slice(0, 3).map((item) => item.id),
