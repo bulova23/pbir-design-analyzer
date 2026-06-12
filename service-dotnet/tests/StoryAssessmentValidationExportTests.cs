@@ -23,6 +23,62 @@ public sealed class StoryAssessmentValidationExportTests : IDisposable
         public string OrphanState { get; init; } = "Connected";
     }
 
+    private sealed class NarrativeAssessmentWithNestedPublicArtifacts
+    {
+        public string DominantReportObjective { get; init; } = "executive performance review";
+        public object Graph { get; init; } = new NarrativeGraphArtifact();
+        public IReadOnlyList<object> Pages { get; init; } =
+        [
+            new NarrativePageArtifact(),
+            new NarrativePageArtifact
+            {
+                PageId = "page-2",
+                PageName = "Region Detail",
+                RoleAssignment = new NarrativeRoleAssignmentArtifact
+                {
+                    PrimaryRole = "DetailDrill",
+                    Confidence = "Medium",
+                },
+            },
+        ];
+        public object ScoreSummary { get; init; } = new NarrativeScoreSummaryArtifact();
+        public IReadOnlyList<object> Gaps { get; init; } = [];
+    }
+
+    private sealed class NarrativeGraphArtifact
+    {
+        public IReadOnlyList<string> MainNarrativePath { get; init; } = ["page-1", "page-2"];
+    }
+
+    private sealed class NarrativePageArtifact
+    {
+        public string PageId { get; init; } = "page-1";
+        public string PageName { get; init; } = "Overview";
+        public object RoleAssignment { get; init; } = new NarrativeRoleAssignmentArtifact();
+        public string OrphanState { get; init; } = "Connected";
+    }
+
+    private sealed class NarrativeRoleAssignmentArtifact
+    {
+        public string PrimaryRole { get; init; } = "Overview";
+        public string Confidence { get; init; } = "High";
+    }
+
+    private sealed class NarrativeScoreSummaryArtifact
+    {
+        public IReadOnlyList<object> Dimensions { get; init; } =
+        [
+            new NarrativeDimensionArtifact(),
+        ];
+    }
+
+    private sealed class NarrativeDimensionArtifact
+    {
+        public string DimensionId { get; init; } = "Flow";
+        public double Score { get; init; } = 82d;
+        public string Confidence { get; init; } = "Medium";
+    }
+
     private readonly List<string> _tempDirs = [];
 
     [Fact]
@@ -230,6 +286,31 @@ public sealed class StoryAssessmentValidationExportTests : IDisposable
         Assert.Equal("Unavailable", narrative.DimensionScores[0].Confidence);
         Assert.Single(narrative.ReportLevelGaps);
         Assert.Equal("unavailable", narrative.ReportLevelGaps[0].GapId);
+    }
+
+    [Fact]
+    public void CrossPageNarrativeShaper_NestedPublicArtifacts_ExportsConcreteValues()
+    {
+        var method = typeof(StoryAssessmentValidationExportService).GetMethod(
+            "ShapeCrossPageNarrative",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var shaped = method!.Invoke(
+            null,
+            [new NarrativeAssessmentWithNestedPublicArtifacts()]);
+
+        var narrative = Assert.IsType<StoryAssessmentValidationExportCrossPageNarrative>(shaped);
+        Assert.Equal("executive performance review", narrative.DominantReportObjective);
+        Assert.Equal(["Overview", "Region Detail"], narrative.MainNarrativePath);
+        Assert.Equal(2, narrative.PageRoles.Count);
+        Assert.Equal("Overview", narrative.PageRoles[0].Role);
+        Assert.Equal("High", narrative.PageRoles[0].Confidence);
+        Assert.Single(narrative.DimensionScores);
+        Assert.Equal("Flow", narrative.DimensionScores[0].DimensionId);
+        Assert.Equal(82d, narrative.DimensionScores[0].Score);
+        Assert.Equal("Medium", narrative.DimensionScores[0].Confidence);
     }
 
     [Fact]

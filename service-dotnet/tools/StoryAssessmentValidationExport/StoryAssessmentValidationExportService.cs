@@ -149,6 +149,14 @@ public sealed class StoryAssessmentValidationExportService
         }
 
         var pages = GetEnumerableProperty(assessment, "Pages").ToList();
+        var pageNamesById = pages
+            .Select(page => new
+            {
+                PageId = TryGetStringProperty(page, "PageId"),
+                PageName = TryGetStringProperty(page, "PageName"),
+            })
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.PageId) && !string.IsNullOrWhiteSpace(entry.PageName))
+            .ToDictionary(entry => entry.PageId!, entry => entry.PageName!, StringComparer.Ordinal);
         var pageRoles = pages.Select(page => new StoryAssessmentValidationExportPageRole
         {
             PageName = GetStringPropertyOrFallback(page, "PageName", "Unknown Page"),
@@ -185,7 +193,9 @@ public sealed class StoryAssessmentValidationExportService
             MainNarrativePath = GetStringListPropertyOrFallback(
                 GetInternalProperty(assessment, "Graph"),
                 "MainNarrativePath",
-                "No internal main narrative path available."),
+                "No internal main narrative path available.")
+                .Select(pageId => pageNamesById.TryGetValue(pageId, out var pageName) ? pageName : pageId)
+                .ToList(),
             PageRoles = pageRoles.Count > 0
                 ? pageRoles
                 :
@@ -438,12 +448,12 @@ public sealed class StoryAssessmentValidationExportService
 
     private static object? GetInternalProperty(object source, string propertyName)
     {
-        return source.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(source);
+        return source.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(source);
     }
 
     private static void SetInternalProperty(object source, string propertyName, object? value)
     {
-        source.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(source, value);
+        source.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.SetValue(source, value);
     }
 
     private static string GetStringProperty(object? source, string propertyName)

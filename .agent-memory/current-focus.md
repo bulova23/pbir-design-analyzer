@@ -64,6 +64,35 @@
 
 ## In Progress
 
+- Cross-Page Narrative Level 1 Round 2 review rerun against the fixed official validation export is now complete:
+  - reviewed official export output only for:
+    - `Sales & Production`
+    - `Sales Analysis`
+    - `Running Record Dataverse`
+    - `Sales AWF`
+  - confirmed the previous Round 2 observability limitation is resolved:
+    - page roles are now reviewable
+    - main narrative path is now reviewable
+    - narrative dimensions are now reviewable
+  - review report written at:
+    - `docs/story-assessment/2026-06-12-cross-page-narrative-level1-round2-review.md`
+  - promotion recommendation remains:
+    - no public contract promotion
+    - keep roles, graph, dimensions, scores, and report-level gaps internal
+  - next recommended step:
+    - improve entry-page recognition, reduce `DetailDrill` overuse, and recalibrate report-level dimensions before reconsidering promotion
+- Cross-Page Narrative validation export coverage is now complete:
+  - report-mode scoring was already populating the internal model
+  - official validation export root cause was adapter-only:
+    - nested Cross-Page Narrative properties were being reflected as non-public-only, so public properties on internal types were missed
+    - graph `MainNarrativePath` ids were exported without page-name shaping, reducing review usefulness
+  - validation export now shows:
+    - page roles
+    - readable main narrative path
+    - dominant report objective
+    - narrative dimensions
+    - report-level gaps
+  - no Story Assessment logic, Cross-Page Narrative logic, UI, or score-panel contract changes were made
 - Cross-Page Narrative Consistency design and implementation planning is now complete:
   - `docs/superpowers/specs/2026-06-12-cross-page-narrative-consistency-design.md`
   - `docs/superpowers/plans/2026-06-12-cross-page-narrative-consistency-plan.md`
