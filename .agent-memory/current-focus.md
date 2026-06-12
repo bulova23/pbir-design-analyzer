@@ -64,6 +64,23 @@
 
 ## In Progress
 
+- Report Design Studio design and implementation planning is now complete:
+  - deliverables written:
+    - `docs/superpowers/specs/2026-06-12-report-design-studio-design.md`
+    - `docs/superpowers/plans/2026-06-12-report-design-studio-plan.md`
+  - fixed architecture decisions captured:
+    - Report Design Studio is a peer workflow to the analyzer workspace
+    - design artifacts are first-class internal objects
+    - analyzable surfaces are derived objects
+    - materialization is the explicit trust and architecture boundary between creation and validation
+    - the analyzer workspace remains the authoritative quality gate
+  - design posture:
+    - separate workflow
+    - shared infrastructure
+    - provider-neutral adapters
+    - validation-first handoff through explicit materialization
+  - next recommended step:
+    - review the spec and plan, then choose whether to keep Report Design Studio as a deferred roadmap phase or break Phase 1 Design Briefs into a narrower implementation-only follow-up
 - Cross-Page Narrative Level 1 Round 2 review rerun against the fixed official validation export is now complete:
   - reviewed official export output only for:
     - `Sales & Production`
