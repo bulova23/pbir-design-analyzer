@@ -464,6 +464,12 @@ public sealed class ScoreResult
     /// </summary>
     internal StoryConfidenceBreakdownAssessment? InternalStoryConfidenceBreakdownAssessment { get; set; }
 
+    /// <summary>
+    /// Gets or sets the internal-only report-level Cross-Page Narrative assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal CrossPageNarrativeAssessment? InternalCrossPageNarrativeAssessment { get; set; }
+
     // ── Per-Page Scores (Feature 003: Per-Page Scoring) ───────────────────────
 
     /// <summary>

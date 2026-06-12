@@ -12,6 +12,63 @@ public sealed class StoryAssessmentValidationExportReport
 
     public IReadOnlyList<StoryAssessmentValidationExportPage> Pages { get; init; } =
         Array.Empty<StoryAssessmentValidationExportPage>();
+
+    public StoryAssessmentValidationExportCrossPageNarrative? CrossPageNarrative { get; init; }
+}
+
+public sealed class StoryAssessmentValidationExportCrossPageNarrative
+{
+    public required string DominantReportObjective { get; init; }
+
+    public IReadOnlyList<string> MainNarrativePath { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<StoryAssessmentValidationExportPageRole> PageRoles { get; init; } =
+        Array.Empty<StoryAssessmentValidationExportPageRole>();
+
+    public IReadOnlyList<StoryAssessmentValidationExportOrphanDecision> OrphanDecisions { get; init; } =
+        Array.Empty<StoryAssessmentValidationExportOrphanDecision>();
+
+    public IReadOnlyList<StoryAssessmentValidationExportNarrativeDimension> DimensionScores { get; init; } =
+        Array.Empty<StoryAssessmentValidationExportNarrativeDimension>();
+
+    public IReadOnlyList<StoryAssessmentValidationExportNarrativeGap> ReportLevelGaps { get; init; } =
+        Array.Empty<StoryAssessmentValidationExportNarrativeGap>();
+}
+
+public sealed class StoryAssessmentValidationExportPageRole
+{
+    public required string PageName { get; init; }
+
+    public required string Role { get; init; }
+
+    public required string Confidence { get; init; }
+}
+
+public sealed class StoryAssessmentValidationExportOrphanDecision
+{
+    public required string PageName { get; init; }
+
+    public required string OrphanState { get; init; }
+}
+
+public sealed class StoryAssessmentValidationExportNarrativeDimension
+{
+    public required string DimensionId { get; init; }
+
+    public double Score { get; init; }
+
+    public required string Confidence { get; init; }
+}
+
+public sealed class StoryAssessmentValidationExportNarrativeGap
+{
+    public required string GapId { get; init; }
+
+    public required string StableId { get; init; }
+
+    public required string Summary { get; init; }
+
+    public required string Confidence { get; init; }
 }
 
 public sealed class StoryAssessmentValidationExportPage

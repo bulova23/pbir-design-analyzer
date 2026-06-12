@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using PowerBIModelingService.Services.Pbir.Models;
+using PowerBIModelingService.Services.Pbir.CrossPageNarrative;
 
 namespace PowerBIModelingService.Services.Pbir;
 
@@ -909,6 +910,8 @@ public sealed class PbirScoringService
         {
             result.ScoringErrors[entry.Key] = entry.Value;
         }
+
+        result.InternalCrossPageNarrativeAssessment = CrossPageNarrativeAssessmentBuilder.Build(result.PageScores);
 
         _logger.LogInformation(
             "[Scoring] Composite: {Score} (Gestalt={G} Cog={C} DataInk={D} A11y={A} VBP={V} Few={F})",

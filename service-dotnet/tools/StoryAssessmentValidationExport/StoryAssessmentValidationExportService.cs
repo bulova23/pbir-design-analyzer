@@ -30,9 +30,10 @@ public sealed class StoryAssessmentValidationExportService
         {
             Title = "Internal Validation Export",
             ContractNotice = "Not User-Facing Contract",
-            ReportPath = result.ReportPath,
+            ReportPath = string.IsNullOrWhiteSpace(result.ReportPath) ? reportPath : result.ReportPath,
             GeneratedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
             Pages = pages,
+            CrossPageNarrative = ShapeCrossPageNarrative(GetInternalProperty(result, "InternalCrossPageNarrativeAssessment")),
         };
     }
 
@@ -137,6 +138,97 @@ public sealed class StoryAssessmentValidationExportService
             ConfidenceBreakdown = ShapeConfidenceBreakdown(confidenceBreakdown),
             PromotionStates = promotionStates.ToList(),
             SurfaceScopes = surfaceScopes.ToList(),
+        };
+    }
+
+    private static StoryAssessmentValidationExportCrossPageNarrative? ShapeCrossPageNarrative(object? assessment)
+    {
+        if (assessment is null)
+        {
+            return null;
+        }
+
+        var pages = GetEnumerableProperty(assessment, "Pages").ToList();
+        var pageRoles = pages.Select(page => new StoryAssessmentValidationExportPageRole
+        {
+            PageName = GetStringPropertyOrFallback(page, "PageName", "Unknown Page"),
+            Role = GetStringPropertyOrFallback(GetInternalProperty(page, "RoleAssignment"), "PrimaryRole", "Unavailable"),
+            Confidence = GetStringPropertyOrFallback(GetInternalProperty(page, "RoleAssignment"), "Confidence", "Unavailable"),
+        }).ToList();
+        var orphanDecisions = pages.Select(page => new StoryAssessmentValidationExportOrphanDecision
+        {
+            PageName = GetStringPropertyOrFallback(page, "PageName", "Unknown Page"),
+            OrphanState = GetStringPropertyOrFallback(page, "OrphanState", "Unavailable"),
+        }).ToList();
+        var scoreSummary = GetInternalProperty(assessment, "ScoreSummary");
+        var dimensions = GetEnumerablePropertyIfPresent(scoreSummary, "Dimensions")
+            .Select(dimension => new StoryAssessmentValidationExportNarrativeDimension
+            {
+                DimensionId = GetStringPropertyOrFallback(dimension, "DimensionId", "Unavailable"),
+                Score = double.TryParse(GetStringProperty(dimension, "Score"), out var score) ? score : 0d,
+                Confidence = GetStringPropertyOrFallback(dimension, "Confidence", "Unavailable"),
+            })
+            .ToList();
+        var gaps = GetEnumerableProperty(assessment, "Gaps")
+            .Select(gap => new StoryAssessmentValidationExportNarrativeGap
+            {
+                GapId = GetStringPropertyOrFallback(gap, "GapId", "unavailable"),
+                StableId = GetStringPropertyOrFallback(gap, "StableId", "unavailable"),
+                Summary = GetStringPropertyOrFallback(gap, "Summary", "No internal report-level narrative gaps available."),
+                Confidence = GetStringPropertyOrFallback(gap, "Confidence", "Unavailable"),
+            })
+            .ToList();
+
+        return new StoryAssessmentValidationExportCrossPageNarrative
+        {
+            DominantReportObjective = GetStringPropertyOrFallback(assessment, "DominantReportObjective", "Unavailable"),
+            MainNarrativePath = GetStringListPropertyOrFallback(
+                GetInternalProperty(assessment, "Graph"),
+                "MainNarrativePath",
+                "No internal main narrative path available."),
+            PageRoles = pageRoles.Count > 0
+                ? pageRoles
+                :
+                [
+                    new StoryAssessmentValidationExportPageRole
+                    {
+                        PageName = "Unknown Page",
+                        Role = "Unavailable",
+                        Confidence = "Unavailable",
+                    },
+                ],
+            OrphanDecisions = orphanDecisions.Count > 0
+                ? orphanDecisions
+                :
+                [
+                    new StoryAssessmentValidationExportOrphanDecision
+                    {
+                        PageName = "Unknown Page",
+                        OrphanState = "Unavailable",
+                    },
+                ],
+            DimensionScores = dimensions.Count > 0
+                ? dimensions
+                :
+                [
+                    new StoryAssessmentValidationExportNarrativeDimension
+                    {
+                        DimensionId = "Unavailable",
+                        Confidence = "Unavailable",
+                    },
+                ],
+            ReportLevelGaps = gaps.Count > 0
+                ? gaps
+                :
+                [
+                    new StoryAssessmentValidationExportNarrativeGap
+                    {
+                        GapId = "unavailable",
+                        StableId = "unavailable",
+                        Summary = "No internal report-level narrative gaps available.",
+                        Confidence = "Unavailable",
+                    },
+                ],
         };
     }
 
@@ -359,6 +451,13 @@ public sealed class StoryAssessmentValidationExportService
         return TryGetStringProperty(source, propertyName) ?? string.Empty;
     }
 
+    private static string GetStringPropertyOrFallback(object? source, string propertyName, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(TryGetStringProperty(source, propertyName))
+            ? fallback
+            : GetStringProperty(source, propertyName);
+    }
+
     private static string? TryGetStringProperty(object? source, string propertyName)
     {
         return source?.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public)?.GetValue(source)?.ToString();
@@ -369,8 +468,13 @@ public sealed class StoryAssessmentValidationExportService
         return GetEnumerablePropertyIfPresent(source, propertyName).ToList();
     }
 
-    private static IEnumerable<object> GetEnumerablePropertyIfPresent(object source, string propertyName)
+    private static IEnumerable<object> GetEnumerablePropertyIfPresent(object? source, string propertyName)
     {
+        if (source is null)
+        {
+            return [];
+        }
+
         var value = source.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public)?.GetValue(source);
         return value is System.Collections.IEnumerable enumerable
             ? enumerable.Cast<object>()
@@ -382,6 +486,16 @@ public sealed class StoryAssessmentValidationExportService
         return GetEnumerablePropertyIfPresent(source, propertyName)
             .Select(item => item?.ToString() ?? string.Empty)
             .ToList();
+    }
+
+    private static IReadOnlyList<string> GetStringListPropertyOrFallback(object? source, string propertyName, string fallback)
+    {
+        var values = GetEnumerablePropertyIfPresent(source, propertyName)
+            .Select(item => item?.ToString() ?? string.Empty)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .ToList();
+
+        return values.Count > 0 ? values : [fallback];
     }
 
     private static void AddIfNotBlank(ISet<string> set, string? value)

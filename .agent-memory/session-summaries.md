@@ -1,5 +1,44 @@
 # Session Summaries
 
+## 2026-06-12 Cross-Page Narrative Level 1 Review
+
+- Ran the deferred Cross-Page Narrative Level 1 review on the available local PBIR corpus:
+  - `Sales Analysis`
+  - `Sales & Production`
+- Confirmed the available corpus is below the intended 12 to 20 report target and documented the limitation.
+- Passed required backend validation with:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - result: `242` passed, `0` failed
+- Found that the official validation export CLI currently fails on both real reports with a `NullReferenceException`, so the internal review workflow is not yet reliable on the real corpus.
+- Completed the review report:
+  - `docs/story-assessment/2026-06-12-cross-page-narrative-level1-review.md`
+- Review outcome:
+  - strong special-page precision
+  - weak entry-page recognition
+  - too-adjacency-driven flow on fragmented reports
+  - report-level gaps still too sparse for promotion
+  - keep page roles, narrative score, graph, dominant objective, and report-level gaps internal-only
+
+## 2026-06-12 Cross-Page Narrative Consistency
+
+- Added the design spec:
+  - `docs/superpowers/specs/2026-06-12-cross-page-narrative-consistency-design.md`
+- Added the implementation plan:
+  - `docs/superpowers/plans/2026-06-12-cross-page-narrative-consistency-plan.md`
+- Defined:
+  - page-role taxonomy and confidence model
+  - narrative flow and report graph model
+  - cross-page consistency and orphan detection rules
+  - report-level narrative scoring dimensions
+  - report-level story-gap model
+  - Level 1 and Level 2 validation strategy
+  - rollout posture as internal-only, PBIR-first, and validation-first
+- Kept the design aligned with existing repo boundaries:
+  - no Story Assessment 2.2 redesign
+  - no UI work
+  - no public contract changes
+  - no second remediation path
+
 ## 2026-06-12 Story Assessment 2.2
 
 - Implemented Story Assessment 2.2 in the extension layer from the approved 2026-06-12 design and plan.
@@ -810,3 +849,6 @@
 - 2026-06-11: Unified the score-panel Story Assessment experience into one consultant-style narrative. Removed the separate Guided Story Improvements card from the UI, folded the safe recommendation payload into Story Assessment as story strength/signals/improvements, updated the webview guardrail tests, and passed `cd vscode-extension && npm test` plus `cd vscode-extension && npm run compile`.
 - 2026-06-11: Refined Story Assessment 2.1 from the first UI review without expanding scope. Added a public Story Type label from existing public cues, replaced Story Strength with Story Maturity, rewrote Missing Signals as absence statements, limited Top Story Improvements to three, reordered recommendation content to problem → change → impact, rebuilt the `0.6.0` VSIX set, and passed `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `cd vscode-extension && npm run package:all`.
 - 2026-06-12: Fixed the Story Assessment 2.2 release-blocking UX defects. Open target now resolves PBIR page and visual targets more reliably through the explorer reveal path, Story Maturity now uses a shared less-punitive calibration helper, Story Improvement Rationale now uses page-specific public wording, and validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`. Manual VSIX smoke was documented but not run in this session.
+- 2026-06-12: Implemented Story Assessment 3.0 Cross-Page Narrative Consistency Task 1-9 only. Added backend-internal report-level narrative models, PBIR-first input extraction, page-role classification, narrative graph construction, consistency/orphan/navigation evaluation, weighted report-level scoring, report-level narrative gaps, report-mode scoring integration, and validation export JSON/Markdown sections. Public contracts and Story Assessment 2.2 behavior remained unchanged. Validation passed with `dotnet test service-dotnet/tests/Tests.csproj -c Release` (`242` passed, `0` failed). Task 10 Level 1 corpus review remained intentionally deferred.
+- 2026-06-12: Fixed Story Assessment validation export reliability for real PBIR reports. Root cause was a null `ScoreSummary` path inside `ShapeCrossPageNarrative`; the export tool now degrades gracefully when optional nested Cross-Page Narrative artifacts are absent, added regression coverage for missing artifacts, sparse reports, malformed metadata, and real-fixture determinism, passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` (`246` passed, `0` failed), and reran the official export CLI successfully on the same `Sales & Production` and `Sales Analysis` corpus used during the Level 1 review.
+- 2026-06-12: Ran Story Assessment and Cross-Page Narrative Level 1 Validation Round 2 through the official export harness on `Sales & Production`, `Sales Analysis`, `Running Record Dataverse`, and `Sales AWF`. The official export workflow completed successfully on all four real reports, the six validated Guided Story Improvements categories remained the only credible narrow public Story Assessment slice, Cross-Page Narrative remained non-promotable because the official export still surfaced placeholder values for page roles, main narrative path, and dimension scores, and no report-level gap category became contract-eligible. Report written at `docs/story-assessment/2026-06-12-level1-validation-round2.md`.

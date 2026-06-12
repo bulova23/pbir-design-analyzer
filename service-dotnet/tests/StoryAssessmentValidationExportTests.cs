@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Reflection;
 using StoryAssessmentValidationExport;
 using Xunit;
 
@@ -6,6 +7,22 @@ namespace PowerBIModelingService.Tests;
 
 public sealed class StoryAssessmentValidationExportTests : IDisposable
 {
+    private sealed class NarrativeAssessmentWithMissingNestedArtifacts
+    {
+        public string DominantReportObjective { get; init; } = "diagnostic investigation";
+        public object? Graph { get; init; }
+        public IReadOnlyList<object> Pages { get; init; } = [];
+        public object? ScoreSummary { get; init; }
+        public IReadOnlyList<object> Gaps { get; init; } = [];
+    }
+
+    private sealed class NarrativePageAssessmentWithMissingMetadata
+    {
+        public string PageName { get; init; } = "Overview";
+        public object? RoleAssignment { get; init; }
+        public string OrphanState { get; init; } = "Connected";
+    }
+
     private readonly List<string> _tempDirs = [];
 
     [Fact]
@@ -181,6 +198,108 @@ public sealed class StoryAssessmentValidationExportTests : IDisposable
         Assert.Contains("Revenue Overview", markdown, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CrossPageNarrativeShaper_MissingNestedArtifacts_DegradesGracefully()
+    {
+        var method = typeof(StoryAssessmentValidationExportService).GetMethod(
+            "ShapeCrossPageNarrative",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var shaped = method!.Invoke(
+            null,
+            [new NarrativeAssessmentWithMissingNestedArtifacts
+            {
+                Pages =
+                [
+                    new NarrativePageAssessmentWithMissingMetadata(),
+                ],
+            }]);
+
+        var narrative = Assert.IsType<StoryAssessmentValidationExportCrossPageNarrative>(shaped);
+        Assert.Equal("diagnostic investigation", narrative.DominantReportObjective);
+        Assert.Single(narrative.MainNarrativePath);
+        Assert.Equal("No internal main narrative path available.", narrative.MainNarrativePath[0]);
+        Assert.Single(narrative.PageRoles);
+        Assert.Equal("Overview", narrative.PageRoles[0].PageName);
+        Assert.Equal("Unavailable", narrative.PageRoles[0].Role);
+        Assert.Equal("Unavailable", narrative.PageRoles[0].Confidence);
+        Assert.Single(narrative.DimensionScores);
+        Assert.Equal("Unavailable", narrative.DimensionScores[0].DimensionId);
+        Assert.Equal("Unavailable", narrative.DimensionScores[0].Confidence);
+        Assert.Single(narrative.ReportLevelGaps);
+        Assert.Equal("unavailable", narrative.ReportLevelGaps[0].GapId);
+    }
+
+    [Fact]
+    public async Task ExportAsync_SparseReport_WritesMissingEvidenceInsteadOfCrashing()
+    {
+        var reportRoot = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Sparse Overview","visuals":[]}
+            """);
+        var exportDir = Path.Combine(reportRoot, "story-assessment-validation-export");
+        var service = new StoryAssessmentValidationExportService();
+
+        await service.ExportAsync(reportRoot);
+
+        var markdown = await File.ReadAllTextAsync(Path.Combine(exportDir, "story-assessment-validation.md"));
+        Assert.Contains("## Page:", markdown, StringComparison.Ordinal);
+        Assert.Contains("### Internal Story Gaps", markdown, StringComparison.Ordinal);
+        Assert.Contains("### Internal Confidence Breakdown", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExportAsync_MalformedMetadataReport_UsesFallbackPageLabels()
+    {
+        var reportRoot = CreateTempPbirFolderFromPageJson(
+            """
+            {"visuals":[
+              {"id":"v1","type":"lineChart","x":0,"y":120,"width":520,"height":220}
+            ]}
+            """);
+        var exportDir = Path.Combine(reportRoot, "story-assessment-validation-export");
+        var service = new StoryAssessmentValidationExportService();
+
+        await service.ExportAsync(reportRoot);
+
+        var json = await File.ReadAllTextAsync(Path.Combine(exportDir, "story-assessment-validation.json"));
+        using var document = JsonDocument.Parse(json);
+        var page = document.RootElement.GetProperty("pages")[0];
+
+        Assert.Equal("Page1", page.GetProperty("pageName").GetString());
+        Assert.NotEmpty(page.GetProperty("storyGaps").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task ExportAsync_RealCorpusFixture_IsDeterministicWhenAvailable()
+    {
+        var reportPath = GetAvailableRealReportPath();
+        if (reportPath is null)
+        {
+            return;
+        }
+
+        var exportDir1 = Path.Combine(Path.GetTempPath(), "pbir-validation-export-real-1-" + Guid.NewGuid().ToString("N"));
+        var exportDir2 = Path.Combine(Path.GetTempPath(), "pbir-validation-export-real-2-" + Guid.NewGuid().ToString("N"));
+        _tempDirs.Add(exportDir1);
+        _tempDirs.Add(exportDir2);
+
+        var service = new StoryAssessmentValidationExportService();
+
+        await service.ExportAsync(reportPath, exportDir1);
+        await service.ExportAsync(reportPath, exportDir2);
+
+        var json1 = await File.ReadAllTextAsync(Path.Combine(exportDir1, "story-assessment-validation.json"));
+        var json2 = await File.ReadAllTextAsync(Path.Combine(exportDir2, "story-assessment-validation.json"));
+        var markdown1 = await File.ReadAllTextAsync(Path.Combine(exportDir1, "story-assessment-validation.md"));
+        var markdown2 = await File.ReadAllTextAsync(Path.Combine(exportDir2, "story-assessment-validation.md"));
+
+        Assert.Equal(RemoveGeneratedAt(json1), RemoveGeneratedAt(json2));
+        Assert.Equal(RemoveGeneratedAt(markdown1), RemoveGeneratedAt(markdown2));
+    }
+
     public void Dispose()
     {
         foreach (var dir in _tempDirs)
@@ -202,5 +321,26 @@ public sealed class StoryAssessmentValidationExportTests : IDisposable
         File.WriteAllText(Path.Combine(pagesDir, "page.json"), pageJson);
 
         return tmp;
+    }
+
+    private static string? GetAvailableRealReportPath()
+    {
+        var candidates = new[]
+        {
+            Environment.GetEnvironmentVariable("PBIR_REAL_FIXTURE_PATH"),
+            "/Users/bcrowell/Documents/GitHub/PBITesting/Sales & Production.pbip",
+            "/Users/bcrowell/Documents/GitHub/PBITest2/Sales Analysis.pbip",
+        };
+
+        return candidates.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path));
+    }
+
+    private static string RemoveGeneratedAt(string content)
+    {
+        return string.Join(
+            Environment.NewLine,
+            content.Split(["\r\n", "\n"], StringSplitOptions.None)
+                .Where(line => !line.Contains("Generated At UTC", StringComparison.Ordinal) &&
+                               !line.Contains("\"generatedAtUtc\"", StringComparison.Ordinal)));
     }
 }

@@ -64,6 +64,55 @@
 
 ## In Progress
 
+- Cross-Page Narrative Consistency design and implementation planning is now complete:
+  - `docs/superpowers/specs/2026-06-12-cross-page-narrative-consistency-design.md`
+  - `docs/superpowers/plans/2026-06-12-cross-page-narrative-consistency-plan.md`
+  - design posture:
+    - internal-only report-level Story Assessment layer
+    - PBIR-first, surface-neutral core
+    - validation-first with no Story Assessment 2.2 redesign, no UI work, and no contract changes
+  - recommended next step:
+    - implement the internal backend model and validation export slice before any promotion discussion
+- Cross-Page Narrative Consistency Task 1-9 implementation is now in progress on the active branch:
+  - use TDD for internal model, PBIR input extraction, graph/evaluator/scorer/gap-builder slices, and validation export updates
+  - preserve public contracts, Story Assessment 2.2 navigation/diff behavior, and Guided Story Improvements behavior
+  - Task 10 Level 1 corpus review is now complete as a follow-on documentation-only validation session
+- Cross-Page Narrative Consistency Task 1-9 backend implementation is now complete:
+  - internal-only report-level Cross-Page Narrative assessment model now exists on backend `ScoreResult`
+  - PBIR-first narrative input extraction, role classification, graph construction, consistency/orphan/navigation evaluation, scoring, and report-level gap generation now exist
+  - report-mode scoring now generates the internal Cross-Page Narrative assessment while single-page scoring skips it
+  - validation export JSON and Markdown now include internal Cross-Page Narrative report sections
+  - public contracts remain unchanged and Story Assessment 2.2 behavior remains unchanged
+- Cross-Page Narrative Task 10 Level 1 corpus review is now complete on the available local PBIR corpus:
+  - reviewed `Sales Analysis`
+  - reviewed `Sales & Production`
+  - corpus remained below the intended 12 to 20 report target and this limitation is now documented
+  - review report written at `docs/story-assessment/2026-06-12-cross-page-narrative-level1-review.md`
+  - promotion recommendation remains no public contract promotion and no UI exposure
+  - the official validation export CLI currently fails on both real reports with a null-reference path and should be fixed before broader corpus review
+- Story Assessment validation export reliability hardening is now complete:
+  - root cause was a null `ScoreSummary` path inside `ShapeCrossPageNarrative` during real-report export shaping
+  - export now degrades gracefully when optional Cross-Page Narrative nested artifacts are absent
+  - added regression coverage for real-fixture export determinism, sparse reports, malformed metadata, and missing nested artifacts
+  - reran the official export CLI successfully on:
+    - `Sales & Production`
+    - `Sales Analysis`
+  - full backend validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `246` passed, `0` failed
+- Story Assessment and Cross-Page Narrative Level 1 Validation Round 2 is now complete through the official export harness:
+  - corpus:
+    - `Sales & Production`
+    - `Sales Analysis`
+    - `Running Record Dataverse`
+    - `Sales AWF`
+  - report written at `docs/story-assessment/2026-06-12-level1-validation-round2.md`
+  - Guided Story Improvements remained stable enough to keep as the current narrow six-category public slice
+  - no additional Story Assessment public promotion candidates were identified
+  - Cross-Page Narrative official export now runs reliably on the expanded real corpus, but still emits placeholder values for page roles, main narrative path, and dimension scores
+  - no Cross-Page Narrative public promotion is recommended
+  - no report-level gap category became contract-eligible
+
 - Story Assessment 2.2 implementation is now in progress against:
   - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
   - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
@@ -216,6 +265,26 @@
   - `cd vscode-extension && npm test`
   - `cd vscode-extension && npm run compile`
 - Backend tests were not rerun because this slice stayed within extension presentation, protocol, storage, and webview behavior and did not change backend scoring behavior or backend-facing assumptions.
+- Cross-Page Narrative Consistency Task 1-9 validation passed:
+  - focused xUnit coverage for:
+    - model boundary
+    - PBIR input extraction
+    - page role classification
+    - graph construction
+    - consistency evaluation
+    - orphan/navigation evaluation
+    - narrative scoring
+    - report-level gap generation
+    - report-mode integration
+    - validation export JSON and Markdown
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `242` passed, `0` failed
+- Cross-Page Narrative Task 10 Level 1 review validation status:
+  - required backend validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `242` passed, `0` failed
+  - official validation export CLI failed on both available real reports with `Object reference not set to an instance of an object.`
+  - review completed from the same backend internal assessment via a temporary read-only inspector because this session was documentation-only and did not modify code
 
 - `0.6.0` validation passed:
   - focused phase-by-phase Jest runs
@@ -277,6 +346,11 @@
 
 ## Next Recommended Step
 
+- The next recommended step is post-implementation validation follow-through, not broader promotion:
+- Cross-Page Narrative next recommended step:
+  - restore faithful official export observability for page roles, pathing, and narrative dimensions
+  - rerun the official export workflow on a broader 12 to 20 report PBIR corpus after the narrative fields are reviewable
+  - keep page roles, narrative score, graph, dominant objective, and report-level gaps internal until broader evidence and a reliable review workflow exist
 - The next recommended step is post-implementation validation follow-through, not broader promotion:
   - run the documented local VSIX smoke for page-level target, visual-level target, and unresolved-target warning behavior if a release gate requires live editor confirmation
   - keep Guided Story Improvements limited to the six validated categories now shipped

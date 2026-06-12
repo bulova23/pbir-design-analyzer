@@ -14,6 +14,43 @@ public static class StoryAssessmentValidationMarkdownRenderer
         builder.AppendLine($"Report Path: {report.ReportPath}");
         builder.AppendLine($"Generated At UTC: {report.GeneratedAtUtc}");
 
+        if (report.CrossPageNarrative is not null)
+        {
+            builder.AppendLine();
+            builder.AppendLine("## Cross-Page Narrative");
+            builder.AppendLine();
+            builder.AppendLine($"Dominant Report Objective: {report.CrossPageNarrative.DominantReportObjective}");
+            builder.AppendLine($"Main Narrative Path: {string.Join(" -> ", report.CrossPageNarrative.MainNarrativePath)}");
+
+            builder.AppendLine();
+            builder.AppendLine("### Page Roles");
+            foreach (var role in report.CrossPageNarrative.PageRoles)
+            {
+                builder.AppendLine($"- {role.PageName}: {role.Role} [{role.Confidence}]");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("### Orphan Decisions");
+            foreach (var orphan in report.CrossPageNarrative.OrphanDecisions)
+            {
+                builder.AppendLine($"- {orphan.PageName}: {orphan.OrphanState}");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("### Narrative Dimension Scores");
+            foreach (var dimension in report.CrossPageNarrative.DimensionScores)
+            {
+                builder.AppendLine($"- {dimension.DimensionId}: {dimension.Score:F1} [{dimension.Confidence}]");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("### Report-Level Narrative Gaps");
+            foreach (var gap in report.CrossPageNarrative.ReportLevelGaps)
+            {
+                builder.AppendLine($"- {gap.GapId}: {gap.Summary} [{gap.Confidence}]");
+            }
+        }
+
         foreach (var page in report.Pages)
         {
             builder.AppendLine();
