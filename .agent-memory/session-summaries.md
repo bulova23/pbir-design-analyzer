@@ -1,5 +1,127 @@
 # Session Summaries
 
+## 2026-06-13 Report Design Studio Task 8 Readiness Review
+
+- Reviewed Report Design Studio through Task 7 without code changes to decide whether Task 8 Analyzer Handoff should start.
+- Confirmed strong lineage coverage across Design Brief, Concept Studio, Draft Studio, Refinement Studio, Materialization Request, and Materialized Surface Candidate, plus explicit refinement review, approval, and rejection transitions.
+- Confirmed current trust boundaries remain intact: no analyzer execution, report mutation, deployment, provider execution, or public contract widening was introduced by Task 7.
+- Found the main blocker to Task 8: `MaterializedSurfaceCandidate` currently emits a synthetic `design-studio://materialization/...` source location, while existing analyzer paths still expect repository-backed locations for snapshot creation, so the handoff seam is not fully defined yet.
+- Found two additional cleanup items before Task 8:
+  - avoid letting Design Studio own analyzer compatibility logic through materialization-local surface definitions
+  - expand materialization diagnostics beyond mode and no-side-effect notes so future refinement loops can explain mapping and degradation behavior
+- Focused validation passed with `cd vscode-extension && npx jest --runTestsByPath src/test/materializationCoordinator.test.ts src/test/designStudioProtocol.test.ts src/test/refinementStore.test.ts src/test/designArtifactBacklinkResolver.test.ts` and `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`.
+
+## 2026-06-13 Report Design Studio Task 7 Materialization Gateway
+
+- Implemented only Task 7 with first-slice request hardening and stopped before Task 8.
+- Added an explicit Materialization Gateway coordinator and mapper that convert approved design-artifact lineage into derived analyzable-surface candidates only.
+- Hardened `MaterializationRequest` semantics for approval kind, lifecycle state, timestamps, positive versioning, unique lineage, exact `sourceArtifactIds` to lineage correspondence, analyzer/profile compatibility, and graceful unsupported-surface failure.
+- Extended source lineage diagnostics with explicit artifact kind and source role metadata.
+- Added provenance trace and analyzer handoff metadata shape while keeping handoff execution inert.
+- Preserved the trust boundary:
+  - no PBIR file creation
+  - no analyzer handoff execution
+  - no report mutation
+  - no deployment
+  - no provider execution
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-13 Report Design Studio Readiness Cleanup Implementation
+
+- Completed the post-Task-5 cleanup required before any Refinement Studio work.
+- Made Design Brief and Concept approvals immutable by minting new approved versions instead of mutating existing versions in place.
+- Added exact brief-version lineage on concept artifacts and explicit concept-version lineage on child concept artifacts.
+- Added explicit Design Studio `approvalKind` semantics so current design approval is separated from future refinement, validation, and materialization approval meanings.
+- Added runtime Design Studio protocol validation for valid messages, malformed payload rejection, version mismatch rejection, and unsupported message rejection.
+- Explicitly deferred provider workflow-phase, evidence-domain-fit, and analyzer-handoff metadata until a later slice introduces direct consuming behavior.
+- Preserved the trust boundary:
+  - no PBIR asset generation
+  - no analyzable surface creation
+  - no materialization
+  - no analyzer handoff execution
+  - no report mutation
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-13 Report Design Studio Provider Registry Task 5
+
+- Implemented only the requested pre-Task-5 cleanup and Task 5 provider-neutral capability registry.
+- Added immutable source-version lineage on Draft Studio artifacts for:
+  - brief
+  - concept
+  - page concept
+  - navigation concept
+- Expanded provider provenance metadata to capture capability and execution-trace-ready attribution without introducing provider execution.
+- Reconciled Design Brief optional constraint fields so persistence, typing, and validation now agree that they are optional.
+- Added a provider-neutral capability registry with:
+  - optional provider registration
+  - capability discovery
+  - zero-provider operation
+  - graceful provider absence
+  - non-bypass workflow constraints
+- Preserved the trust boundary:
+  - no materialization
+  - no analyzable surface creation
+  - no PBIR asset generation
+  - no report mutation
+  - no analyzer handoff
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-13 Report Design Studio Readiness Cleanup
+
+- Cleaned up the Task 1 to Task 3 Report Design Studio foundation before any Draft Studio work.
+- Reconciled the Design Brief runtime contract with the approved design by adding optional persisted fields for:
+  - consumption context
+  - decision cadence
+  - narrative risks or constraints
+  - required evidence domains
+  - target analyzable surface family
+- Added first-class Concept Studio `PageConcept` artifacts so future Draft Studio work can consume stable concept lineage instead of loose page recommendations.
+- Split preferred-baseline selection from explicit concept approval for Draft Studio readiness.
+- Preserved the trust boundary:
+  - no PBIR asset generation
+  - no analyzable surface creation
+  - no materialization
+  - no analyzer handoff changes
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-12 Report Design Studio Foundation Slice
+
+- Implemented only the approved Report Design Studio foundation slice:
+  - Task 1 internal studio contracts
+  - Task 2 Design Brief foundation
+- Added internal-only extension and backend artifact vocabulary for:
+  - Design Brief
+  - Report Concept
+  - Page Concept
+  - Navigation Concept
+  - KPI Hierarchy Concept
+  - Draft Report Artifact
+  - Draft Page Artifact
+  - Refinement Proposal
+  - Materialization Request
+  - Materialized Surface Candidate
+  - Design Iteration Record
+- Added Design Brief validation, approval gating, persistence, and version history without starting Concept Studio, provider, materialization, or analyzer handoff work.
+- Passed:
+  - focused extension, webview, and backend Design Studio tests
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Recorded the implementation boundary at:
+  - `docs/superpowers/implementation-notes/2026-06-12-report-design-studio-foundation-slice.md`
+
 ## 2026-06-12 Cross-Page Narrative Level 1 Review
 
 - Ran the deferred Cross-Page Narrative Level 1 review on the available local PBIR corpus:
@@ -855,3 +977,10 @@
 - 2026-06-12: Completed Cross-Page Narrative validation export coverage in the official internal export harness. Confirmed report-mode scoring already populated the internal model, fixed the adapter to read nested public properties on internal Cross-Page Narrative types, translated main narrative path page ids to readable page names, added focused regression coverage, passed `dotnet test service-dotnet/tests/Tests.csproj -c Release` (`247` passed, `0` failed), and reran the official export CLI successfully on `Sales & Production`, `Sales Analysis`, `Running Record Dataverse`, and `Sales AWF` with concrete page roles, narrative paths, dominant objectives, dimension scores, and report-level gaps.
 - 2026-06-12: Reran Cross-Page Narrative Level 1 Round 2 review against the fixed official export only on `Sales & Production`, `Sales Analysis`, `Running Record Dataverse`, and `Sales AWF`. Confirmed the previous Round 2 limitation is resolved because page roles, main narrative path, and narrative dimensions are now directly reviewable from official output; however, the substantive promotion posture did not improve. Special-page precision remained the strongest behavior, while entry-page recognition, primary-page role recall, branch-aware pathing, dimension discrimination, and report-level gap precision remained too weak for public exposure. Validation passed with `dotnet test service-dotnet/tests/Tests.csproj -c Release` (`247` passed, `0` failed). Report written at `docs/story-assessment/2026-06-12-cross-page-narrative-level1-round2-review.md`.
 - 2026-06-12: Wrote the Report Design Studio design specification and implementation plan without implementation work. Fixed the architecture around a separate peer workflow to Analyzer Workspace, first-class design artifacts, analyzable surfaces as derived objects, and an explicit materialization gateway as the trust boundary between design and validation. The spec defines Design Briefs, Concept Studio, Draft Studio, Refinement Studio, closed-loop optimization, provider-neutral adapters, and trust-boundary rules; the plan defines file map, rollout phases, validation strategy, regression strategy, and enforcement tasks. Deliverables written at `docs/superpowers/specs/2026-06-12-report-design-studio-design.md` and `docs/superpowers/plans/2026-06-12-report-design-studio-plan.md`.
+- 2026-06-13: Implemented Report Design Studio Task 3 only. Added internal-only Concept Studio artifact models and persistence, approved-brief gating, alternate concept comparison with explicit preferred-baseline selection, Concept Studio webview reducer/view/comparison coverage, backend internal concept boundary types, and non-leak assertions proving no PBIR assets, analyzable surfaces, or materialization paths were added. Required validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-13: Implemented Report Design Studio Task 4 only. Added internal-only Draft Studio artifact models for report, page, layout, and navigation drafts; extension-side draft persistence with approved-brief and approved-concept gating; preserved `PageConcept` lineage through draft artifacts; added a provider-neutral `DraftProviderAdapter` seam with capability placeholders and zero-provider operation; added backend internal boundary mirrors and trust-boundary coverage; and passed `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-13: Reviewed Report Design Studio readiness through Task 5 without code changes. Focused Design Studio Jest, webview Jest, and xUnit boundary tests passed. Readiness result: Draft Studio gating, zero-provider behavior, provider provenance, and advisory-only trust boundaries are in place, but immutable approval/version lineage is still weak because Design Brief approval mutates the current version in place, Concept approval appends a duplicate version entry, concept artifacts do not retain source-brief version ids, and the versioned Design Studio protocol still lacks runtime validation. Recommendation: pause before Task 6 and do not start Task 7 first.
+- 2026-06-13: Implemented Report Design Studio Task 6 only. Added a Refinement Studio analyzer-consumption store, explicit design-artifact backlink resolution, advisory-only `RefinementProposal` lineage with source analyzer payload provenance, and safe stale-output rejection through required source artifact version IDs. No materialization, analyzer handoff, report mutation, analyzable surface creation, or PBIR generation was introduced. Validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-13: Reviewed Report Design Studio readiness from Task 6 into Task 7 without code changes. Draft and refinement lineage, advisory-only trust boundaries, and Design Studio backend boundary tests are in place, but Task 7 should pause because materialization inputs do not yet carry exact source artifact version references, stale analyzer-output rejection currently accepts matching subsets rather than a complete version fingerprint, refinement approval semantics are still vocabulary-only, nested materialization protocol payloads are only shallow-validated, and backlink resolution remains heuristic for future round-trip materialization diagnostics.
+- 2026-06-13: Implemented Report Design Studio materialization readiness hardening only. Added exact source lineage entries for materialization-facing models and refinement proposals, upgraded analyzer-output freshness checks to require the full active draft fingerprint with explicit stale diagnostics, added explicit refinement review/approve/reject transitions, deep-validated nested materialization request payloads, and introduced stable backlink identities that survive title changes. Preserved all trust boundaries: no Task 7 materialization behavior, no analyzer handoff, no analyzable surface creation, no PBIR generation, and no report mutation. Validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-13: Reviewed Report Design Studio readiness for Task 7 after the hardening pass without code changes. Focused Design Studio Jest and xUnit validation passed. Result: Task 7 may proceed, with two explicit cleanup items to keep in the first materialization slice: tighten semantic validation for live `MaterializationRequest` payloads, and decide whether `sourceLineage` needs explicit artifact kind or role for long-term diagnostics.
