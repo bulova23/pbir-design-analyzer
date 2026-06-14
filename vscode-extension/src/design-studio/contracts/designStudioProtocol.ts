@@ -517,6 +517,84 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
     }
   }
 
+  if (value.conceptReview !== undefined) {
+    const conceptReview = isRecord(value.conceptReview) ? value.conceptReview : undefined;
+    const chapterStructure = Array.isArray(conceptReview?.chapterStructure) ? conceptReview.chapterStructure : undefined;
+    const kpiHierarchy = Array.isArray(conceptReview?.kpiHierarchy) ? conceptReview.kpiHierarchy : undefined;
+    const navigationStructure = Array.isArray(conceptReview?.navigationStructure) ? conceptReview.navigationStructure : undefined;
+    const analyticalFlow = Array.isArray(conceptReview?.analyticalFlow) ? conceptReview.analyticalFlow : undefined;
+
+    if (
+      !conceptReview
+      || !readString(conceptReview, 'title')
+      || !readString(conceptReview, 'summary')
+      || !readString(conceptReview, 'selectedConceptLabel')
+      || !chapterStructure
+      || !kpiHierarchy
+      || !navigationStructure
+      || !analyticalFlow
+    ) {
+      return false;
+    }
+
+    if (!chapterStructure.every((chapter) => isRecord(chapter) && !!readString(chapter, 'title') && !!readString(chapter, 'objective'))) {
+      return false;
+    }
+
+    if (!kpiHierarchy.every((node) => {
+      if (!isRecord(node)) {
+        return false;
+      }
+
+      const level = readString(node, 'level');
+      return !!readString(node, 'label')
+        && !!level
+        && ['primary', 'supporting', 'diagnostic'].includes(level)
+        && readNumber(node, 'depth') !== undefined;
+    })) {
+      return false;
+    }
+
+    if (!navigationStructure.every((node) => isRecord(node) && !!readString(node, 'label') && readNumber(node, 'depth') !== undefined)) {
+      return false;
+    }
+
+    if (!analyticalFlow.every((step) => isRecord(step) && !!readString(step, 'label') && !!readString(step, 'objective'))) {
+      return false;
+    }
+  }
+
+  if (value.draftReview !== undefined) {
+    const draftReview = isRecord(value.draftReview) ? value.draftReview : undefined;
+    const draftPages = Array.isArray(draftReview?.draftPages) ? draftReview.draftPages : undefined;
+    const draftLayouts = Array.isArray(draftReview?.draftLayouts) ? draftReview.draftLayouts : undefined;
+    const draftNavigation = Array.isArray(draftReview?.draftNavigation) ? draftReview.draftNavigation : undefined;
+
+    if (
+      !draftReview
+      || !readString(draftReview, 'title')
+      || !readString(draftReview, 'summary')
+      || !readString(draftReview, 'draftStatusLabel')
+      || !draftPages
+      || !draftLayouts
+      || !draftNavigation
+    ) {
+      return false;
+    }
+
+    if (!draftPages.every((page) => isRecord(page) && !!readString(page, 'title') && !!readString(page, 'structureSummary') && isStringArray(page.kpiPlacement))) {
+      return false;
+    }
+
+    if (!draftLayouts.every((layout) => isRecord(layout) && !!readString(layout, 'title') && !!readString(layout, 'layoutType') && isStringArray(layout.zones))) {
+      return false;
+    }
+
+    if (!draftNavigation.every((item) => isRecord(item) && !!readString(item, 'label') && !!readString(item, 'pageTitle'))) {
+      return false;
+    }
+  }
+
   return true;
 }
 

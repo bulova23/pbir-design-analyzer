@@ -1,5 +1,117 @@
 # Session Summaries
 
+## 2026-06-14 Report Design Studio Guided Internal Pilot Plan
+
+- Created the guided internal pilot package for the current Report Design Studio MVP without changing product code or architecture.
+- Added:
+  - `docs/report-design-studio-guided-pilot-plan.md`
+  - `docs/report-design-studio-guided-pilot-results.md`
+- Defined:
+  - participant roles plus minimum and ideal counts
+  - Executive Dashboard, Operational Monitoring, and Analytical Investigation pilot coverage
+  - the required workflow from Design Brief through Compare Iterations
+  - success, adoption, understanding, trust, recommendation, and confidence metrics
+  - readiness criteria and final A/B/C decision gate
+- Recommended next step:
+  - run the guided internal pilot
+  - keep broad self-serve rollout and provider-backed generation blocked pending pilot evidence
+
+## 2026-06-14 Report Design Studio UX Phase 5 Fast Comprehension And Decision Confidence
+
+- Implemented the Phase 5 consultant-speed UX pass without changing Design Studio architecture or trust boundaries.
+- Added:
+  - side-by-side concept baseline comparison for chapter structure, KPI hierarchy, navigation structure, and analytical flow
+  - analytical-investigation teaching for question, investigation, evidence, conclusion, and decision paths
+  - explicit Ready, Approved, and Validated teaching in the shell
+  - iteration progress snapshot indicators before detailed comparison content
+  - Design Brief progressive disclosure with essential and advanced sections
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-14 Report Design Studio MVP Validation Review Round 2
+
+- Re-ran the original MVP validation review against the current Design Studio implementation after UX Phases 1-4.
+- Created:
+  - `docs/report-design-studio-mvp-validation-review-round2.md`
+- Findings:
+  - Draft Studio visibility is resolved as a major blocker.
+  - Concept Studio visibility, workflow language, approval clarity, and analytical-investigation support are improved.
+  - the MVP is now ready for a guided internal pilot
+  - the MVP is still not ready for broad self-serve internal consultant usage
+- Remaining blockers before provider-backed generation:
+  - stronger concept-baseline comparison depth
+  - stronger analytical-investigation visibility
+  - faster approval teaching at workflow speed
+  - less text-first iteration review
+  - lower Design Brief friction
+- Validation passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/designBriefStore.test.ts src/test/conceptStore.test.ts src/test/draftStore.test.ts src/test/materializationCoordinator.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts src/test/iterationStore.test.ts src/test/designStudioProtocol.test.ts src/test/designStudioContracts.test.ts src/test/pbirDesignStudioCommand.treeItem.test.ts src/test/designStudioWorkspace.test.ts src/test/iterationExperience.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/ConceptStudioView.test.tsx webview-src/design-studio/__tests__/DraftStudioView.test.tsx webview-src/design-studio/__tests__/App.test.tsx webview-src/design-studio/__tests__/ClosedLoopView.test.tsx`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
+
+## 2026-06-14 Report Design Studio UX Phase 4 Artifact Visibility And Workflow Language
+
+- Implemented the UX Phase 4 consultant-readability pass without changing the underlying Design Studio architecture or workflow stages.
+- Added visible Concept Studio review artifacts for chapter structure, KPI hierarchy, navigation structure, and analytical flow.
+- Added visible Draft Studio review artifacts for draft pages, layouts, navigation, and KPI placement.
+- Renamed the middle-stage user-facing labels to Prepare For Review and Review Design while preserving the existing internal workflow ids and explicit handoff behavior.
+- Clarified approval language by rendering validation approval as Validated in the consultant-facing shell and kept Ready, Approved, and Validated distinct.
+- Reframed iteration comparison to lead with What Improved, What Was Accepted, and What Changed.
+- Added focused presenter and webview tests plus passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-14 Report Design Studio MVP Validation Review
+
+- Reviewed the completed Report Design Studio MVP as a workflow and usability validation only.
+- Used the current Design Studio shell, seeded webview scenarios, command entry surface, and focused Design Studio tests rather than implementing any code.
+- Created:
+  - `docs/report-design-studio-mvp-validation-review.md`
+- Conclusion:
+  - the workflow is coherent and directionally valuable
+  - refinement and iteration stages are useful
+  - the MVP is not yet ready for broad self-serve internal consultant use
+  - the MVP is suitable for a guided internal pilot
+- Highest-priority improvements before provider-backed generation:
+  - richer Concept Studio artifact visibility
+  - richer Draft Studio artifact visibility
+  - clearer Materialization and Analyzer Handoff language
+  - clearer approval and trust-boundary teaching
+  - stronger consultant-readable iteration comparison
+- Validation passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/designBriefStore.test.ts src/test/conceptStore.test.ts src/test/draftStore.test.ts src/test/materializationCoordinator.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts src/test/iterationStore.test.ts src/test/designStudioProtocol.test.ts src/test/designStudioContracts.test.ts src/test/pbirDesignStudioCommand.treeItem.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/ConceptStudioView.test.tsx webview-src/design-studio/__tests__/App.test.tsx webview-src/design-studio/__tests__/ClosedLoopView.test.tsx`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
+
+## 2026-06-14 Report Design Studio UX Phase 3 Iteration Experience
+
+- Implemented the Phase 3 Compare Iterations experience on top of the existing Task 9 closed-loop architecture.
+- Added:
+  - Iteration Timeline
+  - before and after iteration selection
+  - human-readable Change Summary
+  - Recommendation Evolution
+  - Approval Evolution
+  - Validation Evolution
+- Added a shared iteration-experience presenter so the store and webview use the same user-facing comparison language.
+- Preserved trust boundaries:
+  - no provider-backed generation
+  - no AI generation
+  - no report mutation
+  - no PBIR generation
+  - no deployment
+  - no automation UX
+  - no automatic analyzer execution
+- Validation passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/iterationExperience.test.ts src/test/iterationStore.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/ClosedLoopView.test.tsx webview-src/design-studio/__tests__/App.test.tsx`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
 ## 2026-06-14 Report Design Studio UX Phase 2 Refinement Experience
 
 - Implemented the first consultant-style refinement workflow inside the Design Studio shell.
@@ -1108,3 +1220,4 @@
 - 2026-06-13: Completed the Report Design Studio pre-Task-10 workflow coherence cleanup. Added immutable draft approval, approved-draft-only materialization request construction, neutral iteration approval metadata anchored on `approvalCheckpoint`, and persisted-state validation for source/candidate/analyzer/refinement lineage. Validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
 - 2026-06-13: Implemented Report Design Studio Task 10 trust-boundary and regression guardrails. Added a dedicated Jest trust-boundary suite, hardened Design Studio protocol parsing for nested `studioState` payloads and cross-thread lineage rejection, added backend reflection tests for workflow/ownership restrictions, and wrote durable trust-boundary documentation at `docs/report-design-studio-trust-boundary.md` plus an implementation note. Required validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
 - 2026-06-13: Revalidated the existing Report Design Studio Task 10 working-tree slice against the requested guardrail matrix and confirmed no additional product changes were needed. Required validation passed again with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-14: Completed Report Design Studio MVP Validation Review Round 3 without product-code changes. Wrote `docs/report-design-studio-mvp-validation-review-round3.md`, re-ran executive, operational, analytical, and Design Brief workflow validation through a browser-driven local harness using the live Design Studio React components, concluded that UX Phase 5 materially improved approval teaching and the remaining usability blockers, and recommended **Ready For Guided Internal Pilot Only** rather than broad self-serve rollout.

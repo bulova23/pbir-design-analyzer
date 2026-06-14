@@ -171,6 +171,16 @@ body {
   margin-top: 12px;
 }
 
+.approval-teaching-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.approval-teaching-grid .detail-card {
+  padding: 14px;
+}
+
 @media (max-width: 900px) {
   .studio-layout {
     grid-template-columns: 1fr;

@@ -9,6 +9,7 @@ import type {
   DesignStudioWorkflowStageId,
   DesignStudioWorkflowStageViewModel,
 } from '../../src/design-studio/contracts/designStudioShell';
+import { ClosedLoopView } from './views/ClosedLoopView';
 
 interface VsCodeApi {
   postMessage(message: unknown): void;
@@ -47,11 +48,15 @@ function StageBadge({ stage }: { stage: DesignStudioWorkflowStageViewModel }) {
 }
 
 function ApprovalCard({ card }: { card: DesignStudioApprovalCardViewModel }) {
+  const stateLabel = card.kind === 'validationApproval' && card.approvalState === 'approved'
+    ? 'Validated'
+    : approvalStateLabel(card.approvalState);
+
   return (
     <section className='approval-card' aria-label={card.title}>
       <div className='approval-card-header'>
         <h3>{card.title}</h3>
-        <span className='approval-card-state'>{approvalStateLabel(card.approvalState)}</span>
+        <span className='approval-card-state'>{stateLabel}</span>
       </div>
       <p><strong>Owner:</strong> {card.owner}</p>
       <p><strong>Unlocks:</strong> {card.unlock}</p>
@@ -62,6 +67,48 @@ function ApprovalCard({ card }: { card: DesignStudioApprovalCardViewModel }) {
       </ul>
     </section>
   );
+}
+
+function ApprovalTeachingCard() {
+  return (
+    <section className='detail-card'>
+      <h3>Approval stages</h3>
+      <div className='approval-teaching-grid'>
+        <article className='detail-card'>
+          <h4>Ready</h4>
+          <p>Owner: Design Studio workflow state</p>
+          <p>Ready means the stage can move into review.</p>
+          <p>Effect: the consultant can inspect the design without approving it yet.</p>
+        </article>
+        <article className='detail-card'>
+          <h4>Approved</h4>
+          <p>Owner: Design Studio</p>
+          <p>Approved means Design Studio accepted the current design baseline.</p>
+          <p>Effect: the next stage can use that baseline explicitly.</p>
+        </article>
+        <article className='detail-card'>
+          <h4>Validated</h4>
+          <p>Owner: Analyzer Workspace</p>
+          <p>Validated means Analyzer Workspace recorded the review outcome.</p>
+          <p>Effect: the current iteration has analyzer-owned validation evidence.</p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function buildInvestigationSupport(conceptReview: NonNullable<DesignStudioStudioState['workspace']>['conceptReview']) {
+  if (!conceptReview) {
+    return undefined;
+  }
+
+  return {
+    question: conceptReview.analyticalFlow[0]?.objective ?? conceptReview.summary,
+    investigation: conceptReview.analyticalFlow.map((step) => step.objective),
+    evidence: conceptReview.chapterStructure.map((chapter) => chapter.title),
+    conclusion: conceptReview.analyticalFlow.at(-1)?.objective ?? conceptReview.summary,
+    decision: conceptReview.selectedConceptLabel,
+  };
 }
 
 function approvalKindsForStage(stageId: DesignStudioWorkflowStageId): DesignStudioApprovalCardViewModel['kind'][] {
@@ -181,6 +228,8 @@ export function App() {
             </section>
           ) : null}
 
+          <ApprovalTeachingCard />
+
           {selectedStage === 'refinement' && workspace.refinementExperience ? (
             <section className='detail-card'>
               <h3>{workspace.refinementExperience.title}</h3>
@@ -266,9 +315,218 @@ export function App() {
             </section>
           ) : null}
 
+          {selectedStage === 'concept' && workspace.conceptReview ? (
+            (() => {
+              const conceptReview = workspace.conceptReview;
+
+              return (
+                <section className='detail-card'>
+                  <h3>{conceptReview.title}</h3>
+                  <p>{conceptReview.summary}</p>
+                  <p><strong>Selected baseline:</strong> {conceptReview.selectedConceptLabel}</p>
+
+                  <section className='detail-card'>
+                    <h4>Chapter Structure</h4>
+                    <ul>
+                      {conceptReview.chapterStructure.map((chapter) => (
+                        <li key={`${chapter.title}:${chapter.objective}`}>
+                          <strong>{chapter.title}</strong>
+                          <div>{chapter.objective}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section className='detail-card'>
+                    <h4>KPI Hierarchy</h4>
+                    <ul>
+                      {conceptReview.kpiHierarchy.map((node) => (
+                        <li key={`${node.label}:${node.depth}`}>
+                          {`${'  '.repeat(node.depth)}${node.label}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section className='detail-card'>
+                    <h4>Navigation Structure</h4>
+                    <ul>
+                      {conceptReview.navigationStructure.map((node) => (
+                        <li key={`${node.label}:${node.depth}`}>
+                          {`${'  '.repeat(node.depth)}${node.label}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section className='detail-card'>
+                    <h4>Analytical Flow</h4>
+                    <ul>
+                      {conceptReview.analyticalFlow.map((step) => (
+                        <li key={`${step.label}:${step.objective}`}>
+                          <strong>{step.label}</strong>
+                          <div>{step.objective}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section className='detail-card'>
+                    <h4>Analytical Investigation Support</h4>
+                    {(() => {
+                      const investigationSupport = buildInvestigationSupport(conceptReview);
+                      if (!investigationSupport) {
+                        return null;
+                      }
+
+                      return (
+                        <>
+                          <p><strong>Question</strong></p>
+                          <p>{investigationSupport.question}</p>
+                          <p><strong>Investigation</strong></p>
+                          <ul>
+                            {investigationSupport.investigation.map((item) => (
+                              <li key={`investigation:${item}`}>{item}</li>
+                            ))}
+                          </ul>
+                          <p><strong>Evidence</strong></p>
+                          <ul>
+                            {investigationSupport.evidence.map((item) => (
+                              <li key={`evidence:${item}`}>{item}</li>
+                            ))}
+                          </ul>
+                          <p><strong>Conclusion</strong></p>
+                          <p>{investigationSupport.conclusion}</p>
+                          <p><strong>Decision</strong></p>
+                          <p>{investigationSupport.decision}</p>
+                        </>
+                      );
+                    })()}
+                  </section>
+
+                  {conceptReview.comparisons?.map((comparison) => (
+                    <section key={comparison.comparisonConceptLabel} className='detail-card'>
+                      <h4>{`${conceptReview.selectedConceptLabel} vs ${comparison.comparisonConceptLabel}`}</h4>
+
+                      <section className='detail-card'>
+                        <h5>Chapter Structure Comparison</h5>
+                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.chapterStructure.baselineItems.map((item) => (
+                            <li key={`chapter:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.chapterStructure.comparisonItems.map((item) => (
+                            <li key={`chapter:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </section>
+
+                      <section className='detail-card'>
+                        <h5>KPI Hierarchy Comparison</h5>
+                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.kpiHierarchy.baselineItems.map((item) => (
+                            <li key={`kpi:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.kpiHierarchy.comparisonItems.map((item) => (
+                            <li key={`kpi:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </section>
+
+                      <section className='detail-card'>
+                        <h5>Navigation Structure Comparison</h5>
+                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.navigationStructure.baselineItems.map((item) => (
+                            <li key={`navigation:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.navigationStructure.comparisonItems.map((item) => (
+                            <li key={`navigation:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </section>
+
+                      <section className='detail-card'>
+                        <h5>Analytical Flow Comparison</h5>
+                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.analyticalFlow.baselineItems.map((item) => (
+                            <li key={`flow:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
+                        <ul>
+                          {comparison.analyticalFlow.comparisonItems.map((item) => (
+                            <li key={`flow:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    </section>
+                  ))}
+                </section>
+              );
+            })()
+          ) : null}
+
+          {selectedStage === 'draft' && workspace.draftReview ? (
+            <section className='detail-card'>
+              <h3>{workspace.draftReview.title}</h3>
+              <p>{workspace.draftReview.summary}</p>
+              <p><strong>Draft status:</strong> {workspace.draftReview.draftStatusLabel}</p>
+
+              <section className='detail-card'>
+                <h4>Draft Pages</h4>
+                <ul>
+                  {workspace.draftReview.draftPages.map((page) => (
+                    <li key={`${page.title}:${page.structureSummary}`}>
+                      <strong>{page.title}</strong>
+                      <div>{page.structureSummary}</div>
+                      <div>{page.kpiPlacement.join(', ')}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className='detail-card'>
+                <h4>Draft Layouts</h4>
+                <ul>
+                  {workspace.draftReview.draftLayouts.map((layout) => (
+                    <li key={`${layout.title}:${layout.layoutType}`}>
+                      <strong>{layout.title}</strong>
+                      <div>{layout.layoutType}</div>
+                      <div>{layout.zones.join(', ')}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className='detail-card'>
+                <h4>Draft Navigation</h4>
+                <ul>
+                  {workspace.draftReview.draftNavigation.map((item) => (
+                    <li key={`${item.label}:${item.pageTitle}`}>
+                      <strong>{item.label}</strong>
+                      <div>{item.pageTitle}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </section>
+          ) : null}
+
           {selectedStage === 'materialize' && workspace.materializationReadiness ? (
             <section className='detail-card'>
-              <h3>Materialization readiness</h3>
+              <h3>Review preparation</h3>
               <p>{workspace.materializationReadiness.readinessLabel}</p>
               <dl>
                 <div>
@@ -294,7 +552,7 @@ export function App() {
 
           {selectedStage === 'handoff' && workspace.analyzerHandoff ? (
             <section className='detail-card'>
-              <h3>Analyzer handoff</h3>
+              <h3>Design review handoff</h3>
               <p>{workspace.analyzerHandoff.readinessLabel}</p>
               <p>
                 Analyzer: <strong>{workspace.analyzerHandoff.analyzerId}</strong>
@@ -317,6 +575,12 @@ export function App() {
               >
                 Open Analyzer Workspace
               </button>
+            </section>
+          ) : null}
+
+          {selectedStage === 'compare' ? (
+            <section className='detail-card'>
+              <ClosedLoopView iterations={viewState.state.iterationHistory} />
             </section>
           ) : null}
         </section>

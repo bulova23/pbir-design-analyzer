@@ -31,6 +31,7 @@ import {
   loadDraftState,
 } from './draftStore';
 import { loadRefinementState } from './refinementStore';
+import { buildIterationComparison } from '../presentation/iterationExperience';
 
 export interface IterationState {
   threadId: string;
@@ -329,6 +330,7 @@ function buildComparisonSnapshot(input: RecordIterationInput): IterationComparis
       proposalId: proposal.proposalId,
       suggestedDesignChange: proposal.suggestedDesignChange,
       expectedImpact: proposal.expectedImpact,
+      approvalState: proposal.approvalState,
     })),
     validationStatus: input.validationApproval?.validationLinkage?.validationResultStatus
       ?? input.validationApproval?.approvalState
@@ -349,109 +351,6 @@ function buildGuardrails(): IterationGuardrails {
     reportMutationTriggered: false,
     pbirFilesGenerated: false,
   };
-}
-
-function describeListChanges(
-  label: string,
-  beforeValues: string[],
-  afterValues: string[],
-): string[] {
-  const changes: string[] = [];
-  const before = new Set(beforeValues);
-  const after = new Set(afterValues);
-
-  for (const value of beforeValues) {
-    if (!after.has(value)) {
-      changes.push(`${label} removed: ${value}.`);
-    }
-  }
-
-  for (const value of afterValues) {
-    if (!before.has(value)) {
-      changes.push(`${label} added: ${value}.`);
-    }
-  }
-
-  return changes;
-}
-
-function compareConcepts(base: IterationComparisonSnapshot, candidate: IterationComparisonSnapshot): string[] {
-  const changes: string[] = [];
-
-  if (base.concept?.summary !== candidate.concept?.summary) {
-    changes.push(`Concept summary changed from ${base.concept?.summary ?? 'none'} to ${candidate.concept?.summary ?? 'none'}.`);
-  }
-
-  return changes.concat(describeListChanges(
-    'Concept page',
-    base.concept?.pageTitles ?? [],
-    candidate.concept?.pageTitles ?? [],
-  ));
-}
-
-function compareDrafts(base: IterationComparisonSnapshot, candidate: IterationComparisonSnapshot): string[] {
-  const changes: string[] = [];
-
-  if (base.draft?.summary !== candidate.draft?.summary) {
-    changes.push(`Draft summary changed from ${base.draft?.summary ?? 'none'} to ${candidate.draft?.summary ?? 'none'}.`);
-  }
-
-  return changes
-    .concat(describeListChanges(
-      'Draft page structure',
-      base.draft?.pageStructureSummaries ?? [],
-      candidate.draft?.pageStructureSummaries ?? [],
-    ))
-    .concat(describeListChanges(
-      'Draft layout title',
-      base.draft?.layoutTitles ?? [],
-      candidate.draft?.layoutTitles ?? [],
-    ));
-}
-
-function compareAnalyzerOutputs(base: IterationComparisonSnapshot, candidate: IterationComparisonSnapshot): string[] {
-  const before = base.analyzerOutputs.map((output) => output.resultReference);
-  const after = candidate.analyzerOutputs.map((output) => output.resultReference);
-  const changes = describeListChanges('Analyzer output', before, after);
-
-  if (before.length === 1 && after.length === 1 && before[0] !== after[0]) {
-    changes.push(`Analyzer output changed from ${before[0]} to ${after[0]}.`);
-  }
-
-  return changes;
-}
-
-function compareRecommendations(base: IterationComparisonSnapshot, candidate: IterationComparisonSnapshot): string[] {
-  const changes: string[] = [];
-
-  const baseRecommendations = new Map(base.recommendations.map((recommendation) => [recommendation.proposalId, recommendation]));
-  const candidateRecommendations = new Map(candidate.recommendations.map((recommendation) => [recommendation.proposalId, recommendation]));
-
-  for (const recommendation of candidate.recommendations) {
-    const matchingBase = baseRecommendations.get(recommendation.proposalId);
-    if (matchingBase && matchingBase.suggestedDesignChange !== recommendation.suggestedDesignChange) {
-      changes.push(`Recommendation changed to ${recommendation.suggestedDesignChange}.`);
-      continue;
-    }
-
-    if (!matchingBase) {
-      changes.push(`Recommendation changed to ${recommendation.suggestedDesignChange}.`);
-    }
-  }
-
-  for (const recommendation of base.recommendations) {
-    if (!candidateRecommendations.has(recommendation.proposalId)) {
-      changes.push(`Recommendation removed: ${recommendation.suggestedDesignChange}.`);
-    }
-  }
-
-  return changes;
-}
-
-function compareValidationStatus(base: IterationComparisonSnapshot, candidate: IterationComparisonSnapshot): string[] {
-  return base.validationStatus !== candidate.validationStatus
-    ? [`Validation status changed from ${base.validationStatus} to ${candidate.validationStatus}.`]
-    : [];
 }
 
 export async function loadIterationState(
@@ -518,14 +417,5 @@ export async function compareIterations(
     throw new Error('Both iterations must exist before comparison.');
   }
 
-  return {
-    baseIterationId,
-    candidateIterationId,
-    summary: `${candidate.id} compared against ${base.id}.`,
-    conceptChanges: compareConcepts(base.comparisonSnapshot, candidate.comparisonSnapshot),
-    draftChanges: compareDrafts(base.comparisonSnapshot, candidate.comparisonSnapshot),
-    analyzerOutputChanges: compareAnalyzerOutputs(base.comparisonSnapshot, candidate.comparisonSnapshot),
-    recommendationChanges: compareRecommendations(base.comparisonSnapshot, candidate.comparisonSnapshot),
-    validationStatusChanges: compareValidationStatus(base.comparisonSnapshot, candidate.comparisonSnapshot),
-  };
+  return buildIterationComparison(base, candidate);
 }

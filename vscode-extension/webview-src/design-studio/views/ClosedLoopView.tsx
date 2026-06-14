@@ -1,55 +1,132 @@
-import React from 'react';
-import type {
-  ClosedLoopIterationComparison,
-  DesignIterationRecord,
-} from '../../../src/design-studio/contracts/designStudioModels';
-import { IterationComparison } from '../components/IterationComparison';
+import React, { useMemo, useState } from 'react';
+import type { DesignIterationRecord } from '../../../src/design-studio/contracts/designStudioModels';
+import { buildIterationComparison, buildIterationTimeline } from '../../../src/design-studio/presentation/iterationExperience';
 
 interface ClosedLoopViewProps {
   iterations: DesignIterationRecord[];
-  comparison?: ClosedLoopIterationComparison;
-  onCompare(baseIterationId: string, candidateIterationId: string): void;
 }
 
 export function ClosedLoopView({
   iterations,
-  comparison,
-  onCompare,
 }: ClosedLoopViewProps) {
-  const latest = iterations.at(-1);
-  const base = iterations[0];
+  const timeline = useMemo(() => buildIterationTimeline(iterations), [iterations]);
+  const [baseIterationId, setBaseIterationId] = useState(iterations[0]?.id ?? '');
+  const [candidateIterationId, setCandidateIterationId] = useState(iterations.at(-1)?.id ?? '');
+  const baseIteration = iterations.find((iteration) => iteration.id === baseIterationId) ?? iterations[0];
+  const candidateIteration = iterations.find((iteration) => iteration.id === candidateIterationId) ?? iterations.at(-1);
+  const comparison = baseIteration && candidateIteration
+    ? buildIterationComparison(baseIteration, candidateIteration)
+    : undefined;
+  const acceptedRecommendations = comparison?.recommendationEvolution.filter((item) => item.startsWith('Accepted recommendation:')) ?? [];
+  const changedRecommendations = comparison?.recommendationEvolution.filter((item) => !item.startsWith('Accepted recommendation:')) ?? [];
+  const improvementSignalCount = comparison
+    ? comparison.changeSummary.length + comparison.validationEvolution.length
+    : 0;
 
   return (
     <section>
-      <h1>Closed Loop</h1>
-      <p>Draft {'->'} Assess {'->'} Improve {'->'} Re-Assess {'->'} Compare {'->'} Approve remains explicit and audit-only.</p>
+      <h3>Iteration Timeline</h3>
+      <p>Review how the design evolved, why decisions changed, and which version produced the current result.</p>
 
       <section>
-        <h2>Lineage</h2>
+        <h4>Timeline</h4>
         <ul>
-          {iterations.map((iteration) => (
-            <li key={iteration.id}>
-              <strong>{iteration.id}</strong>
-              <div>Previous iteration: {iteration.previousIterationId ?? 'None'}</div>
-              <div>Materialized candidate: {iteration.materializedCandidate?.candidateId ?? 'None'}</div>
-              <div>Validation approval: {iteration.approvalCheckpoint.validationApproval.approvalState}</div>
-              <div>Analyzer result: {iteration.analyzerResults[0]?.resultReference ?? 'None'}</div>
-              <div>Refinement proposal: {iteration.refinementProposals[0]?.proposalId ?? 'None'}</div>
+          {timeline.map((entry) => (
+            <li key={entry.iterationId}>
+              <strong>{entry.versionLabel}</strong>
+              {entry.isCurrentResult ? <span> Current result</span> : null}
+              <div>{entry.stageLabel}</div>
+              <div>{entry.timestampLabel}</div>
+              <div>{entry.summary}</div>
+              <ul>
+                {entry.detailItems.map((item) => (
+                  <li key={`${entry.iterationId}:${item}`}>{item}</li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>
       </section>
 
-      {base && latest && latest.id !== base.id ? (
-        <button
-          type='button'
-          onClick={() => onCompare(base.id, latest.id)}
-        >
-          Compare {base.id} to {latest.id}
-        </button>
+      {iterations.length >= 2 ? (
+        <section>
+          <h4>Compare Iterations</h4>
+          <label>
+            Before iteration
+            <select value={baseIterationId} onChange={(event) => setBaseIterationId(event.target.value)}>
+              {iterations.map((iteration) => (
+                <option key={`before:${iteration.id}`} value={iteration.id}>
+                  Version {iteration.version}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            After iteration
+            <select value={candidateIterationId} onChange={(event) => setCandidateIterationId(event.target.value)}>
+              {iterations.map((iteration) => (
+                <option key={`after:${iteration.id}`} value={iteration.id}>
+                  Version {iteration.version}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
       ) : null}
 
-      {comparison ? <IterationComparison comparison={comparison} /> : null}
+      {comparison ? (
+        <section>
+          <h4>Progress Snapshot</h4>
+          <div>
+            <p>Improvement signals</p>
+            <strong>{improvementSignalCount}</strong>
+          </div>
+          <div>
+            <p>Accepted recommendations</p>
+            <strong>{acceptedRecommendations.length}</strong>
+          </div>
+          <div>
+            <p>Change highlights</p>
+            <strong>{changedRecommendations.length}</strong>
+          </div>
+
+          <h4>What Improved</h4>
+          <p>{comparison.summary}</p>
+          <ul>
+            {comparison.changeSummary.map((item) => (
+              <li key={`summary:${item}`}>{item}</li>
+            ))}
+          </ul>
+
+          <h4>What Was Accepted</h4>
+          <ul>
+            {acceptedRecommendations.map((item) => (
+              <li key={`recommendation:${item}`}>{item}</li>
+            ))}
+          </ul>
+
+          <h4>What Changed</h4>
+          <ul>
+            {changedRecommendations.map((item) => (
+              <li key={`changed:${item}`}>{item}</li>
+            ))}
+          </ul>
+
+          <h4>Approval Evolution</h4>
+          <ul>
+            {comparison.approvalEvolution.map((item) => (
+              <li key={`approval:${item}`}>{item}</li>
+            ))}
+          </ul>
+
+          <h4>Validation Evolution</h4>
+          <ul>
+            {comparison.validationEvolution.map((item) => (
+              <li key={`validation:${item}`}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </section>
   );
 }

@@ -63,6 +63,10 @@ describe('ConceptStudioView', () => {
     expect(onGenerateConcepts).toHaveBeenCalled();
     expect(screen.getByText('Concept alternatives')).toBeInTheDocument();
     expect(screen.getByText('Concept comparison')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chapter Structure Comparison' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'KPI Hierarchy Comparison' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Navigation Structure Comparison' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Analytical Flow Comparison' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /materialize/i })).not.toBeInTheDocument();
     expect(screen.getByText('Concept Studio produces internal concept artifacts only. No PBIR assets or analyzable surfaces are created here.')).toBeInTheDocument();
 
@@ -70,6 +74,13 @@ describe('ConceptStudioView', () => {
 
     expect(onSelectBaseline).toHaveBeenCalledWith('concept-narrative');
     expect(screen.getByText('Preferred baseline: Narrative-first storyline')).toBeInTheDocument();
+    expect(screen.getByText('Narrative-first storyline vs Operating-rhythm command deck')).toBeInTheDocument();
+    expect(screen.getByText('Story setup')).toBeInTheDocument();
+    expect(screen.getByText('Decision priorities')).toBeInTheDocument();
+    expect(screen.getByText('Question')).toBeInTheDocument();
+    expect(screen.getByText('Investigation')).toBeInTheDocument();
+    expect(screen.getByText('Evidence')).toBeInTheDocument();
+    expect(screen.getByText('Conclusion')).toBeInTheDocument();
     expect(screen.getByText('Selected baseline stays internal to Concept Studio until a future explicit materialization step.')).toBeInTheDocument();
     expect(screen.getByText('Draft Studio approval: Not approved')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve for Draft Studio' })).toBeEnabled();

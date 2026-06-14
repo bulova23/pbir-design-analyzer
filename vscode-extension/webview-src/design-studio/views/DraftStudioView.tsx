@@ -50,6 +50,33 @@ export function DraftStudioView({
           <p>Page drafts: {pageArtifacts.length}</p>
           <p>Layout drafts: {layoutArtifacts.length}</p>
           <p>Navigation drafts: {navigationArtifacts.length}</p>
+
+          <h3>Draft Pages</h3>
+          <ul>
+            {pageArtifacts.map((artifact) => (
+              <li key={artifact.id}>
+                <p>{artifact.structureSummary}</p>
+                <p>{artifact.recommendedVisualRoles.join(', ')}</p>
+              </li>
+            ))}
+          </ul>
+
+          <h3>Draft Layouts</h3>
+          <ul>
+            {layoutArtifacts.map((artifact) => (
+              <li key={artifact.id}>
+                <p>{artifact.title}</p>
+                <p>{artifact.layoutType}</p>
+              </li>
+            ))}
+          </ul>
+
+          <h3>Draft Navigation</h3>
+          <ul>
+            {navigationArtifacts.flatMap((artifact) => artifact.sections).map((section) => (
+              <li key={section.id}>{section.label}</li>
+            ))}
+          </ul>
         </>
       ) : null}
 

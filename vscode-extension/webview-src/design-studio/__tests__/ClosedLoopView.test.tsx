@@ -1,10 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type {
-  ClosedLoopIterationComparison,
-  DesignIterationRecord,
-} from '../../../src/design-studio/contracts/designStudioModels';
+import type { DesignIterationRecord } from '../../../src/design-studio/contracts/designStudioModels';
 import { ClosedLoopView } from '../views/ClosedLoopView';
 
 function makeIteration(id: string, version: number, overrides: Partial<DesignIterationRecord> = {}): DesignIterationRecord {
@@ -33,7 +30,7 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
     },
     analyzerResults: [
       {
-        analyzerSource: 'issues',
+        analyzerSource: version === 1 ? 'storyAssessment' : 'guidedStoryImprovements',
         analyzerRunId: `run-${version}`,
         resultReference: `issues:${version}`,
         scoredAt: '2026-06-13T12:00:00.000Z',
@@ -67,20 +64,22 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
     comparisonSnapshot: {
       concept: {
         summary: version === 1 ? 'Original concept summary' : 'Refined concept summary',
-        pageTitles: ['Executive overview'],
-        navigationPattern: 'guidedFlow',
+        pageTitles: version === 1 ? ['Executive overview'] : ['Executive overview', 'Benchmark detail'],
+        navigationPattern: version === 1 ? 'guidedFlow' : 'hubAndSpoke',
       },
       draft: {
         summary: version === 1 ? 'Original draft summary' : 'Refined draft summary',
-        pageStructureSummaries: ['Executive overview scaffold'],
-        layoutTitles: ['KPI grid'],
-        navigationFrameworks: ['guidedFlow'],
+        pageStructureSummaries: version === 1
+          ? ['Executive overview scaffold']
+          : ['Executive overview scaffold', 'Benchmark comparison page'],
+        layoutTitles: version === 1 ? ['KPI grid'] : ['KPI grid', 'Benchmark comparison'],
+        navigationFrameworks: version === 1 ? ['guidedFlow'] : ['hubAndSpoke'],
       },
       analyzerOutputs: [
         {
           resultReference: `issues:${version}`,
           analyzerRunId: `run-${version}`,
-          analyzerSource: 'issues',
+          analyzerSource: version === 1 ? 'storyAssessment' : 'guidedStoryImprovements',
           validationResultStatus: version === 1 ? 'needsReview' : 'validated',
         },
       ],
@@ -89,11 +88,18 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
           proposalId: `proposal:${version}`,
           suggestedDesignChange: version === 1
             ? 'Clarify the executive question.'
-            : 'Clarify the executive question and simplify branching.',
-          expectedImpact: 'Reduce cognitive load.',
+            : 'Improve report flow with a clearer executive entry point.',
+          expectedImpact: 'Improve report flow.',
+          approvalState: 'approved',
+        },
+        {
+          proposalId: `proposal:${version}:rejected`,
+          suggestedDesignChange: 'Add benchmark recommendation.',
+          expectedImpact: 'Strengthen comparison context.',
+          approvalState: version === 1 ? 'pendingApproval' : 'rejected',
         },
       ],
-      validationStatus: version === 1 ? 'notSubmitted' : 'validated',
+      validationStatus: version === 1 ? 'needsReview' : 'validated',
     },
     guardrails: {
       autoOptimizationTriggered: false,
@@ -106,68 +112,46 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
 }
 
 describe('ClosedLoopView', () => {
-  it('shows lineage, approval checkpoints, analyzer linkage, and refinement linkage', () => {
-    const onCompare = jest.fn();
+  it('renders an iteration timeline and leads with what improved, what changed, and what was accepted', () => {
     const iterations = [makeIteration('iteration:1', 1), makeIteration('iteration:2', 2)];
-    const comparison: ClosedLoopIterationComparison = {
-      baseIterationId: 'iteration:1',
-      candidateIterationId: 'iteration:2',
-      summary: 'Iteration 2 improves the first draft without auto-approval.',
-      conceptChanges: ['Concept summary changed from Original concept summary to Refined concept summary.'],
-      draftChanges: ['Draft summary changed from Original draft summary to Refined draft summary.'],
-      analyzerOutputChanges: ['Analyzer output changed from issues:1 to issues:2.'],
-      recommendationChanges: ['Recommendation changed to simplify branching.'],
-      validationStatusChanges: ['Validation status changed from notSubmitted to validated.'],
-    };
 
     render(
-      <ClosedLoopView
-        iterations={iterations}
-        comparison={comparison}
-        onCompare={onCompare}
-      />,
+      <ClosedLoopView iterations={iterations} />,
     );
 
-    expect(screen.getByText('Closed Loop')).toBeInTheDocument();
-    expect(screen.getByText('Lineage')).toBeInTheDocument();
-    expect(screen.getByText('iteration:1')).toBeInTheDocument();
-    expect(screen.getByText('iteration:2')).toBeInTheDocument();
-    expect(screen.getByText('Materialized candidate: candidate:2')).toBeInTheDocument();
-    expect(screen.getByText('Validation approval: approved')).toBeInTheDocument();
-    expect(screen.getByText('Analyzer result: issues:2')).toBeInTheDocument();
-    expect(screen.getByText('Refinement proposal: proposal:2')).toBeInTheDocument();
-    expect(screen.getByText('Iteration 2 improves the first draft without auto-approval.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Iteration Timeline' })).toBeInTheDocument();
+    expect(screen.getAllByText('Version 1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Version 2').length).toBeGreaterThan(0);
+    expect(screen.getByText('Current result')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Progress Snapshot' })).toBeInTheDocument();
+    expect(screen.getByText('Improvement signals')).toBeInTheDocument();
+    expect(screen.getByText('Accepted recommendations')).toBeInTheDocument();
+    expect(screen.getByText('Change highlights')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What Improved' })).toBeInTheDocument();
+    expect(screen.getByText('Changed navigation structure.')).toBeInTheDocument();
+    expect(screen.getByText('Added benchmark comparison page.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What Was Accepted' })).toBeInTheDocument();
+    expect(screen.getByText('Accepted recommendation: Improve report flow with a clearer executive entry point.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What Changed' })).toBeInTheDocument();
+    expect(screen.getByText('Rejected recommendation: Add benchmark recommendation.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Approval Evolution' })).toBeInTheDocument();
+    expect(screen.getByText('Validation Approval changed from Not submitted to Approved.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Validation Evolution' })).toBeInTheDocument();
+    expect(screen.getAllByText('Validation status changed from Needs review to Validated.').length).toBeGreaterThan(0);
   });
 
-  it('renders before and after comparison details and requests an explicit compare action', () => {
-    const onCompare = jest.fn();
+  it('lets the user compare a selected before and after iteration without mutating anything', () => {
     const iterations = [makeIteration('iteration:1', 1), makeIteration('iteration:2', 2)];
-    const comparison: ClosedLoopIterationComparison = {
-      baseIterationId: 'iteration:1',
-      candidateIterationId: 'iteration:2',
-      summary: 'Iteration 2 improves the first draft without auto-approval.',
-      conceptChanges: ['Concept summary changed from Original concept summary to Refined concept summary.'],
-      draftChanges: ['Draft summary changed from Original draft summary to Refined draft summary.'],
-      analyzerOutputChanges: ['Analyzer output changed from issues:1 to issues:2.'],
-      recommendationChanges: ['Recommendation changed to simplify branching.'],
-      validationStatusChanges: ['Validation status changed from notSubmitted to validated.'],
-    };
 
     render(
-      <ClosedLoopView
-        iterations={iterations}
-        comparison={comparison}
-        onCompare={onCompare}
-      />,
+      <ClosedLoopView iterations={iterations} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compare iteration:1 to iteration:2' }));
+    fireEvent.change(screen.getByLabelText('Before iteration'), { target: { value: 'iteration:1' } });
+    fireEvent.change(screen.getByLabelText('After iteration'), { target: { value: 'iteration:2' } });
 
-    expect(onCompare).toHaveBeenCalledWith('iteration:1', 'iteration:2');
-    expect(screen.getByText('Concept summary changed from Original concept summary to Refined concept summary.')).toBeInTheDocument();
-    expect(screen.getByText('Draft summary changed from Original draft summary to Refined draft summary.')).toBeInTheDocument();
-    expect(screen.getByText('Analyzer output changed from issues:1 to issues:2.')).toBeInTheDocument();
-    expect(screen.getByText('Recommendation changed to simplify branching.')).toBeInTheDocument();
-    expect(screen.getByText('Validation status changed from notSubmitted to validated.')).toBeInTheDocument();
+    expect(screen.getByText('This iteration improved the design and validation story.')).toBeInTheDocument();
+    expect(screen.getAllByText('Guided Story Improvements review replaced Story Assessment.').length).toBeGreaterThan(0);
+    expect(screen.queryByText('issues:2')).not.toBeInTheDocument();
   });
 });

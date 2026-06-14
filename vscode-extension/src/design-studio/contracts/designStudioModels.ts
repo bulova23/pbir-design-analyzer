@@ -636,6 +636,7 @@ export interface IterationRecommendationSnapshot {
   proposalId: string;
   suggestedDesignChange: string;
   expectedImpact: string;
+  approvalState: DesignArtifactApprovalState;
 }
 
 export interface IterationComparisonSnapshot {
@@ -678,11 +679,15 @@ export interface ClosedLoopIterationComparison {
   baseIterationId: string;
   candidateIterationId: string;
   summary: string;
+  changeSummary: string[];
   conceptChanges: string[];
   draftChanges: string[];
   analyzerOutputChanges: string[];
   recommendationChanges: string[];
+  recommendationEvolution: string[];
+  approvalEvolution: string[];
   validationStatusChanges: string[];
+  validationEvolution: string[];
 }
 
 export interface DesignBriefValidationError {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { DesignBriefEditorAction, DesignBriefEditorState } from '../state/designBriefReducer';
 
 interface DesignBriefViewProps {
@@ -58,40 +58,62 @@ export function DesignBriefView({
   onApprove,
   onGenerateConcepts,
 }: DesignBriefViewProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   return (
     <section>
       <h1>Design Brief</h1>
       <p>Approval status: {approvalStatusLabel(state.approvalState)}</p>
 
       <div style={{ display: 'grid', gap: 12 }}>
-        <Field label='Audience' value={state.audience} onChange={(value) => dispatch({ type: 'setField', field: 'audience', value })} />
-        <Field label='Business Objective' value={state.businessObjective} onChange={(value) => dispatch({ type: 'setField', field: 'businessObjective', value })} />
-        <Field label='Key Decisions' value={state.keyDecisions} onChange={(value) => dispatch({ type: 'setField', field: 'keyDecisions', value })} multiline />
-        <Field label='Primary KPIs' value={state.primaryKpis} onChange={(value) => dispatch({ type: 'setField', field: 'primaryKpis', value })} multiline />
-        <Field label='Dimensions' value={state.dimensions} onChange={(value) => dispatch({ type: 'setField', field: 'dimensions', value })} multiline />
-        <Field label='Intended Story' value={state.intendedStory} onChange={(value) => dispatch({ type: 'setField', field: 'intendedStory', value })} multiline />
-        <Field label='Success Criteria' value={state.successCriteria} onChange={(value) => dispatch({ type: 'setField', field: 'successCriteria', value })} multiline />
+        <section>
+          <h2>Start with the essentials</h2>
+          <p>Capture the audience, business objective, story, and success signal first. Add deeper workflow context only when it improves the design brief.</p>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <Field label='Audience' value={state.audience} onChange={(value) => dispatch({ type: 'setField', field: 'audience', value })} />
+            <Field label='Business Objective' value={state.businessObjective} onChange={(value) => dispatch({ type: 'setField', field: 'businessObjective', value })} />
+            <Field label='Key Decisions' value={state.keyDecisions} onChange={(value) => dispatch({ type: 'setField', field: 'keyDecisions', value })} multiline />
+            <Field label='Primary KPIs' value={state.primaryKpis} onChange={(value) => dispatch({ type: 'setField', field: 'primaryKpis', value })} multiline />
+            <Field label='Intended Story' value={state.intendedStory} onChange={(value) => dispatch({ type: 'setField', field: 'intendedStory', value })} multiline />
+            <Field label='Success Criteria' value={state.successCriteria} onChange={(value) => dispatch({ type: 'setField', field: 'successCriteria', value })} multiline />
 
-        <label htmlFor='report-type' style={{ display: 'grid', gap: 4 }}>
-          <span>Report Type</span>
-          <select
-            id='report-type'
-            value={state.reportType}
-            onChange={(event) => dispatch({ type: 'setField', field: 'reportType', value: event.target.value })}
-          >
-            <option value='dashboard'>Dashboard</option>
-            <option value='scorecard'>Scorecard</option>
-            <option value='narrativeBriefing'>Narrative briefing</option>
-            <option value='operationalMonitoring'>Operational monitoring</option>
-          </select>
-        </label>
+            <label htmlFor='report-type' style={{ display: 'grid', gap: 4 }}>
+              <span>Report Type</span>
+              <select
+                id='report-type'
+                value={state.reportType}
+                onChange={(event) => dispatch({ type: 'setField', field: 'reportType', value: event.target.value })}
+              >
+                <option value='dashboard'>Dashboard</option>
+                <option value='scorecard'>Scorecard</option>
+                <option value='narrativeBriefing'>Narrative briefing</option>
+                <option value='operationalMonitoring'>Operational monitoring</option>
+              </select>
+            </label>
+          </div>
+        </section>
 
-        <Field label='Navigation Expectations' value={state.navigationExpectations} onChange={(value) => dispatch({ type: 'setField', field: 'navigationExpectations', value })} multiline />
-        <Field label='Consumption Context' value={state.consumptionContext} onChange={(value) => dispatch({ type: 'setField', field: 'consumptionContext', value })} />
-        <Field label='Decision Cadence' value={state.decisionCadence} onChange={(value) => dispatch({ type: 'setField', field: 'decisionCadence', value })} />
-        <Field label='Narrative Risks Or Constraints' value={state.narrativeRisksOrConstraints} onChange={(value) => dispatch({ type: 'setField', field: 'narrativeRisksOrConstraints', value })} multiline />
-        <Field label='Required Evidence Domains' value={state.requiredEvidenceDomains} onChange={(value) => dispatch({ type: 'setField', field: 'requiredEvidenceDomains', value })} multiline />
-        <Field label='Target Analyzable Surface Family' value={state.targetAnalyzableSurfaceFamily} onChange={(value) => dispatch({ type: 'setField', field: 'targetAnalyzableSurfaceFamily', value })} />
+        <div>
+          <button type='button' onClick={() => setShowAdvanced((value) => !value)}>
+            {showAdvanced ? 'Hide advanced brief details' : 'Show advanced brief details'}
+          </button>
+        </div>
+
+        {showAdvanced ? (
+          <section>
+            <h2>Advanced design context</h2>
+            <p>Use advanced details for navigation, evidence, cadence, and surface constraints when the consultant needs more precision.</p>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <Field label='Dimensions' value={state.dimensions} onChange={(value) => dispatch({ type: 'setField', field: 'dimensions', value })} multiline />
+              <Field label='Navigation Expectations' value={state.navigationExpectations} onChange={(value) => dispatch({ type: 'setField', field: 'navigationExpectations', value })} multiline />
+              <Field label='Consumption Context' value={state.consumptionContext} onChange={(value) => dispatch({ type: 'setField', field: 'consumptionContext', value })} />
+              <Field label='Decision Cadence' value={state.decisionCadence} onChange={(value) => dispatch({ type: 'setField', field: 'decisionCadence', value })} />
+              <Field label='Narrative Risks Or Constraints' value={state.narrativeRisksOrConstraints} onChange={(value) => dispatch({ type: 'setField', field: 'narrativeRisksOrConstraints', value })} multiline />
+              <Field label='Required Evidence Domains' value={state.requiredEvidenceDomains} onChange={(value) => dispatch({ type: 'setField', field: 'requiredEvidenceDomains', value })} multiline />
+              <Field label='Target Analyzable Surface Family' value={state.targetAnalyzableSurfaceFamily} onChange={(value) => dispatch({ type: 'setField', field: 'targetAnalyzableSurfaceFamily', value })} />
+            </div>
+          </section>
+        ) : null}
       </div>
 
       {state.validationMessages.length > 0 ? (

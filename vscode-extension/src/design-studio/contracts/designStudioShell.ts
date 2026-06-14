@@ -112,6 +112,77 @@ export interface DesignStudioRefinementExperienceViewModel {
   emptyState?: string;
 }
 
+export interface DesignStudioConceptChapterViewModel {
+  title: string;
+  objective: string;
+}
+
+export interface DesignStudioConceptKpiNodeViewModel {
+  label: string;
+  level: 'primary' | 'supporting' | 'diagnostic';
+  depth: number;
+}
+
+export interface DesignStudioConceptNavigationNodeViewModel {
+  label: string;
+  depth: number;
+}
+
+export interface DesignStudioConceptFlowStepViewModel {
+  label: string;
+  objective: string;
+}
+
+export interface DesignStudioConceptComparisonDomainViewModel {
+  baselineItems: string[];
+  comparisonItems: string[];
+}
+
+export interface DesignStudioConceptComparisonViewModel {
+  comparisonConceptLabel: string;
+  chapterStructure: DesignStudioConceptComparisonDomainViewModel;
+  kpiHierarchy: DesignStudioConceptComparisonDomainViewModel;
+  navigationStructure: DesignStudioConceptComparisonDomainViewModel;
+  analyticalFlow: DesignStudioConceptComparisonDomainViewModel;
+}
+
+export interface DesignStudioConceptReviewViewModel {
+  title: string;
+  summary: string;
+  selectedConceptLabel: string;
+  chapterStructure: DesignStudioConceptChapterViewModel[];
+  kpiHierarchy: DesignStudioConceptKpiNodeViewModel[];
+  navigationStructure: DesignStudioConceptNavigationNodeViewModel[];
+  analyticalFlow: DesignStudioConceptFlowStepViewModel[];
+  comparisons?: DesignStudioConceptComparisonViewModel[];
+}
+
+export interface DesignStudioDraftPageReviewViewModel {
+  title: string;
+  structureSummary: string;
+  kpiPlacement: string[];
+}
+
+export interface DesignStudioDraftLayoutReviewViewModel {
+  title: string;
+  layoutType: string;
+  zones: string[];
+}
+
+export interface DesignStudioDraftNavigationReviewViewModel {
+  label: string;
+  pageTitle: string;
+}
+
+export interface DesignStudioDraftReviewViewModel {
+  title: string;
+  summary: string;
+  draftStatusLabel: string;
+  draftPages: DesignStudioDraftPageReviewViewModel[];
+  draftLayouts: DesignStudioDraftLayoutReviewViewModel[];
+  draftNavigation: DesignStudioDraftNavigationReviewViewModel[];
+}
+
 export interface DesignStudioWorkspaceViewModel {
   reportLabel: string;
   currentStage: DesignStudioWorkflowStageId;
@@ -121,4 +192,6 @@ export interface DesignStudioWorkspaceViewModel {
   materializationReadiness?: DesignStudioMaterializationReadinessViewModel;
   analyzerHandoff?: DesignStudioAnalyzerHandoffViewModel;
   refinementExperience?: DesignStudioRefinementExperienceViewModel;
+  conceptReview?: DesignStudioConceptReviewViewModel;
+  draftReview?: DesignStudioDraftReviewViewModel;
 }

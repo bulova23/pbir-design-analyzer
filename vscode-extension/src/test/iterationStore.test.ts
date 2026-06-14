@@ -323,20 +323,22 @@ describe('iterationStore', () => {
     );
 
     expect(result.conceptChanges).toEqual(expect.arrayContaining([
-      expect.stringContaining('Concept summary changed'),
+      'Changed navigation structure.',
     ]));
     expect(result.draftChanges).toEqual(expect.arrayContaining([
-      expect.stringContaining('Draft summary changed'),
+      expect.stringContaining('Added'),
     ]));
-    expect(result.analyzerOutputChanges).toEqual(expect.arrayContaining([
-      expect.stringContaining('issues:2'),
-    ]));
+    expect(result.analyzerOutputChanges).toEqual([]);
     expect(result.recommendationChanges).toEqual(expect.arrayContaining([
-      expect.stringContaining('executive path branching'),
+      'Accepted recommendation: Refine the design to address navigation drift.',
     ]));
-    expect(result.validationStatusChanges).toEqual(expect.arrayContaining([
-      'Validation status changed from notSubmitted to validated.',
+    expect(result.approvalEvolution).toEqual(expect.arrayContaining([
+      'Validation Approval changed from Not submitted to Approved.',
     ]));
+    expect(result.validationEvolution).toEqual(expect.arrayContaining([
+      'Validation status changed from Not submitted to Validated.',
+    ]));
+    expect(result.summary).not.toContain('issues:2');
   });
 
   it('requires analyzer-owned provenance before validation approval can be recorded', async () => {

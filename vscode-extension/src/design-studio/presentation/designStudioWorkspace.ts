@@ -8,10 +8,18 @@ import { loadDesignBriefState } from '../state/designBriefStore';
 import { loadDraftState } from '../state/draftStore';
 import { loadIterationState } from '../state/iterationStore';
 import { loadRefinementState } from '../state/refinementStore';
-import type { DesignArtifactApprovalState, DesignArtifactApprovalKind } from '../contracts/designStudioModels';
+import type { AlternateReportConcept, DesignArtifactApprovalState, DesignArtifactApprovalKind } from '../contracts/designStudioModels';
 import type {
   DesignStudioAnalyzerHandoffViewModel,
   DesignStudioApprovalCardViewModel,
+  DesignStudioConceptComparisonViewModel,
+  DesignStudioConceptFlowStepViewModel,
+  DesignStudioConceptKpiNodeViewModel,
+  DesignStudioConceptNavigationNodeViewModel,
+  DesignStudioConceptReviewViewModel,
+  DesignStudioDraftNavigationReviewViewModel,
+  DesignStudioDraftPageReviewViewModel,
+  DesignStudioDraftReviewViewModel,
   DesignStudioMaterializationReadinessViewModel,
   DesignStudioWorkflowStageId,
   DesignStudioWorkflowStageStatus,
@@ -44,9 +52,9 @@ function stageLabel(id: DesignStudioWorkflowStageId): string {
     case 'refinement':
       return 'Refinement Studio';
     case 'materialize':
-      return 'Materialize Candidate';
+      return 'Prepare For Review';
     case 'handoff':
-      return 'Analyze Draft';
+      return 'Review Design';
     case 'compare':
       return 'Compare Iterations';
   }
@@ -62,12 +70,12 @@ function stageSummary(id: DesignStudioWorkflowStageId): { title: string; descrip
     case 'concept':
       return {
         title: 'Concept Studio',
-        description: 'Select and approve the concept baseline before Draft Studio review.',
+        description: 'Review the chapter structure, KPI hierarchy, navigation, and analytical flow before approving the concept baseline.',
       };
     case 'draft':
       return {
         title: 'Draft Studio',
-        description: 'Review the current draft artifact set and confirm what is ready for the next stage.',
+        description: 'Review the designed pages, layouts, navigation, and KPI placement before approving the draft.',
       };
     case 'refinement':
       return {
@@ -76,13 +84,13 @@ function stageSummary(id: DesignStudioWorkflowStageId): { title: string; descrip
       };
     case 'materialize':
       return {
-        title: 'Materialize Candidate',
-        description: 'Prepare an analyzable candidate explicitly without mutating PBIR assets.',
+        title: 'Prepare For Review',
+        description: 'Prepare the approved draft for review explicitly without changing the report.',
       };
     case 'handoff':
       return {
-        title: 'Analyze Draft',
-        description: 'Open Analyzer Workspace explicitly when the materialized candidate is ready.',
+        title: 'Review Design',
+        description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.',
       };
     case 'compare':
       return {
@@ -92,7 +100,11 @@ function stageSummary(id: DesignStudioWorkflowStageId): { title: string; descrip
   }
 }
 
-function toReadinessLabel(status: DesignStudioWorkflowStageStatus): string {
+function toReadinessLabel(status: DesignStudioWorkflowStageStatus, stageId: DesignStudioWorkflowStageId): string {
+  if (stageId === 'compare' && status === 'approved') {
+    return 'Validated';
+  }
+
   switch (status) {
     case 'notStarted':
       return 'Not started';
@@ -113,9 +125,149 @@ function buildStage(id: DesignStudioWorkflowStageId, status: DesignStudioWorkflo
     id,
     label: stageLabel(id),
     status,
-    readinessLabel: toReadinessLabel(status),
+    readinessLabel: toReadinessLabel(status, id),
     title: summary.title,
     description: summary.description,
+  };
+}
+
+function buildKpiHierarchy(nodes: Array<{ id: string; label: string; level: 'primary' | 'supporting' | 'diagnostic'; childNodeIds: string[] }>): DesignStudioConceptKpiNodeViewModel[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const childIds = new Set(nodes.flatMap((node) => node.childNodeIds));
+  const roots = nodes.filter((node) => !childIds.has(node.id));
+  const ordered: DesignStudioConceptKpiNodeViewModel[] = [];
+
+  const visit = (nodeId: string, depth: number) => {
+    const node = byId.get(nodeId);
+    if (!node) {
+      return;
+    }
+
+    ordered.push({
+      label: node.label,
+      level: node.level,
+      depth,
+    });
+
+    for (const childNodeId of node.childNodeIds) {
+      visit(childNodeId, depth + 1);
+    }
+  };
+
+  for (const root of roots) {
+    visit(root.id, 0);
+  }
+
+  return ordered;
+}
+
+function flattenChapterStructure(concept: AlternateReportConcept): string[] {
+  return concept.chapterMap.chapters.map((chapter) => chapter.title);
+}
+
+function flattenKpiHierarchy(concept: AlternateReportConcept): string[] {
+  return buildKpiHierarchy(concept.kpiHierarchy.nodes).map((node) => node.label);
+}
+
+function flattenNavigationStructure(concept: AlternateReportConcept): string[] {
+  return concept.navigationStructure.sections.map((section) => section.label);
+}
+
+function flattenAnalyticalFlow(concept: AlternateReportConcept): string[] {
+  return concept.analyticalFlow.steps.map((step) => step.label);
+}
+
+function buildConceptComparisons(
+  selectedConcept: AlternateReportConcept | undefined,
+  alternateConcepts: AlternateReportConcept[],
+): DesignStudioConceptComparisonViewModel[] {
+  if (!selectedConcept) {
+    return [];
+  }
+
+  return alternateConcepts
+    .filter((concept) => concept.id !== selectedConcept.id)
+    .map((concept) => ({
+      comparisonConceptLabel: concept.label,
+      chapterStructure: {
+        baselineItems: flattenChapterStructure(selectedConcept),
+        comparisonItems: flattenChapterStructure(concept),
+      },
+      kpiHierarchy: {
+        baselineItems: flattenKpiHierarchy(selectedConcept),
+        comparisonItems: flattenKpiHierarchy(concept),
+      },
+      navigationStructure: {
+        baselineItems: flattenNavigationStructure(selectedConcept),
+        comparisonItems: flattenNavigationStructure(concept),
+      },
+      analyticalFlow: {
+        baselineItems: flattenAnalyticalFlow(selectedConcept),
+        comparisonItems: flattenAnalyticalFlow(concept),
+      },
+    }));
+}
+
+function buildConceptReview(conceptState: NonNullable<Awaited<ReturnType<typeof loadConceptState>>>): DesignStudioConceptReviewViewModel {
+  const selectedConcept = conceptState.currentConcept.alternateConcepts.find(
+    (concept) => concept.id === conceptState.currentConcept.approvedBaselineConceptId,
+  ) ?? conceptState.currentConcept.alternateConcepts.find(
+    (concept) => concept.id === conceptState.currentConcept.preferredBaselineConceptId,
+  ) ?? conceptState.currentConcept.alternateConcepts[0];
+
+  return {
+    title: 'Concept Review Artifacts',
+    summary: 'Review the chapter structure, KPI hierarchy, navigation path, and analytical flow before Draft Studio work begins.',
+    selectedConceptLabel: selectedConcept?.label ?? 'Current concept baseline',
+    chapterStructure: selectedConcept?.chapterMap.chapters.map((chapter) => ({
+      title: chapter.title,
+      objective: chapter.objective,
+    })) ?? [],
+    kpiHierarchy: buildKpiHierarchy(selectedConcept?.kpiHierarchy.nodes ?? []),
+    navigationStructure: selectedConcept?.navigationStructure.sections.map((section, index) => ({
+      label: section.label,
+      depth: index,
+    })) ?? [],
+    analyticalFlow: selectedConcept?.analyticalFlow.steps.map<DesignStudioConceptFlowStepViewModel>((step) => ({
+      label: step.label,
+      objective: step.objective,
+    })) ?? [],
+    comparisons: buildConceptComparisons(selectedConcept, conceptState.currentConcept.alternateConcepts),
+  };
+}
+
+function buildDraftReview(
+  conceptState: NonNullable<Awaited<ReturnType<typeof loadConceptState>>>,
+  draftState: NonNullable<Awaited<ReturnType<typeof loadDraftState>>>,
+): DesignStudioDraftReviewViewModel {
+  const pageConceptById = new Map(conceptState.currentConcept.pageConcepts.map((pageConcept) => [pageConcept.id, pageConcept]));
+  const pageArtifactById = new Map(draftState.pageArtifacts.map((artifact) => [artifact.id, artifact]));
+
+  const draftPages = draftState.pageArtifacts.map<DesignStudioDraftPageReviewViewModel>((artifact) => ({
+    title: pageConceptById.get(artifact.pageConceptId ?? '')?.title ?? 'Draft page',
+    structureSummary: artifact.structureSummary,
+    kpiPlacement: [...artifact.recommendedVisualRoles],
+  }));
+
+  const draftLayouts = draftState.layoutArtifacts.map((artifact) => ({
+    title: artifact.title,
+    layoutType: artifact.layoutType,
+    zones: [...artifact.zones],
+  }));
+
+  const draftNavigation = draftState.navigationArtifacts.flatMap((artifact) =>
+    artifact.sections.map<DesignStudioDraftNavigationReviewViewModel>((section) => ({
+      label: section.label,
+      pageTitle: pageConceptById.get(pageArtifactById.get(section.pageArtifactId)?.pageConceptId ?? '')?.title ?? section.label,
+    })));
+
+  return {
+    title: 'Draft Review Artifacts',
+    summary: 'Review the designed pages, layouts, navigation, and KPI placement before approval.',
+    draftStatusLabel: draftState.currentDraft.approvalState === 'approved' ? 'Approved draft' : 'Draft awaiting approval',
+    draftPages,
+    draftLayouts,
+    draftNavigation,
   };
 }
 
@@ -380,6 +532,8 @@ export async function buildDesignStudioWorkspace(
       proposals: refinementState?.proposals ?? [],
     })
     : undefined;
+  const conceptReview = conceptState ? buildConceptReview(conceptState) : undefined;
+  const draftReview = conceptState && draftState ? buildDraftReview(conceptState, draftState) : undefined;
 
   return {
     threadId,
@@ -398,6 +552,8 @@ export async function buildDesignStudioWorkspace(
       materializationReadiness,
       analyzerHandoff,
       refinementExperience,
+      conceptReview,
+      draftReview,
     },
   };
 }

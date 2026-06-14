@@ -23,6 +23,8 @@ describe('DesignBriefView', () => {
 
     expect(screen.getByRole('button', { name: 'Generate Concepts' })).toBeDisabled();
     expect(screen.getByText('Approval status: Not submitted')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Start with the essentials' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Required Evidence Domains')).not.toBeInTheDocument();
   });
 
   it('shows validation errors, saves edits, and enables concept generation only after approval', () => {
@@ -66,13 +68,16 @@ describe('DesignBriefView', () => {
     fireEvent.change(screen.getByLabelText('Business Objective'), { target: { value: 'Reduce churn risk' } });
     fireEvent.change(screen.getByLabelText('Key Decisions'), { target: { value: 'Which segments need retention action' } });
     fireEvent.change(screen.getByLabelText('Primary KPIs'), { target: { value: 'Churn rate' } });
-    fireEvent.change(screen.getByLabelText('Dimensions'), { target: { value: 'Segment' } });
     fireEvent.change(screen.getByLabelText('Intended Story'), { target: { value: 'Start with risk, then isolate causes.' } });
     fireEvent.change(screen.getByLabelText('Success Criteria'), { target: { value: 'Sponsor can focus the retention review quickly' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Show advanced brief details' }));
+    expect(screen.getByRole('heading', { name: 'Advanced design context' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Dimensions'), { target: { value: 'Segment' } });
     fireEvent.change(screen.getByLabelText('Navigation Expectations'), { target: { value: 'Overview to segment detail.' } });
     fireEvent.change(screen.getByLabelText('Consumption Context'), { target: { value: 'Weekly executive review' } });
     fireEvent.change(screen.getByLabelText('Decision Cadence'), { target: { value: 'Weekly' } });
     fireEvent.change(screen.getByLabelText('Report Type'), { target: { value: 'dashboard' } });
+    fireEvent.change(screen.getByLabelText('Required Evidence Domains'), { target: { value: 'Segment trend, retention risk' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Request Approval' }));
     expect(onApprove).toHaveBeenCalled();
@@ -85,5 +90,7 @@ describe('DesignBriefView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Generate Concepts' }));
     expect(onGenerateConcepts).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide advanced brief details' }));
+    expect(screen.queryByLabelText('Required Evidence Domains')).not.toBeInTheDocument();
   });
 });
