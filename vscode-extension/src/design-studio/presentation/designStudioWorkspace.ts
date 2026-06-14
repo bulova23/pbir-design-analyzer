@@ -1,0 +1,403 @@
+import * as crypto from 'crypto';
+import * as path from 'path';
+import type * as vscode from 'vscode';
+import { createApprovedDraftMaterializationRequest, materializeDesignStudioRequest } from '../materialization/materializationCoordinator';
+import { buildRefinementExperience } from './refinementExperience';
+import { loadConceptState } from '../state/conceptStore';
+import { loadDesignBriefState } from '../state/designBriefStore';
+import { loadDraftState } from '../state/draftStore';
+import { loadIterationState } from '../state/iterationStore';
+import { loadRefinementState } from '../state/refinementStore';
+import type { DesignArtifactApprovalState, DesignArtifactApprovalKind } from '../contracts/designStudioModels';
+import type {
+  DesignStudioAnalyzerHandoffViewModel,
+  DesignStudioApprovalCardViewModel,
+  DesignStudioMaterializationReadinessViewModel,
+  DesignStudioWorkflowStageId,
+  DesignStudioWorkflowStageStatus,
+  DesignStudioWorkflowStageViewModel,
+  DesignStudioWorkspaceViewModel,
+} from '../contracts/designStudioShell';
+
+export interface DesignStudioWorkspaceBuildResult {
+  threadId: string;
+  workspace: DesignStudioWorkspaceViewModel;
+  handoffCandidatesByRequestId: Map<string, NonNullable<ReturnType<typeof materializeDesignStudioRequest> extends infer T ? T extends { ok: true; candidate: infer C } ? C : never : never>>;
+}
+
+const DEFAULT_TARGET_SURFACE_TYPE = 'pbirReport';
+const DEFAULT_TARGET_ANALYZER = 'pbirDesignReview';
+const DEFAULT_TARGET_PROFILE = 'consultant';
+
+function createThreadId(reportPath: string): string {
+  return `design-studio:${crypto.createHash('md5').update(reportPath).digest('hex').slice(0, 16)}`;
+}
+
+function stageLabel(id: DesignStudioWorkflowStageId): string {
+  switch (id) {
+    case 'brief':
+      return 'Design Brief';
+    case 'concept':
+      return 'Concept Studio';
+    case 'draft':
+      return 'Draft Studio';
+    case 'refinement':
+      return 'Refinement Studio';
+    case 'materialize':
+      return 'Materialize Candidate';
+    case 'handoff':
+      return 'Analyze Draft';
+    case 'compare':
+      return 'Compare Iterations';
+  }
+}
+
+function stageSummary(id: DesignStudioWorkflowStageId): { title: string; description: string } {
+  switch (id) {
+    case 'brief':
+      return {
+        title: 'Design Brief',
+        description: 'Define the audience, objective, story, and navigation expectations for the design thread.',
+      };
+    case 'concept':
+      return {
+        title: 'Concept Studio',
+        description: 'Select and approve the concept baseline before Draft Studio review.',
+      };
+    case 'draft':
+      return {
+        title: 'Draft Studio',
+        description: 'Review the current draft artifact set and confirm what is ready for the next stage.',
+      };
+    case 'refinement':
+      return {
+        title: 'Refinement Studio',
+        description: 'Review analyzer-derived design improvements without mutating the report automatically.',
+      };
+    case 'materialize':
+      return {
+        title: 'Materialize Candidate',
+        description: 'Prepare an analyzable candidate explicitly without mutating PBIR assets.',
+      };
+    case 'handoff':
+      return {
+        title: 'Analyze Draft',
+        description: 'Open Analyzer Workspace explicitly when the materialized candidate is ready.',
+      };
+    case 'compare':
+      return {
+        title: 'Compare Iterations',
+        description: 'Compare iterations to see what changed and whether validation improved.',
+      };
+  }
+}
+
+function toReadinessLabel(status: DesignStudioWorkflowStageStatus): string {
+  switch (status) {
+    case 'notStarted':
+      return 'Not started';
+    case 'inProgress':
+      return 'In progress';
+    case 'ready':
+      return 'Ready';
+    case 'approved':
+      return 'Approved';
+    case 'blocked':
+      return 'Blocked';
+  }
+}
+
+function buildStage(id: DesignStudioWorkflowStageId, status: DesignStudioWorkflowStageStatus): DesignStudioWorkflowStageViewModel {
+  const summary = stageSummary(id);
+  return {
+    id,
+    label: stageLabel(id),
+    status,
+    readinessLabel: toReadinessLabel(status),
+    title: summary.title,
+    description: summary.description,
+  };
+}
+
+function firstNonApprovedStage(stages: DesignStudioWorkflowStageViewModel[]): DesignStudioWorkflowStageId {
+  const inProgress = stages.find((stage) => stage.status === 'inProgress');
+  if (inProgress) {
+    return inProgress.id;
+  }
+
+  const ready = stages.find((stage) => stage.status === 'ready');
+  if (ready) {
+    return ready.id;
+  }
+
+  const blocked = stages.find((stage) => stage.status === 'blocked');
+  if (blocked) {
+    return blocked.id;
+  }
+
+  const notStarted = stages.find((stage) => stage.status === 'notStarted');
+  if (notStarted) {
+    return notStarted.id;
+  }
+
+  return stages.at(-1)?.id ?? 'brief';
+}
+
+function buildApprovalCard(
+  kind: DesignArtifactApprovalKind,
+  approvalState: DesignArtifactApprovalState,
+): DesignStudioApprovalCardViewModel {
+  switch (kind) {
+    case 'designApproval':
+      return {
+        kind,
+        title: 'Design Approval',
+        approvalState,
+        owner: 'Design Studio',
+        unlock: 'Allows the next design stage to proceed from the approved baseline.',
+        nonEffects: [
+          'Does not materialize the draft.',
+          'Does not validate the report.',
+        ],
+      };
+    case 'materializationApproval':
+      return {
+        kind,
+        title: 'Materialization Approval',
+        approvalState,
+        owner: 'Design Studio',
+        unlock: 'Allows candidate preparation for explicit analyzer handoff.',
+        nonEffects: [
+          'Does not run analyzers automatically.',
+          'Does not mutate PBIR assets.',
+        ],
+      };
+    case 'refinementApproval':
+      return {
+        kind,
+        title: 'Refinement Approval',
+        approvalState,
+        owner: 'Design Studio',
+        unlock: 'Accepts advisory design changes into the next iteration path.',
+        nonEffects: [
+          'Does not validate the refined result.',
+        ],
+      };
+    case 'validationApproval':
+      return {
+        kind,
+        title: 'Validation Approval',
+        approvalState,
+        owner: 'Analyzer Workspace',
+        unlock: 'Records the analyzer-owned validation outcome for this iteration.',
+        nonEffects: [
+          'Cannot be self-approved by Design Studio.',
+        ],
+      };
+  }
+}
+
+export async function buildDesignStudioWorkspace(
+  context: vscode.ExtensionContext,
+  reportPath: string,
+): Promise<DesignStudioWorkspaceBuildResult> {
+  const threadId = createThreadId(reportPath);
+  const reportLabel = path.basename(reportPath, path.extname(reportPath));
+  const [briefState, conceptState, draftState, refinementState, iterationState] = await Promise.all([
+    loadDesignBriefState(context, threadId),
+    loadConceptState(context, threadId),
+    loadDraftState(context, threadId),
+    loadRefinementState(context, threadId),
+    loadIterationState(context, threadId),
+  ]);
+
+  const latestIteration = iterationState?.iterations.at(-1);
+  const handoffCandidatesByRequestId = new Map<string, NonNullable<ReturnType<typeof materializeDesignStudioRequest> extends infer T ? T extends { ok: true; candidate: infer C } ? C : never : never>>();
+
+  let materializationReadiness: DesignStudioMaterializationReadinessViewModel | undefined;
+  let analyzerHandoff: DesignStudioAnalyzerHandoffViewModel | undefined;
+  let materializeStatus: DesignStudioWorkflowStageStatus = 'blocked';
+  let handoffStatus: DesignStudioWorkflowStageStatus = 'blocked';
+
+  if (draftState?.currentDraft.approvalState === 'approved') {
+    const requestId = `materialization-request:${threadId}`;
+    const request = await createApprovedDraftMaterializationRequest(context, {
+      threadId,
+      requestId,
+      targetSurfaceType: DEFAULT_TARGET_SURFACE_TYPE,
+      targetAnalyzer: DEFAULT_TARGET_ANALYZER,
+      targetAnalyzerProfile: DEFAULT_TARGET_PROFILE,
+      handoffContext: {
+        repositoryBackedPath: reportPath,
+        degradedMappings: [],
+        omittedEvidence: [],
+      },
+    });
+    const materialization = materializeDesignStudioRequest(request);
+
+    if (materialization.ok) {
+      handoffCandidatesByRequestId.set(requestId, materialization.candidate);
+      materializationReadiness = {
+        readinessLabel: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+          ? 'Ready for analysis'
+          : materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'nonExecutablePreview'
+            ? 'Preview only'
+            : 'Needs attention',
+        executableEligibility: materialization.candidate.analyzerHandoff.metadata.executableEligibility,
+        targetAnalyzer: request.targetAnalyzer,
+        targetAnalyzerProfile: request.targetAnalyzerProfile,
+        diagnostics: materialization.diagnostics,
+      };
+      analyzerHandoff = {
+        requestId,
+        readinessLabel: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+          ? 'Ready to open Analyzer Workspace'
+          : 'Analyzer handoff blocked',
+        analyzerId: request.targetAnalyzer,
+        analyzerProfileId: request.targetAnalyzerProfile,
+        canOpen: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable',
+        diagnostics: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+          ? ['Analysis has not started. Launch is explicit.']
+          : materialization.diagnostics,
+      };
+      materializeStatus = latestIteration?.approvalCheckpoint.materializationApproval.approvalState === 'approved'
+        ? 'approved'
+        : 'ready';
+      handoffStatus = latestIteration?.approvalCheckpoint.validationApproval.approvalState === 'approved'
+        ? 'approved'
+        : analyzerHandoff.canOpen
+          ? 'ready'
+          : 'blocked';
+    } else {
+      materializationReadiness = {
+        readinessLabel: 'Needs attention',
+        executableEligibility: 'unsupported',
+        targetAnalyzer: DEFAULT_TARGET_ANALYZER,
+        targetAnalyzerProfile: DEFAULT_TARGET_PROFILE,
+        diagnostics: materialization.diagnostics,
+      };
+      analyzerHandoff = {
+        requestId,
+        readinessLabel: 'Analyzer handoff blocked',
+        analyzerId: DEFAULT_TARGET_ANALYZER,
+        analyzerProfileId: DEFAULT_TARGET_PROFILE,
+        canOpen: false,
+        diagnostics: materialization.diagnostics,
+      };
+      materializeStatus = 'blocked';
+      handoffStatus = 'blocked';
+    }
+  } else {
+    materializationReadiness = {
+      readinessLabel: 'Blocked until an approved draft exists',
+      executableEligibility: 'unsupported',
+      targetAnalyzer: DEFAULT_TARGET_ANALYZER,
+      targetAnalyzerProfile: DEFAULT_TARGET_PROFILE,
+      diagnostics: ['Draft Studio approval is required before candidate preparation can proceed.'],
+    };
+    analyzerHandoff = {
+      requestId: `materialization-request:${threadId}`,
+      readinessLabel: 'Analyzer handoff blocked',
+      analyzerId: DEFAULT_TARGET_ANALYZER,
+      analyzerProfileId: DEFAULT_TARGET_PROFILE,
+      canOpen: false,
+      diagnostics: ['No approved draft is available for analyzer handoff.'],
+    };
+  }
+
+  const refinementStatus: DesignStudioWorkflowStageStatus = refinementState?.proposals.length
+    ? refinementState.proposals.every((proposal) => proposal.approvalState === 'approved')
+      ? 'approved'
+      : 'inProgress'
+    : latestIteration?.analyzerResults.length
+      ? 'ready'
+      : 'blocked';
+
+  const compareStatus: DesignStudioWorkflowStageStatus = (iterationState?.iterations.length ?? 0) >= 2
+    ? latestIteration?.approvalCheckpoint.validationApproval.approvalState === 'approved'
+      ? 'approved'
+      : 'ready'
+    : 'notStarted';
+
+  const stages: DesignStudioWorkflowStageViewModel[] = [
+    buildStage(
+      'brief',
+      !briefState
+        ? 'notStarted'
+        : briefState.current.approvalState === 'approved'
+          ? 'approved'
+          : briefState.validation.isValid
+            ? 'inProgress'
+            : 'inProgress',
+    ),
+    buildStage(
+      'concept',
+      !briefState || briefState.current.approvalState !== 'approved'
+        ? 'blocked'
+        : !conceptState
+          ? 'ready'
+          : conceptState.currentConcept.approvalState === 'approved'
+            ? 'approved'
+            : 'inProgress',
+    ),
+    buildStage(
+      'draft',
+      !conceptState || conceptState.currentConcept.approvalState !== 'approved'
+        ? 'blocked'
+        : !draftState
+          ? 'ready'
+          : draftState.currentDraft.approvalState === 'approved'
+            ? 'approved'
+            : 'inProgress',
+    ),
+    buildStage('refinement', refinementStatus),
+    buildStage('materialize', materializeStatus),
+    buildStage('handoff', handoffStatus),
+    buildStage('compare', compareStatus),
+  ];
+
+  const designApprovalState: DesignArtifactApprovalState = draftState?.currentDraft.approvalState
+    ?? conceptState?.currentConcept.approvalState
+    ?? briefState?.current.approvalState
+    ?? 'notSubmitted';
+  const materializationApprovalState: DesignArtifactApprovalState = latestIteration?.approvalCheckpoint.materializationApproval.approvalState
+    ?? (draftState?.currentDraft.approvalState === 'approved' ? 'approved' : 'notSubmitted');
+  const refinementApprovalState: DesignArtifactApprovalState = latestIteration?.approvalCheckpoint.refinementApproval.approvalState
+    ?? (refinementState?.proposals.length ? 'pendingApproval' : 'notSubmitted');
+  const validationApprovalState: DesignArtifactApprovalState = latestIteration?.approvalCheckpoint.validationApproval.approvalState
+    ?? 'notSubmitted';
+
+  const currentStage = firstNonApprovedStage(stages);
+  const refinementExperience = briefState && conceptState && draftState
+    ? buildRefinementExperience({
+      brief: briefState.current,
+      concept: conceptState.currentConcept,
+      draft: draftState.currentDraft,
+      pageConcepts: conceptState.currentConcept.pageConcepts,
+      pageArtifacts: draftState.pageArtifacts,
+      layoutArtifacts: draftState.layoutArtifacts,
+      navigationArtifacts: draftState.navigationArtifacts,
+      proposals: refinementState?.proposals ?? [],
+    })
+    : undefined;
+
+  return {
+    threadId,
+    handoffCandidatesByRequestId,
+    workspace: {
+      reportLabel,
+      currentStage,
+      stages,
+      currentStageSummary: stageSummary(currentStage),
+      approvalCards: [
+        buildApprovalCard('designApproval', designApprovalState),
+        buildApprovalCard('materializationApproval', materializationApprovalState),
+        buildApprovalCard('refinementApproval', refinementApprovalState),
+        buildApprovalCard('validationApproval', validationApprovalState),
+      ],
+      materializationReadiness,
+      analyzerHandoff,
+      refinementExperience,
+    },
+  };
+}

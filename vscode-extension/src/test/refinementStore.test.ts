@@ -21,6 +21,7 @@ import {
 } from '../design-studio/state/draftStore';
 import {
   approveRefinementProposal,
+  deferRefinementProposal,
   ingestCrossPageNarrativeOutput,
   ingestFixPlanItems,
   ingestGuidedStoryImprovements,
@@ -381,6 +382,35 @@ describe('refinementStore', () => {
       lifecycleState: 'reviewed',
       approvalState: 'rejected',
       approvalKind: 'refinementApproval',
+    }));
+  });
+
+  it('allows refinement proposals to be explicitly deferred back to pending review state', async () => {
+    const context = makeContext(makeTempDir());
+    const draftState = await createDraftState(context, 'thread-refine-defer');
+    const pageName = draftState.concept.pageConcepts[0]?.title ?? 'Executive overview';
+    const created = await ingestIssues(context, 'thread-refine-defer', {
+      analyzerRunId: 'run-defer-1',
+      resultReference: 'issues:defer',
+      sourceArtifactVersionIds: sourceVersionIds(draftState),
+      reportPath: '/tmp/sales.pbir',
+      scoredAt: '2026-06-13T10:30:00.000Z',
+      issues: [finding(pageName)],
+    });
+
+    const proposalId = created.proposals[0]?.id;
+    await approveRefinementProposal(context, 'thread-refine-defer', proposalId!);
+    const deferred = await deferRefinementProposal(context, 'thread-refine-defer', proposalId!);
+
+    expect(deferred.proposals[0]).toEqual(expect.objectContaining({
+      lifecycleState: 'reviewed',
+      approvalState: 'pendingApproval',
+      approvalKind: 'refinementApproval',
+      noMutationGuarantee: expect.objectContaining({
+        directReportMutation: false,
+        pbirAssetGenerationTriggered: false,
+        autoApplied: false,
+      }),
     }));
   });
 });

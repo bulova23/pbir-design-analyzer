@@ -7,6 +7,7 @@ import {
   type DraftProviderAdapter,
 } from '../design-studio/providers/draftProviderAdapter';
 import {
+  approveDraftArtifacts,
   generateDraftArtifacts,
   loadDraftState,
 } from '../design-studio/state/draftStore';
@@ -175,6 +176,35 @@ describe('draftStore', () => {
     expect(updated.currentDraft).not.toHaveProperty('targetSurfaceType');
     expect(fs.existsSync(path.join(tmp, 'design-studio', 'threads'))).toBe(true);
     expect(reloaded).toEqual(updated);
+  });
+
+  it('requires explicit draft approval to mint immutable approved lineage', async () => {
+    const tmp = makeTempDir();
+    const context = makeContext(tmp);
+    await saveApprovedConcept(context, 'thread-approval');
+
+    const pending = await generateDraftArtifacts(context, 'thread-approval');
+    const approved = await approveDraftArtifacts(context, 'thread-approval');
+    const reloaded = await loadDraftState(context, 'thread-approval');
+
+    expect(pending.currentDraft.version).toBe(1);
+    expect(pending.currentDraft.approvalState).toBe('pendingApproval');
+    expect(approved.currentDraft.version).toBe(2);
+    expect(approved.currentDraft.lifecycleState).toBe('approved');
+    expect(approved.currentDraft.approvalState).toBe('approved');
+    expect(approved.currentDraft.approvalKind).toBe('designApproval');
+    expect(approved.currentDraft.sourceBriefVersionId).toBe(pending.currentDraft.sourceBriefVersionId);
+    expect(approved.currentDraft.sourceConceptVersionId).toBe(pending.currentDraft.sourceConceptVersionId);
+    expect(approved.currentDraft.sourceNavigationConceptVersionId).toBe(pending.currentDraft.sourceNavigationConceptVersionId);
+    expect(approved.pageArtifacts.every((artifact: (typeof approved.pageArtifacts)[number]) => artifact.approvalState === 'approved')).toBe(true);
+    expect(approved.layoutArtifacts.every((artifact: (typeof approved.layoutArtifacts)[number]) => artifact.approvalState === 'approved')).toBe(true);
+    expect(approved.navigationArtifacts.every((artifact: (typeof approved.navigationArtifacts)[number]) => artifact.approvalState === 'approved')).toBe(true);
+    expect(approved.history).toHaveLength(2);
+    expect(approved.history[0]?.draft.version).toBe(1);
+    expect(approved.history[0]?.draft.approvalState).toBe('pendingApproval');
+    expect(approved.history[1]?.draft.version).toBe(2);
+    expect(approved.history[1]?.draft.approvalState).toBe('approved');
+    expect(reloaded).toEqual(approved);
   });
 
   it('stores provider provenance and capability placeholders when a provider adapter is supplied', async () => {

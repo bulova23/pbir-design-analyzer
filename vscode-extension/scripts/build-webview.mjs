@@ -8,6 +8,7 @@ fs.rmSync(path.resolve('webview-dist'), { recursive: true, force: true });
 const configs = [
   'webview-src/vite.analyzer-config.config.ts',
   'webview-src/vite.analyzer-score.config.ts',
+  'webview-src/vite.design-studio.config.ts',
 ];
 
 function runVite(configPath) {
@@ -21,9 +22,8 @@ function runVite(configPath) {
   );
 }
 
-const children = configs.map(runVite);
-
 if (watchMode) {
+  const children = configs.map(runVite);
   const terminate = () => {
     for (const child of children) {
       child.kill('SIGTERM');
@@ -38,7 +38,8 @@ if (watchMode) {
     child.on('error', reject);
   })));
 } else {
-  for (const child of children) {
+  for (const configPath of configs) {
+    const child = runVite(configPath);
     const exitCode = await new Promise((resolve, reject) => {
       child.on('exit', (code) => resolve(code ?? 1));
       child.on('error', reject);

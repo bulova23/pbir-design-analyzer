@@ -120,8 +120,19 @@ export interface DesignArtifactProvenance {
 export interface DesignArtifactValidationLinkage {
   analyzerRunId?: string;
   resultReference?: string;
+  sourceCandidateId?: string;
+  sourceArtifactVersionFingerprint?: string[];
+  validationResultStatus?: ValidationResultStatus;
+  refinementIngestionPath?: ValidationApprovalRefinementIngestionPath;
   comparedIterationId?: string;
 }
+
+export const VALIDATION_APPROVAL_OWNER = 'analyzerWorkspace';
+export const VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH = 'refinementStudio.ingestAnalyzerResult';
+
+export type ValidationApprovalOwner = typeof VALIDATION_APPROVAL_OWNER;
+export type ValidationApprovalRefinementIngestionPath = typeof VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH;
+export type ValidationResultStatus = 'validated' | 'rejected' | 'needsReview';
 
 export interface SourceArtifactLineageEntry {
   artifactId: string;
@@ -136,6 +147,49 @@ export interface MaterializationProvenanceEntry extends SourceArtifactLineageEnt
   capturedAt: string;
 }
 
+export interface MaterializationSnapshotReference {
+  snapshotId: string;
+  rootPath: string;
+  sourceLocation: string;
+}
+
+export interface MaterializationHandoffContext {
+  repositoryBackedPath?: string;
+  snapshotReference?: MaterializationSnapshotReference;
+  degradedMappings: string[];
+  omittedEvidence: string[];
+}
+
+export type MaterializationHandoffEligibility = 'executable' | 'nonExecutablePreview' | 'unsupported';
+
+export interface MaterializationRepositoryBackedHandoffReference {
+  kind: 'repositoryBackedSurface';
+  repositoryPath: string;
+}
+
+export interface MaterializationSnapshotBackedHandoffReference {
+  kind: 'snapshotBackedSurface';
+  snapshotId: string;
+  rootPath: string;
+  sourceLocation: string;
+}
+
+export interface MaterializationSyntheticPreviewHandoffReference {
+  kind: 'syntheticPreview';
+  previewSourceLocation: string;
+}
+
+export interface MaterializationUnsupportedHandoffReference {
+  kind: 'unsupported';
+  reason: string;
+}
+
+export type MaterializationHandoffReference =
+  | MaterializationRepositoryBackedHandoffReference
+  | MaterializationSnapshotBackedHandoffReference
+  | MaterializationSyntheticPreviewHandoffReference
+  | MaterializationUnsupportedHandoffReference;
+
 export interface MaterializationAnalyzerHandoffMetadata {
   target: 'analyzerWorkspace';
   requestId: string;
@@ -143,7 +197,33 @@ export interface MaterializationAnalyzerHandoffMetadata {
   targetSurfaceType: SurfaceType;
   targetAnalyzer: AnalyzerType;
   targetAnalyzerProfile: AnalyzerProfileId;
+  executableEligibility: MaterializationHandoffEligibility;
   executionState: 'notStarted';
+  workspaceOpenState: 'notOpened';
+}
+
+export interface MaterializationAnalyzerHandoffContract {
+  metadata: MaterializationAnalyzerHandoffMetadata;
+  reference: MaterializationHandoffReference;
+  diagnostics: string[];
+}
+
+export interface AnalyzerWorkspaceHandoffPayload {
+  candidateId: string;
+  candidateLineage: SourceArtifactLineageEntry[];
+  candidateProvenance: DesignArtifactProvenance;
+  candidateProvenanceTrace: MaterializationProvenanceEntry[];
+  sourceDesignArtifactReferences: string[];
+  sourceDesignArtifactVersionReferences: string[];
+  materializationDiagnostics: string[];
+  analyzerId: AnalyzerType;
+  analyzerProfileId: AnalyzerProfileId;
+  surfaceFamily: SurfaceType;
+  executableEligibility: MaterializationHandoffEligibility;
+  handoffReference: MaterializationHandoffReference;
+  handoffDiagnostics: string[];
+  compatibilityStatus: 'compatible';
+  compatibilityDiagnostics: string[];
 }
 
 export interface DesignArtifactMetadata {
@@ -415,6 +495,8 @@ export interface RefinementSourceAnalyzerOutput {
   reportPath: string;
   scoredAt: string;
   sourceArtifactVersionIds: string[];
+  sourceCandidateId?: string;
+  sourceArtifactVersionFingerprint?: string[];
   payload: unknown;
 }
 
@@ -468,6 +550,7 @@ export interface MaterializationRequest extends DesignArtifactMetadata {
   targetSurfaceType: SurfaceType;
   targetAnalyzer: AnalyzerType;
   targetAnalyzerProfile: AnalyzerProfileId;
+  handoffContext: MaterializationHandoffContext;
 }
 
 export interface MaterializedSurfaceCandidate extends DesignArtifactMetadata {
@@ -479,15 +562,127 @@ export interface MaterializedSurfaceCandidate extends DesignArtifactMetadata {
   derivedSurface: AnalyzableSurface;
   materializationDiagnostics: string[];
   provenanceTrace: MaterializationProvenanceEntry[];
-  analyzerHandoff: MaterializationAnalyzerHandoffMetadata;
+  handoffContext: MaterializationHandoffContext;
+  analyzerHandoff: MaterializationAnalyzerHandoffContract;
 }
 
-export interface DesignIterationRecord extends DesignArtifactMetadata {
+export interface IterationMaterializedCandidateLink {
+  candidateId: string;
+  sourceLineage: string[];
+  targetSurfaceType: SurfaceType;
+  analyzerHandoffReference: MaterializationHandoffReference['kind'];
+  materializationMode: MaterializationMode;
+}
+
+export interface IterationAnalyzerResultLink {
+  analyzerSource: RefinementAnalyzerSource;
+  analyzerRunId: string;
+  resultReference: string;
+  scoredAt: string;
+  validationResultStatus?: ValidationResultStatus;
+}
+
+export interface IterationRefinementProposalLink {
+  proposalId: string;
+  approvalState: DesignArtifactApprovalState;
+  suggestedDesignChange: string;
+  expectedImpact: string;
+  linkedFindingIds: string[];
+}
+
+export interface IterationApprovalCheckpoint {
+  approvalKind: DesignArtifactApprovalKind;
+  approvalState: DesignArtifactApprovalState;
+}
+
+export interface IterationValidationApprovalCheckpoint extends IterationApprovalCheckpoint {
+  approvalKind: 'validationApproval';
+  owner?: ValidationApprovalOwner;
+  analyzerRunId?: string;
+  resultReference?: string;
+  sourceCandidateId?: string;
+  sourceArtifactVersionFingerprint?: string[];
+  validationResultStatus?: ValidationResultStatus;
+}
+
+export interface IterationApprovalState {
+  designApproval: IterationApprovalCheckpoint & { approvalKind: 'designApproval' };
+  materializationApproval: IterationApprovalCheckpoint & { approvalKind: 'materializationApproval' };
+  refinementApproval: IterationApprovalCheckpoint & { approvalKind: 'refinementApproval' };
+  validationApproval: IterationValidationApprovalCheckpoint;
+}
+
+export interface IterationConceptSnapshot {
+  summary: string;
+  pageTitles: string[];
+  navigationPattern?: string;
+}
+
+export interface IterationDraftSnapshot {
+  summary: string;
+  pageStructureSummaries: string[];
+  layoutTitles: string[];
+  navigationFrameworks: string[];
+}
+
+export interface IterationAnalyzerOutputSnapshot {
+  resultReference: string;
+  analyzerRunId: string;
+  analyzerSource: RefinementAnalyzerSource;
+  validationResultStatus?: ValidationResultStatus;
+}
+
+export interface IterationRecommendationSnapshot {
+  proposalId: string;
+  suggestedDesignChange: string;
+  expectedImpact: string;
+}
+
+export interface IterationComparisonSnapshot {
+  concept?: IterationConceptSnapshot;
+  draft?: IterationDraftSnapshot;
+  analyzerOutputs: IterationAnalyzerOutputSnapshot[];
+  recommendations: IterationRecommendationSnapshot[];
+  validationStatus: DesignArtifactApprovalState | ValidationResultStatus;
+}
+
+export interface IterationGuardrails {
+  autoOptimizationTriggered: false;
+  analyzerExecutionTriggered: false;
+  reportMutationTriggered: false;
+  pbirFilesGenerated: false;
+}
+
+export interface DesignIterationRecord {
+  id: string;
+  threadId: string;
   kind: 'designIterationRecord';
+  version: number;
+  lifecycleState: DesignArtifactLifecycleState;
+  createdAt: string;
+  updatedAt: string;
+  authorSource: DesignArtifactAuthorSource;
+  provenance: DesignArtifactProvenance;
+  previousIterationId?: string;
   sourceArtifactVersionIds: string[];
-  materializedCandidateId?: string;
-  refinementProposalIds: string[];
+  materializedCandidate?: IterationMaterializedCandidateLink;
+  analyzerResults: IterationAnalyzerResultLink[];
+  refinementProposals: IterationRefinementProposalLink[];
+  approvalCheckpoint: IterationApprovalState;
+  comparisonSnapshot: IterationComparisonSnapshot;
+  guardrails: IterationGuardrails;
   comparisonSummary: string;
+}
+
+export interface ClosedLoopIterationComparison {
+  baseIterationId: string;
+  candidateIterationId: string;
+  summary: string;
+  conceptChanges: string[];
+  draftChanges: string[];
+  analyzerOutputChanges: string[];
+  recommendationChanges: string[];
+  validationStatusChanges: string[];
 }
 
 export interface DesignBriefValidationError {
@@ -539,6 +734,44 @@ export function createSourceArtifactLineageEntry(
     approvalState: artifact.approvalState,
     approvalTimestamp: artifact.updatedAt,
   };
+}
+
+export function buildValidationApprovalEvidence(input: {
+  analyzerRunId: string;
+  resultReference: string;
+  sourceCandidateId: string;
+  sourceArtifactVersionFingerprint: string[];
+  validationResultStatus: ValidationResultStatus;
+}): DesignArtifactValidationLinkage {
+  return {
+    analyzerRunId: input.analyzerRunId,
+    resultReference: input.resultReference,
+    sourceCandidateId: input.sourceCandidateId,
+    sourceArtifactVersionFingerprint: [...input.sourceArtifactVersionFingerprint],
+    validationResultStatus: input.validationResultStatus,
+    refinementIngestionPath: VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH,
+  };
+}
+
+export function hasAnalyzerOwnedValidationApproval(value: {
+  approvalKind: DesignArtifactApprovalKind;
+  provenance: Pick<DesignArtifactProvenance, 'source'>;
+  validationLinkage?: DesignArtifactValidationLinkage;
+}): boolean {
+  const linkage = value.validationLinkage;
+  return value.approvalKind === 'validationApproval'
+    && value.provenance.source === VALIDATION_APPROVAL_OWNER
+    && typeof linkage?.analyzerRunId === 'string'
+    && linkage.analyzerRunId.trim().length > 0
+    && typeof linkage.resultReference === 'string'
+    && linkage.resultReference.trim().length > 0
+    && typeof linkage.sourceCandidateId === 'string'
+    && linkage.sourceCandidateId.trim().length > 0
+    && Array.isArray(linkage.sourceArtifactVersionFingerprint)
+    && linkage.sourceArtifactVersionFingerprint.length > 0
+    && linkage.sourceArtifactVersionFingerprint.every((entry) => typeof entry === 'string' && entry.trim().length > 0)
+    && (linkage.validationResultStatus === 'validated' || linkage.validationResultStatus === 'rejected' || linkage.validationResultStatus === 'needsReview')
+    && linkage.refinementIngestionPath === VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH;
 }
 
 export function validateDesignBrief(brief: DesignBrief): DesignBriefValidationResult {

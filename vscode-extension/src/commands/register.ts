@@ -6,6 +6,8 @@ import { registerPbirCommands, pbirTreeProvider } from './pbirCommands';
 import { PbirConfigPanel } from '../views/PbirConfigPanel';
 import { LEGACY_PBIR_COMMAND_ALIASES, PBIR_COMMANDS } from '../platform/extensionIds';
 import { getExtensionOutputChannel } from '../platform/outputChannels';
+import { AnalyzerHandoffService } from '../design-studio/materialization/analyzerHandoffService';
+import type { MaterializedSurfaceCandidate } from '../design-studio/contracts/designStudioModels';
 
 export { PBIR_COMMANDS };
 
@@ -63,6 +65,7 @@ function registerCommandAlias(
 export function registerCommands(
   context: vscode.ExtensionContext,
   getDotnetBridge: () => AnalyzerBridgeService | undefined,
+  getAnalyzerHandoffService?: () => AnalyzerHandoffService,
 ): void {
   registerPbirCommands(context, getDotnetBridge);
 
@@ -80,6 +83,20 @@ export function registerCommands(
       await PbirConfigPanel.createOrShow(context, getDotnetBridge());
     }),
   );
+
+  if (getAnalyzerHandoffService) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        PBIR_COMMANDS.openAnalyzerWorkspaceHandoff,
+        async (candidate: MaterializedSurfaceCandidate) => {
+          const result = await getAnalyzerHandoffService().handoffCandidate(candidate);
+          if (!result.ok) {
+            void vscode.window.showWarningMessage(result.diagnostics.join(' '));
+          }
+        },
+      ),
+    );
+  }
 
   for (const [legacyCommand, canonicalCommand] of Object.entries(LEGACY_PBIR_COMMAND_ALIASES)) {
     registerCommandAlias(context, legacyCommand, canonicalCommand);

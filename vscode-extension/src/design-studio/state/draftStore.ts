@@ -16,7 +16,9 @@ import type {
   DraftReportArtifact,
   PageConcept,
   ReportConcept,
+  SourceArtifactLineageEntry,
 } from '../contracts/designStudioModels';
+import { createSourceArtifactLineageEntry } from '../contracts/designStudioModels';
 import type {
   DraftProviderAdapter,
   DraftProviderCapabilityPlaceholder,
@@ -104,6 +106,21 @@ function writePersistedState(filePath: string, state: PersistedDraftState): void
 
 function toArtifactVersionId(artifact: Pick<DesignArtifactMetadata, 'id' | 'version'>): string {
   return `${artifact.id}@v${artifact.version}`;
+}
+
+function approveArtifactVersion<T extends DesignArtifactMetadata>(
+  artifact: T,
+  version: number,
+  updatedAt: string,
+): T {
+  return {
+    ...artifact,
+    version,
+    lifecycleState: 'approved',
+    approvalState: 'approved',
+    approvalKind: 'designApproval',
+    updatedAt,
+  };
 }
 
 function createAttributedProvenance(
@@ -475,5 +492,70 @@ export async function generateDraftArtifacts(
   };
 
   writePersistedState(filePath, persisted);
+  return toState(persisted);
+}
+
+export function collectDraftArtifactVersionIds(state: DraftState): string[] {
+  return [
+    toArtifactVersionId(state.brief),
+    toArtifactVersionId(state.concept),
+    toArtifactVersionId(state.concept.navigationStructure),
+    toArtifactVersionId(state.concept.kpiHierarchy),
+    ...state.concept.pageConcepts.map(toArtifactVersionId),
+    toArtifactVersionId(state.currentDraft),
+    ...state.pageArtifacts.map(toArtifactVersionId),
+    ...state.layoutArtifacts.map(toArtifactVersionId),
+    ...state.navigationArtifacts.map(toArtifactVersionId),
+  ];
+}
+
+export function buildApprovedDraftPrimaryLineage(state: DraftState): SourceArtifactLineageEntry[] {
+  if (state.currentDraft.approvalState !== 'approved') {
+    throw new Error('Draft-to-surface materialization requires an approved draft version.');
+  }
+
+  return [createSourceArtifactLineageEntry(state.currentDraft, { sourceRole: 'primary' })];
+}
+
+export async function approveDraftArtifacts(
+  context: vscode.ExtensionContext,
+  threadId: string,
+): Promise<DraftState> {
+  const existing = await loadDraftState(context, threadId);
+  if (!existing) {
+    throw new Error(`No Draft Studio state exists for thread ${threadId}.`);
+  }
+
+  if (existing.currentDraft.approvalState === 'approved') {
+    throw new Error('Current draft version is already approved.');
+  }
+
+  const version = existing.currentDraft.version + 1;
+  const updatedAt = new Date().toISOString();
+  const approvedDraft = approveArtifactVersion(existing.currentDraft, version, updatedAt);
+  const approvedPages = existing.pageArtifacts.map((artifact) => approveArtifactVersion(artifact, version, updatedAt));
+  const approvedLayouts = existing.layoutArtifacts.map((artifact) => approveArtifactVersion(artifact, version, updatedAt));
+  const approvedNavigation = existing.navigationArtifacts.map((artifact) => approveArtifactVersion(artifact, version, updatedAt));
+
+  const persisted: PersistedDraftState = {
+    ...existing,
+    currentDraft: approvedDraft,
+    pageArtifacts: approvedPages,
+    layoutArtifacts: approvedLayouts,
+    navigationArtifacts: approvedNavigation,
+    history: [
+      ...existing.history,
+      {
+        version: approvedDraft.version,
+        savedAt: approvedDraft.updatedAt,
+        draft: approvedDraft,
+        pageArtifacts: approvedPages,
+        layoutArtifacts: approvedLayouts,
+        navigationArtifacts: approvedNavigation,
+      },
+    ],
+  };
+
+  writePersistedState(manifestPath(context, threadId), persisted);
   return toState(persisted);
 }

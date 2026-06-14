@@ -1,47 +1,31 @@
 import type {
-  MaterializationAnalyzerHandoffMetadata,
+  MaterializationAnalyzerHandoffContract,
+  MaterializationHandoffReference,
   MaterializationMode,
   MaterializationProvenanceEntry,
   MaterializationRequest,
   MaterializedSurfaceCandidate,
 } from '../contracts/designStudioModels';
+import { buildAnalyzableSurface } from '../../analyzer/surfaces/catalog';
 import type { AnalyzableSurface } from '../../analyzer/surfaces/types';
 
 function buildDerivedSurface(request: MaterializationRequest): AnalyzableSurface | undefined {
   switch (request.targetSurfaceType) {
     case 'pbirReport':
-      return {
-        surfaceType: 'pbirReport',
+      return buildAnalyzableSurface('pbirReport', {
         displayName: `Design Studio candidate for ${request.materializationMode}`,
         sourceLocation: `design-studio://materialization/${request.threadId}/${request.id}`,
-        availableEvidenceKinds: ['pbirMetadata', 'interaction', 'navigation', 'semanticModel', 'portability'],
-        availableAnalyzerTypes: ['pbirDesignReview', 'fabricAppReadiness'],
-        availableAnalyzerProfiles: ['default', 'migrationReadiness'],
-        analysisCapabilities: ['findings', 'evidence', 'remediation', 'governanceSignals'],
-        governanceCapabilities: ['analytics'],
-      };
+      });
     case 'fabricApp':
-      return {
-        surfaceType: 'fabricApp',
+      return buildAnalyzableSurface('fabricApp', {
         displayName: `Design Studio candidate for ${request.materializationMode}`,
         sourceLocation: `design-studio://materialization/${request.threadId}/${request.id}`,
-        availableEvidenceKinds: ['typescriptLayout', 'navigation', 'designToken'],
-        availableAnalyzerTypes: ['fabricAppReview'],
-        availableAnalyzerProfiles: ['default', 'fabricAppQuality'],
-        analysisCapabilities: ['findings', 'evidence', 'remediation', 'governanceSignals'],
-        governanceCapabilities: ['analytics'],
-      };
+      });
     case 'screenshotBundle':
-      return {
-        surfaceType: 'screenshotBundle',
+      return buildAnalyzableSurface('screenshotBundle', {
         displayName: `Design Studio candidate for ${request.materializationMode}`,
         sourceLocation: `design-studio://materialization/${request.threadId}/${request.id}`,
-        availableEvidenceKinds: ['screenshot'],
-        availableAnalyzerTypes: [],
-        availableAnalyzerProfiles: ['default'],
-        analysisCapabilities: ['evidence'],
-        governanceCapabilities: [],
-      };
+      });
     default:
       return undefined;
   }
@@ -57,19 +41,54 @@ function buildProvenanceTrace(request: MaterializationRequest, capturedAt: strin
 function buildAnalyzerHandoff(
   request: MaterializationRequest,
   candidateId: string,
-): MaterializationAnalyzerHandoffMetadata {
+  derivedSurface: AnalyzableSurface,
+): MaterializationAnalyzerHandoffContract {
+  const reference: MaterializationHandoffReference = request.handoffContext.snapshotReference
+    ? {
+      kind: 'snapshotBackedSurface',
+      snapshotId: request.handoffContext.snapshotReference.snapshotId,
+      rootPath: request.handoffContext.snapshotReference.rootPath,
+      sourceLocation: request.handoffContext.snapshotReference.sourceLocation,
+    }
+    : request.handoffContext.repositoryBackedPath
+      ? {
+        kind: 'repositoryBackedSurface',
+        repositoryPath: request.handoffContext.repositoryBackedPath,
+      }
+      : {
+        kind: 'syntheticPreview',
+        previewSourceLocation: derivedSurface.sourceLocation,
+      };
+
+  const diagnostics: string[] = [];
+  if (reference.kind === 'syntheticPreview') {
+    diagnostics.push('Synthetic design-studio preview candidates are not executable analyzer handoffs.');
+    diagnostics.push('No repository-backed path or snapshot reference is available for analyzer execution.');
+  }
+  if (reference.kind === 'snapshotBackedSurface') {
+    diagnostics.push('Snapshot-backed analyzer handoffs remain preview-only until Analyzer Workspace supports snapshot runtime execution.');
+    diagnostics.push('No snapshot runtime execution path is currently available in Analyzer Workspace.');
+  }
+
   return {
-    target: 'analyzerWorkspace',
-    requestId: request.id,
-    candidateId,
-    targetSurfaceType: request.targetSurfaceType,
-    targetAnalyzer: request.targetAnalyzer,
-    targetAnalyzerProfile: request.targetAnalyzerProfile,
-    executionState: 'notStarted',
+    metadata: {
+      target: 'analyzerWorkspace',
+      requestId: request.id,
+      candidateId,
+      targetSurfaceType: request.targetSurfaceType,
+      targetAnalyzer: request.targetAnalyzer,
+      targetAnalyzerProfile: request.targetAnalyzerProfile,
+      executableEligibility: reference.kind === 'repositoryBackedSurface' ? 'executable' : 'nonExecutablePreview',
+      executionState: 'notStarted',
+      workspaceOpenState: 'notOpened',
+    },
+    reference,
+    diagnostics,
   };
 }
 
-function buildDiagnostics(mode: MaterializationMode): string[] {
+function buildDiagnostics(request: MaterializationRequest, handoff: MaterializationAnalyzerHandoffContract): string[] {
+  const mode = request.materializationMode;
   const modeNote = {
     conceptToStructurePreview: 'Concept-to-structure preview produced a derived candidate record only.',
     draftToSurfaceCandidate: 'Draft-to-surface candidate materialization produced candidate metadata only.',
@@ -78,8 +97,12 @@ function buildDiagnostics(mode: MaterializationMode): string[] {
 
   return [
     modeNote,
+    ...request.handoffContext.degradedMappings.map((entry) => `Mapping degradation: ${entry}`),
+    ...request.handoffContext.omittedEvidence.map((entry) => `Omitted evidence: ${entry}`),
+    ...handoff.diagnostics,
     'No PBIR files were created.',
     'No analyzer handoff was executed.',
+    'No analyzer workspace was opened.',
     'No report mutation occurred.',
   ];
 }
@@ -94,6 +117,7 @@ export function mapMaterializedSurfaceCandidate(
 
   const now = new Date().toISOString();
   const candidateId = `materialized-surface-candidate:${request.threadId}:${request.id}`;
+  const analyzerHandoff = buildAnalyzerHandoff(request, candidateId, derivedSurface);
   return {
     id: candidateId,
     threadId: request.threadId,
@@ -123,8 +147,16 @@ export function mapMaterializedSurfaceCandidate(
     sourceLineage: request.sourceLineage.map((entry) => ({ ...entry })),
     targetSurfaceType: request.targetSurfaceType,
     derivedSurface,
-    materializationDiagnostics: buildDiagnostics(request.materializationMode),
+    materializationDiagnostics: buildDiagnostics(request, analyzerHandoff),
     provenanceTrace: buildProvenanceTrace(request, now),
-    analyzerHandoff: buildAnalyzerHandoff(request, candidateId),
+    handoffContext: {
+      repositoryBackedPath: request.handoffContext.repositoryBackedPath,
+      snapshotReference: request.handoffContext.snapshotReference
+        ? { ...request.handoffContext.snapshotReference }
+        : undefined,
+      degradedMappings: [...request.handoffContext.degradedMappings],
+      omittedEvidence: [...request.handoffContext.omittedEvidence],
+    },
+    analyzerHandoff,
   };
 }

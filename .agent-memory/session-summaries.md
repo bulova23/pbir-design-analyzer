@@ -1,5 +1,124 @@
 # Session Summaries
 
+## 2026-06-14 Report Design Studio UX Phase 2 Refinement Experience
+
+- Implemented the first consultant-style refinement workflow inside the Design Studio shell.
+- Added:
+  - Suggested Improvements stage content
+  - grouped recommendation presentation
+  - proposal review cards with rationale and expected impact
+  - proposal comparison framing
+  - explicit Approve Proposal / Reject Proposal / Defer Proposal actions
+  - stage-local refinement/materialization/handoff rendering
+- Added protocol and store support for explicit refinement proposal deferral without changing any report asset or analyzer authority.
+- Validation passed:
+  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/refinementStore.test.ts src/test/designStudioProtocol.test.ts src/test/designStudioContracts.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/App.test.tsx`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-14 Report Design Studio UX Phase 1 Implementation
+
+- Implemented the first user-facing Report Design Studio shell on top of the existing Task 10 architecture.
+- Added:
+  - Explorer entry via `pbirAnalyzer.openDesignStudio`
+  - Design Studio panel host
+  - Design Studio webview app
+  - persistent workflow rail
+  - stage status badges
+  - approval cards
+  - materialization readiness
+  - explicit Analyzer Workspace handoff entry
+- Added focused tests for command entry, manifest contribution, shell rendering, workflow status rendering, approval cards, materialization readiness, and explicit no-auto-handoff behavior.
+- Fixed the webview build script race exposed by the third webview bundle and removed a browser-unsafe protocol import chain.
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run build:webview`
+- Current turn revalidated the existing branch implementation with focused shell tests plus the full required command set and did not require additional product-code changes inside Phase 1 scope.
+
+## 2026-06-13 Report Design Studio UX Phase 1 Design And Plan
+
+- Created the Design Studio UX Phase 1 design specification:
+  - `docs/superpowers/specs/2026-06-13-report-design-studio-ux-design.md`
+- Created the Design Studio UX Phase 1 implementation plan:
+  - `docs/superpowers/plans/2026-06-13-report-design-studio-ux-plan.md`
+- Recommended:
+  - Explorer-first primary entry
+  - workspace-style shell with a persistent workflow rail
+  - explicit first-class stages for Materialization, Analyzer Handoff, Suggested Improvements, and Compare Iterations
+- Preserved all requested constraints:
+  - no implementation work
+  - no architecture redesign
+  - no provider or generation expansion
+  - Analyzer Workspace remains the validation owner
+- Documentation-only validation:
+  - verified the new spec and plan files exist on disk
+
+## 2026-06-13 Report Design Studio Manual Smoke Test
+
+- Reviewed Report Design Studio Tasks 1-10 without code changes, focusing on workflow coherence, UX, usability, and trust boundaries.
+- Confirmed the workflow contracts, approval separation, lineage, materialization guardrails, analyzer handoff restrictions, refinement ingestion, and closed-loop comparison logic are coherent and validated.
+- Confirmed the current product surface is still incomplete as a user-facing workflow:
+  - no integrated Design Studio launch surface
+  - no first-class Materialization UI
+  - no first-class Refinement Studio UI
+  - analyzer handoff is still presented as a technical fallback
+- Recorded the review and recommendations at:
+  - `docs/report-design-studio-manual-smoke-test.md`
+- Focused validation passed:
+  - `cd vscode-extension && npx jest --runTestsByPath src/test/designBriefStore.test.ts src/test/conceptStore.test.ts src/test/draftStore.test.ts src/test/materializationCoordinator.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts src/test/iterationStore.test.ts`
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/ConceptStudioView.test.tsx webview-src/design-studio/__tests__/ClosedLoopView.test.tsx`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
+
+## 2026-06-13 Report Design Studio Task 9 Closed-Loop Workflow
+
+- Implemented Task 9 only and stopped before Task 10.
+- Added an explicit closed-loop iteration store with:
+  - source artifact version linkage
+  - materialized candidate linkage
+  - analyzer result linkage
+  - refinement proposal linkage
+  - approval checkpoint separation
+  - human-readable comparison snapshots
+  - hard false guardrails for auto-optimization, analyzer execution, report mutation, and PBIR generation
+- Added a minimal internal Closed Loop view and comparison component without modifying Story Assessment UI.
+- Kept validation approval analyzer-owned and separate from both materialization approval and refinement approval.
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-13 Report Design Studio Pre-Task-9 Readiness Cleanup
+
+- Resolved the two readiness blockers before Task 9 without implementing Task 9, Closed Loop Optimization, provider execution, or report mutation.
+- Added explicit analyzer-owned validation-approval evidence semantics and helper coverage so Design Studio approval states cannot self-assign validation authority.
+- Downgraded snapshot-backed analyzer handoff to preview-only until Analyzer Workspace has a real snapshot runtime path, while keeping repository-backed handoff behavior intact.
+- Documented the Analyzer Workspace return contract for Refinement Studio ingestion with explicit result identity, analyzer run id, source candidate id, source artifact/version fingerprint, validation result status, and refinement ingestion path.
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
+## 2026-06-13 Report Design Studio Task 8 Analyzer Handoff
+
+- Implemented Task 8 only and stopped before Task 9.
+- Added `AnalyzerHandoffService` to validate executable eligibility, reuse centralized analyzer compatibility, build a stable handoff payload, and open Analyzer Workspace as a peer workflow.
+- Added a non-executing analyzer-workspace shell path in `PbirScorePanel`, so Design Studio can open the workspace without automatically running analyzer logic or scoring.
+- Preserved handoff payload lineage, provenance, provenance trace, and materialization diagnostics for both repository-backed and snapshot-backed candidates.
+- Added focused Jest coverage proving:
+  - executable candidates can be handed off
+  - preview candidates are blocked
+  - unsupported candidates are blocked
+  - lineage, provenance, and diagnostics survive handoff
+  - no report mutation or PBIR generation occurs
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+
 ## 2026-06-13 Report Design Studio Task 8 Readiness Review
 
 - Reviewed Report Design Studio through Task 7 without code changes to decide whether Task 8 Analyzer Handoff should start.
@@ -984,3 +1103,8 @@
 - 2026-06-13: Reviewed Report Design Studio readiness from Task 6 into Task 7 without code changes. Draft and refinement lineage, advisory-only trust boundaries, and Design Studio backend boundary tests are in place, but Task 7 should pause because materialization inputs do not yet carry exact source artifact version references, stale analyzer-output rejection currently accepts matching subsets rather than a complete version fingerprint, refinement approval semantics are still vocabulary-only, nested materialization protocol payloads are only shallow-validated, and backlink resolution remains heuristic for future round-trip materialization diagnostics.
 - 2026-06-13: Implemented Report Design Studio materialization readiness hardening only. Added exact source lineage entries for materialization-facing models and refinement proposals, upgraded analyzer-output freshness checks to require the full active draft fingerprint with explicit stale diagnostics, added explicit refinement review/approve/reject transitions, deep-validated nested materialization request payloads, and introduced stable backlink identities that survive title changes. Preserved all trust boundaries: no Task 7 materialization behavior, no analyzer handoff, no analyzable surface creation, no PBIR generation, and no report mutation. Validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
 - 2026-06-13: Reviewed Report Design Studio readiness for Task 7 after the hardening pass without code changes. Focused Design Studio Jest and xUnit validation passed. Result: Task 7 may proceed, with two explicit cleanup items to keep in the first materialization slice: tighten semantic validation for live `MaterializationRequest` payloads, and decide whether `sourceLineage` needs explicit artifact kind or role for long-term diagnostics.
+- 2026-06-13: Implemented Report Design Studio pre-Task-8 handoff readiness cleanup only. Added an explicit internal handoff contract plus eligibility resolver for repository-backed, snapshot-backed, synthetic preview, and unsupported states; centralized surface capability assumptions through shared builders and analyzer compatibility through a thin registry adapter; enriched materialization diagnostics with degradation and omitted-evidence reasons; documented approval separation including the absence of deployment approval; and preserved all trust boundaries with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release` passing.
+- 2026-06-13: Reviewed Report Design Studio readiness through Task 8 before Task 9 without code changes. Focused Design Studio Jest and xUnit validation passed. Result: lineage, provenance, diagnostics, explicit refinement ingestion, and non-executing analyzer handoff boundaries are in place, but Task 9 should pause for a small cleanup slice because `validationApproval` is still vocabulary-only and snapshot-backed handoff is classified as executable without a proven Analyzer Workspace runtime path.
+- 2026-06-13: Completed the Report Design Studio pre-Task-10 workflow coherence cleanup. Added immutable draft approval, approved-draft-only materialization request construction, neutral iteration approval metadata anchored on `approvalCheckpoint`, and persisted-state validation for source/candidate/analyzer/refinement lineage. Validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-13: Implemented Report Design Studio Task 10 trust-boundary and regression guardrails. Added a dedicated Jest trust-boundary suite, hardened Design Studio protocol parsing for nested `studioState` payloads and cross-thread lineage rejection, added backend reflection tests for workflow/ownership restrictions, and wrote durable trust-boundary documentation at `docs/report-design-studio-trust-boundary.md` plus an implementation note. Required validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-13: Revalidated the existing Report Design Studio Task 10 working-tree slice against the requested guardrail matrix and confirmed no additional product changes were needed. Required validation passed again with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.

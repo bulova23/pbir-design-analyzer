@@ -28,6 +28,13 @@ internal enum DesignArtifactApprovalKind
     MaterializationApproval,
 }
 
+internal enum ValidationResultStatus
+{
+    Validated,
+    Rejected,
+    NeedsReview,
+}
+
 internal enum MaterializationMode
 {
     ConceptToStructurePreview,
@@ -71,6 +78,10 @@ internal sealed record DesignArtifactProvenance(
 internal sealed record DesignArtifactValidationLink(
     string? AnalyzerRunId = null,
     string? ResultReference = null,
+    string? SourceCandidateId = null,
+    IReadOnlyList<string>? SourceArtifactVersionFingerprint = null,
+    ValidationResultStatus? ValidationResultStatus = null,
+    string? RefinementIngestionPath = null,
     string? ComparedIterationId = null);
 
 internal sealed record DesignArtifactMetadata(
@@ -355,7 +366,34 @@ internal sealed record MaterializationRequest(
     IReadOnlyList<SourceArtifactLineageEntry> SourceLineage,
     string TargetSurfaceType,
     string TargetAnalyzer,
-    string TargetAnalyzerProfile);
+    string TargetAnalyzerProfile,
+    MaterializationHandoffContext HandoffContext);
+
+internal sealed record MaterializationSnapshotReference(
+    string SnapshotId,
+    string RootPath,
+    string SourceLocation);
+
+internal sealed record MaterializationHandoffContext(
+    string? RepositoryBackedPath,
+    MaterializationSnapshotReference? SnapshotReference,
+    IReadOnlyList<string> DegradedMappings,
+    IReadOnlyList<string> OmittedEvidence);
+
+internal enum MaterializationHandoffEligibility
+{
+    Executable,
+    NonExecutablePreview,
+    Unsupported,
+}
+
+internal sealed record MaterializationAnalyzerHandoffReference(
+    string ReferenceKind,
+    string? RepositoryPath,
+    string? SnapshotId,
+    string? RootPath,
+    string? SourceLocation,
+    string? Reason);
 
 internal sealed record MaterializationAnalyzerHandoffMetadata(
     string Target,
@@ -364,7 +402,14 @@ internal sealed record MaterializationAnalyzerHandoffMetadata(
     string TargetSurfaceType,
     string TargetAnalyzer,
     string TargetAnalyzerProfile,
-    string ExecutionState);
+    MaterializationHandoffEligibility ExecutableEligibility,
+    string ExecutionState,
+    string WorkspaceOpenState);
+
+internal sealed record MaterializationAnalyzerHandoffContract(
+    MaterializationAnalyzerHandoffMetadata Metadata,
+    MaterializationAnalyzerHandoffReference Reference,
+    IReadOnlyList<string> Diagnostics);
 
 internal sealed record MaterializedSurfaceCandidate(
     DesignArtifactMetadata Metadata,
@@ -375,11 +420,93 @@ internal sealed record MaterializedSurfaceCandidate(
     string DerivedSurfaceReference,
     IReadOnlyList<string> MaterializationDiagnostics,
     IReadOnlyList<MaterializationProvenanceEntry> ProvenanceTrace,
-    MaterializationAnalyzerHandoffMetadata AnalyzerHandoff);
+    MaterializationHandoffContext HandoffContext,
+    MaterializationAnalyzerHandoffContract AnalyzerHandoff);
+
+internal sealed record IterationMaterializedCandidateLink(
+    string CandidateId,
+    IReadOnlyList<string> SourceLineage,
+    string TargetSurfaceType,
+    string AnalyzerHandoffReference,
+    MaterializationMode MaterializationMode);
+
+internal sealed record IterationAnalyzerResultLink(
+    string AnalyzerSource,
+    string AnalyzerRunId,
+    string ResultReference,
+    DateTimeOffset ScoredAt,
+    ValidationResultStatus? ValidationResultStatus);
+
+internal sealed record IterationRefinementProposalLink(
+    string ProposalId,
+    DesignArtifactApprovalState ApprovalState,
+    string SuggestedDesignChange,
+    string ExpectedImpact,
+    IReadOnlyList<string> LinkedFindingIds);
+
+internal sealed record IterationApprovalCheckpoint(
+    DesignArtifactApprovalKind ApprovalKind,
+    DesignArtifactApprovalState ApprovalState);
+
+internal sealed record IterationValidationApprovalCheckpoint(
+    DesignArtifactApprovalKind ApprovalKind,
+    DesignArtifactApprovalState ApprovalState,
+    string? Owner,
+    string? AnalyzerRunId,
+    string? ResultReference,
+    string? SourceCandidateId,
+    IReadOnlyList<string>? SourceArtifactVersionFingerprint,
+    ValidationResultStatus? ValidationResultStatus);
+
+internal sealed record IterationApprovalState(
+    IterationApprovalCheckpoint DesignApproval,
+    IterationApprovalCheckpoint MaterializationApproval,
+    IterationApprovalCheckpoint RefinementApproval,
+    IterationValidationApprovalCheckpoint ValidationApproval);
+
+internal sealed record IterationConceptSnapshot(
+    string Summary,
+    IReadOnlyList<string> PageTitles,
+    string? NavigationPattern);
+
+internal sealed record IterationDraftSnapshot(
+    string Summary,
+    IReadOnlyList<string> PageStructureSummaries,
+    IReadOnlyList<string> LayoutTitles,
+    IReadOnlyList<string> NavigationFrameworks);
+
+internal sealed record IterationAnalyzerOutputSnapshot(
+    string ResultReference,
+    string AnalyzerRunId,
+    string AnalyzerSource,
+    ValidationResultStatus? ValidationResultStatus);
+
+internal sealed record IterationRecommendationSnapshot(
+    string ProposalId,
+    string SuggestedDesignChange,
+    string ExpectedImpact);
+
+internal sealed record IterationComparisonSnapshot(
+    IterationConceptSnapshot? Concept,
+    IterationDraftSnapshot? Draft,
+    IReadOnlyList<IterationAnalyzerOutputSnapshot> AnalyzerOutputs,
+    IReadOnlyList<IterationRecommendationSnapshot> Recommendations,
+    string ValidationStatus);
+
+internal sealed record IterationGuardrails(
+    bool AutoOptimizationTriggered,
+    bool AnalyzerExecutionTriggered,
+    bool ReportMutationTriggered,
+    bool PbirFilesGenerated);
 
 internal sealed record DesignIterationRecord(
     DesignArtifactMetadata Metadata,
+    string? PreviousIterationId,
     IReadOnlyList<string> SourceArtifactVersionIds,
-    string? MaterializedCandidateId,
-    IReadOnlyList<string> RefinementProposalIds,
+    IterationMaterializedCandidateLink? MaterializedCandidate,
+    IReadOnlyList<IterationAnalyzerResultLink> AnalyzerResults,
+    IReadOnlyList<IterationRefinementProposalLink> RefinementProposals,
+    IterationApprovalState ApprovalCheckpoint,
+    IterationComparisonSnapshot ComparisonSnapshot,
+    IterationGuardrails Guardrails,
     string ComparisonSummary);

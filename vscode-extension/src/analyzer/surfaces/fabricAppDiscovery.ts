@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { buildAnalyzableSurface } from './catalog';
 import type { AnalyzableSurface, SurfaceDiscoveryResult } from './types';
 
 const ANALYTICS_KEYWORDS = [
@@ -72,16 +73,10 @@ function readFileText(filePath: string): string {
 }
 
 function buildFabricSurface(repoPath: string): AnalyzableSurface {
-  return {
-    surfaceType: 'fabricApp',
+  return buildAnalyzableSurface('fabricApp', {
     displayName: path.basename(repoPath),
     sourceLocation: repoPath,
-    availableEvidenceKinds: ['typescriptLayout', 'navigation', 'designToken'],
-    availableAnalyzerTypes: ['fabricAppReview'],
-    availableAnalyzerProfiles: ['default', 'fabricAppQuality'],
-    analysisCapabilities: ['findings', 'evidence', 'remediation', 'governanceSignals'],
-    governanceCapabilities: ['analytics'],
-  };
+  });
 }
 
 export function detectFabricAppSurface(selectionPath: string): SurfaceDiscoveryResult {

@@ -1,0 +1,183 @@
+body {
+  margin: 0;
+  font-family: var(--vscode-font-family, sans-serif);
+  color: var(--vscode-foreground);
+  background:
+    radial-gradient(circle at top right, rgba(77, 166, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%),
+    var(--vscode-editor-background);
+}
+
+.design-studio-shell {
+  padding: 20px;
+}
+
+.studio-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.studio-header h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.stage-indicator {
+  min-width: 180px;
+  padding: 12px 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stage-indicator span {
+  display: block;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.studio-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+}
+
+.workflow-rail {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-stage {
+  text-align: left;
+  border: 1px solid var(--vscode-panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-stage.is-active {
+  border-color: var(--vscode-focusBorder);
+  background: rgba(77, 166, 255, 0.08);
+}
+
+.workflow-stage-label {
+  font-weight: 600;
+}
+
+.stage-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid currentColor;
+}
+
+.stage-badge-approved {
+  color: #7ed6a2;
+}
+
+.stage-badge-ready {
+  color: #85c8ff;
+}
+
+.stage-badge-inProgress {
+  color: #f5c96a;
+}
+
+.stage-badge-blocked {
+  color: #ff9797;
+}
+
+.stage-badge-notStarted {
+  color: #b8b8b8;
+}
+
+.stage-canvas {
+  display: grid;
+  gap: 16px;
+}
+
+.stage-summary,
+.detail-card,
+.approval-card {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px;
+}
+
+.stage-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.stage-summary h2,
+.approval-card h3,
+.detail-card h3 {
+  margin-top: 0;
+}
+
+.approval-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.approval-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.approval-card-state {
+  opacity: 0.8;
+  font-size: 13px;
+}
+
+.detail-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.detail-card dt {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.detail-card dd {
+  margin: 4px 0 0;
+}
+
+.detail-card button {
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .studio-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-header,
+  .stage-summary {
+    flex-direction: column;
+  }
+}

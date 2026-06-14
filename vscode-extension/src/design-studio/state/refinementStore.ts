@@ -520,6 +520,18 @@ export async function rejectRefinementProposal(
   ));
 }
 
+export async function deferRefinementProposal(
+  context: vscode.ExtensionContext,
+  threadId: string,
+  proposalId: string,
+): Promise<RefinementState> {
+  return persistTransition(context, threadId, proposalId, (proposal) => updateProposalState(
+    proposal,
+    'reviewed',
+    'pendingApproval',
+  ));
+}
+
 export async function ingestStoryAssessmentOutput(
   context: vscode.ExtensionContext,
   threadId: string,

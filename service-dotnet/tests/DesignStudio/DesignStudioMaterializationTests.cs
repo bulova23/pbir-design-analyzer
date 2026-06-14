@@ -16,7 +16,12 @@ public sealed class DesignStudioMaterializationTests
         [
             "MaterializationMode",
             "MaterializationProvenanceEntry",
+            "MaterializationSnapshotReference",
+            "MaterializationHandoffContext",
+            "MaterializationHandoffEligibility",
+            "MaterializationAnalyzerHandoffReference",
             "MaterializationAnalyzerHandoffMetadata",
+            "MaterializationAnalyzerHandoffContract",
             "MaterializationSideEffectState",
             "MaterializationGatewayOutcome",
         ];
@@ -34,7 +39,7 @@ public sealed class DesignStudioMaterializationTests
     {
         string[] materializationTypeNames =
         [
-            "MaterializationAnalyzerHandoffMetadata",
+            "MaterializationAnalyzerHandoffContract",
             "MaterializationSideEffectState",
             "MaterializationGatewayOutcome",
         ];

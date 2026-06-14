@@ -3,7 +3,9 @@ export const DESIGN_STUDIO_PANES = [
   'concept',
   'draft',
   'refinement',
+  'materialize',
   'handoff',
+  'compare',
 ] as const;
 
 export type DesignStudioPaneId = typeof DESIGN_STUDIO_PANES[number];

@@ -1,19 +1,14 @@
 import * as path from 'path';
 import { resolvePbirProjectPath } from '../project/pathing';
+import { buildAnalyzableSurface } from './catalog';
 import { detectFabricAppSurface } from './fabricAppDiscovery';
 import type { AnalyzableSurface, SurfaceDiscoveryResult } from './types';
 
 function buildPbirSurface(projectPath: string): AnalyzableSurface {
-  return {
-    surfaceType: 'pbirReport',
+  return buildAnalyzableSurface('pbirReport', {
     displayName: path.basename(projectPath),
     sourceLocation: projectPath,
-    availableEvidenceKinds: ['pbirMetadata', 'interaction', 'navigation', 'semanticModel', 'portability'],
-    availableAnalyzerTypes: ['pbirDesignReview', 'fabricAppReadiness'],
-    availableAnalyzerProfiles: ['default', 'migrationReadiness'],
-    analysisCapabilities: ['findings', 'evidence', 'remediation', 'governanceSignals'],
-    governanceCapabilities: ['analytics'],
-  };
+  });
 }
 
 export function detectAnalyzableSurface(selectionPath: string): SurfaceDiscoveryResult {

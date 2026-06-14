@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH,
+  buildValidationApprovalEvidence,
   createSourceArtifactLineageEntry,
   DESIGN_STUDIO_APPROVAL_KINDS,
   DESIGN_STUDIO_APPROVAL_STATES,
@@ -9,6 +11,7 @@ import {
   DESIGN_STUDIO_REPORT_TYPES,
   DESIGN_STUDIO_REQUIRED_BRIEF_FIELDS,
   REFINEMENT_ANALYZER_SOURCES,
+  hasAnalyzerOwnedValidationApproval,
   validateDesignBrief,
 } from '../design-studio/contracts/designStudioModels';
 import {
@@ -154,7 +157,47 @@ describe('designStudio contracts', () => {
     expect(DESIGN_STUDIO_APPROVAL_KINDS).toContain('designApproval');
     expect(DESIGN_STUDIO_APPROVAL_KINDS).toContain('validationApproval');
     expect(DESIGN_STUDIO_APPROVAL_KINDS).toContain('materializationApproval');
+    expect(DESIGN_STUDIO_APPROVAL_KINDS).not.toContain('deploymentApproval');
     expect(DESIGN_STUDIO_APPROVAL_KINDS).not.toEqual(['approved']);
+  });
+
+  it('does not treat design studio approval states as validation approval on their own', () => {
+    expect(hasAnalyzerOwnedValidationApproval({
+      approvalKind: 'designApproval',
+      provenance: { source: 'user' },
+    })).toBe(false);
+
+    expect(hasAnalyzerOwnedValidationApproval({
+      approvalKind: 'materializationApproval',
+      provenance: { source: 'system' },
+    })).toBe(false);
+
+    expect(hasAnalyzerOwnedValidationApproval({
+      approvalKind: 'refinementApproval',
+      provenance: { source: 'system' },
+    })).toBe(false);
+  });
+
+  it('requires analyzer-result provenance before validation approval can exist', () => {
+    expect(hasAnalyzerOwnedValidationApproval({
+      approvalKind: 'validationApproval',
+      provenance: { source: 'system' },
+    })).toBe(false);
+
+    const evidence = buildValidationApprovalEvidence({
+      analyzerRunId: 'run-1',
+      resultReference: 'story-assessment:result-1',
+      sourceCandidateId: 'materialized-surface-candidate:thread-1:req-1',
+      sourceArtifactVersionFingerprint: ['draft-report:thread-1@v2'],
+      validationResultStatus: 'validated',
+    });
+
+    expect(hasAnalyzerOwnedValidationApproval({
+      approvalKind: 'validationApproval',
+      provenance: { source: 'analyzerWorkspace' },
+      validationLinkage: evidence,
+    })).toBe(true);
+    expect(evidence.refinementIngestionPath).toBe(VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH);
   });
 
   it('builds immutable source lineage entries with exact version and approval metadata', () => {
@@ -207,6 +250,7 @@ describe('designStudio contracts', () => {
       'requestMaterialization',
       'compareIterations',
       'openAnalyzerHandoff',
+      'setRefinementProposalState',
     ]);
 
     const protocolText = JSON.stringify({
@@ -240,5 +284,18 @@ describe('designStudio contracts', () => {
     expect(surfaceTypes).not.toContain('conceptStudio');
     expect(analyzerTypes).not.toContain('designStudio');
     expect(analyzerTypes).not.toContain('conceptStudio');
+  });
+
+  it('documents the analyzer workspace return contract without hidden shared state', () => {
+    const note = readRepoFile('../../docs/superpowers/implementation-notes/2026-06-13-report-design-studio-task8-readiness-cleanup.md');
+
+    expect(note).toContain('Analyzer Workspace Return Contract');
+    expect(note).toContain('result identity');
+    expect(note).toContain('analyzer run id');
+    expect(note).toContain('source candidate id');
+    expect(note).toContain('source artifact/version fingerprint');
+    expect(note).toContain('validation result status');
+    expect(note).toContain('refinement ingestion path');
+    expect(note).toContain('No hidden shared state');
   });
 });

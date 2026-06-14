@@ -1,8 +1,62 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import type { ExtensionContext } from 'vscode';
 import type { MaterializationRequest } from '../design-studio/contracts/designStudioModels';
 import {
+  createApprovedDraftMaterializationRequest,
   materializeDesignStudioRequest,
   validateMaterializationRequestSemantics,
 } from '../design-studio/materialization/materializationCoordinator';
+import {
+  approveConceptBaseline,
+  generateConceptArtifacts,
+} from '../design-studio/state/conceptStore';
+import {
+  approveDesignBrief,
+  saveDesignBriefDraft,
+} from '../design-studio/state/designBriefStore';
+import {
+  approveDraftArtifacts,
+  generateDraftArtifacts,
+} from '../design-studio/state/draftStore';
+
+function makeContext(tmpDir: string): ExtensionContext {
+  return {
+    globalStorageUri: { fsPath: tmpDir },
+    secrets: {
+      get: jest.fn(),
+      store: jest.fn(),
+      delete: jest.fn(),
+    },
+  } as unknown as ExtensionContext;
+}
+
+function makeTempDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-materialization-coordinator-test-'));
+}
+
+async function saveApprovedConcept(context: ExtensionContext, threadId: string): Promise<void> {
+  await saveDesignBriefDraft(context, threadId, {
+    audience: 'Sales leaders',
+    businessObjective: 'Reduce missed renewals',
+    keyDecisions: ['Which regions need intervention first'],
+    primaryKpis: ['Renewal rate', 'At-risk pipeline'],
+    dimensions: ['Region', 'Segment'],
+    intendedStory: 'Lead with risk, then explain the main drivers and next steps.',
+    successCriteria: ['Leader can decide the next action within five minutes'],
+    reportType: 'dashboard',
+    navigationExpectations: 'Overview first, detail second.',
+    consumptionContext: 'Weekly renewal review',
+    decisionCadence: 'Weekly',
+    narrativeRisksOrConstraints: ['Avoid hiding segment outliers'],
+    requiredEvidenceDomains: ['renewal trend', 'pipeline coverage'],
+    targetAnalyzableSurfaceFamily: 'pbir',
+  });
+  await approveDesignBrief(context, threadId);
+  await generateConceptArtifacts(context, threadId);
+  await approveConceptBaseline(context, threadId);
+}
 
 function buildRequest(overrides: Partial<MaterializationRequest> = {}): MaterializationRequest {
   return {
@@ -36,6 +90,10 @@ function buildRequest(overrides: Partial<MaterializationRequest> = {}): Material
     targetSurfaceType: 'pbirReport',
     targetAnalyzer: 'fabricAppReadiness',
     targetAnalyzerProfile: 'migrationReadiness',
+    handoffContext: {
+      degradedMappings: [],
+      omittedEvidence: [],
+    },
     ...overrides,
   };
 }
@@ -113,6 +171,24 @@ describe('materializationCoordinator', () => {
     expect(result.diagnostics).toContain('Unsupported target surface family: legacyWorkbook.');
   });
 
+  it('returns analyzer compatibility diagnostics for unsupported analyzer and profile combinations', () => {
+    const analyzerResult = validateMaterializationRequestSemantics(buildRequest({
+      targetAnalyzer: 'fabricAppReview',
+      targetAnalyzerProfile: 'fabricAppQuality',
+    }));
+
+    expect(analyzerResult.ok).toBe(false);
+    expect(analyzerResult.diagnostics).toContain('Target analyzer fabricAppReview is not supported for pbirReport.');
+
+    const profileResult = validateMaterializationRequestSemantics(buildRequest({
+      targetAnalyzer: 'pbirDesignReview',
+      targetAnalyzerProfile: 'migrationReadiness',
+    }));
+
+    expect(profileResult.ok).toBe(false);
+    expect(profileResult.diagnostics).toContain('Target analyzer profile migrationReadiness is not supported for pbirDesignReview.');
+  });
+
   it('produces a candidate record only for concept-to-structure preview', () => {
     const result = materializeDesignStudioRequest(buildRequest({
       materializationMode: 'conceptToStructurePreview',
@@ -151,14 +227,43 @@ describe('materializationCoordinator', () => {
     }
 
     expect(result.candidate.derivedSurface.surfaceType).toBe('pbirReport');
-    expect(result.candidate.analyzerHandoff.executionState).toBe('notStarted');
+    expect(result.candidate.analyzerHandoff.metadata.executionState).toBe('notStarted');
     expect(result.sideEffects).toEqual({
       analyzerHandoffExecuted: false,
+      analyzerWorkspaceOpened: false,
       pbirFilesCreated: false,
       reportMutationOccurred: false,
       deliveryTriggered: false,
       providerExecutionTriggered: false,
     });
+  });
+
+  it('includes mapping degradation and omitted evidence diagnostics without executing handoff', () => {
+    const result = materializeDesignStudioRequest(buildRequest({
+      handoffContext: {
+        degradedMappings: [
+          'Page-to-page lineage was reduced to report-level ancestry for the navigation concept.',
+        ],
+        omittedEvidence: [
+          'Semantic model evidence was omitted because no repository-backed path exists yet.',
+        ],
+      },
+    }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected materialization success.');
+    }
+
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      'Mapping degradation: Page-to-page lineage was reduced to report-level ancestry for the navigation concept.',
+      'Omitted evidence: Semantic model evidence was omitted because no repository-backed path exists yet.',
+      'Synthetic design-studio preview candidates are not executable analyzer handoffs.',
+    ]));
+    expect(result.sideEffects.analyzerHandoffExecuted).toBe(false);
+    expect(result.sideEffects.analyzerWorkspaceOpened).toBe(false);
+    expect(result.sideEffects.pbirFilesCreated).toBe(false);
+    expect(result.sideEffects.reportMutationOccurred).toBe(false);
   });
 
   it('preserves refinement proposal lineage for comparison candidates', () => {
@@ -196,5 +301,45 @@ describe('materializationCoordinator', () => {
       entry.artifactKind === 'refinementProposal' && entry.sourceRole === 'comparisonProposal')).toBe(true);
     expect(result.candidate.provenanceTrace.some((entry) =>
       entry.artifactId === 'refinement-proposal:thread-1:storyAssessment:result-1:1')).toBe(true);
+  });
+
+  it('rejects draft-to-surface materialization before explicit draft approval', async () => {
+    const context = makeContext(makeTempDir());
+    await saveApprovedConcept(context, 'thread-materialization-approval');
+    await generateDraftArtifacts(context, 'thread-materialization-approval');
+
+    await expect(createApprovedDraftMaterializationRequest(context, {
+      threadId: 'thread-materialization-approval',
+      requestId: 'request-pending',
+      targetSurfaceType: 'pbirReport',
+      targetAnalyzer: 'pbirDesignReview',
+      targetAnalyzerProfile: 'default',
+    })).rejects.toThrow('Draft-to-surface materialization requires an approved draft version.');
+  });
+
+  it('builds materialization requests only from approved draft lineage', async () => {
+    const context = makeContext(makeTempDir());
+    await saveApprovedConcept(context, 'thread-materialization-approved');
+    await generateDraftArtifacts(context, 'thread-materialization-approved');
+    const approved = await approveDraftArtifacts(context, 'thread-materialization-approved');
+
+    const request = await createApprovedDraftMaterializationRequest(context, {
+      threadId: 'thread-materialization-approved',
+      requestId: 'request-approved',
+      targetSurfaceType: 'pbirReport',
+      targetAnalyzer: 'pbirDesignReview',
+      targetAnalyzerProfile: 'default',
+    });
+    const result = materializeDesignStudioRequest(request);
+
+    expect(request.sourceArtifactIds).toEqual([approved.currentDraft.id]);
+    expect(request.sourceLineage).toEqual([
+      expect.objectContaining({
+        artifactId: approved.currentDraft.id,
+        artifactVersionId: `${approved.currentDraft.id}@v${approved.currentDraft.version}`,
+        approvalState: 'approved',
+      }),
+    ]);
+    expect(result.ok).toBe(true);
   });
 });

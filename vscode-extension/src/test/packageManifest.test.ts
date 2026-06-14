@@ -34,4 +34,20 @@ describe('extension manifest 0.5.2 runtime posture', () => {
     expect(properties['powerbi-modeling.governance.minimumCompositeScore']).toBeUndefined();
     expect(properties['powerbi-modeling.governance.approvedThemeIds']).toBeUndefined();
   });
+
+  it('declares the Design Studio command and explorer entry', () => {
+    const commands = packageJson.contributes?.commands ?? [];
+    expect(commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        command: 'pbirAnalyzer.openDesignStudio',
+      }),
+    ]));
+
+    const contextMenus = packageJson.contributes?.menus?.['view/item/context'] ?? [];
+    expect(contextMenus).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        command: 'pbirAnalyzer.openDesignStudio',
+      }),
+    ]));
+  });
 });

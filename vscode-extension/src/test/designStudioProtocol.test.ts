@@ -45,6 +45,25 @@ describe('designStudioProtocol', () => {
     });
   });
 
+  it('accepts refinement proposal state transitions with explicit action vocabulary', () => {
+    const result = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'setRefinementProposalState',
+      proposalId: 'refinement-proposal:thread-1:issues:issues:1:1',
+      action: 'defer',
+    }));
+
+    expect(result).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'setRefinementProposalState',
+        proposalId: 'refinement-proposal:thread-1:issues:issues:1:1',
+        action: 'defer',
+      },
+    });
+  });
+
   it('rejects protocol version mismatches', () => {
     const result = parseDesignStudioHostMessage({
       protocolVersion: 999,
@@ -88,6 +107,42 @@ describe('designStudioProtocol', () => {
     });
   });
 
+  it('rejects nested studio state payloads with invalid thread lineage and guardrail shape', () => {
+    const result = parseDesignStudioHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'thread-host',
+        currentBrief: {
+          id: 'design-brief:thread-other',
+          threadId: 'thread-other',
+        },
+        iterationHistory: [
+          {
+            id: 'design-iteration:thread-other:1',
+            threadId: 'thread-other',
+            kind: 'designIterationRecord',
+            sourceArtifactVersionIds: ['draft-report:thread-other@v2'],
+            approvalCheckpoint: {
+              validationApproval: {
+                approvalKind: 'validationApproval',
+                approvalState: 'approved',
+              },
+            },
+            guardrails: {
+              autoOptimizationTriggered: false,
+            },
+          },
+        ],
+        pendingRefinementProposals: [],
+      },
+    }));
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Design Studio studioState host message has an invalid nested state payload.',
+    });
+  });
+
   it('deep-validates nested materialization requests', () => {
     const malformed = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
       type: 'requestMaterialization',
@@ -118,6 +173,10 @@ describe('designStudioProtocol', () => {
         targetSurfaceType: 'pbirReport',
         targetAnalyzer: 'notAnAnalyzer',
         targetAnalyzerProfile: 'consultant',
+        handoffContext: {
+          degradedMappings: [],
+          omittedEvidence: [],
+        },
       },
     }));
 
@@ -165,12 +224,29 @@ describe('designStudioProtocol', () => {
         targetSurfaceType: 'pbirReport',
         targetAnalyzer: 'fabricAppReview',
         targetAnalyzerProfile: 'consultant',
+        handoffContext: {
+          degradedMappings: [],
+          omittedEvidence: [],
+        },
       },
     }));
 
     expect(malformed).toEqual({
       ok: false,
       error: 'Design Studio requestMaterialization webview message has an invalid request payload.',
+    });
+  });
+
+  it('rejects malformed refinement proposal state transitions safely', () => {
+    const result = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'setRefinementProposalState',
+      proposalId: 'refinement-proposal:thread-1:issues:1',
+      action: 'archive',
+    }));
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Design Studio setRefinementProposalState webview message is missing required fields.',
     });
   });
 });

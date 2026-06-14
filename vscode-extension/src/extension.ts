@@ -17,10 +17,13 @@ import { AnalyzerBridgeService, BridgeState } from './services/rpc/AnalyzerBridg
 import { LanguageClient } from 'vscode-languageclient/node';
 import { telemetry } from './telemetry/reporter';
 import { getExtensionOutputChannel, registerSharedOutputChannels } from './platform/outputChannels';
+import { AnalyzerHandoffService } from './design-studio/materialization/analyzerHandoffService';
+import { PbirScorePanel } from './views/PbirScorePanel';
 
 let bridgeService: AnalyzerBridgeService | undefined;
 let daemonStatusBar: vscode.StatusBarItem | undefined;
 let backendClient: LanguageClient | undefined;
+let analyzerHandoffService: AnalyzerHandoffService | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
   registerSharedOutputChannels(context);
@@ -32,6 +35,12 @@ export async function activate(context: vscode.ExtensionContext) {
   telemetry.initialize(context);
   context.subscriptions.push({ dispose: () => telemetry.dispose() });
 
+  analyzerHandoffService = new AnalyzerHandoffService({
+    openAnalyzerWorkspace: async (payload) => {
+      await PbirScorePanel.createOrShowHandoffShell(context, bridgeService, payload);
+    },
+  });
+
   await initializeDesignAnalyzerConfig(context);
 
   daemonStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -40,7 +49,13 @@ export async function activate(context: vscode.ExtensionContext) {
   daemonStatusBar.show();
   context.subscriptions.push(daemonStatusBar);
 
-  registerCommands(context, () => bridgeService);
+  registerCommands(context, () => bridgeService, () => {
+    if (!analyzerHandoffService) {
+      throw new Error('Analyzer handoff service is unavailable.');
+    }
+
+    return analyzerHandoffService;
+  });
   await autoLoadPbipProject(extensionOutput);
 
   const runtimeDescriptorResult = getBackendRuntimeDescriptor();

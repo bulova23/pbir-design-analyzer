@@ -79,6 +79,7 @@ import { attachNavigationTargets } from '../analyzer/score/navigationTargets';
 import { buildStoryAssessmentReportSnapshot, compareStoryAssessmentSnapshots } from '../analyzer/score/storyAssessmentSnapshot';
 import { loadStoryAssessmentSnapshot, saveStoryAssessmentSnapshot } from '../analyzer/score/storyAssessmentSnapshotStore';
 import { buildScoreDeterminismDiagnostics } from '../analyzer/score/scoreDiagnostics';
+import type { AnalyzerWorkspaceHandoffPayload } from '../design-studio/contracts/designStudioModels';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -138,6 +139,45 @@ export class PbirScorePanel {
     PbirScorePanel.instance = instance;
     context.subscriptions.push({ dispose: () => instance.dispose() });
     await instance.refresh();
+    return instance;
+  }
+
+  static async createOrShowHandoffShell(
+    context: vscode.ExtensionContext,
+    bridge: AnalyzerBridgeService | undefined,
+    payload: AnalyzerWorkspaceHandoffPayload,
+  ): Promise<PbirScorePanel> {
+    const reportPath = payload.handoffReference.kind === 'repositoryBackedSurface'
+      ? payload.handoffReference.repositoryPath
+      : payload.handoffReference.kind === 'snapshotBackedSurface'
+        ? payload.handoffReference.sourceLocation
+        : payload.handoffReference.kind === 'syntheticPreview'
+          ? payload.handoffReference.previewSourceLocation
+          : payload.candidateId;
+
+    if (PbirScorePanel.instance) {
+      PbirScorePanel.instance.panel.reveal(vscode.ViewColumn.Beside);
+      PbirScorePanel.instance.reportPath = reportPath;
+      PbirScorePanel.instance.pageName = undefined;
+      PbirScorePanel.instance.presentHandoffShell(payload);
+      return PbirScorePanel.instance;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      'pbirScorePanel',
+      'PBIR Optimization Report',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview-dist')],
+      },
+    );
+
+    const instance = new PbirScorePanel(context, panel, bridge, reportPath);
+    PbirScorePanel.instance = instance;
+    context.subscriptions.push({ dispose: () => instance.dispose() });
+    instance.presentHandoffShell(payload);
     return instance;
   }
 
@@ -1121,6 +1161,21 @@ export class PbirScorePanel {
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  private presentHandoffShell(payload: AnalyzerWorkspaceHandoffPayload): void {
+    const surfaceDiscovery = detectAnalyzableSurface(this.reportPath);
+    this.panel.title = surfaceDiscovery.status === 'supported' && surfaceDiscovery.surface.surfaceType === 'fabricApp'
+      ? 'Fabric App Review'
+      : 'PBIR Optimization Report';
+    this.currentResult = undefined;
+    this.savedConfig = null;
+    this.selectedPageIndex = 0;
+    this.pendingMessages = [];
+    this.postMessage({
+      type: 'error',
+      message: `Analyzer Workspace opened from Design Studio handoff for candidate ${payload.candidateId}. Analysis has not started. Run Retry when you are ready to start ${payload.analyzerId} with profile ${payload.analyzerProfileId}.`,
+    });
   }
 
   private postMessage(message: ScorePanelHostToWebviewMessagePayload): void {

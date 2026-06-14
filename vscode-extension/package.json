@@ -45,6 +45,7 @@
   "activationEvents": [
     "onView:pbirAnalyzer.explorer",
     "onCommand:pbirAnalyzer.openProject",
+    "onCommand:pbirAnalyzer.openDesignStudio",
     "onCommand:pbirAnalyzer.refreshReports",
     "onCommand:pbirAnalyzer.scoreReport",
     "onCommand:pbirAnalyzer.configureScoring",
@@ -64,6 +65,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "pbirAnalyzer.openDesignStudio",
+        "title": "PBIR Design Analyzer: Open Report Design Studio",
+        "icon": "$(rocket)"
+      },
       {
         "command": "pbirAnalyzer.openProject",
         "title": "PBIR Design Analyzer: Open PBIP Project",
@@ -164,22 +170,32 @@
           "group": "navigation@2"
         },
         {
-          "command": "pbirAnalyzer.scoreReport",
+          "command": "pbirAnalyzer.openDesignStudio",
           "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@3"
         },
         {
-          "command": "pbirAnalyzer.configureScoring",
+          "command": "pbirAnalyzer.scoreReport",
           "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@4"
         },
         {
-          "command": "pbirAnalyzer.checkGovernance",
+          "command": "pbirAnalyzer.configureScoring",
           "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@5"
+        },
+        {
+          "command": "pbirAnalyzer.checkGovernance",
+          "when": "view == pbirAnalyzer.explorer",
+          "group": "navigation@6"
         }
       ],
       "view/item/context": [
+        {
+          "command": "pbirAnalyzer.openDesignStudio",
+          "when": "view == pbirAnalyzer.explorer && viewItem == report",
+          "group": "1_design@1"
+        },
         {
           "command": "pbirAnalyzer.scoreReport",
           "when": "view == pbirAnalyzer.explorer && (viewItem == report || viewItem == page)",

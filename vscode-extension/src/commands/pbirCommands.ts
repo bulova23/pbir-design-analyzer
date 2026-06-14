@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { PbirTreeItem, PbirTreeProvider } from '../providers/PbirTreeProvider';
 import { PbirScorePanel } from '../views/PbirScorePanel';
+import { PbirDesignStudioPanel } from '../views/PbirDesignStudioPanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
 import { telemetry } from '../telemetry/reporter';
@@ -177,6 +178,46 @@ export function registerPbirCommands(
     context.subscriptions.push(treeView);
 
     // pbirAnalyzer.refreshReports — manual refresh command
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.openDesignStudio, async (target?: PbirCommandTarget) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.openDesignStudio });
+            let reportPath = resolveCommandTarget(target).reportPath;
+
+            if (!reportPath && pbirTreeProvider) {
+                try {
+                    const rootItems = await pbirTreeProvider.getChildren();
+                    if (rootItems.length > 0) {
+                        reportPath = resolveCommandTarget(rootItems[0]).reportPath;
+                    }
+                } catch {
+                    // Fall through to picker below.
+                }
+            }
+
+            if (!reportPath) {
+                const uris = await vscode.window.showOpenDialog({
+                    title: 'Select PBIR report for Design Studio',
+                    filters: { 'PBIR Reports': ['pbir'], 'All Files': ['*'] },
+                    canSelectMany: false,
+                    canSelectFolders: true,
+                    openLabel: 'Open Design Studio',
+                });
+                reportPath = uris?.[0]?.fsPath;
+            }
+
+            if (!reportPath) {
+                return;
+            }
+
+            if (!fs.existsSync(reportPath)) {
+                vscode.window.showErrorMessage(`Report not found: ${reportPath}`);
+                return;
+            }
+
+            await PbirDesignStudioPanel.createOrShow(context, reportPath);
+        })
+    );
+
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.refreshReports, () => {
             pbirTreeProvider?.refresh();

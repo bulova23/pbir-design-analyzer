@@ -1,8 +1,10 @@
 export const PBIR_COMMANDS = {
   getTree: 'pbirAnalyzer.getTree',
   openProject: 'pbirAnalyzer.openProject',
+  openDesignStudio: 'pbirAnalyzer.openDesignStudio',
   refreshReports: 'pbirAnalyzer.refreshReports',
   scoreReport: 'pbirAnalyzer.scoreReport',
+  openAnalyzerWorkspaceHandoff: 'pbirAnalyzer.openAnalyzerWorkspaceHandoff',
   copyScoreDiagnostics: 'pbirAnalyzer.copyScoreDiagnostics',
   configureScoring: 'pbirAnalyzer.configureScoring',
   checkGovernance: 'pbirAnalyzer.checkGovernance',

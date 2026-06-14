@@ -4,6 +4,10 @@ import {
   DESIGN_STUDIO_MATERIALIZATION_MODES,
   DESIGN_STUDIO_SOURCE_ROLES,
 } from './designStudioModels';
+import {
+  DESIGN_STUDIO_WORKFLOW_STAGE_IDS,
+  DESIGN_STUDIO_WORKFLOW_STAGE_STATUSES,
+} from './designStudioShell';
 import type {
   DesignBrief,
   DesignIterationRecord,
@@ -11,7 +15,7 @@ import type {
   MaterializationRequest,
   RefinementProposal,
 } from './designStudioModels';
-import { validateMaterializationRequestSemantics } from '../materialization/materializationCoordinator';
+import type { DesignStudioWorkspaceViewModel } from './designStudioShell';
 
 const MATERIALIZATION_TARGET_SURFACE_TYPES = ['pbirReport', 'fabricApp', 'screenshotBundle'] as const;
 const MATERIALIZATION_TARGET_ANALYZERS = ['pbirDesignReview', 'fabricAppReadiness', 'fabricAppReview'] as const;
@@ -47,6 +51,7 @@ export const DESIGN_STUDIO_WEBVIEW_MESSAGE_TYPES = [
   'requestMaterialization',
   'compareIterations',
   'openAnalyzerHandoff',
+  'setRefinementProposalState',
 ] as const;
 
 export type DesignStudioHostMessageType = typeof DESIGN_STUDIO_HOST_MESSAGE_TYPES[number];
@@ -67,6 +72,10 @@ function readString(value: Record<string, unknown>, key: string): string | undef
 
 function readNumber(value: Record<string, unknown>, key: string): number | undefined {
   return typeof value[key] === 'number' ? value[key] as number : undefined;
+}
+
+function readBoolean(value: Record<string, unknown>, key: string): boolean | undefined {
+  return typeof value[key] === 'boolean' ? value[key] as boolean : undefined;
 }
 
 function isArtifactKind(value: string): value is DesignStudioArtifactKind {
@@ -91,6 +100,16 @@ function isArtifactId(value: string): boolean {
 
 function isArtifactVersionId(value: string): boolean {
   return /^[^@\s]+@v\d+$/.test(value);
+}
+
+function isNonEmptyStringArray(value: unknown): value is string[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every((entry) => typeof entry === 'string' && entry.trim().length > 0);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
 function isMaterializationSurfaceType(value: string): boolean {
@@ -132,6 +151,53 @@ function isSourceLineage(value: unknown): boolean {
   });
 }
 
+function isValidTimestamp(value: unknown): boolean {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+}
+
+function hasUniqueSourceArtifactIds(value: string[]): boolean {
+  return value.length > 0 && new Set(value).size === value.length;
+}
+
+function hasMatchingSourceArtifactIds(
+  artifactIds: string[],
+  sourceLineage: MaterializationRequest['sourceLineage'],
+): boolean {
+  const normalizedArtifactIds = [...new Set(artifactIds)].sort((left, right) => left.localeCompare(right));
+  const lineageIds = [...new Set(sourceLineage.map((entry) => entry.artifactId))].sort((left, right) => left.localeCompare(right));
+
+  return normalizedArtifactIds.length === lineageIds.length
+    && normalizedArtifactIds.every((artifactId, index) => artifactId === lineageIds[index]);
+}
+
+function hasUniqueSourceLineage(
+  sourceLineage: MaterializationRequest['sourceLineage'],
+): boolean {
+  return new Set(sourceLineage.map((entry) => `${entry.artifactId}|${entry.artifactVersionId}|${entry.sourceRole}`)).size
+    === sourceLineage.length;
+}
+
+function hasValidModeLineage(
+  materializationMode: MaterializationRequest['materializationMode'],
+  sourceLineage: MaterializationRequest['sourceLineage'],
+): boolean {
+  switch (materializationMode) {
+    case 'conceptToStructurePreview':
+      return sourceLineage.some((entry) =>
+        ['reportConcept', 'pageConcept', 'navigationConcept', 'kpiHierarchyConcept'].includes(entry.artifactKind));
+    case 'draftToSurfaceCandidate':
+      return sourceLineage.some((entry) =>
+        entry.artifactKind === 'draftReportArtifact' && entry.sourceRole === 'primary');
+    case 'refinementProposalToCandidateComparison':
+      return sourceLineage.some((entry) =>
+        entry.artifactKind === 'refinementProposal' && entry.sourceRole === 'comparisonProposal')
+        && sourceLineage.some((entry) =>
+          entry.artifactKind === 'draftReportArtifact' && entry.sourceRole === 'comparisonBase');
+    default:
+      return false;
+  }
+}
+
 function isMaterializationRequestPayload(value: unknown): value is MaterializationRequest {
   if (!isRecord(value)) {
     return false;
@@ -142,6 +208,10 @@ function isMaterializationRequestPayload(value: unknown): value is Materializati
   const targetSurfaceType = readString(value, 'targetSurfaceType');
   const targetAnalyzer = readString(value, 'targetAnalyzer');
   const targetAnalyzerProfile = readString(value, 'targetAnalyzerProfile');
+  const handoffContext = isRecord(value.handoffContext) ? value.handoffContext : undefined;
+  const degradedMappings = Array.isArray(handoffContext?.degradedMappings) ? handoffContext.degradedMappings : undefined;
+  const omittedEvidence = Array.isArray(handoffContext?.omittedEvidence) ? handoffContext.omittedEvidence : undefined;
+  const snapshotReference = isRecord(handoffContext?.snapshotReference) ? handoffContext.snapshotReference : undefined;
   const hasBaseShape = typeof value.id === 'string'
     && isArtifactId(value.id)
     && typeof value.threadId === 'string'
@@ -163,13 +233,325 @@ function isMaterializationRequestPayload(value: unknown): value is Materializati
     && !!targetAnalyzer
     && isMaterializationAnalyzer(targetAnalyzer)
     && !!targetAnalyzerProfile
-    && isMaterializationProfile(targetAnalyzerProfile);
+    && isMaterializationProfile(targetAnalyzerProfile)
+    && !!handoffContext
+    && Array.isArray(degradedMappings)
+    && degradedMappings.every((entry) => typeof entry === 'string')
+    && Array.isArray(omittedEvidence)
+    && omittedEvidence.every((entry) => typeof entry === 'string')
+    && (
+      !snapshotReference
+      || (
+        typeof snapshotReference.snapshotId === 'string'
+        && typeof snapshotReference.rootPath === 'string'
+        && typeof snapshotReference.sourceLocation === 'string'
+      )
+    );
 
   if (!hasBaseShape) {
     return false;
   }
 
-  return validateMaterializationRequestSemantics(value as unknown as MaterializationRequest).ok;
+  const request = value as unknown as MaterializationRequest;
+
+  return request.approvalKind === 'materializationApproval'
+    && request.lifecycleState === 'approved'
+    && request.approvalState === 'approved'
+    && Number.isInteger(request.version)
+    && request.version > 0
+    && isValidTimestamp(request.createdAt)
+    && isValidTimestamp(request.updatedAt)
+    && (!request.provenance.timestamp || isValidTimestamp(request.provenance.timestamp))
+    && hasUniqueSourceArtifactIds(request.sourceArtifactIds)
+    && hasUniqueSourceLineage(request.sourceLineage)
+    && request.sourceLineage.every((entry) => entry.approvalState === 'approved' && isValidTimestamp(entry.approvalTimestamp))
+    && hasMatchingSourceArtifactIds(request.sourceArtifactIds, request.sourceLineage)
+    && hasValidModeLineage(request.materializationMode, request.sourceLineage);
+}
+
+function isNestedCurrentBrief(value: unknown, threadId: string): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const briefThreadId = readString(value, 'threadId');
+  const briefId = readString(value, 'id');
+  const briefKind = readString(value, 'kind');
+
+  return !!briefThreadId
+    && briefThreadId === threadId
+    && !!briefId
+    && isArtifactId(briefId)
+    && (briefKind === undefined || briefKind === 'designBrief');
+}
+
+function isIterationValidationApproval(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return readString(value, 'approvalKind') === 'validationApproval'
+    && !!readString(value, 'approvalState')
+    && isApprovalState(readString(value, 'approvalState')!);
+}
+
+function isIterationApprovalCheckpoint(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return isIterationValidationApproval(value.validationApproval);
+}
+
+function isIterationGuardrails(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return readBoolean(value, 'autoOptimizationTriggered') !== undefined
+    && readBoolean(value, 'analyzerExecutionTriggered') !== undefined
+    && readBoolean(value, 'reportMutationTriggered') !== undefined
+    && readBoolean(value, 'pbirFilesGenerated') !== undefined;
+}
+
+function isNestedIterationRecord(value: unknown, threadId: string): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return readString(value, 'threadId') === threadId
+    && readString(value, 'kind') === 'designIterationRecord'
+    && !!readString(value, 'id')
+    && isArtifactId(readString(value, 'id')!)
+    && isNonEmptyStringArray(value.sourceArtifactVersionIds)
+    && value.sourceArtifactVersionIds.every((entry) => isArtifactVersionId(entry))
+    && isIterationApprovalCheckpoint(value.approvalCheckpoint)
+    && isIterationGuardrails(value.guardrails);
+}
+
+function isNestedRefinementProposal(value: unknown, threadId: string): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const proposalThreadId = readString(value, 'threadId');
+  const proposalId = readString(value, 'id');
+  const proposalKind = readString(value, 'kind');
+
+  return !!proposalThreadId
+    && proposalThreadId === threadId
+    && !!proposalId
+    && isArtifactId(proposalId)
+    && proposalKind === 'refinementProposal';
+}
+
+function isWorkflowStageId(value: string): boolean {
+  return (DESIGN_STUDIO_WORKFLOW_STAGE_IDS as readonly string[]).includes(value);
+}
+
+function isWorkflowStageStatus(value: string): boolean {
+  return (DESIGN_STUDIO_WORKFLOW_STAGE_STATUSES as readonly string[]).includes(value);
+}
+
+function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspaceViewModel {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const reportLabel = readString(value, 'reportLabel');
+  const currentStage = readString(value, 'currentStage');
+  const currentStageSummary = isRecord(value.currentStageSummary) ? value.currentStageSummary : undefined;
+  const stages = Array.isArray(value.stages) ? value.stages : undefined;
+  const approvalCards = Array.isArray(value.approvalCards) ? value.approvalCards : undefined;
+
+  if (!reportLabel || !currentStage || !isWorkflowStageId(currentStage) || !currentStageSummary || !stages || !approvalCards) {
+    return false;
+  }
+
+  if (
+    typeof currentStageSummary.title !== 'string'
+    || typeof currentStageSummary.description !== 'string'
+  ) {
+    return false;
+  }
+
+  if (!stages.every((stage) => {
+    if (!isRecord(stage)) {
+      return false;
+    }
+
+    const id = readString(stage, 'id');
+    const label = readString(stage, 'label');
+    const status = readString(stage, 'status');
+    const readinessLabel = readString(stage, 'readinessLabel');
+    const title = readString(stage, 'title');
+    const description = readString(stage, 'description');
+
+    return !!id
+      && isWorkflowStageId(id)
+      && !!label
+      && !!status
+      && isWorkflowStageStatus(status)
+      && !!readinessLabel
+      && !!title
+      && !!description;
+  })) {
+    return false;
+  }
+
+  if (!approvalCards.every((card) => {
+    if (!isRecord(card)) {
+      return false;
+    }
+
+    const kind = readString(card, 'kind');
+    const title = readString(card, 'title');
+    const approvalState = readString(card, 'approvalState');
+    const owner = readString(card, 'owner');
+    const unlock = readString(card, 'unlock');
+
+    return !!kind
+      && ['designApproval', 'materializationApproval', 'refinementApproval', 'validationApproval'].includes(kind)
+      && !!title
+      && !!approvalState
+      && isApprovalState(approvalState)
+      && !!owner
+      && !!unlock
+      && isStringArray(card.nonEffects);
+  })) {
+    return false;
+  }
+
+  if (value.materializationReadiness !== undefined) {
+    const readiness = isRecord(value.materializationReadiness) ? value.materializationReadiness : undefined;
+    const executableEligibility = readiness ? readString(readiness, 'executableEligibility') : undefined;
+
+    if (
+      !readiness
+      || !readString(readiness, 'readinessLabel')
+      || !executableEligibility
+      || !['executable', 'nonExecutablePreview', 'unsupported'].includes(executableEligibility)
+      || !readString(readiness, 'targetAnalyzer')
+      || !readString(readiness, 'targetAnalyzerProfile')
+      || !isStringArray(readiness.diagnostics)
+    ) {
+      return false;
+    }
+  }
+
+  if (value.analyzerHandoff !== undefined) {
+    const handoff = isRecord(value.analyzerHandoff) ? value.analyzerHandoff : undefined;
+    if (
+      !handoff
+      || !readString(handoff, 'requestId')
+      || !readString(handoff, 'readinessLabel')
+      || !readString(handoff, 'analyzerId')
+      || !readString(handoff, 'analyzerProfileId')
+      || readBoolean(handoff, 'canOpen') === undefined
+      || !isStringArray(handoff.diagnostics)
+    ) {
+      return false;
+    }
+  }
+
+  if (value.refinementExperience !== undefined) {
+    const experience = isRecord(value.refinementExperience) ? value.refinementExperience : undefined;
+    const groups = Array.isArray(experience?.groups) ? experience.groups : undefined;
+    if (
+      !experience
+      || !readString(experience, 'title')
+      || !readString(experience, 'summary')
+      || !groups
+      || (experience.emptyState !== undefined && !readString(experience, 'emptyState'))
+    ) {
+      return false;
+    }
+
+    const validGroupIds = ['story', 'layout', 'kpi', 'navigation', 'structure'];
+    const validActions = ['approve', 'reject', 'defer'];
+    if (!groups.every((group) => {
+      if (!isRecord(group)) {
+        return false;
+      }
+
+      const proposals = Array.isArray(group.proposals) ? group.proposals : undefined;
+      if (
+        !readString(group, 'id')
+        || !validGroupIds.includes(readString(group, 'id')!)
+        || !readString(group, 'title')
+        || !readString(group, 'summary')
+        || !proposals
+      ) {
+        return false;
+      }
+
+      return proposals.every((proposal) => {
+        if (!isRecord(proposal)) {
+          return false;
+        }
+
+        const comparison = isRecord(proposal.comparison) ? proposal.comparison : undefined;
+        const availableActions = Array.isArray(proposal.availableActions) ? proposal.availableActions : undefined;
+        const approvalState = readString(proposal, 'approvalState');
+
+        return !!readString(proposal, 'id')
+          && !!readString(proposal, 'title')
+          && !!readString(proposal, 'summary')
+          && !!readString(proposal, 'recommendation')
+          && !!readString(proposal, 'rationale')
+          && !!readString(proposal, 'expectedImpact')
+          && !!approvalState
+          && isApprovalState(approvalState)
+          && !!readString(proposal, 'sourceAnalyzerLabel')
+          && isStringArray(proposal.affectedArtifacts)
+          && isStringArray(proposal.supportingEvidence)
+          && !!comparison
+          && !!readString(comparison, 'originalDesignIntent')
+          && !!readString(comparison, 'currentDesignState')
+          && !!readString(comparison, 'proposedRefinement')
+          && !!availableActions
+          && availableActions.every((action) => typeof action === 'string' && validActions.includes(action));
+      });
+    })) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isStudioStatePayload(value: unknown): value is DesignStudioStudioState {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const threadId = readString(value, 'threadId');
+  if (!threadId) {
+    return false;
+  }
+
+  const currentBrief = value.currentBrief;
+  const iterationHistory = value.iterationHistory;
+  const pendingRefinementProposals = value.pendingRefinementProposals;
+
+  if (currentBrief !== undefined && !isNestedCurrentBrief(currentBrief, threadId)) {
+    return false;
+  }
+
+  if (!Array.isArray(iterationHistory) || !iterationHistory.every((entry) => isNestedIterationRecord(entry, threadId))) {
+    return false;
+  }
+
+  if (!Array.isArray(pendingRefinementProposals)
+    || !pendingRefinementProposals.every((entry) => isNestedRefinementProposal(entry, threadId))) {
+    return false;
+  }
+
+  if (value.workspace !== undefined && !isWorkspaceStatePayload(value.workspace)) {
+    return false;
+  }
+
+  return true;
 }
 
 function hasCompatibleEnvelope(value: Record<string, unknown>): boolean {
@@ -186,6 +568,7 @@ export interface DesignStudioStudioState {
   currentBrief?: DesignBrief;
   iterationHistory: DesignIterationRecord[];
   pendingRefinementProposals: RefinementProposal[];
+  workspace?: DesignStudioWorkspaceViewModel;
 }
 
 export type DesignStudioHostToWebviewMessagePayload =
@@ -205,7 +588,8 @@ export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'approveArtifact'; artifactKind: DesignStudioArtifactKind; artifactId: string })
   | (DesignStudioEnvelope & { type: 'requestMaterialization'; request: MaterializationRequest })
   | (DesignStudioEnvelope & { type: 'compareIterations'; baseIterationId: string; candidateIterationId: string })
-  | (DesignStudioEnvelope & { type: 'openAnalyzerHandoff'; requestId: string });
+  | (DesignStudioEnvelope & { type: 'openAnalyzerHandoff'; requestId: string })
+  | (DesignStudioEnvelope & { type: 'setRefinementProposalState'; proposalId: string; action: 'approve' | 'reject' | 'defer' });
 
 export function withDesignStudioEnvelope<T extends { type: string }>(message: T): T & DesignStudioEnvelope {
   return {
@@ -236,9 +620,9 @@ export function parseDesignStudioHostMessage(value: unknown):
 
   switch (type) {
     case 'studioState':
-      return isRecord(value.state)
+      return isStudioStatePayload(value.state)
         ? { ok: true, message: withDesignStudioEnvelope({ type, state: value.state as unknown as DesignStudioStudioState }) }
-        : { ok: false, error: 'Design Studio studioState host message is missing state.' };
+        : { ok: false, error: 'Design Studio studioState host message has an invalid nested state payload.' };
     case 'artifactSaved':
     case 'artifactApproved': {
       const artifactKind = readString(value, 'artifactKind');
@@ -336,6 +720,13 @@ export function parseDesignStudioWebviewMessage(value: unknown):
       return requestId
         ? { ok: true, message: withDesignStudioEnvelope({ type, requestId }) }
         : { ok: false, error: 'Design Studio openAnalyzerHandoff webview message is missing requestId.' };
+    }
+    case 'setRefinementProposalState': {
+      const proposalId = readString(value, 'proposalId');
+      const action = readString(value, 'action');
+      return proposalId && (action === 'approve' || action === 'reject' || action === 'defer')
+        ? { ok: true, message: withDesignStudioEnvelope({ type, proposalId, action }) }
+        : { ok: false, error: 'Design Studio setRefinementProposalState webview message is missing required fields.' };
     }
     default:
       return { ok: false, error: `Unsupported Design Studio webview message type: ${type}.` };
