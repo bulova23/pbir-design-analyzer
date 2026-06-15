@@ -6,6 +6,81 @@
 
 ## Current Objective
 
+- 2026-06-15 PBIR engineering remediation Workstream 2B is complete:
+  - implemented:
+    - documented cross-language contract ownership, required versus optional rules, compatibility/versioning expectations, and phased schema/codegen migration in `docs/architecture/contract-schema-and-ownership-strategy.md`
+    - added explicit top-level score payload field inventories in `vscode-extension/src/views/scoreResultPayload.ts` without changing runtime behavior
+    - added Jest drift coverage proving TypeScript and C# Design Studio lifecycle, approval, validation, and materialization vocabularies stay aligned
+    - added Jest coverage proving required score payload fields remain explicit, optional score payload fields remain backward compatible, and Design Studio envelopes reject unsupported schema versions
+    - added a score payload parity check that keeps required TypeScript-consumed fields aligned with the backend `ScoreResult` contract
+  - preserved:
+    - no `PbirScorePanel` decomposition
+    - no `PbirScoringService` decomposition
+    - no fix engine persistence refactor
+    - no backend artifact cleanup
+    - no provider-backed generation
+    - no new product features
+    - no runtime behavior change for valid payloads
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop after Workstream 2B as requested
+    - if Bucket B work resumes later, continue with Workstream 4B or Workstream 8 without widening this contract scope
+
+- 2026-06-14 PBIR engineering remediation Bucket A is complete:
+  - implemented:
+    - byte-correct JSON-RPC request framing in `service-dotnet/RpcHost/Program.cs`
+    - focused RPC framing coverage for ASCII, multibyte UTF-8, malformed `Content-Length`, and short-read handling
+    - default-redacted RPC request/response logging with diagnostic-mode-only payload capture in `vscode-extension/src/services/rpc/AnalyzerBridgeService.ts`
+    - explicit required-field validation for authoritative score payload fields in `vscode-extension/src/views/scoreResultPayload.ts`
+    - packaged-backend-only runtime resolution in `vscode-extension/src/languageServer/analyzerBackendClient.ts`
+    - backend preflight gating so normal activation no longer sacrificially launches the backend twice
+  - preserved:
+    - no `PbirScorePanel` decomposition
+    - no `PbirScoringService` decomposition
+    - no contract codegen or schema migration
+    - no fix-engine persistence refactor
+    - no Design Studio backend abstraction cleanup
+    - no provider-backed generation
+    - no new product features
+    - no scoring semantic changes for valid payloads
+  - validation passed:
+    - focused Jest coverage:
+      - `src/test/AnalyzerBridgeService.test.ts`
+      - `src/test/analyzerBackendClient.test.ts`
+      - `src/test/scoreResultPayload.test.ts`
+    - focused xUnit coverage:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~RpcHostJsonRpcTests`
+    - required full validation:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm run package:all`
+  - note:
+    - `npm run package:all` passed and rebuilt packaged backend target assets
+    - existing nullable warnings in `service-dotnet/Services/Pbir/PbirScoringService.cs` and `CrossPageNarrativeInputBuilder.cs` still appear during packaging/build, but they are pre-existing and non-blocking for Bucket A
+  - next recommended step:
+    - stop after Bucket A as requested
+    - if work resumes, start Bucket B only under the existing contract, trust-boundary, and no-new-feature guardrails
+
+- 2026-06-14 PBIR engineering remediation design and planning is complete:
+  - created:
+    - `docs/superpowers/specs/2026-06-14-pbir-engineering-remediation-design.md`
+    - `docs/superpowers/plans/2026-06-14-pbir-engineering-remediation-plan.md`
+  - defined:
+    - nine remediation workstreams
+    - target architecture and dependency map
+    - release buckets and execution order
+    - focused and full validation strategy
+    - rollback guidance and per-workstream definitions of done
+  - preserved:
+    - no implementation work
+    - no source refactors
+    - no file removals
+  - next recommended step:
+    - execute Bucket A first and keep all implementation work inside the documented trust, compatibility, and runtime boundaries
 - 2026-06-14 Report Design Studio guided internal pilot planning is complete:
   - created:
     - `docs/report-design-studio-guided-pilot-plan.md`

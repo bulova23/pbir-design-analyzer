@@ -1,5 +1,71 @@
 # Session Summaries
 
+## 2026-06-15 PBIR Engineering Remediation Workstream 2B
+
+- Implemented Workstream 2B only from the 2026-06-14 remediation spec and plan.
+- Added the contract strategy document:
+  - `docs/architecture/contract-schema-and-ownership-strategy.md`
+- Made score payload required and optional top-level field inventories explicit in:
+  - `vscode-extension/src/views/scoreResultPayload.ts`
+- Added cross-language drift coverage for duplicated Design Studio vocabularies between:
+  - `vscode-extension/src/design-studio/contracts/designStudioModels.ts`
+  - `service-dotnet/Services/DesignStudio/Models/DesignStudioModels.cs`
+- Added coverage proving:
+  - required score payload fields fail explicitly
+  - optional score payload fields remain backward compatible
+  - required TypeScript-consumed score fields still exist on backend `ScoreResult`
+  - Design Studio protocol envelopes reject unsupported schema versions
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Stop condition respected:
+  - no Workstream 4B, 8, 6, 7, or other out-of-scope remediation work was started
+
+## 2026-06-14 PBIR Engineering Remediation Bucket A
+
+- Implemented Bucket A only from the 2026-06-14 remediation spec and plan.
+- Fixed the critical JSON-RPC framing bug by switching request-body reads to byte-accurate stream framing while preserving the existing protocol surface.
+- Reduced default RPC logging risk by removing request/response payload logging outside explicit diagnostic mode and adding payload redaction for paths, report content, findings, and evidence.
+- Made authoritative score payload required fields fail explicitly instead of silently defaulting, while preserving optional-field behavior for truly optional structures and compatibility fixtures for valid payloads.
+- Removed normal runtime fallback to repo-local Debug and Release backend binaries so runtime resolution now uses packaged backend assets only.
+- Stopped normal activation from sacrificially launching the backend twice by gating launch preflight behind explicit troubleshooting mode.
+- Added focused coverage for all five Bucket A workstreams and passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run package:all`
+- Remaining note:
+  - packaging still emits existing nullable warnings in the backend project outside Bucket A scope
+- Stop condition respected:
+  - no Bucket B, C, or D implementation work was started
+
+## 2026-06-14 PBIR Engineering Remediation Design And Plan
+
+- Converted the principal-architect repository review findings into a staged engineering hardening roadmap without changing product code.
+- Added:
+  - `docs/superpowers/specs/2026-06-14-pbir-engineering-remediation-design.md`
+  - `docs/superpowers/plans/2026-06-14-pbir-engineering-remediation-plan.md`
+- Grouped the findings into nine remediation workstreams covering:
+  - runtime reliability
+  - contract safety
+  - logging hygiene
+  - runtime reproducibility
+  - startup reliability
+  - panel decomposition
+  - scoring-service decomposition
+  - fix-engine persistence safety
+  - Design Studio backend abstraction cleanup
+- Defined:
+  - dependency map
+  - release buckets
+  - execution order
+  - focused and full validation strategy
+  - rollback guidance
+  - per-workstream definitions of done
+- Recommended next step:
+  - execute Bucket A first and keep all changes staged behind the documented trust and compatibility boundaries
+
 ## 2026-06-14 Report Design Studio Guided Internal Pilot Plan
 
 - Created the guided internal pilot package for the current Report Design Studio MVP without changing product code or architecture.

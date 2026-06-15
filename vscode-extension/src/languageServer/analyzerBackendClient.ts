@@ -65,6 +65,13 @@ export interface AnalyzerBackendClientResult {
   diagnostics?: BackendLaunchDiagnostics;
 }
 
+export interface BackendLaunchStartupPreparationOptions {
+  enableLaunchPreflight: boolean;
+  runLaunchPreflight?: (
+    diagnostics: BackendLaunchDiagnostics,
+  ) => Promise<BackendLaunchDiagnostics>;
+}
+
 let lastBackendIssue: BackendResolutionIssue | undefined;
 let lastBackendLaunchDiagnostics: BackendLaunchDiagnostics | undefined;
 
@@ -294,14 +301,8 @@ export function resolveBackendExecutablePath(
   descriptor: BackendRuntimeDescriptor,
 ): { serverPath: string; checkedPaths: string[] } | { issue: BackendResolutionIssue } {
   try {
-    const repoPath = path.resolve(context.extensionPath, '..');
     const possiblePaths = [
       path.join(context.extensionPath, 'backend', 'rpc', descriptor.executableName),
-      path.join(repoPath, 'vscode-extension', 'backend', 'rpc', descriptor.executableName),
-      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Debug', 'net8.0', descriptor.runtimeId, descriptor.executableName),
-      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Debug', 'net8.0', descriptor.runtimeId, 'publish', descriptor.executableName),
-      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Release', 'net8.0', descriptor.runtimeId, descriptor.executableName),
-      path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Release', 'net8.0', descriptor.runtimeId, 'publish', descriptor.executableName),
     ];
 
     const checkedPaths = possiblePaths.map((candidate) => path.resolve(candidate));
@@ -329,6 +330,22 @@ export function resolveBackendExecutablePath(
     recordBackendIssue(issue);
     return { issue };
   }
+}
+
+export async function prepareBackendLaunchDiagnosticsForStartup(
+  diagnostics: BackendLaunchDiagnostics,
+  options: BackendLaunchStartupPreparationOptions,
+): Promise<BackendLaunchDiagnostics> {
+  if (!options.enableLaunchPreflight) {
+    return diagnostics;
+  }
+
+  const runLaunchPreflight = options.runLaunchPreflight ?? runBackendLaunchPreflight;
+  return await runLaunchPreflight(diagnostics);
+}
+
+export function isBackendLaunchPreflightEnabled(): boolean {
+  return process.env.PBIR_ANALYZER_ENABLE_BACKEND_PREFLIGHT === 'true';
 }
 
 export function inspectBackendBinary(executablePath: string): {

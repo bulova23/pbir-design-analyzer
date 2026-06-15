@@ -41,6 +41,47 @@ import { buildOverviewSummary } from '../analyzer/score/overviewSummary';
 import { buildPagePurposeAnalysis } from '../analyzer/score/pagePurposeAnalysis';
 import { getReviewPresentationPersonaProfiles } from '../analyzer/score/personaPresentation';
 
+export const SCORE_RESULT_REQUIRED_FIELDS = [
+  'gestaltScore',
+  'cognitiveLoadScore',
+  'dataInkScore',
+  'accessibilityScore',
+  'visualBestPracticesScore',
+  'stephenFewScore',
+  'enterpriseGovernanceScore',
+  'tufteScore',
+  'graphicalPerceptionScore',
+  'densityScore',
+  'narrativeScore',
+  'compositeScore',
+  'feedback',
+  'pageCount',
+  'recommendations',
+  'reportPath',
+  'scoredAt',
+] as const;
+
+export const SCORE_RESULT_OPTIONAL_FIELDS = [
+  'actionabilityBreakdown',
+  'benchmarkComparison',
+  'dataVisualCount',
+  'frameworkWeights',
+  'guidedStoryImprovements',
+  'governanceScore',
+  'hiddenVisualCount',
+  'inferredStorySummary',
+  'layoutScore',
+  'navigationVisualCount',
+  'pageIntentProfile',
+  'pageScores',
+  'reportConsistencySummary',
+  'scoredPageId',
+  'scoredPageName',
+  'scoringErrors',
+  'themeScore',
+  'visualMetadata',
+] as const;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -60,6 +101,159 @@ function readProperty(source: Record<string, unknown>, key: string): unknown {
 
   const alternateKey = alternateCaseKey(key);
   return alternateKey in source ? source[alternateKey] : undefined;
+}
+
+function joinFieldPath(parentPath: string, key: string): string {
+  return parentPath ? `${parentPath}.${key}` : key;
+}
+
+function assertRecordValue(value: unknown, path: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(`Malformed object field '${path}'`);
+  }
+
+  return value;
+}
+
+function assertRequiredNumberField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (typeof readProperty(source, key) !== 'number') {
+    throw new Error(`Missing required numeric field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredBooleanField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (typeof readProperty(source, key) !== 'boolean') {
+    throw new Error(`Missing required boolean field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredStringField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (typeof readProperty(source, key) !== 'string') {
+    throw new Error(`Missing required string field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredStringArrayField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (!Array.isArray(readProperty(source, key))) {
+    throw new Error(`Missing required array field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredObjectField(source: Record<string, unknown>, key: string, parentPath: string): Record<string, unknown> {
+  return assertRecordValue(readProperty(source, key), joinFieldPath(parentPath, key));
+}
+
+function validateActionabilityBreakdownShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredNumberField(record, 'score', path);
+  assertRequiredBooleanField(record, 'targetBenchmarkPresent', path);
+  assertRequiredBooleanField(record, 'exceptionVisibility', path);
+  assertRequiredBooleanField(record, 'urgencySignaling', path);
+  assertRequiredBooleanField(record, 'priorPeriodContext', path);
+  assertRequiredBooleanField(record, 'drillPathPresent', path);
+  assertRequiredStringField(record, 'summary', path);
+  assertRequiredStringArrayField(record, 'strengths', path);
+  assertRequiredStringArrayField(record, 'gaps', path);
+}
+
+function validateVisualMetadataItemShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredStringField(record, 'visualId', path);
+  assertRequiredStringField(record, 'visualType', path);
+  assertRequiredNumberField(record, 'x', path);
+  assertRequiredNumberField(record, 'y', path);
+  assertRequiredNumberField(record, 'width', path);
+  assertRequiredNumberField(record, 'height', path);
+  assertRequiredBooleanField(record, 'isHidden', path);
+  assertRequiredBooleanField(record, 'isNavigationElement', path);
+  assertRequiredBooleanField(record, 'isDecorative', path);
+  assertRequiredBooleanField(record, 'isSlicer', path);
+  assertRequiredBooleanField(record, 'hasVisibleTitleIntent', path);
+}
+
+function validatePageVisualMetadataShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredStringField(record, 'pageName', path);
+  assertRequiredNumberField(record, 'visualCount', path);
+  assertRequiredNumberField(record, 'visibleTitleVisualCount', path);
+  assertRequiredNumberField(record, 'textVisualCount', path);
+  assertRequiredNumberField(record, 'slicerCount', path);
+  assertRequiredNumberField(record, 'legendVisualCount', path);
+  assertRequiredNumberField(record, 'axisLabelVisualCount', path);
+  assertRequiredNumberField(record, 'dataLabelVisualCount', path);
+  assertRequiredNumberField(record, 'formattedVisualCount', path);
+
+  const visualsValue = readProperty(record, 'visuals');
+  if (visualsValue !== undefined) {
+    if (!Array.isArray(visualsValue)) {
+      throw new Error(`Malformed array field '${joinFieldPath(path, 'visuals')}'`);
+    }
+
+    visualsValue.forEach((entry, index) => validateVisualMetadataItemShape(entry, `${path}.visuals[${index}]`));
+  }
+}
+
+function validatePageScoreShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredStringField(record, 'pageName', path);
+  assertRequiredNumberField(record, 'gestaltScore', path);
+  assertRequiredNumberField(record, 'cognitiveLoadScore', path);
+  assertRequiredNumberField(record, 'dataInkScore', path);
+  assertRequiredNumberField(record, 'accessibilityScore', path);
+  assertRequiredNumberField(record, 'visualBestPracticesScore', path);
+  assertRequiredNumberField(record, 'stephenFewScore', path);
+  assertRequiredNumberField(record, 'enterpriseGovernanceScore', path);
+  assertRequiredNumberField(record, 'tufteScore', path);
+  assertRequiredNumberField(record, 'graphicalPerceptionScore', path);
+  assertRequiredNumberField(record, 'densityScore', path);
+  assertRequiredNumberField(record, 'narrativeScore', path);
+  assertRequiredNumberField(record, 'compositeScore', path);
+  assertRequiredObjectField(record, 'feedback', path);
+  assertRequiredStringArrayField(record, 'recommendations', path);
+
+  const visualMetadata = readProperty(record, 'visualMetadata');
+  if (visualMetadata !== undefined) {
+    validatePageVisualMetadataShape(visualMetadata, `${path}.visualMetadata`);
+  }
+
+  const actionabilityBreakdown = readProperty(record, 'actionabilityBreakdown');
+  if (actionabilityBreakdown !== undefined) {
+    validateActionabilityBreakdownShape(actionabilityBreakdown, `${path}.actionabilityBreakdown`);
+  }
+}
+
+function assertValidScoreResultPayload(candidate: Record<string, unknown>): void {
+  assertRequiredNumberField(candidate, 'gestaltScore', '');
+  assertRequiredNumberField(candidate, 'cognitiveLoadScore', '');
+  assertRequiredNumberField(candidate, 'dataInkScore', '');
+  assertRequiredNumberField(candidate, 'accessibilityScore', '');
+  assertRequiredNumberField(candidate, 'visualBestPracticesScore', '');
+  assertRequiredNumberField(candidate, 'stephenFewScore', '');
+  assertRequiredNumberField(candidate, 'enterpriseGovernanceScore', '');
+  assertRequiredNumberField(candidate, 'tufteScore', '');
+  assertRequiredNumberField(candidate, 'graphicalPerceptionScore', '');
+  assertRequiredNumberField(candidate, 'densityScore', '');
+  assertRequiredNumberField(candidate, 'narrativeScore', '');
+  assertRequiredNumberField(candidate, 'compositeScore', '');
+  assertRequiredObjectField(candidate, 'feedback', '');
+  assertRequiredNumberField(candidate, 'pageCount', '');
+  assertRequiredStringArrayField(candidate, 'recommendations', '');
+  assertRequiredStringField(candidate, 'reportPath', '');
+  assertRequiredStringField(candidate, 'scoredAt', '');
+
+  const pageScoresValue = readProperty(candidate, 'pageScores');
+  if (pageScoresValue !== undefined) {
+    if (!Array.isArray(pageScoresValue)) {
+      throw new Error("Malformed array field 'pageScores'");
+    }
+
+    pageScoresValue.forEach((entry, index) => validatePageScoreShape(entry, `pageScores[${index}]`));
+  }
+
+  const actionabilityBreakdown = readProperty(candidate, 'actionabilityBreakdown');
+  if (actionabilityBreakdown !== undefined) {
+    validateActionabilityBreakdownShape(actionabilityBreakdown, 'actionabilityBreakdown');
+  }
 }
 
 function readRequiredNumber(source: Record<string, unknown>, key: string): number {
@@ -790,7 +984,8 @@ function normalizePageScore(value: unknown): PageScore {
 }
 
 export function normalizeScoreResultPayload(value: unknown): ScoreResult {
-  const candidate = isRecord(value) ? value : {};
+  const candidate = assertRecordValue(value, 'scoreResult');
+  assertValidScoreResultPayload(candidate);
   const pageScoresValue = readProperty(candidate, 'pageScores');
   const normalized: ScoreResult = {
     gestaltScore: readRequiredNumber(candidate, 'gestaltScore'),

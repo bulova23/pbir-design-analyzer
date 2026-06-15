@@ -1,11 +1,14 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using PowerBIModelingService.Services;
 using PowerBIModelingService.Services.Pbir;
 using Serilog;
 using Serilog.Events;
+
+[assembly: InternalsVisibleTo("Tests")]
 
 namespace PowerBIModelingService.RpcHost;
 
@@ -33,8 +36,8 @@ public static class Program
             var services = BuildServices(loggerFactory);
             var server = new SimpleJsonRpcServer(
                 services,
-                Console.In,
-                Console.Out,
+                Console.OpenStandardInput(),
+                Console.OpenStandardOutput(),
                 loggerFactory.CreateLogger<SimpleJsonRpcServer>());
 
             await server.RunAsync().ConfigureAwait(false);
@@ -74,8 +77,8 @@ internal sealed record AnalyzerServices(
 internal sealed class SimpleJsonRpcServer
 {
     private readonly AnalyzerServices _services;
-    private readonly TextReader _input;
-    private readonly TextWriter _output;
+    private readonly Stream _input;
+    private readonly Stream _output;
     private readonly ILogger<SimpleJsonRpcServer> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly JsonSerializerOptions _jsonOptions = CreateJsonSerializerOptions();
@@ -84,8 +87,8 @@ internal sealed class SimpleJsonRpcServer
 
     public SimpleJsonRpcServer(
         AnalyzerServices services,
-        TextReader input,
-        TextWriter output,
+        Stream input,
+        Stream output,
         ILogger<SimpleJsonRpcServer> logger)
     {
         _services = services;
@@ -143,51 +146,7 @@ internal sealed class SimpleJsonRpcServer
 
     private async Task<JsonRpcRequest?> ReadRequestAsync()
     {
-        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string? line;
-
-        while ((line = await _input.ReadLineAsync().ConfigureAwait(false)) != null && !string.IsNullOrEmpty(line))
-        {
-            var parts = line.Split(':', 2);
-            if (parts.Length == 2)
-            {
-                headers[parts[0].Trim()] = parts[1].Trim();
-            }
-        }
-
-        if (line is null)
-        {
-            return null;
-        }
-
-        if (!headers.TryGetValue("Content-Length", out var lengthValue) ||
-            !int.TryParse(lengthValue, out var contentLength) ||
-            contentLength <= 0)
-        {
-            return null;
-        }
-
-        var buffer = new char[contentLength];
-        var offset = 0;
-
-        while (offset < contentLength)
-        {
-            var read = await _input.ReadBlockAsync(buffer, offset, contentLength - offset).ConfigureAwait(false);
-            if (read <= 0)
-            {
-                break;
-            }
-
-            offset += read;
-        }
-
-        if (offset != contentLength)
-        {
-            throw new InvalidOperationException($"Expected {contentLength} request bytes but read {offset}.");
-        }
-
-        var content = new string(buffer);
-        return JsonSerializer.Deserialize<JsonRpcRequest>(content, _jsonOptions);
+        return await JsonRpcFraming.ReadRequestAsync(_input, _jsonOptions, _logger).ConfigureAwait(false);
     }
 
     private async Task HandleRequestAsync(JsonRpcRequest request)
@@ -340,13 +299,14 @@ internal sealed class SimpleJsonRpcServer
     private async Task WriteMessageAsync(object payload)
     {
         var json = JsonSerializer.Serialize(payload, _jsonOptions);
-        var contentLength = Encoding.UTF8.GetByteCount(json);
+        var payloadBytes = Encoding.UTF8.GetBytes(json);
+        var headerBytes = Encoding.ASCII.GetBytes($"Content-Length: {payloadBytes.Length}\r\n\r\n");
 
         await _writeLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            await _output.WriteAsync($"Content-Length: {contentLength}\r\n\r\n").ConfigureAwait(false);
-            await _output.WriteAsync(json.AsMemory()).ConfigureAwait(false);
+            await _output.WriteAsync(headerBytes, 0, headerBytes.Length).ConfigureAwait(false);
+            await _output.WriteAsync(payloadBytes, 0, payloadBytes.Length).ConfigureAwait(false);
             await _output.FlushAsync().ConfigureAwait(false);
         }
         finally
@@ -442,4 +402,100 @@ internal sealed class JsonRpcErrorPayload
     public int Code { get; set; }
 
     public string Message { get; set; } = string.Empty;
+}
+
+internal static class JsonRpcFraming
+{
+    public static async Task<JsonRpcRequest?> ReadRequestAsync(
+        Stream input,
+        JsonSerializerOptions jsonOptions,
+        Microsoft.Extensions.Logging.ILogger logger)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? line;
+
+        while ((line = await ReadAsciiLineAsync(input).ConfigureAwait(false)) is not null && line.Length > 0)
+        {
+            var parts = line.Split(':', 2);
+            if (parts.Length == 2)
+            {
+                headers[parts[0].Trim()] = parts[1].Trim();
+            }
+            else
+            {
+                logger.LogWarning("[PBIR Host] Ignoring malformed header line: {HeaderLine}", line);
+            }
+        }
+
+        if (line is null)
+        {
+            return null;
+        }
+
+        if (!headers.TryGetValue("Content-Length", out var lengthValue) ||
+            !int.TryParse(lengthValue, out var contentLength) ||
+            contentLength <= 0)
+        {
+            return null;
+        }
+
+        var buffer = await ReadExactBytesAsync(input, contentLength).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<JsonRpcRequest>(buffer, jsonOptions);
+    }
+
+    private static async Task<string?> ReadAsciiLineAsync(Stream input)
+    {
+        var bytes = new List<byte>();
+        var buffer = new byte[1];
+
+        while (true)
+        {
+            var read = await input.ReadAsync(buffer, 0, 1).ConfigureAwait(false);
+            if (read <= 0)
+            {
+                if (bytes.Count == 0)
+                {
+                    return null;
+                }
+
+                break;
+            }
+
+            if (buffer[0] == (byte)'\n')
+            {
+                break;
+            }
+
+            if (buffer[0] != (byte)'\r')
+            {
+                bytes.Add(buffer[0]);
+            }
+        }
+
+        return Encoding.ASCII.GetString(bytes.ToArray());
+    }
+
+    private static async Task<byte[]> ReadExactBytesAsync(Stream input, int contentLength)
+    {
+        var buffer = new byte[contentLength];
+        var offset = 0;
+
+        while (offset < contentLength)
+        {
+            var read = await input.ReadAsync(buffer, offset, contentLength - offset).ConfigureAwait(false);
+            if (read <= 0)
+            {
+                break;
+            }
+
+            offset += read;
+        }
+
+        if (offset != contentLength)
+        {
+            throw new InvalidOperationException($"Expected {contentLength} request bytes but read {offset}.");
+        }
+
+        return buffer;
+    }
 }

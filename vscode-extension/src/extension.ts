@@ -9,8 +9,9 @@ import {
   formatBackendLaunchDiagnostics,
   getRecordedBackendIssue,
   getBackendRuntimeDescriptor,
+  isBackendLaunchPreflightEnabled,
+  prepareBackendLaunchDiagnosticsForStartup,
   recordBackendIssue,
-  runBackendLaunchPreflight,
   stopAnalyzerBackendClient,
 } from './languageServer/analyzerBackendClient';
 import { AnalyzerBridgeService, BridgeState } from './services/rpc/AnalyzerBridgeService';
@@ -84,28 +85,32 @@ export async function activate(context: vscode.ExtensionContext) {
     if (startupDiagnostics) {
       extensionOutput.appendLine('[Extension] Backend launch diagnostics:');
       extensionOutput.appendLine(formatBackendLaunchDiagnostics(startupDiagnostics));
-      startupDiagnostics = await runBackendLaunchPreflight(startupDiagnostics);
-      extensionOutput.appendLine('[Extension] Backend launch preflight:');
-      extensionOutput.appendLine(formatBackendLaunchDiagnostics(startupDiagnostics));
+      startupDiagnostics = await prepareBackendLaunchDiagnosticsForStartup(startupDiagnostics, {
+        enableLaunchPreflight: isBackendLaunchPreflightEnabled(),
+      });
+      if (startupDiagnostics.preflight) {
+        extensionOutput.appendLine('[Extension] Backend launch preflight:');
+        extensionOutput.appendLine(formatBackendLaunchDiagnostics(startupDiagnostics));
 
-      if (startupDiagnostics.preflight?.exitedEarly) {
-        const issue = describeBackendStartupFailure(
-          new Error('Backend exited during launch preflight.'),
-          startupDiagnostics,
-        );
-        backendClient = undefined;
-        recordBackendIssue(issue);
-        extensionOutput.appendLine(`[Extension] Backend preflight failed: ${issue.message}`);
-        if (issue.detail) {
-          extensionOutput.appendLine(issue.detail);
+        if (startupDiagnostics.preflight.exitedEarly) {
+          const issue = describeBackendStartupFailure(
+            new Error('Backend exited during launch preflight.'),
+            startupDiagnostics,
+          );
+          backendClient = undefined;
+          recordBackendIssue(issue);
+          extensionOutput.appendLine(`[Extension] Backend preflight failed: ${issue.message}`);
+          if (issue.detail) {
+            extensionOutput.appendLine(issue.detail);
+          }
+          vscode.window.showWarningMessage(issue.message);
+          daemonStatusBar.text = '$(warning) PBIR Design Analyzer: Degraded mode';
+          daemonStatusBar.tooltip = issue.message;
+          pbirTreeProvider?.setBridgeService(undefined);
+          pbirTreeProvider?.refresh();
+          extensionOutput.appendLine('PBIR Design Analyzer activated');
+          return;
         }
-        vscode.window.showWarningMessage(issue.message);
-        daemonStatusBar.text = '$(warning) PBIR Design Analyzer: Degraded mode';
-        daemonStatusBar.tooltip = issue.message;
-        pbirTreeProvider?.setBridgeService(undefined);
-        pbirTreeProvider?.refresh();
-        extensionOutput.appendLine('PBIR Design Analyzer activated');
-        return;
       }
     }
 

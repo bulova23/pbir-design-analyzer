@@ -1,9 +1,125 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildFixWorkflowPayload, normalizeScoreResultPayload } from '../views/scoreResultPayload';
+import {
+  buildFixWorkflowPayload,
+  normalizeScoreResultPayload,
+  SCORE_RESULT_OPTIONAL_FIELDS,
+  SCORE_RESULT_REQUIRED_FIELDS,
+} from '../views/scoreResultPayload';
+
+function createMinimalScorePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    GestaltScore: 84,
+    CognitiveLoadScore: 72,
+    DataInkScore: 80,
+    AccessibilityScore: 70,
+    VisualBestPracticesScore: 78,
+    StephenFewScore: 66,
+    EnterpriseGovernanceScore: 74,
+    TufteScore: 68,
+    GraphicalPerceptionScore: 70,
+    DensityScore: 64,
+    NarrativeScore: 69,
+    CompositeScore: 77,
+    Feedback: {},
+    PageCount: 1,
+    Recommendations: [],
+    ReportPath: '/tmp/Sales.Report',
+    ScoredAt: '2026-06-11T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function readWorkspaceFile(relativePath: string): string {
+  return fs.readFileSync(path.join(__dirname, '../../..', relativePath), 'utf8');
+}
+
+function extractCSharpAutoPropertyNames(source: string, className: string): string[] {
+  const classIndex = source.indexOf(`public sealed class ${className}`);
+  expect(classIndex).toBeGreaterThanOrEqual(0);
+
+  const classText = source.slice(classIndex);
+  const propertyPattern = /public\s+[A-Za-z0-9_<>,?.\[\]\s]+\s+([A-Za-z0-9_]+)\s*\{/g;
+  const propertyNames = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = propertyPattern.exec(classText)) !== null) {
+    propertyNames.add(match[1]);
+  }
+
+  return [...propertyNames];
+}
 
 describe('normalizeScoreResultPayload', () => {
+  it('declares required and optional top-level score result fields explicitly', () => {
+    expect(SCORE_RESULT_REQUIRED_FIELDS).toEqual([
+      'gestaltScore',
+      'cognitiveLoadScore',
+      'dataInkScore',
+      'accessibilityScore',
+      'visualBestPracticesScore',
+      'stephenFewScore',
+      'enterpriseGovernanceScore',
+      'tufteScore',
+      'graphicalPerceptionScore',
+      'densityScore',
+      'narrativeScore',
+      'compositeScore',
+      'feedback',
+      'pageCount',
+      'recommendations',
+      'reportPath',
+      'scoredAt',
+    ]);
+    expect(SCORE_RESULT_OPTIONAL_FIELDS).toEqual([
+      'actionabilityBreakdown',
+      'benchmarkComparison',
+      'dataVisualCount',
+      'frameworkWeights',
+      'guidedStoryImprovements',
+      'governanceScore',
+      'hiddenVisualCount',
+      'inferredStorySummary',
+      'layoutScore',
+      'navigationVisualCount',
+      'pageIntentProfile',
+      'pageScores',
+      'reportConsistencySummary',
+      'scoredPageId',
+      'scoredPageName',
+      'scoringErrors',
+      'themeScore',
+      'visualMetadata',
+    ]);
+  });
+
+  it('keeps the required top-level score fields aligned with the backend ScoreResult contract', () => {
+    const csharpSource = readWorkspaceFile('service-dotnet/Services/Pbir/Models/ScoreResult.cs');
+    const propertyNames = extractCSharpAutoPropertyNames(csharpSource, 'ScoreResult');
+
+    for (const requiredField of SCORE_RESULT_REQUIRED_FIELDS) {
+      const backendProperty = `${requiredField[0].toUpperCase()}${requiredField.slice(1)}`;
+      expect(propertyNames).toContain(backendProperty);
+    }
+  });
+
+  it('rejects missing required top-level score fields explicitly', () => {
+    expect(() => normalizeScoreResultPayload(createMinimalScorePayload({
+      CompositeScore: undefined,
+    }))).toThrow("Missing required numeric field 'compositeScore'");
+  });
+
+  it('keeps optional top-level score fields backward compatible when they are absent', () => {
+    const normalized = normalizeScoreResultPayload(createMinimalScorePayload());
+
+    expect(normalized.pageScores).toBeUndefined();
+    expect(normalized.actionabilityBreakdown).toBeUndefined();
+    expect(normalized.benchmarkComparison).toBeUndefined();
+    expect(normalized.visualMetadata).toBeUndefined();
+    expect(normalized.reportConsistencySummary).toBeUndefined();
+  });
+
   it('maps safe Guided Story Improvements fields and omits unsafe research-stage fields', () => {
     const normalized = normalizeScoreResultPayload({
       GestaltScore: 84,
@@ -715,12 +831,28 @@ describe('normalizeScoreResultPayload', () => {
 
   it('defaults missing or invalid finding types to strongHeuristic', () => {
     const normalized = normalizeScoreResultPayload({
+      GestaltScore: 72,
+      CognitiveLoadScore: 72,
+      DataInkScore: 72,
+      AccessibilityScore: 72,
+      VisualBestPracticesScore: 72,
+      StephenFewScore: 72,
+      EnterpriseGovernanceScore: 72,
+      TufteScore: 72,
+      GraphicalPerceptionScore: 72,
+      DensityScore: 72,
+      NarrativeScore: 72,
+      CompositeScore: 72,
       Feedback: {
         gestalt: [
           { Ok: false, Text: 'Grid alignment: Off-grid visual detected.' },
           { Ok: false, Text: 'Similarity: Visual mix is noisy.', FindingType: 'not-real' },
         ],
       },
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-02T20:00:00.000Z',
     });
 
     expect(normalized.feedback.gestalt).toEqual([
@@ -740,6 +872,16 @@ describe('normalizeScoreResultPayload', () => {
   it('initializes proposal enrichment state without changing deterministic score semantics', () => {
     const normalized = normalizeScoreResultPayload({
       GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 72,
+      AccessibilityScore: 72,
+      VisualBestPracticesScore: 72,
+      StephenFewScore: 72,
+      EnterpriseGovernanceScore: 72,
+      TufteScore: 72,
+      GraphicalPerceptionScore: 72,
+      DensityScore: 72,
+      NarrativeScore: 72,
       CompositeScore: 77,
       PageCount: 1,
       Feedback: {},
@@ -756,6 +898,23 @@ describe('normalizeScoreResultPayload', () => {
 
   it('drops partial report consistency summaries and malformed nested semantic metadata', () => {
     const normalized = normalizeScoreResultPayload({
+      GestaltScore: 72,
+      CognitiveLoadScore: 72,
+      DataInkScore: 72,
+      AccessibilityScore: 72,
+      VisualBestPracticesScore: 72,
+      StephenFewScore: 72,
+      EnterpriseGovernanceScore: 72,
+      TufteScore: 72,
+      GraphicalPerceptionScore: 72,
+      DensityScore: 72,
+      NarrativeScore: 72,
+      CompositeScore: 72,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-02T20:00:00.000Z',
       VisualMetadata: {
         PageName: 'Overview',
         VisualCount: 1,
@@ -992,5 +1151,143 @@ describe('normalizeScoreResultPayload', () => {
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
+  });
+
+  it('fails explicitly when a required numeric field is missing', () => {
+    expect(() => normalizeScoreResultPayload({
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      CompositeScore: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+    })).toThrow("Missing required numeric field 'gestaltScore'");
+  });
+
+  it('fails explicitly when a required boolean field is missing inside a provided nested structure', () => {
+    expect(() => normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      CompositeScore: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+      ActionabilityBreakdown: {
+        Score: 52,
+        ExceptionVisibility: false,
+        UrgencySignaling: false,
+        PriorPeriodContext: false,
+        DrillPathPresent: true,
+        ExpectationLevel: 'high',
+        Strengths: [],
+        Gaps: [],
+        Summary: 'Missing target benchmark field should be rejected.',
+      },
+    })).toThrow("Missing required boolean field 'actionabilityBreakdown.targetBenchmarkPresent'");
+  });
+
+  it('fails explicitly when a required field is renamed instead of silently defaulting', () => {
+    expect(() => normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      Composite_SCORE: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+    })).toThrow("Missing required numeric field 'compositeScore'");
+  });
+
+  it('fails explicitly when a provided nested structure is malformed', () => {
+    expect(() => normalizeScoreResultPayload({
+      GestaltScore: 84,
+      CognitiveLoadScore: 72,
+      DataInkScore: 80,
+      AccessibilityScore: 70,
+      VisualBestPracticesScore: 78,
+      StephenFewScore: 66,
+      EnterpriseGovernanceScore: 74,
+      TufteScore: 68,
+      GraphicalPerceptionScore: 70,
+      DensityScore: 64,
+      NarrativeScore: 69,
+      CompositeScore: 77,
+      Feedback: {},
+      PageCount: 1,
+      Recommendations: [],
+      ReportPath: '/tmp/Sales.Report',
+      ScoredAt: '2026-06-11T00:00:00.000Z',
+      PageScores: [
+        {
+          PageName: 'Overview',
+          GestaltScore: 82,
+          CognitiveLoadScore: 70,
+          DataInkScore: 79,
+          AccessibilityScore: 70,
+          VisualBestPracticesScore: 77,
+          StephenFewScore: 65,
+          EnterpriseGovernanceScore: 73,
+          TufteScore: 68,
+          GraphicalPerceptionScore: 69,
+          DensityScore: 63,
+          NarrativeScore: 67,
+          CompositeScore: 75,
+          Feedback: {},
+          Recommendations: [],
+          VisualMetadata: {
+            PageName: 'Overview',
+            VisualCount: 1,
+            VisibleTitleVisualCount: 1,
+            TextVisualCount: 0,
+            SlicerCount: 0,
+            LegendVisualCount: 1,
+            AxisLabelVisualCount: 1,
+            DataLabelVisualCount: 0,
+            FormattedVisualCount: 1,
+            Visuals: [
+              {
+                VisualId: 'v1',
+                VisualType: 'barChart',
+                X: 0,
+                Y: 0,
+                Width: 320,
+                Height: 180,
+              },
+            ],
+          },
+        },
+      ],
+    })).toThrow("Missing required boolean field 'pageScores[0].visualMetadata.visuals[0].isHidden'");
   });
 });

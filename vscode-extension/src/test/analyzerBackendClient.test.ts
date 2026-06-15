@@ -3,9 +3,11 @@ import * as os from 'os';
 import * as path from 'path';
 import type * as vscode from 'vscode';
 import {
+  type BackendLaunchDiagnostics,
   describeBackendStartupFailure,
   getBackendRuntimeDescriptor,
   inspectBackendBinary,
+  prepareBackendLaunchDiagnosticsForStartup,
   resolveBackendExecutablePath,
 } from '../languageServer/analyzerBackendClient';
 
@@ -116,5 +118,83 @@ describe('analyzerBackendClient', () => {
     expect(issue.detail).toContain('Resolved backend path: C:\\temp\\ModelingLanguageServer.exe');
     expect(issue.detail).toContain('Preflight exit code: 150');
     expect(issue.detail).toContain('dotnet command not found');
+  });
+
+  it('does not resolve repo-local Debug or Release leftovers when packaged backend assets are missing', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-backend-resolution-'));
+    try {
+      const repoPath = path.join(tempDir, 'repo');
+      const staleDebugDir = path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Debug', 'net8.0', 'osx-arm64');
+      const staleReleaseDir = path.join(repoPath, 'service-dotnet', 'RpcHost', 'bin', 'Release', 'net8.0', 'osx-arm64', 'publish');
+      fs.mkdirSync(staleDebugDir, { recursive: true });
+      fs.mkdirSync(staleReleaseDir, { recursive: true });
+      fs.writeFileSync(path.join(staleDebugDir, 'ModelingLanguageServer'), 'stale-debug');
+      fs.writeFileSync(path.join(staleReleaseDir, 'ModelingLanguageServer'), 'stale-release');
+
+      const context = {
+        extensionPath: path.join(repoPath, 'vscode-extension'),
+      } as vscode.ExtensionContext;
+
+      const descriptorResult = getBackendRuntimeDescriptor('darwin', 'arm64');
+      if (!('descriptor' in descriptorResult)) {
+        throw new Error('expected darwin arm64 descriptor');
+      }
+
+      const resolved = resolveBackendExecutablePath(context, descriptorResult.descriptor);
+      expect('issue' in resolved).toBe(true);
+      if (!('issue' in resolved)) {
+        throw new Error(`expected backendMissing issue, received path: ${resolved.serverPath}`);
+      }
+
+      expect(resolved.issue.code).toBe('backendMissing');
+      expect(resolved.issue.checkedPaths).toEqual([
+        path.join(repoPath, 'vscode-extension', 'backend', 'rpc', 'ModelingLanguageServer'),
+      ]);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips sacrificial backend preflight during normal startup', async () => {
+    const diagnostics: BackendLaunchDiagnostics = {
+      processPlatform: 'darwin',
+      processArch: 'arm64',
+      vscodeTarget: 'darwin-arm64',
+      runtimeId: 'osx-arm64',
+      selectedTarget: 'darwin-arm64',
+      resolvedBackendPath: '/tmp/backend/ModelingLanguageServer',
+      backendExists: true,
+      backendFileName: 'ModelingLanguageServer',
+      backendFileDescription: 'Mach-O arm64 executable',
+      launchCommand: '/tmp/backend/ModelingLanguageServer',
+      selfContained: false,
+      checkedPaths: ['/tmp/backend/ModelingLanguageServer'],
+      dotnetRuntime: {
+        available: true,
+        command: 'dotnet',
+        exitCode: 0,
+        firstLines: ['.NET 8'],
+      },
+    };
+
+    const runLaunchPreflight = jest.fn(async () => ({
+      ...diagnostics,
+      preflight: {
+        attempted: true,
+        exitedEarly: false,
+        exitCode: null,
+        signal: null,
+        stdoutLines: [],
+        stderrLines: [],
+      },
+    }));
+
+    const prepared = await prepareBackendLaunchDiagnosticsForStartup(diagnostics, {
+      enableLaunchPreflight: false,
+      runLaunchPreflight,
+    });
+
+    expect(prepared).toBe(diagnostics);
+    expect(runLaunchPreflight).not.toHaveBeenCalled();
   });
 });

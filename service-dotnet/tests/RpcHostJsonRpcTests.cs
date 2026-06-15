@@ -1,10 +1,13 @@
+extern alias RpcHost;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using PowerBIModelingService.Services.Pbir.Models;
 using Xunit;
 
@@ -254,6 +257,72 @@ namespace ServiceDotnet.Tests
             Assert.DoesNotContain("\"ReportConsistencySummary\"", json);
             Assert.DoesNotContain("\"ReportConsistencyNotes\"", json);
             Assert.DoesNotContain("\"FindingType\"", json);
+        }
+
+        [Fact]
+        public async Task JsonRpcFraming_ReadRequestAsync_ParsesAsciiPayloadByByteLength()
+        {
+            var payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"client\":\"test\"}}";
+            await using var input = new MemoryStream(Encoding.UTF8.GetBytes(
+                $"Content-Length: {Encoding.UTF8.GetByteCount(payload)}\r\n\r\n{payload}"));
+
+            var request = await RpcHost::PowerBIModelingService.RpcHost.JsonRpcFraming.ReadRequestAsync(
+                input,
+                RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
+                NullLogger.Instance);
+
+            Assert.NotNull(request);
+            Assert.Equal("initialize", request!.Method);
+            Assert.Equal("test", request.Params?.GetProperty("client").GetString());
+        }
+
+        [Fact]
+        public async Task JsonRpcFraming_ReadRequestAsync_ParsesMultibyteUtf8PayloadByByteLength()
+        {
+            var payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"model/ping\",\"params\":{\"label\":\"café 🚀\"}}";
+            await using var input = new MemoryStream(Encoding.UTF8.GetBytes(
+                $"Content-Length: {Encoding.UTF8.GetByteCount(payload)}\r\n\r\n{payload}"));
+
+            var request = await RpcHost::PowerBIModelingService.RpcHost.JsonRpcFraming.ReadRequestAsync(
+                input,
+                RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
+                NullLogger.Instance);
+
+            Assert.NotNull(request);
+            Assert.Equal("model/ping", request!.Method);
+            Assert.Equal("café 🚀", request.Params?.GetProperty("label").GetString());
+        }
+
+        [Fact]
+        public async Task JsonRpcFraming_ReadRequestAsync_ReturnsNullForMalformedContentLength()
+        {
+            var payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}";
+            await using var input = new MemoryStream(Encoding.UTF8.GetBytes(
+                $"Content-Length: nope\r\n\r\n{payload}"));
+
+            var request = await RpcHost::PowerBIModelingService.RpcHost.JsonRpcFraming.ReadRequestAsync(
+                input,
+                RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
+                NullLogger.Instance);
+
+            Assert.Null(request);
+        }
+
+        [Fact]
+        public async Task JsonRpcFraming_ReadRequestAsync_ThrowsForShortRead()
+        {
+            var payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}";
+            var bytes = Encoding.UTF8.GetBytes(payload);
+            await using var input = new MemoryStream(Encoding.UTF8.GetBytes(
+                $"Content-Length: {bytes.Length + 4}\r\n\r\n{payload}"));
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                RpcHost::PowerBIModelingService.RpcHost.JsonRpcFraming.ReadRequestAsync(
+                    input,
+                    RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
+                    NullLogger.Instance));
+
+            Assert.Contains("Expected", error.Message);
         }
 
         // Minimal stubs for test

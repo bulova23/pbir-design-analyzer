@@ -8,8 +8,10 @@ import {
   DESIGN_STUDIO_APPROVAL_STATES,
   DESIGN_STUDIO_ARTIFACT_KINDS,
   DESIGN_STUDIO_LIFECYCLE_STATES,
+  DESIGN_STUDIO_MATERIALIZATION_MODES,
   DESIGN_STUDIO_REPORT_TYPES,
   DESIGN_STUDIO_REQUIRED_BRIEF_FIELDS,
+  DESIGN_STUDIO_SOURCE_ROLES,
   REFINEMENT_ANALYZER_SOURCES,
   hasAnalyzerOwnedValidationApproval,
   validateDesignBrief,
@@ -23,6 +25,27 @@ import {
 
 function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+}
+
+function readWorkspaceFile(relativePath: string): string {
+  return fs.readFileSync(path.join(__dirname, '../../..', relativePath), 'utf8');
+}
+
+function lowerFirst(value: string): string {
+  return value.length === 0 ? value : `${value[0].toLowerCase()}${value.slice(1)}`;
+}
+
+function extractCSharpEnumValues(source: string, enumName: string): string[] {
+  const match = source.match(new RegExp(`internal enum ${enumName}\\s*\\{([\\s\\S]*?)\\}`, 'm'));
+  expect(match).not.toBeNull();
+
+  return (match?.[1] ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('//'))
+    .map((line) => line.replace(/,.*/, '').trim())
+    .filter((line) => line.length > 0)
+    .map(lowerFirst);
 }
 
 describe('designStudio contracts', () => {
@@ -69,6 +92,17 @@ describe('designStudio contracts', () => {
     ]);
     expect(DESIGN_STUDIO_LIFECYCLE_STATES).not.toContain('promoted');
     expect(DESIGN_STUDIO_APPROVAL_STATES).not.toContain('promoted');
+  });
+
+  it('keeps duplicated TypeScript and C# Design Studio vocabularies in parity', () => {
+    const csharpModels = readWorkspaceFile('service-dotnet/Services/DesignStudio/Models/DesignStudioModels.cs');
+
+    expect(extractCSharpEnumValues(csharpModels, 'DesignArtifactLifecycleState')).toEqual(DESIGN_STUDIO_LIFECYCLE_STATES);
+    expect(extractCSharpEnumValues(csharpModels, 'DesignArtifactApprovalState')).toEqual(DESIGN_STUDIO_APPROVAL_STATES);
+    expect(extractCSharpEnumValues(csharpModels, 'DesignArtifactApprovalKind')).toEqual(DESIGN_STUDIO_APPROVAL_KINDS);
+    expect(extractCSharpEnumValues(csharpModels, 'ValidationResultStatus')).toEqual(['validated', 'rejected', 'needsReview']);
+    expect(extractCSharpEnumValues(csharpModels, 'MaterializationMode')).toEqual(DESIGN_STUDIO_MATERIALIZATION_MODES);
+    expect(extractCSharpEnumValues(csharpModels, 'MaterializationSourceRole')).toEqual(DESIGN_STUDIO_SOURCE_ROLES);
   });
 
   it('defines the required design brief fields and report types', () => {
@@ -297,5 +331,18 @@ describe('designStudio contracts', () => {
     expect(note).toContain('validation result status');
     expect(note).toContain('refinement ingestion path');
     expect(note).toContain('No hidden shared state');
+  });
+
+  it('documents the contract ownership and migration strategy for cross-language contracts', () => {
+    const strategy = readWorkspaceFile('docs/architecture/contract-schema-and-ownership-strategy.md');
+
+    expect(strategy).toContain('Contract Ownership Model');
+    expect(strategy).toContain('Required Versus Optional Fields');
+    expect(strategy).toContain('Compatibility And Versioning Rules');
+    expect(strategy).toContain('Schema And Code Generation Migration Path');
+    expect(strategy).toContain('Score payload contracts');
+    expect(strategy).toContain('Design Studio contracts');
+    expect(strategy).toContain('Design Studio protocol envelopes');
+    expect(strategy).toContain('RPC payloads');
   });
 });

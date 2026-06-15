@@ -80,6 +80,20 @@ describe('designStudioProtocol', () => {
     });
   });
 
+  it('rejects schema version mismatches', () => {
+    const result = parseDesignStudioWebviewMessage({
+      protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+      schemaVersion: 999,
+      type: 'loadStudioState',
+      threadId: 'thread-1',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: `Design Studio protocol mismatch. Expected protocol ${DESIGN_STUDIO_PROTOCOL_VERSION} / schema ${DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION}, received protocol ${DESIGN_STUDIO_PROTOCOL_VERSION} / schema 999.`,
+    });
+  });
+
   it('rejects unsupported message types safely', () => {
     const result = parseDesignStudioWebviewMessage({
       protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,

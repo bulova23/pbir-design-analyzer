@@ -1,4 +1,6 @@
+import * as vscode from 'vscode';
 import { AnalyzerBridgeService, BridgeState } from '../services/rpc/AnalyzerBridgeService';
+import { resetOutputChannelsForTesting } from '../platform/outputChannels';
 
 class FakeLanguageClient {
   private listener: ((event: { oldState: number; newState: number }) => void) | undefined;
@@ -32,6 +34,12 @@ class FakeLanguageClient {
 }
 
 describe('AnalyzerBridgeService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetOutputChannelsForTesting();
+    delete process.env.PBIR_ANALYZER_RPC_DIAGNOSTIC_MODE;
+  });
+
   afterEach(async () => {
     const bridge = AnalyzerBridgeService.getInstance();
     await bridge.shutdown();
@@ -82,5 +90,76 @@ describe('AnalyzerBridgeService', () => {
 
     expect(client.stopCalls).toBe(0);
     expect(bridge.getState()).toBe(BridgeState.UNINITIALIZED);
+  });
+
+  it('does not log request params or response payloads by default', async () => {
+    const bridge = AnalyzerBridgeService.getInstance();
+    const client = new FakeLanguageClient(async (method) => {
+      if (method === 'model/ping') {
+        return { success: true, data: { status: 'ready' } };
+      }
+
+      return { success: true, data: { findings: ['sensitive finding'], evidence: ['sensitive evidence'] } };
+    });
+
+    await bridge.initialize(client as never);
+    await bridge.executeRequest('model/pbir/scoreReport', {
+      reportPath: '/tmp/Sales.Report',
+      reportContent: '{"secret":true}',
+    });
+
+    const outputChannel = (vscode.window.createOutputChannel as jest.Mock).mock.results[0].value;
+    const lines = (outputChannel.appendLine as jest.Mock).mock.calls.map(([line]) => String(line));
+    const joined = lines.join('\n');
+
+    expect(joined).toContain('Method: model/pbir/scoreReport');
+    expect(joined).toMatch(/Elapsed: \d+ms/);
+    expect(joined).not.toContain('Params:');
+    expect(joined).not.toContain('Response:');
+    expect(joined).not.toContain('/tmp/Sales.Report');
+    expect(joined).not.toContain('sensitive finding');
+    expect(joined).not.toContain('sensitive evidence');
+  });
+
+  it('logs redacted payloads only in diagnostic mode', async () => {
+    process.env.PBIR_ANALYZER_RPC_DIAGNOSTIC_MODE = 'true';
+
+    const bridge = AnalyzerBridgeService.getInstance();
+    const client = new FakeLanguageClient(async (method) => {
+      if (method === 'model/ping') {
+        return { success: true, data: { status: 'ready' } };
+      }
+
+      return {
+        success: true,
+        data: {
+          reportPath: '/tmp/Sales.Report',
+          findings: ['raw finding'],
+          evidence: [{ filePath: '/tmp/evidence.json' }],
+        },
+      };
+    });
+
+    await bridge.initialize(client as never);
+    await bridge.executeRequest('model/pbir/scoreReport', {
+      reportPath: '/tmp/Sales.Report',
+      findings: ['raw finding'],
+      evidence: [{ filePath: '/tmp/evidence.json' }],
+      reportContent: '{"secret":true}',
+    });
+
+    const outputChannel = (vscode.window.createOutputChannel as jest.Mock).mock.results[0].value;
+    const lines = (outputChannel.appendLine as jest.Mock).mock.calls.map(([line]) => String(line));
+    const joined = lines.join('\n');
+
+    expect(joined).toContain('Params:');
+    expect(joined).toContain('Response:');
+    expect(joined).toContain('[REDACTED: path]');
+    expect(joined).toContain('[REDACTED: findings]');
+    expect(joined).toContain('[REDACTED: evidence]');
+    expect(joined).toContain('[REDACTED: reportContent]');
+    expect(joined).not.toContain('/tmp/Sales.Report');
+    expect(joined).not.toContain('raw finding');
+    expect(joined).not.toContain('/tmp/evidence.json');
   });
 });
