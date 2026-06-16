@@ -70,7 +70,7 @@ function buildBrief(
     kind: 'designBrief',
     version: (existing?.version ?? 0) + 1,
     lifecycleState: 'draft',
-    approvalState: 'pendingApproval',
+    approvalState: 'notSubmitted',
     approvalKind: 'designApproval',
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
@@ -161,6 +161,10 @@ export async function approveDesignBrief(
     throw new Error(`No Design Brief exists for thread ${threadId}.`);
   }
 
+  if (persisted.current.approvalState !== 'pendingApproval') {
+    throw new Error('Design Brief must be submitted for approval before approval can be recorded.');
+  }
+
   const candidate = {
     ...persisted.current,
     version: persisted.current.version + 1,
@@ -172,6 +176,53 @@ export async function approveDesignBrief(
   const validation = validateDesignBrief(candidate);
   if (!validation.isValid) {
     throw new Error('Design Brief must be valid before approval.');
+  }
+
+  const updated: PersistedDesignBriefState = {
+    threadId,
+    current: candidate,
+    history: [
+      ...persisted.history,
+      {
+        version: candidate.version,
+        savedAt: candidate.updatedAt,
+        brief: candidate,
+      },
+    ],
+  };
+
+  writePersistedState(filePath, updated);
+  return {
+    ...updated,
+    validation,
+  };
+}
+
+export async function submitDesignBriefForApproval(
+  context: vscode.ExtensionContext,
+  threadId: string,
+): Promise<DesignBriefState> {
+  const filePath = manifestPath(context, threadId);
+  const persisted = readPersistedState(filePath);
+  if (!persisted) {
+    throw new Error(`No Design Brief exists for thread ${threadId}.`);
+  }
+
+  if (persisted.current.approvalState === 'approved') {
+    throw new Error('Approved Design Briefs cannot be resubmitted without creating a new draft revision.');
+  }
+
+  const candidate = {
+    ...persisted.current,
+    version: persisted.current.version + 1,
+    lifecycleState: 'draft' as const,
+    approvalState: 'pendingApproval' as const,
+    approvalKind: 'designApproval' as const,
+    updatedAt: new Date().toISOString(),
+  };
+  const validation = validateDesignBrief(candidate);
+  if (!validation.isValid) {
+    throw new Error('Design Brief must be valid before submission for approval.');
   }
 
   const updated: PersistedDesignBriefState = {

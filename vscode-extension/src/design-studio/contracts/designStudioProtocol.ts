@@ -48,6 +48,8 @@ export const DESIGN_STUDIO_WEBVIEW_MESSAGE_TYPES = [
   'saveArtifact',
   'proposeArtifact',
   'approveArtifact',
+  'generateConcepts',
+  'selectConceptBaseline',
   'requestMaterialization',
   'compareIterations',
   'openAnalyzerHandoff',
@@ -664,6 +666,8 @@ export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'saveArtifact'; artifactKind: DesignStudioArtifactKind; artifact: unknown })
   | (DesignStudioEnvelope & { type: 'proposeArtifact'; artifactKind: DesignStudioArtifactKind; artifactId: string })
   | (DesignStudioEnvelope & { type: 'approveArtifact'; artifactKind: DesignStudioArtifactKind; artifactId: string })
+  | (DesignStudioEnvelope & { type: 'generateConcepts' })
+  | (DesignStudioEnvelope & { type: 'selectConceptBaseline'; conceptId: string })
   | (DesignStudioEnvelope & { type: 'requestMaterialization'; request: MaterializationRequest })
   | (DesignStudioEnvelope & { type: 'compareIterations'; baseIterationId: string; candidateIterationId: string })
   | (DesignStudioEnvelope & { type: 'openAnalyzerHandoff'; requestId: string })
@@ -781,6 +785,14 @@ export function parseDesignStudioWebviewMessage(value: unknown):
       return artifactKind && isArtifactKind(artifactKind) && artifactId
         ? { ok: true, message: withDesignStudioEnvelope({ type, artifactKind, artifactId }) }
         : { ok: false, error: `Design Studio ${type} webview message is missing required fields.` };
+    }
+    case 'generateConcepts':
+      return { ok: true, message: withDesignStudioEnvelope({ type }) };
+    case 'selectConceptBaseline': {
+      const conceptId = readString(value, 'conceptId');
+      return conceptId
+        ? { ok: true, message: withDesignStudioEnvelope({ type, conceptId }) }
+        : { ok: false, error: 'Design Studio selectConceptBaseline webview message is missing conceptId.' };
     }
     case 'requestMaterialization':
       return isMaterializationRequestPayload(value.request)

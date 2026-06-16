@@ -9,8 +9,6 @@ public sealed class DesignStudioTrustBoundaryTests
     private static readonly Assembly CoreAssembly = typeof(ScoreResult).Assembly;
     private const string DesignStudioRootNamespace = "PowerBIModelingService.Services.DesignStudio";
     private const string ModelsNamespace = "PowerBIModelingService.Services.DesignStudio.Models";
-    private const string ProvidersNamespace = "PowerBIModelingService.Services.DesignStudio.Providers";
-    private const string MaterializationNamespace = "PowerBIModelingService.Services.DesignStudio.Materialization";
 
     [Fact(DisplayName = "Design Studio workflow models preserve analyzer-owned validation and explicit approval separation")]
     public void DesignStudio_WorkflowModels_PreserveOwnershipBoundaries()
@@ -84,35 +82,44 @@ public sealed class DesignStudioTrustBoundaryTests
         }
     }
 
-    [Fact(DisplayName = "Provider and materialization models remain advisory-only and non-production")]
+    [Fact(DisplayName = "Provider provenance and materialization models remain advisory-only and non-production")]
     public void DesignStudio_ProviderAndMaterializationModels_RemainRestricted()
     {
-        var workflowConstraintsType = RequireType(ProvidersNamespace, "DesignProviderWorkflowConstraints");
-        var sideEffectsType = RequireType(MaterializationNamespace, "MaterializationSideEffectState");
+        var provenanceType = RequireType(ModelsNamespace, "DesignArtifactProvenance");
+        var noMutationGuaranteeType = RequireType(ModelsNamespace, "RefinementNoMutationGuarantee");
+        var guardrailsType = RequireType(ModelsNamespace, "IterationGuardrails");
 
-        var workflowConstraintProperties = workflowConstraintsType
+        var provenanceProperties = provenanceType
             .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Select(property => property.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        Assert.Contains("RequiresApproval", workflowConstraintProperties);
-        Assert.Contains("RequiresValidation", workflowConstraintProperties);
-        Assert.Contains("AllowsMaterialization", workflowConstraintProperties);
-        Assert.Contains("AllowsReportMutation", workflowConstraintProperties);
-        Assert.Contains("AllowsPbirAssetGeneration", workflowConstraintProperties);
-        Assert.Contains("AllowsAnalyzableSurfaceCreation", workflowConstraintProperties);
+        Assert.Contains("ProviderId", provenanceProperties);
+        Assert.Contains("ProviderDisplayName", provenanceProperties);
+        Assert.Contains("ProviderCapabilityKind", provenanceProperties);
+        Assert.Contains("ProviderCapabilityId", provenanceProperties);
 
-        var sideEffectProperties = sideEffectsType
+        var noMutationGuaranteeProperties = noMutationGuaranteeType
             .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Select(property => property.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        Assert.Contains("AnalyzerHandoffExecuted", sideEffectProperties);
-        Assert.Contains("AnalyzerWorkspaceOpened", sideEffectProperties);
-        Assert.Contains("PbirFilesCreated", sideEffectProperties);
-        Assert.Contains("ReportMutationOccurred", sideEffectProperties);
-        Assert.Contains("DeliveryTriggered", sideEffectProperties);
-        Assert.Contains("ProviderExecutionTriggered", sideEffectProperties);
+        Assert.Contains("DirectReportMutation", noMutationGuaranteeProperties);
+        Assert.Contains("MaterializationTriggered", noMutationGuaranteeProperties);
+        Assert.Contains("AnalyzerHandoffTriggered", noMutationGuaranteeProperties);
+        Assert.Contains("PbirAssetGenerationTriggered", noMutationGuaranteeProperties);
+        Assert.Contains("AnalyzableSurfaceCreated", noMutationGuaranteeProperties);
+        Assert.Contains("AutoApplied", noMutationGuaranteeProperties);
+
+        var guardrailProperties = guardrailsType
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Contains("AutoOptimizationTriggered", guardrailProperties);
+        Assert.Contains("AnalyzerExecutionTriggered", guardrailProperties);
+        Assert.Contains("ReportMutationTriggered", guardrailProperties);
+        Assert.Contains("PbirFilesGenerated", guardrailProperties);
     }
 
     private static Type RequireType(string @namespace, string typeName)

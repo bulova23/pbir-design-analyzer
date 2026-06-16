@@ -10,6 +10,15 @@ import type {
   DesignStudioWorkflowStageViewModel,
 } from '../../src/design-studio/contracts/designStudioShell';
 import { ClosedLoopView } from './views/ClosedLoopView';
+import { ConceptStudioView } from './views/ConceptStudioView';
+import { DesignBriefView } from './views/DesignBriefView';
+import {
+  createInitialDesignBriefState,
+  designBriefReducer,
+  toDesignBriefDraftInput,
+  type DesignBriefEditorAction,
+  type DesignBriefEditorState,
+} from './state/designBriefReducer';
 
 interface VsCodeApi {
   postMessage(message: unknown): void;
@@ -97,20 +106,6 @@ function ApprovalTeachingCard() {
   );
 }
 
-function buildInvestigationSupport(conceptReview: NonNullable<DesignStudioStudioState['workspace']>['conceptReview']) {
-  if (!conceptReview) {
-    return undefined;
-  }
-
-  return {
-    question: conceptReview.analyticalFlow[0]?.objective ?? conceptReview.summary,
-    investigation: conceptReview.analyticalFlow.map((step) => step.objective),
-    evidence: conceptReview.chapterStructure.map((chapter) => chapter.title),
-    conclusion: conceptReview.analyticalFlow.at(-1)?.objective ?? conceptReview.summary,
-    decision: conceptReview.selectedConceptLabel,
-  };
-}
-
 function approvalKindsForStage(stageId: DesignStudioWorkflowStageId): DesignStudioApprovalCardViewModel['kind'][] {
   switch (stageId) {
     case 'brief':
@@ -128,10 +123,34 @@ function approvalKindsForStage(stageId: DesignStudioWorkflowStageId): DesignStud
   }
 }
 
+function buildConceptStudioState(
+  workspace: NonNullable<DesignStudioStudioState['workspace']>,
+  currentBrief: DesignStudioStudioState['currentBrief'],
+) {
+  const conceptReview = workspace.conceptReview;
+  const briefApprovalState = currentBrief?.approvalState ?? 'notSubmitted';
+
+  return {
+    briefApprovalState,
+    canGenerateConcepts: briefApprovalState === 'approved',
+    conceptId: conceptReview?.conceptId,
+    approvalState: conceptReview?.approvalState ?? 'notSubmitted',
+    alternateConcepts: conceptReview?.alternateConcepts ?? [],
+    preferredBaselineConceptId: conceptReview?.preferredBaselineConceptId,
+    approvedBaselineConceptId: conceptReview?.approvedBaselineConceptId,
+    comparison: conceptReview?.comparison,
+  };
+}
+
 export function App() {
   const vscodeApiRef = useRef<VsCodeApi | undefined>(undefined);
   const [viewState, setViewState] = useState<ViewState>({ kind: 'loading' });
+  const [briefEditorState, setBriefEditorState] = useState<DesignBriefEditorState>(() => createInitialDesignBriefState());
   const threadId = defaultThreadId();
+
+  const dispatchBriefAction = (action: DesignBriefEditorAction) => {
+    setBriefEditorState((previous) => designBriefReducer(previous, action));
+  };
 
   useEffect(() => {
     vscodeApiRef.current = acquireVsCodeApi();
@@ -146,8 +165,16 @@ export function App() {
       }
 
       if (parsed.message.type === 'studioState') {
-        const selectedStage = parsed.message.state.workspace?.currentStage ?? 'brief';
-        setViewState({ kind: 'ready', state: parsed.message.state, selectedStage });
+        const studioState = parsed.message.state;
+        const fallbackSelectedStage = studioState.workspace?.currentStage ?? 'brief';
+        setViewState((previous) => {
+          const previousSelection = previous.kind === 'ready' ? previous.selectedStage : fallbackSelectedStage;
+          const nextSelection = studioState.workspace?.stages.some((stage) => stage.id === previousSelection)
+            ? previousSelection
+            : fallbackSelectedStage;
+
+          return { kind: 'ready', state: studioState, selectedStage: nextSelection };
+        });
       }
     };
 
@@ -157,10 +184,14 @@ export function App() {
 
   const workspace = viewState.kind === 'ready' ? viewState.state.workspace : undefined;
   const selectedStage = viewState.kind === 'ready' ? viewState.selectedStage : 'brief';
+  const currentBrief = viewState.kind === 'ready' ? viewState.state.currentBrief : undefined;
 
   const selectedStageModel = useMemo(() => (
     workspace?.stages.find((stage) => stage.id === selectedStage)
   ), [workspace, selectedStage]);
+  const conceptStudioState = useMemo(() => (
+    workspace ? buildConceptStudioState(workspace, currentBrief) : undefined
+  ), [workspace, currentBrief]);
   const visibleApprovalCards = useMemo(() => {
     if (!workspace) {
       return [];
@@ -169,6 +200,14 @@ export function App() {
     const allowedKinds = new Set(approvalKindsForStage(selectedStage));
     return workspace.approvalCards.filter((card) => allowedKinds.has(card.kind));
   }, [workspace, selectedStage]);
+
+  useEffect(() => {
+    if (viewState.kind !== 'ready') {
+      return;
+    }
+
+    setBriefEditorState(createInitialDesignBriefState(viewState.state.currentBrief));
+  }, [viewState.kind === 'ready' ? `${viewState.state.currentBrief?.id ?? 'none'}:${viewState.state.currentBrief?.version ?? 0}:${viewState.state.currentBrief?.updatedAt ?? 'none'}` : 'loading']);
 
   if (viewState.kind === 'loading') {
     return <main className='design-studio-shell'><p>Loading Report Design Studio…</p></main>;
@@ -192,7 +231,7 @@ export function App() {
         </div>
         <div className='stage-indicator'>
           <span>Current stage</span>
-          <strong>{workspace.currentStageSummary.title}</strong>
+          <strong>{selectedStageModel?.title ?? workspace.currentStageSummary.title}</strong>
         </div>
       </header>
 
@@ -203,7 +242,15 @@ export function App() {
               key={stage.id}
               type='button'
               className={stage.id === selectedStage ? 'workflow-stage is-active' : 'workflow-stage'}
-              onClick={() => setViewState({ kind: 'ready', state: viewState.state, selectedStage: stage.id })}
+              disabled={stage.status === 'blocked'}
+              aria-disabled={stage.status === 'blocked' ? 'true' : undefined}
+              onClick={() => {
+                if (stage.status === 'blocked') {
+                  return;
+                }
+
+                setViewState({ kind: 'ready', state: viewState.state, selectedStage: stage.id });
+              }}
             >
               <span className='workflow-stage-label'>{stage.label}</span>
               <StageBadge stage={stage} />
@@ -229,6 +276,34 @@ export function App() {
           ) : null}
 
           <ApprovalTeachingCard />
+
+          {selectedStage === 'brief' ? (
+            <DesignBriefView
+              state={briefEditorState}
+              dispatch={dispatchBriefAction}
+              onSave={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'saveArtifact',
+                  artifactKind: 'designBrief',
+                  artifact: toDesignBriefDraftInput(briefEditorState),
+                }));
+              }}
+              onSubmitForApproval={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'proposeArtifact',
+                  artifactKind: 'designBrief',
+                  artifactId: currentBrief?.id ?? `design-brief:${threadId}`,
+                }));
+              }}
+              onApprove={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'approveArtifact',
+                  artifactKind: 'designBrief',
+                  artifactId: currentBrief?.id ?? `design-brief:${threadId}`,
+                }));
+              }}
+            />
+          ) : null}
 
           {selectedStage === 'refinement' && workspace.refinementExperience ? (
             <section className='detail-card'>
@@ -315,167 +390,36 @@ export function App() {
             </section>
           ) : null}
 
-          {selectedStage === 'concept' && workspace.conceptReview ? (
-            (() => {
-              const conceptReview = workspace.conceptReview;
-
-              return (
-                <section className='detail-card'>
-                  <h3>{conceptReview.title}</h3>
-                  <p>{conceptReview.summary}</p>
-                  <p><strong>Selected baseline:</strong> {conceptReview.selectedConceptLabel}</p>
-
-                  <section className='detail-card'>
-                    <h4>Chapter Structure</h4>
-                    <ul>
-                      {conceptReview.chapterStructure.map((chapter) => (
-                        <li key={`${chapter.title}:${chapter.objective}`}>
-                          <strong>{chapter.title}</strong>
-                          <div>{chapter.objective}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-
-                  <section className='detail-card'>
-                    <h4>KPI Hierarchy</h4>
-                    <ul>
-                      {conceptReview.kpiHierarchy.map((node) => (
-                        <li key={`${node.label}:${node.depth}`}>
-                          {`${'  '.repeat(node.depth)}${node.label}`}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-
-                  <section className='detail-card'>
-                    <h4>Navigation Structure</h4>
-                    <ul>
-                      {conceptReview.navigationStructure.map((node) => (
-                        <li key={`${node.label}:${node.depth}`}>
-                          {`${'  '.repeat(node.depth)}${node.label}`}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-
-                  <section className='detail-card'>
-                    <h4>Analytical Flow</h4>
-                    <ul>
-                      {conceptReview.analyticalFlow.map((step) => (
-                        <li key={`${step.label}:${step.objective}`}>
-                          <strong>{step.label}</strong>
-                          <div>{step.objective}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-
-                  <section className='detail-card'>
-                    <h4>Analytical Investigation Support</h4>
-                    {(() => {
-                      const investigationSupport = buildInvestigationSupport(conceptReview);
-                      if (!investigationSupport) {
-                        return null;
-                      }
-
-                      return (
-                        <>
-                          <p><strong>Question</strong></p>
-                          <p>{investigationSupport.question}</p>
-                          <p><strong>Investigation</strong></p>
-                          <ul>
-                            {investigationSupport.investigation.map((item) => (
-                              <li key={`investigation:${item}`}>{item}</li>
-                            ))}
-                          </ul>
-                          <p><strong>Evidence</strong></p>
-                          <ul>
-                            {investigationSupport.evidence.map((item) => (
-                              <li key={`evidence:${item}`}>{item}</li>
-                            ))}
-                          </ul>
-                          <p><strong>Conclusion</strong></p>
-                          <p>{investigationSupport.conclusion}</p>
-                          <p><strong>Decision</strong></p>
-                          <p>{investigationSupport.decision}</p>
-                        </>
-                      );
-                    })()}
-                  </section>
-
-                  {conceptReview.comparisons?.map((comparison) => (
-                    <section key={comparison.comparisonConceptLabel} className='detail-card'>
-                      <h4>{`${conceptReview.selectedConceptLabel} vs ${comparison.comparisonConceptLabel}`}</h4>
-
-                      <section className='detail-card'>
-                        <h5>Chapter Structure Comparison</h5>
-                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.chapterStructure.baselineItems.map((item) => (
-                            <li key={`chapter:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.chapterStructure.comparisonItems.map((item) => (
-                            <li key={`chapter:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </section>
-
-                      <section className='detail-card'>
-                        <h5>KPI Hierarchy Comparison</h5>
-                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.kpiHierarchy.baselineItems.map((item) => (
-                            <li key={`kpi:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.kpiHierarchy.comparisonItems.map((item) => (
-                            <li key={`kpi:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </section>
-
-                      <section className='detail-card'>
-                        <h5>Navigation Structure Comparison</h5>
-                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.navigationStructure.baselineItems.map((item) => (
-                            <li key={`navigation:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.navigationStructure.comparisonItems.map((item) => (
-                            <li key={`navigation:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </section>
-
-                      <section className='detail-card'>
-                        <h5>Analytical Flow Comparison</h5>
-                        <p><strong>{conceptReview.selectedConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.analyticalFlow.baselineItems.map((item) => (
-                            <li key={`flow:baseline:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                        <p><strong>{comparison.comparisonConceptLabel}</strong></p>
-                        <ul>
-                          {comparison.analyticalFlow.comparisonItems.map((item) => (
-                            <li key={`flow:comparison:${comparison.comparisonConceptLabel}:${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </section>
-                    </section>
-                  ))}
-                </section>
-              );
-            })()
+          {selectedStage === 'concept' && conceptStudioState ? (
+            <ConceptStudioView
+              state={conceptStudioState}
+              dispatch={() => undefined}
+              onGenerateConcepts={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'generateConcepts',
+                }));
+              }}
+              onSelectBaseline={(conceptId) => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'selectConceptBaseline',
+                  conceptId,
+                }));
+              }}
+              onSubmitBaselineForApproval={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'proposeArtifact',
+                  artifactKind: 'reportConcept',
+                  artifactId: workspace.conceptReview?.conceptId ?? `report-concept:${threadId}`,
+                }));
+              }}
+              onApproveBaseline={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'approveArtifact',
+                  artifactKind: 'reportConcept',
+                  artifactId: workspace.conceptReview?.conceptId ?? `report-concept:${threadId}`,
+                }));
+              }}
+            />
           ) : null}
 
           {selectedStage === 'draft' && workspace.draftReview ? (

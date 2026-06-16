@@ -9,6 +9,39 @@ For `0.5.0`, Marketplace publication is manual. Do not run an automated publish 
 
 The repo stays source-only. Built `.vsix` files remain ignored in git and are distributed through release assets instead.
 
+## Backend Artifact Ownership
+
+Workstream 4B defines the backend packaging boundary as follows.
+
+Source-owned:
+
+- backend source under `service-dotnet/`
+- packaging and rebuild scripts under `vscode-extension/scripts/`
+- release and packaging metadata under:
+  - `vscode-extension/package.json`
+  - `README.md`
+  - `docs/RELEASING.md`
+
+Generated but not source-authored:
+
+- `vscode-extension/backend/rpc/`
+  - current-machine local development build output
+  - rebuilt by `npm run build` or `npm run build:backend`
+  - ignored in git
+- `vscode-extension/backend/targets/<target>/rpc/`
+  - target-specific packaged backend staging output
+  - rebuilt by `npm run package:all` or targeted `build-backend.mjs` invocations
+  - intentionally checked in today as reproducible packaging artifacts
+
+Packaging-owned:
+
+- `pbir-design-analyzer-<version>-<target>.vsix`
+- the staged `backend/rpc/` payload copied into each VSIX
+
+Do not manually edit generated backend payloads under `backend/rpc/` or `backend/targets/`.
+
+If checked-in target cleanup happens later, ship that as a separate release-process change. Do not mix it into ordinary feature work.
+
 ## One-Time Setup
 
 ### 1. Create the VS Code Marketplace publisher
@@ -43,6 +76,7 @@ git push origin v0.1.10
    - verify the git tag matches the extension version
    - run backend tests
    - run extension and webview tests
+   - run backend target verification
    - package five platform-targeted VSIX files:
      - `pbir-design-analyzer-<version>-win32-x64.vsix`
      - `pbir-design-analyzer-<version>-win32-arm64.vsix`
@@ -86,6 +120,68 @@ The packaging scripts now build each target backend into its own target-specific
 - `package:all` is intentionally serial
 - a lock file prevents concurrent packaging invocations from reusing mutable staging
 - Windows arm64 self-contained backend files cannot contaminate the Windows x64, Linux x64, macOS x64, or macOS arm64 artifacts because each target uses isolated backend staging
+
+## Backend Target Rebuild And Cleanup
+
+Use these commands from `vscode-extension/`:
+
+```bash
+npm run build:backend
+npm run verify:backend:targets
+npm run clean:backend:targets
+npm run package:all
+```
+
+Command behavior:
+
+- `npm run build:backend`
+  - rebuilds `backend/rpc/` for the current host platform only
+- `npm run verify:backend:targets`
+  - verifies the five supported target directories under `backend/targets/`
+  - verifies the runtime-critical backend files for each target
+  - fails if a required target is missing or if an unexpected target directory appears
+- `npm run clean:backend:targets`
+  - removes only the known generated staging directories under `backend/targets/`
+  - does not touch backend source or repo-local `service-dotnet/` outputs
+- `npm run package:all`
+  - rebuilds each target into `backend/targets/<target>/rpc/`
+  - stages each target into an isolated temporary extension root
+  - emits the five target-specific VSIX files
+
+For a single target rebuild without full packaging:
+
+```bash
+cd vscode-extension
+node scripts/build-backend.mjs --target darwin-arm64 --output backend/targets/darwin-arm64/rpc
+```
+
+Supported targets are:
+
+- `win32-x64`
+- `win32-arm64`
+- `linux-x64`
+- `darwin-x64`
+- `darwin-arm64`
+
+## Packaged Runtime Validation
+
+Bucket A removed runtime fallback to repo-local `service-dotnet/RpcHost/bin/Debug/...` and `Release/...` outputs.
+
+That means release validation must assume:
+
+- repo-local Debug and Release leftovers are irrelevant to runtime selection
+- a packaged VSIX must work from its own staged `backend/rpc/` payload
+- packaged-runtime failures must be fixed in packaging or staged assets, not masked by local backend publishes
+
+Recommended validation sequence:
+
+1. Run backend tests.
+2. Run extension and webview tests.
+3. Run `cd vscode-extension && npm run verify:backend:targets`.
+4. Run `cd vscode-extension && npm run package:all`.
+5. Install the matching VSIX on the target machine.
+6. Open a real PBIR workspace and score a report.
+7. Confirm that backend startup succeeds without depending on repo-local `service-dotnet/RpcHost/bin` output.
 
 ## Cross-Platform Scoring Gate
 

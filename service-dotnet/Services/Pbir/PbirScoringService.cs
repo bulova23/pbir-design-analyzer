@@ -66,12 +66,56 @@ public sealed class PbirScoringService
 
     private readonly PbirProjectService _projectService;
     private readonly ILogger<PbirScoringService> _logger;
+    private readonly ReportDiscoveryService _reportDiscoveryService;
+    private readonly ReportModelLoader _reportModelLoader;
+    private readonly ThemeResolutionService _themeResolutionService;
+    private readonly StoryAssessmentOrchestrator _storyAssessmentOrchestrator;
+    private readonly CrossPageNarrativeOrchestrator _crossPageNarrativeOrchestrator;
+    private readonly RecommendationAssemblyService _recommendationAssemblyService;
+    private readonly ScoreCompatibilityAdapter _scoreCompatibilityAdapter;
+    private readonly ScoreResultAssemblyService _scoreResultAssemblyService;
+    private readonly ScoringConfigurationService _scoringConfigurationService;
 
     /// <summary>Initializes a new instance of <see cref="PbirScoringService"/>.</summary>
     public PbirScoringService(PbirProjectService projectService, ILogger<PbirScoringService> logger)
     {
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
-        _logger         = logger         ?? throw new ArgumentNullException(nameof(logger));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _reportDiscoveryService = new ReportDiscoveryService(_projectService, _logger);
+        _reportModelLoader = new ReportModelLoader(_logger);
+        _themeResolutionService = new ThemeResolutionService(_logger);
+        _storyAssessmentOrchestrator = new StoryAssessmentOrchestrator();
+        _crossPageNarrativeOrchestrator = new CrossPageNarrativeOrchestrator();
+        _recommendationAssemblyService = new RecommendationAssemblyService();
+        _scoreCompatibilityAdapter = new ScoreCompatibilityAdapter();
+        _scoreResultAssemblyService = new ScoreResultAssemblyService(_scoreCompatibilityAdapter);
+        _scoringConfigurationService = new ScoringConfigurationService(_logger);
+    }
+
+    internal PbirScoringService(
+        PbirProjectService projectService,
+        ILogger<PbirScoringService> logger,
+        ReportDiscoveryService reportDiscoveryService,
+        ReportModelLoader reportModelLoader,
+        ThemeResolutionService themeResolutionService,
+        StoryAssessmentOrchestrator storyAssessmentOrchestrator,
+        CrossPageNarrativeOrchestrator crossPageNarrativeOrchestrator,
+        RecommendationAssemblyService recommendationAssemblyService,
+        ScoreCompatibilityAdapter scoreCompatibilityAdapter,
+        ScoreResultAssemblyService scoreResultAssemblyService,
+        ScoringConfigurationService scoringConfigurationService)
+    {
+        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _reportDiscoveryService = reportDiscoveryService ?? throw new ArgumentNullException(nameof(reportDiscoveryService));
+        _reportModelLoader = reportModelLoader ?? throw new ArgumentNullException(nameof(reportModelLoader));
+        _themeResolutionService = themeResolutionService ?? throw new ArgumentNullException(nameof(themeResolutionService));
+        _storyAssessmentOrchestrator = storyAssessmentOrchestrator ?? throw new ArgumentNullException(nameof(storyAssessmentOrchestrator));
+        _crossPageNarrativeOrchestrator = crossPageNarrativeOrchestrator ?? throw new ArgumentNullException(nameof(crossPageNarrativeOrchestrator));
+        _recommendationAssemblyService = recommendationAssemblyService ?? throw new ArgumentNullException(nameof(recommendationAssemblyService));
+        _scoreCompatibilityAdapter = scoreCompatibilityAdapter ?? throw new ArgumentNullException(nameof(scoreCompatibilityAdapter));
+        _scoreResultAssemblyService = scoreResultAssemblyService ?? throw new ArgumentNullException(nameof(scoreResultAssemblyService));
+        _scoringConfigurationService = scoringConfigurationService ?? throw new ArgumentNullException(nameof(scoringConfigurationService));
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -137,17 +181,7 @@ public sealed class PbirScoringService
     /// </example>
     public Task<ScoreResult> ScoreAsync(string reportPath, JsonElement? config = null, string? pageName = null)
     {
-        if (string.IsNullOrWhiteSpace(reportPath))
-        {
-            throw new ArgumentException("Parameter 'reportPath' is required.", nameof(reportPath));
-        }
-
-        var location = _projectService.TryGetReportLocation(reportPath);
-        if (location is null)
-        {
-            throw new InvalidOperationException(
-                $"No PBIR report definition found at '{reportPath}'.");
-        }
+        var location = _reportDiscoveryService.ResolveRequiredReportLocation(reportPath);
 
         // Dispatch: single-page vs. full-report scoring
         if (!string.IsNullOrWhiteSpace(pageName))
@@ -189,13 +223,13 @@ public sealed class PbirScoringService
     {
         _logger.LogInformation("[Scoring] Scoring single page '{Page}' in report: {Name}", pageName, location.ReportName);
 
-        var recommendations = new List<string>();
-        var reportJson      = ReadJsonObject(location.ReportJsonPath);
-        var themeColors     = ResolveThemeColors(reportJson, location, recommendations);
-        var allPages        = LoadAllPages(location);
-        var reportFilters = ParseScopedFilterDefinitions(reportJson["reportFilters"], StoryFilterScope.Report, "report");
-        var frameworkWeights = this.ExtractFrameworkWeights(config);  // Extract framework weights from config
-        var navigationScoring = ExtractNavigationScoringSettings(config);
+        var recommendations = _recommendationAssemblyService.CreateBuffer();
+        var reportModel = _reportModelLoader.LoadReportModel(location);
+        var themeColors = _themeResolutionService.ResolveThemeColors(reportModel.ReportJson, location);
+        var allPages = reportModel.Pages;
+        var reportFilters = reportModel.ReportFilters;
+        var frameworkWeights = _scoringConfigurationService.ExtractFrameworkWeights(config);
+        var navigationScoring = _scoringConfigurationService.ExtractNavigationScoringSettings(config);
 
         // Find the requested page
         var page = allPages.FirstOrDefault(p => p.Name == pageName);
@@ -213,85 +247,34 @@ public sealed class PbirScoringService
         var pageVisuals = page.Visuals;
         var pageComposition = BuildVisualComposition(pageVisuals, navigationScoring);
         bool hasDataVisuals = pageComposition.DataVisualCount > 0;
-        var storySignalRegistry = BuildStorySignalRegistry(page);
-        var storyFilterTopologyAssessment = BuildStoryFilterTopologyAssessment(page, reportFilters);
-        var storySpecialPageAssessment = BuildStorySpecialPageAssessment(page);
-        var storyAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(
-            storySignalRegistry,
-            storyFilterTopologyAssessment,
-            storySpecialPageAssessment);
-        var storySemanticCoherenceAssessment = BuildStorySemanticCoherenceAssessment(page, storySpecialPageAssessment);
-        var storyGapAssessment = BuildStoryGapAssessment(
-            storySignalRegistry,
-            storyAssessmentArchetypeClassification,
-            storySemanticCoherenceAssessment,
-            storyFilterTopologyAssessment,
-            storySpecialPageAssessment);
-        var storyConfidenceBreakdownAssessment = BuildStoryConfidenceBreakdownAssessment(
-            storySignalRegistry,
-            storyAssessmentArchetypeClassification,
-            storySemanticCoherenceAssessment,
-            storyFilterTopologyAssessment,
-            storyGapAssessment);
-        var guidedStoryImprovements = BuildGuidedStoryImprovements(
-            storyGapAssessment,
-            storySpecialPageAssessment);
-        var pageStorySummary = InferPageStorySummary(page);
-        var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
-        var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
-            ? null
-            : BuildActionabilityBreakdown(page, pageStorySummary, pageIntentProfile);
-        var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
-            ? null
-            : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
+        var storyAssessment = _storyAssessmentOrchestrator.Assess(page, reportFilters);
+        var pageSummaryArtifacts = BuildPageSummaryArtifacts(page);
 
         // Zero-visual guard
         if (!hasDataVisuals)
         {
             const string noVisualsMsg =
                 "No data visuals found on this page — add charts, tables, or KPI cards to score this page.";
-            var noVizFeedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
-            foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
+            return _scoreResultAssemblyService.CreateSinglePageResult(new ScoreResultAssemblyInput
             {
-                noVizFeedback[key] = [FeedbackItem(false, noVisualsMsg, FindingTypes.Objective)];
-            }
-
-#pragma warning disable CS0618
-            return new ScoreResult
-            {
-                GestaltScore             = 0, CognitiveLoadScore       = 0,
-                DataInkScore             = 0, AccessibilityScore       = 0,
-                VisualBestPracticesScore = 0, StephenFewScore          = 0,
-                EnterpriseGovernanceScore = 0,
-                TufteScore               = 0,
-                GraphicalPerceptionScore = 0, DensityScore             = 0, NarrativeScore = 0,
-                LayoutScore = 0, ThemeScore = 0, GovernanceScore = 0,
-                Feedback        = noVizFeedback,
-                PageCount       = 1,
+                Frameworks = CreateZeroScoreFrameworkSet(noVisualsMsg),
                 Recommendations = recommendations,
-                ReportPath      = location.ReportRootPath,
-                ScoredPageId    = page.Name,
-                ScoredPageName  = pageName,
-                ScoredAt        = DateTimeOffset.UtcNow,
+                ReportPath = location.ReportRootPath,
+                PageCount = 1,
+                ScoredPageId = page.Name,
+                ScoredPageName = pageName,
+                ScoredAt = DateTimeOffset.UtcNow,
                 FrameworkWeights = frameworkWeights,
                 DataVisualCount = pageComposition.DataVisualCount,
                 NavigationVisualCount = pageComposition.NavigationVisualCount,
                 HiddenVisualCount = pageComposition.HiddenVisualCount,
-                VisualMetadata = BuildPageVisualMetadataSummary(page),
-                InferredStorySummary = pageStorySummary,
-                PageIntentProfile = pageIntentProfile,
-                ActionabilityBreakdown = actionabilityBreakdown,
-                BenchmarkComparison = benchmarkComparison,
-                GuidedStoryImprovements = guidedStoryImprovements,
-                InternalStorySignalRegistry = storySignalRegistry,
-                InternalStoryAssessmentArchetypeClassification = storyAssessmentArchetypeClassification,
-                InternalStorySpecialPageAssessment = storySpecialPageAssessment,
-                InternalStorySemanticCoherenceAssessment = storySemanticCoherenceAssessment,
-                InternalStoryFilterTopologyAssessment = storyFilterTopologyAssessment,
-                InternalStoryGapAssessment = storyGapAssessment,
-                InternalStoryConfidenceBreakdownAssessment = storyConfidenceBreakdownAssessment,
-            };
-#pragma warning restore CS0618
+                VisualMetadata = pageSummaryArtifacts.VisualMetadata,
+                InferredStorySummary = pageSummaryArtifacts.StorySummary,
+                PageIntentProfile = pageSummaryArtifacts.IntentProfile,
+                ActionabilityBreakdown = pageSummaryArtifacts.ActionabilityBreakdown,
+                BenchmarkComparison = pageSummaryArtifacts.BenchmarkComparison,
+                StoryAssessment = storyAssessment,
+            });
         }
 
         // ── Compute all six frameworks for this page ────────────────────────
@@ -311,63 +294,53 @@ public sealed class PbirScoringService
             "[Scoring] Page '{Page}' sub-scores — Gestalt={G:F1} CogLoad={C:F1} DataInk={D:F1} A11y={A:F1} VBP={V:F1} Few={F:F1} Tufte={T:F1}",
             pageName, gestaltScore, cogLoadScore, dataInkScore, accessibilityScore, vbpScore, fewScore, tufteScore);
 
-#pragma warning disable CS0618
-        var result = new ScoreResult
+        var result = _scoreResultAssemblyService.CreateSinglePageResult(new ScoreResultAssemblyInput
         {
-            GestaltScore             = Clamp(gestaltScore),
-            CognitiveLoadScore       = Clamp(cogLoadScore),
-            DataInkScore             = Clamp(dataInkScore),
-            AccessibilityScore       = Clamp(accessibilityScore),
-            VisualBestPracticesScore = Clamp(vbpScore),
-            EnterpriseGovernanceScore = Clamp(governanceScore),
-            StephenFewScore          = Clamp(fewScore),
-            TufteScore               = Clamp(tufteScore),
-            GraphicalPerceptionScore = Clamp(graphicalScore),
-            DensityScore             = Clamp(densityScore),
-            NarrativeScore           = Clamp(narrativeScore),
-            // Keep legacy fields in sync
-            LayoutScore    = Clamp(gestaltScore),
-            ThemeScore     = Clamp(vbpScore),
-            GovernanceScore = Clamp(governanceScore),
-            Feedback = new()
+            Frameworks = new ScoreFrameworkSet
             {
-                ["gestalt"]             = gestaltFeedback,
-                ["cognitiveLoad"]       = cogLoadFeedback,
-                ["dataInk"]             = dataInkFeedback,
-                ["accessibility"]       = a11yFeedback,
-                ["visualBestPractices"] = vbpFeedback,
-                ["governance"]          = governanceFeedback,
-                ["stephenFew"]          = fewFeedback,
-                ["tufte"]               = tufteFeedback,
-                ["graphicalPerception"] = graphicalFeedback,
-                ["density"]             = densityFeedback,
-                ["narrative"]           = narrativeFeedback,
+                GestaltScore = Clamp(gestaltScore),
+                CognitiveLoadScore = Clamp(cogLoadScore),
+                DataInkScore = Clamp(dataInkScore),
+                AccessibilityScore = Clamp(accessibilityScore),
+                VisualBestPracticesScore = Clamp(vbpScore),
+                StephenFewScore = Clamp(fewScore),
+                EnterpriseGovernanceScore = Clamp(governanceScore),
+                TufteScore = Clamp(tufteScore),
+                GraphicalPerceptionScore = Clamp(graphicalScore),
+                DensityScore = Clamp(densityScore),
+                NarrativeScore = Clamp(narrativeScore),
+                Feedback = new()
+                {
+                    ["gestalt"] = gestaltFeedback,
+                    ["cognitiveLoad"] = cogLoadFeedback,
+                    ["dataInk"] = dataInkFeedback,
+                    ["accessibility"] = a11yFeedback,
+                    ["visualBestPractices"] = vbpFeedback,
+                    ["governance"] = governanceFeedback,
+                    ["stephenFew"] = fewFeedback,
+                    ["tufte"] = tufteFeedback,
+                    ["graphicalPerception"] = graphicalFeedback,
+                    ["density"] = densityFeedback,
+                    ["narrative"] = narrativeFeedback,
+                },
             },
-            PageCount       = 1,
             Recommendations = recommendations,
-            ReportPath      = location.ReportRootPath,
-            ScoredPageId    = page.Name,
-            ScoredPageName  = pageName,
-            ScoredAt        = DateTimeOffset.UtcNow,
+            ReportPath = location.ReportRootPath,
+            PageCount = 1,
+            ScoredPageId = page.Name,
+            ScoredPageName = pageName,
+            ScoredAt = DateTimeOffset.UtcNow,
             FrameworkWeights = frameworkWeights,
             DataVisualCount = pageComposition.DataVisualCount,
             NavigationVisualCount = pageComposition.NavigationVisualCount,
             HiddenVisualCount = pageComposition.HiddenVisualCount,
-            VisualMetadata = BuildPageVisualMetadataSummary(page),
-            InferredStorySummary = pageStorySummary,
-            PageIntentProfile = pageIntentProfile,
-            ActionabilityBreakdown = actionabilityBreakdown,
-            BenchmarkComparison = benchmarkComparison,
-            GuidedStoryImprovements = guidedStoryImprovements,
-            InternalStorySignalRegistry = storySignalRegistry,
-            InternalStoryAssessmentArchetypeClassification = storyAssessmentArchetypeClassification,
-            InternalStorySpecialPageAssessment = storySpecialPageAssessment,
-            InternalStorySemanticCoherenceAssessment = storySemanticCoherenceAssessment,
-            InternalStoryFilterTopologyAssessment = storyFilterTopologyAssessment,
-            InternalStoryGapAssessment = storyGapAssessment,
-            InternalStoryConfidenceBreakdownAssessment = storyConfidenceBreakdownAssessment,
-        };
-#pragma warning restore CS0618
+            VisualMetadata = pageSummaryArtifacts.VisualMetadata,
+            InferredStorySummary = pageSummaryArtifacts.StorySummary,
+            PageIntentProfile = pageSummaryArtifacts.IntentProfile,
+            ActionabilityBreakdown = pageSummaryArtifacts.ActionabilityBreakdown,
+            BenchmarkComparison = pageSummaryArtifacts.BenchmarkComparison,
+            StoryAssessment = storyAssessment,
+        });
 
         // ── Bookmark-aware (per-state) scoring ──────────────────────────────
         // When bookmarks affect this page, re-score the page once per layout state with the
@@ -375,10 +348,9 @@ public sealed class PbirScoringService
         // per-state averages. The per-state composites surface on result.PerStateScores so the
         // panel can break out individual state quality.
         var overlay = ComputeBookmarkAwareOverlay(
-            page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+            page, reportModel.ReportJson, themeColors, navigationScoring, config, frameworkWeights);
         if (overlay is not null)
         {
-#pragma warning disable CS0618
             result.GestaltScore              = overlay.AveragedFrameworks["gestalt"];
             result.CognitiveLoadScore        = overlay.AveragedFrameworks["cognitiveLoad"];
             result.DataInkScore              = overlay.AveragedFrameworks["dataInk"];
@@ -390,14 +362,10 @@ public sealed class PbirScoringService
             result.GraphicalPerceptionScore  = overlay.AveragedFrameworks["graphicalPerception"];
             result.DensityScore              = overlay.AveragedFrameworks["density"];
             result.NarrativeScore            = overlay.AveragedFrameworks["narrative"];
-            result.LayoutScore               = result.GestaltScore;
-            result.ThemeScore                = result.VisualBestPracticesScore;
-            result.GovernanceScore           = result.EnterpriseGovernanceScore;
-#pragma warning restore CS0618
+            _scoreCompatibilityAdapter.PopulateLegacyScores(result);
             result.PerStateScores = overlay.PerStateScores;
 
-            recommendations.Add(
-                $"[Info] Bookmark-aware scoring active: page scored across {overlay.PerStateScores.Count} layout states (Default + {overlay.PerStateScores.Count - 1} bookmark state{(overlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+            _recommendationAssemblyService.AddBookmarkAwareScoringRecommendation(recommendations, overlay.PerStateScores.Count);
 
             _logger.LogInformation(
                 "[Bookmark State] Page '{Page}' scored across {Count} states, composite={Score}",
@@ -449,118 +417,47 @@ public sealed class PbirScoringService
     /// The <c>ScoringErrors</c> dictionary will contain entries for any pages that failed to score.</returns>
     private ScoreResult ComputeReportScore(PbirReportLocation location, JsonElement? config = null)
     {
-        var recommendations = new List<string>();
-        var reportJson    = ReadJsonObject(location.ReportJsonPath);
-        var themeColors   = ResolveThemeColors(reportJson, location, recommendations);
-        var pages         = LoadAllPages(location);
-        var reportFilters = ParseScopedFilterDefinitions(reportJson["reportFilters"], StoryFilterScope.Report, "report");
+        var recommendations = _recommendationAssemblyService.CreateBuffer();
+        var reportModel = _reportModelLoader.LoadReportModel(location);
+        var themeColors = _themeResolutionService.ResolveThemeColors(reportModel.ReportJson, location);
+        var pages = reportModel.Pages;
+        var reportFilters = reportModel.ReportFilters;
         var reportConsistencyContext = BuildReportConsistencyContext(pages);
-        var frameworkWeights = this.ExtractFrameworkWeights(config);  // Extract framework weights from config
-        var navigationScoring = ExtractNavigationScoringSettings(config);
+        var frameworkWeights = _scoringConfigurationService.ExtractFrameworkWeights(config);
+        var navigationScoring = _scoringConfigurationService.ExtractNavigationScoringSettings(config);
         var reportComposition = BuildVisualComposition(pages.SelectMany(p => p.Visuals), navigationScoring);
         bool hasDataVisuals = reportComposition.DataVisualCount > 0;
-        var topLevelStorySignalRegistry = pages.Count == 1
-            ? BuildStorySignalRegistry(pages[0], reportConsistencyContext?.Summary.Findings)
+        var topLevelStoryAssessment = pages.Count == 1
+            ? _storyAssessmentOrchestrator.Assess(pages[0], reportFilters, reportConsistencyContext?.Summary.Findings)
             : null;
-        var topLevelStoryFilterTopologyAssessment = pages.Count == 1
-            ? BuildStoryFilterTopologyAssessment(pages[0], reportFilters)
-            : null;
-        var topLevelStorySpecialPageAssessment = pages.Count == 1
-            ? BuildStorySpecialPageAssessment(pages[0])
-            : null;
-        var topLevelStoryAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(
-            topLevelStorySignalRegistry,
-            topLevelStoryFilterTopologyAssessment,
-            topLevelStorySpecialPageAssessment);
-        var topLevelStorySemanticCoherenceAssessment = pages.Count == 1
-            ? BuildStorySemanticCoherenceAssessment(pages[0], topLevelStorySpecialPageAssessment)
-            : null;
-        var topLevelStoryGapAssessment = pages.Count == 1
-            ? BuildStoryGapAssessment(
-                topLevelStorySignalRegistry,
-                topLevelStoryAssessmentArchetypeClassification,
-                topLevelStorySemanticCoherenceAssessment,
-                topLevelStoryFilterTopologyAssessment,
-                topLevelStorySpecialPageAssessment)
-            : null;
-        var topLevelStoryConfidenceBreakdownAssessment = pages.Count == 1
-            ? BuildStoryConfidenceBreakdownAssessment(
-                topLevelStorySignalRegistry,
-                topLevelStoryAssessmentArchetypeClassification,
-                topLevelStorySemanticCoherenceAssessment,
-                topLevelStoryFilterTopologyAssessment,
-                topLevelStoryGapAssessment)
-            : null;
-        var topLevelGuidedStoryImprovements = pages.Count == 1
-            ? BuildGuidedStoryImprovements(
-                topLevelStoryGapAssessment,
-                topLevelStorySpecialPageAssessment)
-            : new GuidedStoryImprovements();
+        var singlePageSummaryArtifacts = BuildSinglePageReportSummaryArtifacts(pages);
 
         // Zero-visual guard — return 0 with explanation across all frameworks.
         if (!hasDataVisuals)
         {
             const string noVisualsMsg =
                 "No data visuals found on any page — add charts, tables, or KPI cards to score this report.";
-            var noVizFeedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
-            foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
+            return _scoreResultAssemblyService.CreateReportResult(new ScoreResultAssemblyInput
             {
-                noVizFeedback[key] = [FeedbackItem(false, noVisualsMsg, FindingTypes.Objective)];
-            }
-
-#pragma warning disable CS0618
-            return new ScoreResult
-            {
-                GestaltScore             = 0, CognitiveLoadScore       = 0,
-                DataInkScore             = 0, AccessibilityScore       = 0,
-                VisualBestPracticesScore = 0, StephenFewScore          = 0,
-                EnterpriseGovernanceScore = 0,
-                TufteScore               = 0,
-                GraphicalPerceptionScore = 0, DensityScore             = 0, NarrativeScore = 0,
-                LayoutScore = 0, ThemeScore = 0, GovernanceScore = 0,
-                Feedback        = noVizFeedback,
-                PageCount       = pages.Count,
+                Frameworks = CreateZeroScoreFrameworkSet(noVisualsMsg),
                 Recommendations = recommendations,
-                ReportPath      = location.ReportRootPath,
-                PageScores      = new(),
-                ScoringErrors   = new(),
-                ScoredAt        = DateTimeOffset.UtcNow,
+                ReportPath = location.ReportRootPath,
+                PageCount = pages.Count,
+                ScoredAt = DateTimeOffset.UtcNow,
                 FrameworkWeights = frameworkWeights,
                 DataVisualCount = reportComposition.DataVisualCount,
                 NavigationVisualCount = reportComposition.NavigationVisualCount,
                 HiddenVisualCount = reportComposition.HiddenVisualCount,
-                VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
-                InferredStorySummary = pages.Count == 1 ? InferPageStorySummary(pages[0]) : null,
-                PageIntentProfile = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroStorySummary
-                    ? BuildPageIntentProfileSummary(pages[0], zeroStorySummary)
-                    : null,
-                ActionabilityBreakdown = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroActionStory
-                    ? BuildActionabilityBreakdown(
-                        pages[0],
-                        zeroActionStory,
-                        BuildPageIntentProfileSummary(pages[0], zeroActionStory))
-                    : null,
-                BenchmarkComparison = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroBenchmarkStory
-                    ? BuildBenchmarkComparison(
-                        pages[0],
-                        zeroBenchmarkStory,
-                        BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory),
-                        BuildActionabilityBreakdown(
-                            pages[0],
-                            zeroBenchmarkStory,
-                            BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory)))
-                    : null,
-                GuidedStoryImprovements = topLevelGuidedStoryImprovements,
+                VisualMetadata = singlePageSummaryArtifacts?.VisualMetadata,
+                InferredStorySummary = singlePageSummaryArtifacts?.StorySummary,
+                PageIntentProfile = singlePageSummaryArtifacts?.IntentProfile,
+                ActionabilityBreakdown = singlePageSummaryArtifacts?.ActionabilityBreakdown,
+                BenchmarkComparison = singlePageSummaryArtifacts?.BenchmarkComparison,
+                StoryAssessment = topLevelStoryAssessment,
                 ReportConsistencySummary = reportConsistencyContext?.Summary,
-                InternalStorySignalRegistry = topLevelStorySignalRegistry,
-                InternalStoryAssessmentArchetypeClassification = topLevelStoryAssessmentArchetypeClassification,
-                InternalStorySpecialPageAssessment = topLevelStorySpecialPageAssessment,
-                InternalStorySemanticCoherenceAssessment = topLevelStorySemanticCoherenceAssessment,
-                InternalStoryFilterTopologyAssessment = topLevelStoryFilterTopologyAssessment,
-                InternalStoryGapAssessment = topLevelStoryGapAssessment,
-                InternalStoryConfidenceBreakdownAssessment = topLevelStoryConfidenceBreakdownAssessment,
-            };
-#pragma warning restore CS0618
+                PageScores = new(),
+                ScoringErrors = new(),
+            });
         }
 
         // ── Compute all six frameworks for the full report ────────────────────
@@ -580,80 +477,54 @@ public sealed class PbirScoringService
             "[Scoring] sub-scores — Gestalt={G:F1} CogLoad={C:F1} DataInk={D:F1} A11y={A:F1} VBP={V:F1} Few={F:F1} Tufte={T:F1}",
             gestaltScore, cogLoadScore, dataInkScore, accessibilityScore, vbpScore, fewScore, tufteScore);
 
-#pragma warning disable CS0618
-        var result = new ScoreResult
+        var result = _scoreResultAssemblyService.CreateReportResult(new ScoreResultAssemblyInput
         {
-            GestaltScore             = Clamp(gestaltScore),
-            CognitiveLoadScore       = Clamp(cogLoadScore),
-            DataInkScore             = Clamp(dataInkScore),
-            AccessibilityScore       = Clamp(accessibilityScore),
-            VisualBestPracticesScore = Clamp(vbpScore),
-            EnterpriseGovernanceScore = Clamp(governanceScore),
-            StephenFewScore          = Clamp(fewScore),
-            TufteScore               = Clamp(tufteScore),
-            GraphicalPerceptionScore = Clamp(graphicalScore),
-            DensityScore             = Clamp(densityScore),
-            NarrativeScore           = Clamp(narrativeScore),
-            // Keep legacy fields in sync so any existing integration still works.
-            LayoutScore    = Clamp(gestaltScore),
-            ThemeScore     = Clamp(vbpScore),
-            GovernanceScore = Clamp(governanceScore),
-            Feedback = new()
+            Frameworks = new ScoreFrameworkSet
             {
-                ["gestalt"]             = gestaltFeedback,
-                ["cognitiveLoad"]       = cogLoadFeedback,
-                ["dataInk"]             = dataInkFeedback,
-                ["accessibility"]       = a11yFeedback,
-                ["visualBestPractices"] = vbpFeedback,
-                ["governance"]          = governanceFeedback,
-                ["stephenFew"]          = fewFeedback,
-                ["tufte"]               = tufteFeedback,
-                ["graphicalPerception"] = graphicalFeedback,
-                ["density"]             = densityFeedback,
-                ["narrative"]           = narrativeFeedback,
+                GestaltScore = Clamp(gestaltScore),
+                CognitiveLoadScore = Clamp(cogLoadScore),
+                DataInkScore = Clamp(dataInkScore),
+                AccessibilityScore = Clamp(accessibilityScore),
+                VisualBestPracticesScore = Clamp(vbpScore),
+                StephenFewScore = Clamp(fewScore),
+                EnterpriseGovernanceScore = Clamp(governanceScore),
+                TufteScore = Clamp(tufteScore),
+                GraphicalPerceptionScore = Clamp(graphicalScore),
+                DensityScore = Clamp(densityScore),
+                NarrativeScore = Clamp(narrativeScore),
+                Feedback = new()
+                {
+                    ["gestalt"] = gestaltFeedback,
+                    ["cognitiveLoad"] = cogLoadFeedback,
+                    ["dataInk"] = dataInkFeedback,
+                    ["accessibility"] = a11yFeedback,
+                    ["visualBestPractices"] = vbpFeedback,
+                    ["governance"] = governanceFeedback,
+                    ["stephenFew"] = fewFeedback,
+                    ["tufte"] = tufteFeedback,
+                    ["graphicalPerception"] = graphicalFeedback,
+                    ["density"] = densityFeedback,
+                    ["narrative"] = narrativeFeedback,
+                },
             },
-            PageCount       = pages.Count,
             Recommendations = recommendations,
-            ReportPath      = location.ReportRootPath,
-            PageScores      = new(),
-            ScoringErrors   = new(),
-            ScoredAt        = DateTimeOffset.UtcNow,
-                FrameworkWeights = frameworkWeights,
-                DataVisualCount = reportComposition.DataVisualCount,
-                NavigationVisualCount = reportComposition.NavigationVisualCount,
-                HiddenVisualCount = reportComposition.HiddenVisualCount,
-                VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
-                InferredStorySummary = pages.Count == 1 ? InferPageStorySummary(pages[0]) : null,
-                PageIntentProfile = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleStorySummary
-                    ? BuildPageIntentProfileSummary(pages[0], singleStorySummary)
-                    : null,
-                ActionabilityBreakdown = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleActionStory
-                    ? BuildActionabilityBreakdown(
-                        pages[0],
-                        singleActionStory,
-                        BuildPageIntentProfileSummary(pages[0], singleActionStory))
-                    : null,
-                BenchmarkComparison = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleBenchmarkStory
-                    ? BuildBenchmarkComparison(
-                        pages[0],
-                        singleBenchmarkStory,
-                        BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory),
-                        BuildActionabilityBreakdown(
-                            pages[0],
-                            singleBenchmarkStory,
-                            BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory)))
-                    : null,
-                GuidedStoryImprovements = topLevelGuidedStoryImprovements,
-                ReportConsistencySummary = reportConsistencyContext?.Summary,
-                InternalStorySignalRegistry = topLevelStorySignalRegistry,
-                InternalStoryAssessmentArchetypeClassification = topLevelStoryAssessmentArchetypeClassification,
-                InternalStorySpecialPageAssessment = topLevelStorySpecialPageAssessment,
-                InternalStorySemanticCoherenceAssessment = topLevelStorySemanticCoherenceAssessment,
-                InternalStoryFilterTopologyAssessment = topLevelStoryFilterTopologyAssessment,
-                InternalStoryGapAssessment = topLevelStoryGapAssessment,
-                InternalStoryConfidenceBreakdownAssessment = topLevelStoryConfidenceBreakdownAssessment,
-        };
-#pragma warning restore CS0618
+            ReportPath = location.ReportRootPath,
+            PageCount = pages.Count,
+            ScoredAt = DateTimeOffset.UtcNow,
+            FrameworkWeights = frameworkWeights,
+            DataVisualCount = reportComposition.DataVisualCount,
+            NavigationVisualCount = reportComposition.NavigationVisualCount,
+            HiddenVisualCount = reportComposition.HiddenVisualCount,
+            VisualMetadata = singlePageSummaryArtifacts?.VisualMetadata,
+            InferredStorySummary = singlePageSummaryArtifacts?.StorySummary,
+            PageIntentProfile = singlePageSummaryArtifacts?.IntentProfile,
+            ActionabilityBreakdown = singlePageSummaryArtifacts?.ActionabilityBreakdown,
+            BenchmarkComparison = singlePageSummaryArtifacts?.BenchmarkComparison,
+            StoryAssessment = topLevelStoryAssessment,
+            ReportConsistencySummary = reportConsistencyContext?.Summary,
+            PageScores = new(),
+            ScoringErrors = new(),
+        });
 
         // ── Compute per-page breakdown (parallel) ─────────────────────────────
         // Each page is scored independently: framework methods are pure (the only mutation is to
@@ -679,91 +550,31 @@ public sealed class PbirScoringService
                     if (!pageHasDataVisuals)
                     {
                         var emptyPageConsistencyNotes = BuildReportConsistencyNotes(page.DisplayName, reportConsistencyContext);
-                        var emptyStorySummary = InferPageStorySummary(page, emptyPageConsistencyNotes);
-                        var emptyIntentProfile = emptyStorySummary is null ? null : BuildPageIntentProfileSummary(page, emptyStorySummary);
-                        var emptyActionability = emptyStorySummary is null || emptyIntentProfile is null
-                            ? null
-                            : BuildActionabilityBreakdown(page, emptyStorySummary, emptyIntentProfile);
-                        var emptyBenchmark = emptyStorySummary is null || emptyIntentProfile is null || emptyActionability is null
-                            ? null
-                            : BuildBenchmarkComparison(page, emptyStorySummary, emptyIntentProfile, emptyActionability);
-                        var emptyStorySignalRegistry = BuildStorySignalRegistry(page, emptyPageConsistencyNotes);
-                        var emptyStoryFilterTopologyAssessment = BuildStoryFilterTopologyAssessment(page, reportFilters);
-                        var emptyStorySpecialPageAssessment = BuildStorySpecialPageAssessment(page);
-                        var emptyStoryAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(
-                            emptyStorySignalRegistry,
-                            emptyStoryFilterTopologyAssessment,
-                            emptyStorySpecialPageAssessment);
-                        var emptyStorySemanticCoherenceAssessment = BuildStorySemanticCoherenceAssessment(page, emptyStorySpecialPageAssessment);
-                        var emptyStoryGapAssessment = BuildStoryGapAssessment(
-                            emptyStorySignalRegistry,
-                            emptyStoryAssessmentArchetypeClassification,
-                            emptyStorySemanticCoherenceAssessment,
-                            emptyStoryFilterTopologyAssessment,
-                            emptyStorySpecialPageAssessment);
-                        var emptyStoryConfidenceBreakdownAssessment = BuildStoryConfidenceBreakdownAssessment(
-                            emptyStorySignalRegistry,
-                            emptyStoryAssessmentArchetypeClassification,
-                            emptyStorySemanticCoherenceAssessment,
-                            emptyStoryFilterTopologyAssessment,
-                            emptyStoryGapAssessment);
-                        var emptyGuidedStoryImprovements = BuildGuidedStoryImprovements(
-                            emptyStoryGapAssessment,
-                            emptyStorySpecialPageAssessment);
-                        concurrentPageScores.Add((pageIndex, new PageScore
+                        var emptyPageSummaryArtifacts = BuildPageSummaryArtifacts(page, emptyPageConsistencyNotes);
+                        var emptyStoryAssessment = _storyAssessmentOrchestrator.Assess(page, reportFilters, emptyPageConsistencyNotes);
+                        concurrentPageScores.Add((pageIndex, _scoreResultAssemblyService.CreatePageScore(new PageScoreAssemblyInput
                         {
                             PageId = page.Name,
                             PageName = page.DisplayName,
-                            GestaltScore = 0,
-                            CognitiveLoadScore = 0,
-                            DataInkScore = 0,
-                            AccessibilityScore = 0,
-                            VisualBestPracticesScore = 0,
-                            StephenFewScore = 0,
-                            EnterpriseGovernanceScore = 0,
-                            TufteScore = 0,
-                            GraphicalPerceptionScore = 0,
-                            DensityScore = 0,
-                            NarrativeScore = 0,
-                            Feedback = new()
-                            {
-                                ["gestalt"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["cognitiveLoad"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["dataInk"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["accessibility"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["visualBestPractices"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["governance"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["stephenFew"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["tufte"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["graphicalPerception"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["density"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["narrative"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            },
+                            Frameworks = CreateZeroScoreFrameworkSet("No data visuals on this page."),
                             Recommendations = [],
                             FrameworkWeights = frameworkWeights,
                             DataVisualCount = pageComposition.DataVisualCount,
                             NavigationVisualCount = pageComposition.NavigationVisualCount,
                             HiddenVisualCount = pageComposition.HiddenVisualCount,
-                            VisualMetadata = BuildPageVisualMetadataSummary(page),
+                            VisualMetadata = emptyPageSummaryArtifacts.VisualMetadata,
                             ReportConsistencyNotes = emptyPageConsistencyNotes,
-                            InferredStorySummary = emptyStorySummary,
-                            PageIntentProfile = emptyIntentProfile,
-                            ActionabilityBreakdown = emptyActionability,
-                            BenchmarkComparison = emptyBenchmark,
-                            GuidedStoryImprovements = emptyGuidedStoryImprovements,
-                            InternalStorySignalRegistry = emptyStorySignalRegistry,
-                            InternalStoryAssessmentArchetypeClassification = emptyStoryAssessmentArchetypeClassification,
-                            InternalStorySpecialPageAssessment = emptyStorySpecialPageAssessment,
-                            InternalStorySemanticCoherenceAssessment = emptyStorySemanticCoherenceAssessment,
-                            InternalStoryFilterTopologyAssessment = emptyStoryFilterTopologyAssessment,
-                            InternalStoryGapAssessment = emptyStoryGapAssessment,
-                            InternalStoryConfidenceBreakdownAssessment = emptyStoryConfidenceBreakdownAssessment,
-                        }));
+                            InferredStorySummary = emptyPageSummaryArtifacts.StorySummary,
+                            PageIntentProfile = emptyPageSummaryArtifacts.IntentProfile,
+                            ActionabilityBreakdown = emptyPageSummaryArtifacts.ActionabilityBreakdown,
+                            BenchmarkComparison = emptyPageSummaryArtifacts.BenchmarkComparison,
+                            StoryAssessment = emptyStoryAssessment,
+                        })));
                         return;
                     }
 
                     // Score this page
-                    var pagePageRecommendations = new List<string>();
+                    var pagePageRecommendations = _recommendationAssemblyService.CreateBuffer();
                     var (pGestalt, pGestaltFeedback)          = ComputeGestaltScore(pageList);
                     var (pCogLoad, pCogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, new(), navigationScoring);
                     var (pDataInk, pDataInkFeedback)          = ComputeDataInkScore(pageList, new(), navigationScoring);
@@ -779,7 +590,7 @@ public sealed class PbirScoringService
                     // Bookmark-aware overlay: replace per-framework scores with state averages when
                     // bookmarks affect this page, and surface the per-state composite map.
                     var pageOverlay = ComputeBookmarkAwareOverlay(
-                        page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+                        page, reportModel.ReportJson, themeColors, navigationScoring, config, frameworkWeights);
 
                     var finalGestalt        = pageOverlay?.AveragedFrameworks["gestalt"]              ?? Clamp(pGestalt);
                     var finalCogLoad        = pageOverlay?.AveragedFrameworks["cognitiveLoad"]        ?? Clamp(pCogLoad);
@@ -795,8 +606,7 @@ public sealed class PbirScoringService
 
                     if (pageOverlay is not null)
                     {
-                        pagePageRecommendations.Add(
-                            $"[Info] Bookmark-aware scoring active: page scored across {pageOverlay.PerStateScores.Count} layout states (Default + {pageOverlay.PerStateScores.Count - 1} bookmark state{(pageOverlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+                        _recommendationAssemblyService.AddBookmarkAwareScoringRecommendation(pagePageRecommendations, pageOverlay.PerStateScores.Count);
 
                         _logger.LogInformation(
                             "[Bookmark State] Page '{Page}' scored across {Count} states",
@@ -804,87 +614,54 @@ public sealed class PbirScoringService
                     }
 
                     var reportConsistencyNotes = BuildReportConsistencyNotes(page.DisplayName, reportConsistencyContext);
-                    var pageStorySummary = InferPageStorySummary(page, reportConsistencyNotes);
-                    var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
-                    var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
-                        ? null
-                        : BuildActionabilityBreakdown(page, pageStorySummary, pageIntentProfile);
-                    var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
-                        ? null
-                        : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
-                    var storySignalRegistry = BuildStorySignalRegistry(page, reportConsistencyNotes);
-                    var storyFilterTopologyAssessment = BuildStoryFilterTopologyAssessment(page, reportFilters);
-                    var storySpecialPageAssessment = BuildStorySpecialPageAssessment(page);
-                    var storyAssessmentArchetypeClassification = BuildStoryAssessmentArchetypeClassification(
-                        storySignalRegistry,
-                        storyFilterTopologyAssessment,
-                        storySpecialPageAssessment);
-                    var storySemanticCoherenceAssessment = BuildStorySemanticCoherenceAssessment(page, storySpecialPageAssessment);
-                    var storyGapAssessment = BuildStoryGapAssessment(
-                        storySignalRegistry,
-                        storyAssessmentArchetypeClassification,
-                        storySemanticCoherenceAssessment,
-                        storyFilterTopologyAssessment,
-                        storySpecialPageAssessment);
-                    var storyConfidenceBreakdownAssessment = BuildStoryConfidenceBreakdownAssessment(
-                        storySignalRegistry,
-                        storyAssessmentArchetypeClassification,
-                        storySemanticCoherenceAssessment,
-                        storyFilterTopologyAssessment,
-                        storyGapAssessment);
-                    var guidedStoryImprovements = BuildGuidedStoryImprovements(
-                        storyGapAssessment,
-                        storySpecialPageAssessment);
-                    var pageScore = new PageScore
+                    var pageSummaryArtifacts = BuildPageSummaryArtifacts(page, reportConsistencyNotes);
+                    var storyAssessment = _storyAssessmentOrchestrator.Assess(page, reportFilters, reportConsistencyNotes);
+                    var pageScore = _scoreResultAssemblyService.CreatePageScore(new PageScoreAssemblyInput
                     {
                         PageId = page.Name,
                         PageName = page.DisplayName,
-                        GestaltScore = finalGestalt,
-                        CognitiveLoadScore = finalCogLoad,
-                        DataInkScore = finalDataInk,
-                        AccessibilityScore = finalAccessibility,
-                        VisualBestPracticesScore = finalVbp,
-                        EnterpriseGovernanceScore = finalGovernance,
-                        StephenFewScore = finalFew,
-                        TufteScore = finalTufte,
-                        GraphicalPerceptionScore = finalGraphical,
-                        DensityScore = finalDensity,
-                        NarrativeScore = finalNarrative,
-                        Feedback = new()
+                        Frameworks = new ScoreFrameworkSet
                         {
-                            ["gestalt"] = pGestaltFeedback,
-                            ["cognitiveLoad"] = pCogLoadFeedback,
-                            ["dataInk"] = pDataInkFeedback,
-                            ["accessibility"] = pA11yFeedback,
-                            ["visualBestPractices"] = pVbpFeedback,
-                            ["governance"] = pGovernanceFeedback,
-                            ["stephenFew"] = pFewFeedback,
-                            ["tufte"] = pTufteFeedback,
-                            ["graphicalPerception"] = pGraphicalFeedback,
-                            ["density"] = pDensityFeedback,
-                            ["narrative"] = pNarrativeFeedback,
+                            GestaltScore = finalGestalt,
+                            CognitiveLoadScore = finalCogLoad,
+                            DataInkScore = finalDataInk,
+                            AccessibilityScore = finalAccessibility,
+                            VisualBestPracticesScore = finalVbp,
+                            EnterpriseGovernanceScore = finalGovernance,
+                            StephenFewScore = finalFew,
+                            TufteScore = finalTufte,
+                            GraphicalPerceptionScore = finalGraphical,
+                            DensityScore = finalDensity,
+                            NarrativeScore = finalNarrative,
+                            Feedback = new()
+                            {
+                                ["gestalt"] = pGestaltFeedback,
+                                ["cognitiveLoad"] = pCogLoadFeedback,
+                                ["dataInk"] = pDataInkFeedback,
+                                ["accessibility"] = pA11yFeedback,
+                                ["visualBestPractices"] = pVbpFeedback,
+                                ["governance"] = pGovernanceFeedback,
+                                ["stephenFew"] = pFewFeedback,
+                                ["tufte"] = pTufteFeedback,
+                                ["graphicalPerception"] = pGraphicalFeedback,
+                                ["density"] = pDensityFeedback,
+                                ["narrative"] = pNarrativeFeedback,
+                            },
                         },
                         Recommendations = pagePageRecommendations,
                         FrameworkWeights = frameworkWeights,
                         DataVisualCount = pageComposition.DataVisualCount,
                         NavigationVisualCount = pageComposition.NavigationVisualCount,
                         HiddenVisualCount = pageComposition.HiddenVisualCount,
-                        VisualMetadata = BuildPageVisualMetadataSummary(page),
+                        VisualMetadata = pageSummaryArtifacts.VisualMetadata,
                         ReportConsistencyNotes = reportConsistencyNotes,
-                        InferredStorySummary = pageStorySummary,
-                        PageIntentProfile = pageIntentProfile,
-                        ActionabilityBreakdown = actionabilityBreakdown,
-                        BenchmarkComparison = benchmarkComparison,
-                        GuidedStoryImprovements = guidedStoryImprovements,
-                        InternalStorySignalRegistry = storySignalRegistry,
-                        InternalStoryAssessmentArchetypeClassification = storyAssessmentArchetypeClassification,
-                        InternalStorySpecialPageAssessment = storySpecialPageAssessment,
-                        InternalStorySemanticCoherenceAssessment = storySemanticCoherenceAssessment,
-                        InternalStoryFilterTopologyAssessment = storyFilterTopologyAssessment,
-                        InternalStoryGapAssessment = storyGapAssessment,
-                        InternalStoryConfidenceBreakdownAssessment = storyConfidenceBreakdownAssessment,
+                        InferredStorySummary = pageSummaryArtifacts.StorySummary,
+                        PageIntentProfile = pageSummaryArtifacts.IntentProfile,
+                        ActionabilityBreakdown = pageSummaryArtifacts.ActionabilityBreakdown,
+                        BenchmarkComparison = pageSummaryArtifacts.BenchmarkComparison,
+                        StoryAssessment = storyAssessment,
                         PerStateScores = pageOverlay?.PerStateScores,
-                    };
+                    });
                     concurrentPageScores.Add((pageIndex, pageScore));
 
                     _logger.LogDebug(
@@ -911,7 +688,7 @@ public sealed class PbirScoringService
             result.ScoringErrors[entry.Key] = entry.Value;
         }
 
-        result.InternalCrossPageNarrativeAssessment = CrossPageNarrativeAssessmentBuilder.Build(result.PageScores);
+        result.InternalCrossPageNarrativeAssessment = _crossPageNarrativeOrchestrator.Build(result.PageScores);
 
         _logger.LogInformation(
             "[Scoring] Composite: {Score} (Gestalt={G} Cog={C} DataInk={D} A11y={A} VBP={V} Few={F})",
@@ -2156,12 +1933,12 @@ public sealed class PbirScoringService
     /// Scores report compliance against the governance rules supplied in the Design Analyzer config.
     /// Current rules cover max visuals per page, pie chart policy, and page title requirement.
     /// </summary>
-    private static (double score, List<FrameworkFeedbackItem> feedback) ComputeGovernanceScore(
+    private (double score, List<FrameworkFeedbackItem> feedback) ComputeGovernanceScore(
         List<PageData> pages,
         JsonElement? config)
     {
         var feedback = new List<FrameworkFeedbackItem>();
-        var rules = ExtractGovernanceRules(config);
+        var rules = _scoringConfigurationService.ExtractGovernanceRules(config);
         var allVisuals = pages.SelectMany(p => p.Visuals).Where(v => !v.IsHidden).ToList();
 
         if (pages.Count == 0)
@@ -2886,539 +2663,7 @@ public sealed class PbirScoringService
         return (Clamp(sub1 + sub2 + sub3 + sub4 + sub5), feedback);
     }
 
-    // ── Data loaders ─────────────────────────────────────────────────────────
-
-    private List<PageData> LoadAllPages(PbirReportLocation location)
-    {
-        var pagesRoot = Path.Combine(location.DefinitionPath, "pages");
-        if (!Directory.Exists(pagesRoot)) return [];
-
-        var pages = new List<PageData>();
-        foreach (var pageId in GetOrderedPageIds(pagesRoot))
-        {
-            if (string.IsNullOrWhiteSpace(pageId))
-            {
-                continue;
-            }
-
-            var pageDir = Path.Combine(pagesRoot, pageId);
-            if (!Directory.Exists(pageDir))
-            {
-                _logger.LogDebug("[Scoring] Skipping page id without folder: {PageId}", pageId);
-                continue;
-            }
-
-            var pageJsonPath = Path.Combine(pageDir, "page.json");
-            if (!File.Exists(pageJsonPath)) continue;
-
-            try
-            {
-                var pageJson = ReadJsonObject(pageJsonPath);
-                var displayName = pageJson["displayName"]?.GetValue<string>()
-                    ?? Path.GetFileName(pageDir);
-                
-                // Try to parse visuals from page.json first (new format)
-                var visuals = ParseVisuals(pageJson);
-                
-                // If no visuals found in page.json, scan visuals/ subdirectory (Power BI Desktop format)
-                if (visuals.Count == 0)
-                {
-                    visuals = ParseVisualsFromDirectory(pageDir);
-                }
-                
-                pages.Add(new PageData
-                {
-                    Name = pageJson["name"]?.GetValue<string>() ?? Path.GetFileName(pageDir),
-                    DisplayName = displayName,
-                    Visuals = visuals,
-                    Canvas = ParseCanvasMetadata(pageJson),
-                    PageFilters = ParseScopedFilterDefinitions(
-                        pageJson["pageFilters"] ?? pageJson["filterConfig"]?["filters"],
-                        StoryFilterScope.Page,
-                        displayName),
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Scoring] Could not read page {Dir}", pageDir);
-            }
-        }
-
-        return pages;
-    }
-
-    private List<string> GetOrderedPageIds(string pagesRoot)
-    {
-        var pagesMetadataPath = Path.Combine(pagesRoot, "pages.json");
-        if (File.Exists(pagesMetadataPath))
-        {
-            try
-            {
-                var pagesMetadata = ReadJsonObject(pagesMetadataPath);
-                if (pagesMetadata["pageOrder"] is JsonArray pageOrder)
-                {
-                    var orderedPageIds = pageOrder
-                        .Select(node => node?.GetValue<string>())
-                        .Where(pageId => !string.IsNullOrWhiteSpace(pageId))
-                        .Select(pageId => pageId!)
-                        .ToList();
-
-                    if (orderedPageIds.Count > 0)
-                    {
-                        return orderedPageIds;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Scoring] Failed to parse page order metadata: {Path}", pagesMetadataPath);
-            }
-        }
-
-        return Directory.GetDirectories(pagesRoot)
-            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
-            .Select(Path.GetFileName)
-            .Where(pageId => !string.IsNullOrWhiteSpace(pageId))
-            .Select(pageId => pageId!)
-            .ToList();
-    }
-
-    private List<VisualData> ParseVisuals(JsonObject pageJson)
-    {
-        var visuals = new List<VisualData>();
-
-        if (pageJson["visuals"] is not JsonArray arr) return visuals;
-
-        foreach (var item in arr)
-        {
-            if (item is not JsonObject vo) continue;
-            var visualId = vo["id"]?.GetValue<string>() ?? string.Empty;
-            bool isHidden = ReadBooleanNode(vo["isHidden"]) ?? false;
-            visuals.Add(CreateVisualData(
-                visualJson: vo,
-                visualId: visualId,
-                visualType: vo["type"]?.GetValue<string>() ?? string.Empty,
-                x: TryDouble(vo, "x"),
-                y: TryDouble(vo, "y"),
-                w: TryDouble(vo, "width"),
-                h: TryDouble(vo, "height"),
-                isHidden: isHidden,
-                sourceContext: $"page visual '{visualId}'"));
-        }
-
-        return OrderVisualsDeterministically(visuals);
-    }
-    
-    /// <summary>
-    /// Parses visuals from the visuals/ subdirectory within a page folder.
-    /// This handles Power BI Desktop-authored reports where each visual is stored as visual.json.
-    /// </summary>
-    private List<VisualData> ParseVisualsFromDirectory(string pageDir)
-    {
-        var visuals = new List<VisualData>();
-        var visualsDir = Path.Combine(pageDir, "visuals");
-        
-        if (!Directory.Exists(visualsDir)) return visuals;
-        
-        foreach (var visualDir in Directory.GetDirectories(visualsDir)
-            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal))
-        {
-            var visualJsonPath = Path.Combine(visualDir, "visual.json");
-            if (!File.Exists(visualJsonPath)) continue;
-            
-            try
-            {
-                var visualJson = ReadJsonObject(visualJsonPath);
-                
-                // Extract visual name (folder name or from visual.json)
-                var visualName = visualJson["name"]?.GetValue<string>() 
-                    ?? Path.GetFileName(visualDir);
-                
-                // Extract position information
-                var position = visualJson["position"] as JsonObject;
-                double x = 0, y = 0, w = 0, h = 0;
-                
-                if (position is not null)
-                {
-                    x = position["x"]?.GetValue<double>() ?? 0;
-                    y = position["y"]?.GetValue<double>() ?? 0;
-                    w = position["width"]?.GetValue<double>() ?? 0;
-                    h = position["height"]?.GetValue<double>() ?? 0;
-                }
-                
-                // Extract visual type
-                var visual = visualJson["visual"] as JsonObject;
-                var visualType = visual?["visualType"]?.GetValue<string>() ?? "unknown";
-                
-                // Extract hidden state
-                bool isHidden = visualJson["isHidden"]?.GetValue<bool>() ?? false;
-                
-                visuals.Add(CreateVisualData(
-                    visualJson: visualJson,
-                    visualId: visualName,
-                    visualType: visualType,
-                    x: x,
-                    y: y,
-                    w: w,
-                    h: h,
-                    isHidden: isHidden,
-                    sourceContext: visualJsonPath));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Scoring] Could not parse visual definition at {Path}", visualJsonPath);
-            }
-        }
-        
-        return OrderVisualsDeterministically(visuals);
-    }
-
-    private static List<VisualData> OrderVisualsDeterministically(IEnumerable<VisualData> visuals)
-    {
-        return visuals
-            .OrderBy(visual => visual.Y)
-            .ThenBy(visual => visual.X)
-            .ThenBy(visual => visual.W)
-            .ThenBy(visual => visual.H)
-            .ThenBy(visual => visual.Id, StringComparer.Ordinal)
-            .ThenBy(visual => visual.Type, StringComparer.Ordinal)
-            .ToList();
-    }
-
-    private static CanvasMetadata? ParseCanvasMetadata(JsonObject pageJson)
-    {
-        var width = ReadDoubleNode(pageJson["width"])
-            ?? ReadNestedDouble(pageJson, "canvas", "width")
-            ?? ReadNestedDouble(pageJson, "pageSize", "width")
-            ?? ReadNestedDouble(pageJson, "size", "width");
-        var height = ReadDoubleNode(pageJson["height"])
-            ?? ReadNestedDouble(pageJson, "canvas", "height")
-            ?? ReadNestedDouble(pageJson, "pageSize", "height")
-            ?? ReadNestedDouble(pageJson, "size", "height");
-
-        if (width is > 0 && height is > 0)
-        {
-            return new CanvasMetadata(width.Value, height.Value);
-        }
-
-        return null;
-    }
-
-    private static List<FilterDefinitionData> ParseScopedFilterDefinitions(
-        JsonNode? filtersNode,
-        StoryFilterScope scope,
-        string sourcePrefix)
-    {
-        if (filtersNode is not JsonArray filtersArray)
-        {
-            return [];
-        }
-
-        var definitions = new List<FilterDefinitionData>();
-        for (int index = 0; index < filtersArray.Count; index++)
-        {
-            var filterNode = filtersArray[index];
-            if (filterNode is not JsonObject filterObject)
-            {
-                definitions.Add(new FilterDefinitionData(
-                    SourceId: $"{sourcePrefix}-{index + 1}",
-                    Scope: scope,
-                    DisplayLabel: $"{scope} filter {index + 1}",
-                    FieldHints: Array.Empty<string>(),
-                    HierarchyPattern: null,
-                    HierarchyDepth: 0,
-                    FilterType: null,
-                    PlacementZone: null,
-                    IsMalformed: true));
-                continue;
-            }
-
-            var fieldHints = ReadStringValues(filterObject["field"])
-                .Concat(ReadStringValues(filterObject["fields"]))
-                .Concat(ReadStringValues(filterObject["target"]))
-                .Concat(ReadStringValues(filterObject["column"]))
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var hierarchyLevels = FindValuesRecursive(filterObject, (IReadOnlyList<string>)["hierarchy"])
-                .SelectMany(ReadStringValues)
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var hierarchyPattern = hierarchyLevels.Count >= 2
-                ? string.Join(" > ", hierarchyLevels)
-                : null;
-            var displayLabel = FirstNonBlank(
-                ReadFirstString(filterObject, ["displayName", "label", "name", "title"]),
-                fieldHints.FirstOrDefault(),
-                $"{scope} filter {index + 1}")!;
-            var filterType = ReadFirstString(filterObject, ["filterType", "type", "mode"]);
-
-            definitions.Add(new FilterDefinitionData(
-                SourceId: $"{sourcePrefix}-{index + 1}",
-                Scope: scope,
-                DisplayLabel: displayLabel,
-                FieldHints: fieldHints,
-                HierarchyPattern: hierarchyPattern,
-                HierarchyDepth: hierarchyLevels.Count > 0 ? hierarchyLevels.Count : InferHierarchyDepth(fieldHints, hierarchyPattern),
-                FilterType: filterType,
-                PlacementZone: null,
-                IsMalformed: fieldHints.Count == 0 && string.IsNullOrWhiteSpace(filterType)));
-        }
-
-        return definitions;
-    }
-
-    private VisualData CreateVisualData(
-        JsonObject visualJson,
-        string visualId,
-        string visualType,
-        double x,
-        double y,
-        double w,
-        double h,
-        bool isHidden,
-        string sourceContext)
-    {
-        return new VisualData
-        {
-            Id = visualId,
-            Type = visualType,
-            X = x,
-            Y = y,
-            W = w,
-            H = h,
-            IsHidden = isHidden,
-            Text = ParseVisualTextMetadata(visualJson, visualId, visualType, sourceContext),
-            Labels = ParseVisualLabelMetadata(visualJson, visualId, sourceContext),
-            FieldRoles = ParseVisualFieldRoleMetadata(visualJson, visualId, sourceContext),
-            Formatting = ParseVisualFormattingMetadata(visualJson, visualId, sourceContext),
-            Filter = ParseVisualFilterTopologyMetadata(visualJson, visualId, sourceContext),
-        };
-    }
-
-    private VisualTextMetadata ParseVisualTextMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string visualType,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "text",
-            sourceContext,
-            () =>
-            {
-                var titleText = FirstNonBlank(
-                    ExtractVisibleObjectText(visualJson, ["title", "visualTitle", "header"]),
-                    ExtractVisibleScalarText(visualJson, ["titleText", "visualTitleText"]));
-                var subtitleText = FirstNonBlank(
-                    ExtractVisibleObjectText(visualJson, ["subtitle", "subTitle"]),
-                    ExtractVisibleScalarText(visualJson, ["subtitleText", "subTitleText"]));
-                string? textBoxText = null;
-                if (IsTextVisualType(visualType))
-                {
-                    textBoxText = FirstNonBlank(
-                        ExtractVisibleObjectText(visualJson, ["textbox", "textBox", "body"]),
-                        ExtractVisibleScalarText(visualJson, ["textBoxText", "bodyText", "text"]),
-                        ExtractTextRunContent(visualJson));
-                }
-
-                return new VisualTextMetadata(
-                    VisibleTitleText: titleText,
-                    VisibleSubtitleText: subtitleText,
-                    TextBoxText: textBoxText);
-            },
-            VisualTextMetadata.Empty);
-    }
-
-    private VisualLabelMetadata ParseVisualLabelMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "labels",
-            sourceContext,
-            () =>
-            {
-                var hasLegend = ExtractPresenceFlag(visualJson, ["legend"], ["hasLegend", "showLegend"]);
-                var hasAxisLabels = ExtractPresenceFlag(
-                    visualJson,
-                    ["axis", "xAxis", "yAxis", "categoryAxis", "valueAxis"],
-                    ["hasAxisLabels", "showAxisLabels"]);
-                var hasDataLabels = ExtractPresenceFlag(
-                    visualJson,
-                    ["dataLabels", "labels"],
-                    ["hasDataLabels", "showDataLabels"]);
-
-                return new VisualLabelMetadata(
-                    HasLegend: hasLegend,
-                    HasAxisLabels: hasAxisLabels,
-                    HasDataLabels: hasDataLabels);
-            },
-            VisualLabelMetadata.Empty);
-    }
-
-    private VisualFieldRoleMetadata ParseVisualFieldRoleMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "field roles",
-            sourceContext,
-            () =>
-            {
-                var categoryHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["category", "categories"]);
-                var valueHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["value", "values"]);
-                var seriesHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["series", "legend"]);
-                var measureHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["measure", "measures", "value", "values"]);
-
-                return new VisualFieldRoleMetadata(
-                    CategoryHints: categoryHints,
-                    ValueHints: valueHints,
-                    SeriesHints: seriesHints,
-                    MeasureHints: measureHints);
-            },
-            VisualFieldRoleMetadata.Empty);
-    }
-
-    private VisualFormattingMetadata ParseVisualFormattingMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "formatting",
-            sourceContext,
-            () =>
-            {
-                var backgroundFillColor = FirstNonBlank(
-                    ExtractColorFromObjects(visualJson, ["background", "backgroundFill"]),
-                    ExtractColorFromObjects(visualJson, ["fill"]));
-                var fontColor = FirstNonBlank(
-                    ExtractColorFromObjects(visualJson, ["font", "foreground", "fontColor"]),
-                    ExtractColorFromObjects(visualJson, ["labelColor", "textColor", "foregroundColor"]));
-                var hasBorder = ExtractPresenceFlag(visualJson, ["border", "outline"], ["showBorder", "hasBorder"]);
-                var cornerRadius = ExtractNumericSetting(visualJson, ["corners"], ["radius"])
-                    ?? ExtractScalarNumber(visualJson, ["cornerRadius"]);
-                var hasShadow = ExtractPresenceFlag(visualJson, ["shadow", "dropShadow", "elevation"], ["showShadow", "hasShadow"]);
-
-                return new VisualFormattingMetadata(
-                    BackgroundFillColor: backgroundFillColor,
-                    FontColor: fontColor,
-                    HasBorder: hasBorder,
-                    CornerRadius: cornerRadius,
-                    HasShadow: hasShadow);
-            },
-            VisualFormattingMetadata.Empty);
-    }
-
-    private FilterTopologyMetadata ParseVisualFilterTopologyMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "filter topology",
-            sourceContext,
-            () =>
-            {
-                var fieldHints = CollectRoleHints(
-                    visualJson,
-                    ["fieldRoles", "roles", "projections", "filter", "slicer", "field"],
-                    ["category", "categories", "field", "fields", "column", "columns"]);
-                var hierarchyLevels = FindValuesRecursive(visualJson, (IReadOnlyList<string>)["hierarchy"])
-                    .SelectMany(ReadStringValues)
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                var hierarchyPattern = hierarchyLevels.Count >= 2
-                    ? string.Join(" > ", hierarchyLevels)
-                    : fieldHints.FirstOrDefault(hint =>
-                        hint.Contains("hierarchy", StringComparison.OrdinalIgnoreCase) ||
-                        hint.Contains("year", StringComparison.OrdinalIgnoreCase) ||
-                        hint.Contains("quarter", StringComparison.OrdinalIgnoreCase) ||
-                        hint.Contains("month", StringComparison.OrdinalIgnoreCase));
-                var filterType = FirstNonBlank(
-                    ReadStringNode(visualJson["filterType"]),
-                    ReadFirstString(visualJson, ["mode", "selectionMode", "type"]));
-
-                return new FilterTopologyMetadata(
-                    FieldHints: fieldHints,
-                    HierarchyPattern: hierarchyPattern,
-                    HierarchyDepth: hierarchyLevels.Count > 0 ? hierarchyLevels.Count : InferHierarchyDepth(fieldHints, hierarchyPattern),
-                    FilterType: filterType);
-            },
-            FilterTopologyMetadata.Empty);
-    }
-
-    /// <summary>
-    /// Resolves the theme data colours array from <c>report.json</c>.
-    /// Handles both built-in themes (empty colour list) and local <c>href</c> theme files.
-    /// </summary>
-    private List<string> ResolveThemeColors(
-        JsonObject reportJson,
-        PbirReportLocation location,
-        List<string> recs)
-    {
-        var themeNode = reportJson["theme"];
-        if (themeNode is null) return [];
-
-        // Local theme file reference?
-        var href = themeNode["href"]?.GetValue<string>();
-        if (!string.IsNullOrWhiteSpace(href) && !href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-        {
-            var themeFilePath = Path.GetFullPath(
-                Path.Combine(location.WorkspaceRootPath, href.TrimStart('/', '\\')));
-
-            if (File.Exists(themeFilePath))
-            {
-                return ParseThemeFile(themeFilePath);
-            }
-        }
-
-        // Built-in theme — name only, no colour data available for scoring.
-        return [];
-    }
-
-    private List<string> ParseThemeFile(string filePath)
-    {
-        try
-        {
-            var json = ReadJsonObject(filePath);
-
-            // Power BI theme JSON: { "dataColors": ["#hex", …] }
-            if (json["dataColors"] is JsonArray arr)
-            {
-                return arr
-                    .Select(n => n?.GetValue<string>())
-                    .Where(s => !string.IsNullOrWhiteSpace(s) && s!.StartsWith('#'))
-                    .Select(s => s!)
-                    .ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[Scoring] Could not parse theme file: {Path}", filePath);
-        }
-
-        return [];
-    }
-
     // ── Utilities ─────────────────────────────────────────────────────────────
-
-    private static JsonObject ReadJsonObject(string filePath)
-    {
-        var text = File.ReadAllText(filePath);
-        return JsonNode.Parse(text) as JsonObject
-            ?? throw new InvalidOperationException($"File is not a JSON object: {filePath}");
-    }
 
     private static double TryDouble(JsonObject obj, string key)
     {
@@ -4089,6 +3334,57 @@ public sealed class PbirScoringService
         };
     }
 
+    private static PageSummaryArtifacts BuildPageSummaryArtifacts(
+        PageData page,
+        IReadOnlyList<string>? reportConsistencyNotes = null)
+    {
+        var storySummary = InferPageStorySummary(page, reportConsistencyNotes);
+        var intentProfile = storySummary is null ? null : BuildPageIntentProfileSummary(page, storySummary);
+        var actionabilityBreakdown = storySummary is null || intentProfile is null
+            ? null
+            : BuildActionabilityBreakdown(page, storySummary, intentProfile);
+        var benchmarkComparison = storySummary is null || intentProfile is null || actionabilityBreakdown is null
+            ? null
+            : BuildBenchmarkComparison(page, storySummary, intentProfile, actionabilityBreakdown);
+
+        return new PageSummaryArtifacts(
+            BuildPageVisualMetadataSummary(page),
+            storySummary,
+            intentProfile,
+            actionabilityBreakdown,
+            benchmarkComparison);
+    }
+
+    private static PageSummaryArtifacts? BuildSinglePageReportSummaryArtifacts(IReadOnlyList<PageData> pages) =>
+        pages.Count == 1
+            ? BuildPageSummaryArtifacts(pages[0])
+            : null;
+
+    private static ScoreFrameworkSet CreateZeroScoreFrameworkSet(string message)
+    {
+        var feedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
+        foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
+        {
+            feedback[key] = [FeedbackItem(false, message, FindingTypes.Objective)];
+        }
+
+        return new ScoreFrameworkSet
+        {
+            GestaltScore = 0,
+            CognitiveLoadScore = 0,
+            DataInkScore = 0,
+            AccessibilityScore = 0,
+            VisualBestPracticesScore = 0,
+            StephenFewScore = 0,
+            EnterpriseGovernanceScore = 0,
+            TufteScore = 0,
+            GraphicalPerceptionScore = 0,
+            DensityScore = 0,
+            NarrativeScore = 0,
+            Feedback = feedback,
+        };
+    }
+
     private static string InferPageIntentProfile(
         NarrativePageAnalysis analysis,
         string? dominantIntent)
@@ -4391,7 +3687,7 @@ public sealed class PbirScoringService
         return evidence;
     }
 
-    private static StorySignalRegistry BuildStorySignalRegistry(
+    internal static StorySignalRegistry BuildStorySignalRegistry(
         PageData page,
         IReadOnlyList<string>? reportConsistencyNotes = null)
     {
@@ -4578,7 +3874,7 @@ public sealed class PbirScoringService
         return new StorySignalRegistry { Entries = entries };
     }
 
-    private static StoryFilterTopologyAssessment BuildStoryFilterTopologyAssessment(
+    internal static StoryFilterTopologyAssessment BuildStoryFilterTopologyAssessment(
         PageData page,
         IReadOnlyList<FilterDefinitionData> reportFilters)
     {
@@ -4821,7 +4117,7 @@ public sealed class PbirScoringService
         };
     }
 
-    private static StorySpecialPageAssessment BuildStorySpecialPageAssessment(PageData page)
+    internal static StorySpecialPageAssessment BuildStorySpecialPageAssessment(PageData page)
     {
         var candidates = new List<StorySpecialPageAssessment>();
 
@@ -5269,7 +4565,7 @@ public sealed class PbirScoringService
         }
     }
 
-    private static StoryAssessmentArchetypeClassification? BuildStoryAssessmentArchetypeClassification(
+    internal static StoryAssessmentArchetypeClassification? BuildStoryAssessmentArchetypeClassification(
         StorySignalRegistry? registry,
         StoryFilterTopologyAssessment? topologyAssessment = null,
         StorySpecialPageAssessment? specialPageAssessment = null)
@@ -5347,7 +4643,7 @@ public sealed class PbirScoringService
         };
     }
 
-    private static StorySemanticCoherenceAssessment BuildStorySemanticCoherenceAssessment(
+    internal static StorySemanticCoherenceAssessment BuildStorySemanticCoherenceAssessment(
         PageData page,
         StorySpecialPageAssessment? specialPageAssessment = null)
     {
@@ -5500,7 +4796,7 @@ public sealed class PbirScoringService
         };
     }
 
-    private static StoryGapAssessment BuildStoryGapAssessment(
+    internal static StoryGapAssessment BuildStoryGapAssessment(
         StorySignalRegistry? registry,
         StoryAssessmentArchetypeClassification? archetypeClassification,
         StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
@@ -5639,7 +4935,7 @@ public sealed class PbirScoringService
         };
     }
 
-    private static StoryConfidenceBreakdownAssessment BuildStoryConfidenceBreakdownAssessment(
+    internal static StoryConfidenceBreakdownAssessment BuildStoryConfidenceBreakdownAssessment(
         StorySignalRegistry? registry,
         StoryAssessmentArchetypeClassification? archetypeClassification,
         StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
@@ -6792,7 +6088,7 @@ public sealed class PbirScoringService
             "gap.topology.scatteredFilters";
     }
 
-    private static GuidedStoryImprovements BuildGuidedStoryImprovements(
+    internal static GuidedStoryImprovements BuildGuidedStoryImprovements(
         StoryGapAssessment? storyGapAssessment,
         StorySpecialPageAssessment? specialPageAssessment)
     {
@@ -10517,296 +9813,15 @@ public sealed class PbirScoringService
             possiblePoints,
             findingType);
 
-    /// <summary>
-    /// Extracts framework weights from the configuration JsonElement passed from the frontend.
-    /// Returns a dictionary mapping framework names to their configured weights (0-100).
-    /// If config is null or doesn't contain a framework, returns 0 for that framework.
-    /// </summary>
-    /// <param name="config">The configuration JsonElement from the frontend (optional).</param>
-    /// <returns>A dictionary of framework weights. If config is null, returns an empty dictionary.</returns>
-    private Dictionary<string, double> ExtractFrameworkWeights(JsonElement? config)
-    {
-        var weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-
-        if (!config.HasValue || config.Value.ValueKind != JsonValueKind.Object)
-        {
-            _logger.LogWarning("[ExtractFrameworkWeights] Config is null or not an object, using default Design Analyzer configuration");
-            return GetDefaultFrameworkWeights();
-        }
-
-        // Try to extract from "frameworks" array (new format from Design Analyzer Config panel)
-        if (config.Value.TryGetProperty("frameworks", out var frameworksArray) &&
-            frameworksArray.ValueKind == JsonValueKind.Array)
-        {
-            _logger.LogInformation("[ExtractFrameworkWeights] Found {FrameworkCount} frameworks in config array", frameworksArray.GetArrayLength());
-            
-            foreach (var framework in frameworksArray.EnumerateArray())
-            {
-                if (framework.ValueKind != JsonValueKind.Object)
-                    continue;
-
-                // Get the framework ID
-                string? id = null;
-                if (framework.TryGetProperty("id", out var idProp))
-                {
-                    id = idProp.GetString();
-                }
-
-                if (string.IsNullOrEmpty(id))
-                    continue;
-
-                // Normalize ID to match internal framework names
-                var normalizedId = NormalizeFrameworkId(id);
-
-                // Check if framework is enabled
-                bool isEnabled = false;
-                if (framework.TryGetProperty("enabled", out var enabledProp))
-                {
-                    isEnabled = enabledProp.ValueKind == JsonValueKind.True;
-                }
-
-                // Extract weight
-                double weight = 0;
-                if (isEnabled && framework.TryGetProperty("weight", out var weightProp))
-                {
-                    try
-                    {
-                        weight = weightProp.GetDouble();
-                    }
-                    catch { /* fall through */ }
-                }
-
-                weights[normalizedId] = weight;
-                _logger.LogDebug("[ExtractFrameworkWeights]   {FrameworkId} → {NormalizedId}: enabled={Enabled}, weight={Weight}%", id, normalizedId, isEnabled, weight);
-            }
-
-            if (weights.Count > 0)
-            {
-                _logger.LogInformation("[ExtractFrameworkWeights] Extracted {WeightCount} framework weights: {Weights}", 
-                    weights.Count, 
-                    string.Join(", ", weights.Select(kv => $"{kv.Key}={kv.Value}%")));
-            }
-            else
-            {
-                _logger.LogWarning("[ExtractFrameworkWeights] Frameworks array was present but no enabled frameworks found!");
-            }
-            return weights;
-        }
-
-        _logger.LogWarning("[ExtractFrameworkWeights] No 'frameworks' array found in config, trying legacy format");
-        
-        // Fall back to old flat object format (legacy support)
-        var legacyFrameworks = new[]
-        {
-            "gestalt", "cognitiveLoad", "dataInk", "graphicalPerception", "accessibility",
-            "visualBestPractices", "governance", "stephenFew", "tufte", "density", "narrative"
-        };
-
-        foreach (var framework in legacyFrameworks)
-        {
-            if (config.Value.TryGetProperty(framework, out var frameworkObj) &&
-                frameworkObj.ValueKind == JsonValueKind.Object)
-            {
-                // Check if framework is enabled
-                bool isEnabled = true;
-                if (frameworkObj.TryGetProperty("enabled", out var enabledProp))
-                {
-                    isEnabled = enabledProp.ValueKind == JsonValueKind.True;
-                }
-
-                // Extract weight
-                double weight = 0;
-                if (isEnabled && frameworkObj.TryGetProperty("weight", out var weightProp))
-                {
-                    try
-                    {
-                        weight = weightProp.GetDouble();
-                    }
-                    catch { /* fall through */ }
-                }
-
-                weights[framework] = weight;
-                _logger.LogDebug("[ExtractFrameworkWeights] (legacy) {Framework}: enabled={Enabled}, weight={Weight}%", framework, isEnabled, weight);
-            }
-        }
-
-        if (weights.Count > 0)
-        {
-            _logger.LogInformation("[ExtractFrameworkWeights] Extracted {WeightCount} legacy weights: {Weights}", 
-                weights.Count, 
-                string.Join(", ", weights.Select(kv => $"{kv.Key}={kv.Value}%")));
-        }
-        else
-        {
-            _logger.LogWarning("[ExtractFrameworkWeights] No weights found in either new or legacy format - using default Design Analyzer configuration");
-            return GetDefaultFrameworkWeights();
-        }
-
-        return weights;
-    }
-
-    private static Dictionary<string, double> GetDefaultFrameworkWeights() => new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["gestalt"] = 30,
-        ["cognitiveLoad"] = 20,
-        ["dataInk"] = 15,
-        ["graphicalPerception"] = 0,
-        ["accessibility"] = 15,
-        ["visualBestPractices"] = 20,
-        ["governance"] = 0,
-        ["stephenFew"] = 0,
-        ["tufte"] = 0,
-        ["density"] = 0,
-        ["narrative"] = 0,
-    };
-
-    private static NavigationScoringSettings ExtractNavigationScoringSettings(JsonElement? config)
-    {
-        var defaults = new NavigationScoringSettings(
-            Enabled: true,
-            WeightPercent: 25,
-            WarningNavigationCount: 8,
-            WarningHiddenVisualCount: 5);
-
-        if (!config.HasValue || config.Value.ValueKind != JsonValueKind.Object)
-        {
-            return defaults;
-        }
-
-        if (!config.Value.TryGetProperty("navigationScoring", out var navigationScoring) ||
-            navigationScoring.ValueKind != JsonValueKind.Object)
-        {
-            return defaults;
-        }
-
-        var enabled = defaults.Enabled;
-        if (navigationScoring.TryGetProperty("enabled", out var enabledProp) &&
-            enabledProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
-        {
-            enabled = enabledProp.GetBoolean();
-        }
-
-        var weightPercent = defaults.WeightPercent;
-        if (navigationScoring.TryGetProperty("weight", out var weightProp) &&
-            weightProp.ValueKind == JsonValueKind.Number)
-        {
-            try
-            {
-                weightPercent = Math.Clamp(weightProp.GetDouble(), 0, 100);
-            }
-            catch
-            {
-                weightPercent = defaults.WeightPercent;
-            }
-        }
-
-        return defaults with
-        {
-            Enabled = enabled,
-            WeightPercent = weightPercent,
-        };
-    }
-
-    private static GovernanceRules ExtractGovernanceRules(JsonElement? config)
-    {
-        var rules = new GovernanceRules(MaxVisualsPerPage: 10, AllowPieCharts: false, RequirePageTitle: true);
-
-        if (!config.HasValue || !config.Value.TryGetProperty("governance", out var governanceArray) ||
-            governanceArray.ValueKind != JsonValueKind.Array)
-        {
-            return rules;
-        }
-
-        foreach (var rule in governanceArray.EnumerateArray())
-        {
-            if (rule.ValueKind != JsonValueKind.Object || !rule.TryGetProperty("id", out var idProp))
-            {
-                continue;
-            }
-
-            var id = idProp.GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(id) || !rule.TryGetProperty("value", out var valueProp))
-            {
-                continue;
-            }
-
-            switch (id)
-            {
-                case "maxVisuals":
-                case "maxVisualsPerPage":
-                    if (valueProp.ValueKind == JsonValueKind.Number && valueProp.TryGetInt32(out var maxVisuals))
-                    {
-                        rules = rules with { MaxVisualsPerPage = Math.Max(1, maxVisuals) };
-                    }
-                    break;
-                case "allowPie":
-                case "allowPieCharts":
-                    if (valueProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                    {
-                        rules = rules with { AllowPieCharts = valueProp.GetBoolean() };
-                    }
-                    break;
-                case "requireTitle":
-                case "requirePageTitle":
-                    if (valueProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                    {
-                        rules = rules with { RequirePageTitle = valueProp.GetBoolean() };
-                    }
-                    break;
-            }
-        }
-
-        return rules;
-    }
-
-    /// <summary>
-    /// Normalizes framework ID from Design Analyzer panel format to internal framework names.
-    /// Supports all 11 frameworks: 7 core + 4 optional.
-    /// E.g.: "gestalt" → "gestalt", "cognitive" → "cognitiveLoad", "dataink" → "dataInk"
-    /// </summary>
-    private static string NormalizeFrameworkId(string id)
-    {
-        return id.ToLowerInvariant() switch
-        {
-            // Core frameworks (7)
-            "gestalt" => "gestalt",
-            "cognitive" or "cognitivelload" => "cognitiveLoad",
-            "dataink" or "data-ink" => "dataInk",
-            "graphical" or "graphicalperception" => "graphicalPerception",
-            "accessibility" or "wcag" => "accessibility",
-            "visual" or "visualbestpractices" => "visualBestPractices",
-            "governance" or "enterprisegovernance" => "governance",
-            // Optional frameworks (4)
-            "stephen" or "stephenfew" => "stephenFew",
-            "tufte" or "tufeminimalism" => "tufte",
-            "density" or "dashboarddensity" => "density",
-            "narrative" or "narrativedesign" => "narrative",
-            _ => id // Return original if no mapping found
-        };
-    }
-
     private static double Clamp(double value) => Math.Max(0.0, Math.Min(100.0, value));
 
     // ── Inner types ──────────────────────────────────────────────────────────
-
-    private readonly record struct GovernanceRules(int MaxVisualsPerPage, bool AllowPieCharts, bool RequirePageTitle);
-
-    private readonly record struct NavigationScoringSettings(
-        bool Enabled,
-        double WeightPercent,
-        int WarningNavigationCount,
-        int WarningHiddenVisualCount)
-    {
-        public double WeightMultiplier => WeightPercent / 100.0;
-    }
 
     private readonly record struct VisualComposition(
         int DataVisualCount,
         int NavigationVisualCount,
         int HiddenVisualCount,
         double WeightedVisibleCount);
-
-    private readonly record struct CanvasMetadata(double Width, double Height);
 
     private readonly record struct VisualRow(
         List<VisualData> Visuals,
@@ -10912,6 +9927,13 @@ public sealed class PbirScoringService
         ReportConsistencySummary Summary,
         List<ReportConsistencyIssueContext> Issues);
 
+    private sealed record PageSummaryArtifacts(
+        PageVisualMetadataSummary? VisualMetadata,
+        PageStorySummary? StorySummary,
+        PageIntentProfileSummary? IntentProfile,
+        ActionabilityBreakdown? ActionabilityBreakdown,
+        BenchmarkComparisonSummary? BenchmarkComparison);
+
     private enum MetricLabelPattern
     {
         Plain,
@@ -10919,118 +9941,6 @@ public sealed class PbirScoringService
         SuffixModifier,
         GenericAggregate,
     }
-
-    private sealed record PageData
-    {
-        public required string Name { get; init; }
-        public required string DisplayName { get; init; }
-        public List<VisualData> Visuals { get; init; } = [];
-        public CanvasMetadata? Canvas { get; init; }
-        public List<FilterDefinitionData> PageFilters { get; init; } = [];
-    }
-
-    private sealed record VisualData
-    {
-        public required string Id { get; init; }
-        public required string Type { get; init; }
-        public double X { get; init; }
-        public double Y { get; init; }
-        public double W { get; init; }
-        public double H { get; init; }
-        public bool IsHidden { get; init; }
-        public VisualTextMetadata Text { get; init; } = VisualTextMetadata.Empty;
-        public VisualLabelMetadata Labels { get; init; } = VisualLabelMetadata.Empty;
-        public VisualFieldRoleMetadata FieldRoles { get; init; } = VisualFieldRoleMetadata.Empty;
-        public VisualFormattingMetadata Formatting { get; init; } = VisualFormattingMetadata.Empty;
-        public FilterTopologyMetadata Filter { get; init; } = FilterTopologyMetadata.Empty;
-
-        public bool IsSlicer     => Type is "slicer" or "advancedSlicerVisual";
-        public bool IsKpiCard    => Type is "card" or "kpiVisual" or "multiRowCard";
-        public bool IsPieDonut   => Type is "pieChart" or "donutChart";
-        public bool IsTrend      => Type is "lineChart" or "areaChart" or "lineAndStackedColumnChart" or "lineAndClusteredColumnChart";
-        public bool IsComparison => Type is "clusteredColumnChart" or "clusteredBarChart"
-                                          or "stackedColumnChart" or "stackedBarChart"
-                                          or "barChart" or "columnChart" or "waterfallChart";
-        public string? VisibleTitleText => Text.VisibleTitleText;
-        public string? VisibleSubtitleText => Text.VisibleSubtitleText;
-        public string? TextBoxText => Text.TextBoxText;
-        public string? BestVisibleText => FirstNonBlank(VisibleTitleText, TextBoxText, VisibleSubtitleText);
-        public bool HasVisibleTitleIntent => !string.IsNullOrWhiteSpace(BestVisibleText);
-        public bool IsNavigationElement
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(Type))
-                {
-                    return false;
-                }
-
-                var normalized = Type.Trim().ToLowerInvariant();
-                return normalized is "actionbutton"
-                    or "navigationbutton"
-                    or "basicshape"
-                    or "shape"
-                    or "image"
-                    or "slicer"
-                    or "advancedslicervisual"
-                    or "qnavisual"
-                    || normalized.Contains("button", StringComparison.Ordinal)
-                    || normalized.Contains("image", StringComparison.Ordinal)
-                    || normalized.EndsWith("slicer", StringComparison.Ordinal);
-            }
-        }
-
-        public bool IsDecorative => string.IsNullOrWhiteSpace(Type) || _decorativeTypes.Contains(Type);
-    }
-
-    private sealed record VisualTextMetadata(string? VisibleTitleText, string? VisibleSubtitleText, string? TextBoxText)
-    {
-        public static VisualTextMetadata Empty { get; } = new(null, null, null);
-    }
-
-    private sealed record VisualLabelMetadata(bool? HasLegend, bool? HasAxisLabels, bool? HasDataLabels)
-    {
-        public static VisualLabelMetadata Empty { get; } = new(null, null, null);
-    }
-
-    private sealed record VisualFieldRoleMetadata(
-        IReadOnlyList<string> CategoryHints,
-        IReadOnlyList<string> ValueHints,
-        IReadOnlyList<string> SeriesHints,
-        IReadOnlyList<string> MeasureHints)
-    {
-        public static VisualFieldRoleMetadata Empty { get; } = new([], [], [], []);
-    }
-
-    private sealed record VisualFormattingMetadata(
-        string? BackgroundFillColor,
-        string? FontColor,
-        bool? HasBorder,
-        double? CornerRadius,
-        bool? HasShadow)
-    {
-        public static VisualFormattingMetadata Empty { get; } = new(null, null, null, null, null);
-    }
-
-    private sealed record FilterTopologyMetadata(
-        IReadOnlyList<string> FieldHints,
-        string? HierarchyPattern,
-        int HierarchyDepth,
-        string? FilterType)
-    {
-        public static FilterTopologyMetadata Empty { get; } = new([], null, 0, null);
-    }
-
-    private sealed record FilterDefinitionData(
-        string SourceId,
-        StoryFilterScope Scope,
-        string DisplayLabel,
-        IReadOnlyList<string> FieldHints,
-        string? HierarchyPattern,
-        int HierarchyDepth,
-        string? FilterType,
-        string? PlacementZone,
-        bool IsMalformed);
 
     private sealed record NarrativePageAnalysis(
         PageData Page,

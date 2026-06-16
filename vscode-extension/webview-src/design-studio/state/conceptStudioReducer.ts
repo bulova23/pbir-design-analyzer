@@ -8,6 +8,8 @@ import { compareAlternateConcepts } from '../../../src/design-studio/contracts/d
 export interface ConceptStudioState {
   briefApprovalState: DesignArtifactApprovalState;
   canGenerateConcepts: boolean;
+  conceptId?: string;
+  approvalState: DesignArtifactApprovalState;
   alternateConcepts: AlternateReportConcept[];
   preferredBaselineConceptId?: string;
   approvedBaselineConceptId?: string;
@@ -18,6 +20,7 @@ export type ConceptStudioAction =
   | { type: 'setBriefApproval'; approvalState: DesignArtifactApprovalState }
   | { type: 'generateConcepts' }
   | { type: 'selectBaseline'; conceptId: string }
+  | { type: 'submitBaselineForApproval' }
   | { type: 'approveBaseline'; conceptId: string };
 
 function createSampleAlternateConcepts(): AlternateReportConcept[] {
@@ -92,6 +95,7 @@ export function createConceptStudioState(): ConceptStudioState {
   return {
     briefApprovalState: 'notSubmitted',
     canGenerateConcepts: false,
+    approvalState: 'notSubmitted',
     alternateConcepts: [],
   };
 }
@@ -116,23 +120,33 @@ export function conceptStudioReducer(
       return {
         ...state,
         alternateConcepts,
-        preferredBaselineConceptId: alternateConcepts[0].id,
+        approvalState: 'notSubmitted',
+        preferredBaselineConceptId: undefined,
         approvedBaselineConceptId: undefined,
-        comparison: compareAlternateConcepts(alternateConcepts, alternateConcepts[0].id),
+        comparison: undefined,
       };
     }
     case 'selectBaseline':
       return {
         ...state,
+        approvalState: state.approvalState === 'approved' && state.approvedBaselineConceptId === action.conceptId
+          ? 'approved'
+          : 'notSubmitted',
         preferredBaselineConceptId: action.conceptId,
-        approvedBaselineConceptId: state.approvedBaselineConceptId === action.conceptId
+        approvedBaselineConceptId: state.approvalState === 'approved' && state.approvedBaselineConceptId === action.conceptId
           ? state.approvedBaselineConceptId
           : undefined,
         comparison: compareAlternateConcepts(state.alternateConcepts, action.conceptId),
       };
+    case 'submitBaselineForApproval':
+      return {
+        ...state,
+        approvalState: state.preferredBaselineConceptId ? 'pendingApproval' : state.approvalState,
+      };
     case 'approveBaseline':
       return {
         ...state,
+        approvalState: 'approved',
         preferredBaselineConceptId: action.conceptId,
         approvedBaselineConceptId: action.conceptId,
         comparison: compareAlternateConcepts(state.alternateConcepts, action.conceptId),

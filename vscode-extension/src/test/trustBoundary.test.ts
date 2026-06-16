@@ -18,10 +18,13 @@ import { DesignProviderRegistry, createDesignProviderCapability } from '../desig
 import {
   approveConceptBaseline,
   generateConceptArtifacts,
+  selectConceptBaseline,
+  submitConceptBaselineForApproval,
 } from '../design-studio/state/conceptStore';
 import {
   approveDesignBrief,
   saveDesignBriefDraft,
+  submitDesignBriefForApproval,
 } from '../design-studio/state/designBriefStore';
 import {
   approveDraftArtifacts,
@@ -68,8 +71,11 @@ async function createDraftState(context: ExtensionContext, threadId: string): Pr
     requiredEvidenceDomains: ['renewal trend', 'pipeline coverage'],
     targetAnalyzableSurfaceFamily: 'pbir',
   });
+  await submitDesignBriefForApproval(context, threadId);
   await approveDesignBrief(context, threadId);
-  await generateConceptArtifacts(context, threadId);
+  const conceptState = await generateConceptArtifacts(context, threadId);
+  await selectConceptBaseline(context, threadId, conceptState.currentConcept.alternateConcepts[0].id);
+  await submitConceptBaselineForApproval(context, threadId);
   await approveConceptBaseline(context, threadId);
   return generateDraftArtifacts(context, threadId);
 }
@@ -195,13 +201,16 @@ describe('designStudio trust boundary guardrails', () => {
       reportType: 'dashboard',
       navigationExpectations: 'Overview first, detail second.',
     });
+    await submitDesignBriefForApproval(context, 'thread-workflow-guardrails');
     await approveDesignBrief(context, 'thread-workflow-guardrails');
-    await generateConceptArtifacts(context, 'thread-workflow-guardrails');
+    const conceptState = await generateConceptArtifacts(context, 'thread-workflow-guardrails');
 
     await expect(generateDraftArtifacts(context, 'thread-workflow-guardrails')).rejects.toThrow(
       'Draft generation requires an approved Concept baseline.',
     );
 
+    await selectConceptBaseline(context, 'thread-workflow-guardrails', conceptState.currentConcept.alternateConcepts[0].id);
+    await submitConceptBaselineForApproval(context, 'thread-workflow-guardrails');
     await approveConceptBaseline(context, 'thread-workflow-guardrails');
     const pendingDraft = await generateDraftArtifacts(context, 'thread-workflow-guardrails');
 

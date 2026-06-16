@@ -1,4 +1,6 @@
 import type {
+  AlternateConceptComparison,
+  AlternateReportConcept,
   DesignArtifactApprovalKind,
   DesignArtifactApprovalState,
   MaterializationHandoffEligibility,
@@ -149,6 +151,12 @@ export interface DesignStudioConceptComparisonViewModel {
 export interface DesignStudioConceptReviewViewModel {
   title: string;
   summary: string;
+  conceptId?: string;
+  approvalState?: DesignArtifactApprovalState;
+  alternateConcepts?: AlternateReportConcept[];
+  comparison?: AlternateConceptComparison;
+  preferredBaselineConceptId?: string;
+  approvedBaselineConceptId?: string;
   selectedConceptLabel: string;
   chapterStructure: DesignStudioConceptChapterViewModel[];
   kpiHierarchy: DesignStudioConceptKpiNodeViewModel[];

@@ -14,6 +14,7 @@ public sealed class DesignStudioModelBoundaryTests
     {
         string[] expectedTypeNames =
         [
+            "DesignProviderCapabilityKind",
             "DesignArtifactLifecycleState",
             "DesignArtifactApprovalState",
             "DesignArtifactApprovalKind",

@@ -1,24 +1,42 @@
 import React from 'react';
 import type { AlternateConceptComparison, AlternateReportConcept } from '../../../src/design-studio/contracts/designStudioModels';
+import type { ConceptStudioState } from '../state/conceptStudioReducer';
 
 interface ConceptComparisonProps {
   alternateConcepts: AlternateReportConcept[];
   comparison?: AlternateConceptComparison;
+  approvalState: ConceptStudioState['approvalState'];
   preferredBaselineConceptId?: string;
   approvedBaselineConceptId?: string;
   onSelectBaseline(conceptId: string): void;
+  onSubmitBaselineForApproval(): void;
   onApproveBaseline(conceptId: string): void;
+}
+
+function approvalStatusLabel(approvalState: ConceptStudioState['approvalState']): string {
+  switch (approvalState) {
+    case 'approved':
+      return 'Approved';
+    case 'pendingApproval':
+      return 'Pending approval';
+    case 'rejected':
+      return 'Rejected';
+    default:
+      return 'Not submitted';
+  }
 }
 
 export function ConceptComparison({
   alternateConcepts,
   comparison,
+  approvalState,
   preferredBaselineConceptId,
   approvedBaselineConceptId,
   onSelectBaseline,
+  onSubmitBaselineForApproval,
   onApproveBaseline,
 }: ConceptComparisonProps) {
-  if (alternateConcepts.length === 0 || !comparison) {
+  if (alternateConcepts.length === 0) {
     return null;
   }
 
@@ -45,25 +63,40 @@ export function ConceptComparison({
 
   return (
     <section>
-      <h2>Concept comparison</h2>
-      <p>{comparison.summary}</p>
+      {comparison ? <h2>Concept comparison</h2> : null}
+      {comparison ? <p>{comparison.summary}</p> : null}
       {preferred ? (
         <p>Preferred baseline: {preferred.label}</p>
       ) : null}
-      <p>Draft Studio approval: {approvedBaselineConceptId ? 'Approved' : 'Not approved'}</p>
+      <p>Concept approval: {approvalStatusLabel(approvalState)}</p>
       <p>Selected baseline stays internal to Concept Studio until a future explicit materialization step.</p>
-      <button
-        type='button'
-        disabled={!preferredBaselineConceptId}
-        onClick={() => {
-          if (preferredBaselineConceptId) {
-            onApproveBaseline(preferredBaselineConceptId);
-          }
-        }}
-      >
-        Approve for Draft Studio
-      </button>
-      {comparisons.map((concept) => (
+      {approvalState === 'notSubmitted' ? (
+        <button
+          type='button'
+          disabled={!preferredBaselineConceptId}
+          onClick={() => {
+            if (preferredBaselineConceptId) {
+              onSubmitBaselineForApproval();
+            }
+          }}
+        >
+          Submit Baseline For Approval
+        </button>
+      ) : null}
+      {approvalState === 'pendingApproval' ? (
+        <button
+          type='button'
+          disabled={!preferredBaselineConceptId}
+          onClick={() => {
+            if (preferredBaselineConceptId) {
+              onApproveBaseline(preferredBaselineConceptId);
+            }
+          }}
+        >
+          Approve Concept Baseline
+        </button>
+      ) : null}
+      {comparison ? comparisons.map((concept) => (
         <section key={concept.id}>
           <h3>{`${preferred?.label ?? 'Selected concept'} vs ${concept.label}`}</h3>
 
@@ -123,7 +156,7 @@ export function ConceptComparison({
             ))}
           </ul>
         </section>
-      ))}
+      )) : null}
       {investigationSupport ? (
         <section>
           <h3>Analytical Investigation Support</h3>

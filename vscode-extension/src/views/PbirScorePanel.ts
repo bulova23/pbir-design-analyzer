@@ -1,27 +1,18 @@
-import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
 import type { DesignAnalyzerConfig } from '../analyzer/config/types';
 import type {
-  AuditCaptureSummary,
-  AuditFindingDisplay,
-  AuditPageState,
-  AuditState,
   FixApplySessionRecord,
   FixOpportunity,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
-  StoryAssessmentDiffResult,
-  StoryAssessmentReportSnapshot,
   ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
   ScoreRequestPayload,
   ScoreResult,
 } from '../analyzer/contracts/scorePanel';
-import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture, saveSession } from '../analyzer/audit/session';
 import type { VisualAuditSession } from '../analyzer/audit/types';
 import type { VisualAuditProvider } from '../analyzer/audit/providers/VisualAuditProvider';
 import { createActiveProvider } from '../analyzer/audit/providers/providerSetup';
@@ -37,49 +28,32 @@ import {
 } from '../languageServer/analyzerBackendClient';
 import { resolveWebviewAssets } from './webviewAssets';
 import { buildFixWorkflowPayload, normalizeScoreResultPayload } from './scoreResultPayload';
-import { revealNavigationTargetInPbirExplorer, revealVisualInPbirExplorer } from './pbirExplorerReveal';
 import { loadIntentFeedbackSession, saveIntentFeedbackSession, upsertIntentFeedback } from '../analyzer/intentFeedback/store';
 import {
-  buildReviewWorkflowExportData,
-  exportReviewWorkflowAsHtml,
-  exportReviewWorkflowAsJson,
-  exportReviewWorkflowAsMarkdown,
-  exportReviewWorkflowAsPdf,
-} from '../analyzer/score/reviewWorkflowExport';
-import {
   buildReviewPacketPreviewHtml,
-  defaultReviewPacketPreviewOptions,
   normalizeReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreview';
 import {
   buildScorePanelState,
-  clampSelectedPageIndex,
-  parseScorePanelWebviewMessage,
   withScorePanelEnvelope,
 } from './scorePanelProtocol';
 import {
   loadReviewPacketPreviewOptions,
   saveReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreviewStore';
-import { chooseProfiledDocumentExportOptions } from '../analyzer/score/reviewWorkflowExportPrompts';
 import {
-  applyFixOpportunity,
-  applyFixOpportunityBatch,
-  rollbackFixOpportunity,
-  rollbackFixSession,
-} from '../analyzer/fixes/fixApplyEngine';
-import { evaluateFixOpportunityCompatibility } from '../analyzer/fixes/fixCompatibility';
-import {
-  createFixApplySessionRecord,
-  markFixSessionRegenerated,
-  recordFixSessionRollback,
-} from '../analyzer/fixes/fixSessionHistory';
-import { evaluateFixOutcome, summarizeBatchFixOutcomes } from '../analyzer/fixes/fixOutcomeEvaluator';
+  buildReviewWorkflowExportData,
+} from '../analyzer/score/reviewWorkflowExport';
 import { attachNavigationTargets } from '../analyzer/score/navigationTargets';
 import { buildStoryAssessmentReportSnapshot, compareStoryAssessmentSnapshots } from '../analyzer/score/storyAssessmentSnapshot';
 import { loadStoryAssessmentSnapshot, saveStoryAssessmentSnapshot } from '../analyzer/score/storyAssessmentSnapshotStore';
 import { buildScoreDeterminismDiagnostics } from '../analyzer/score/scoreDiagnostics';
 import type { AnalyzerWorkspaceHandoffPayload } from '../design-studio/contracts/designStudioModels';
+import { createScorePanelStateService } from './scorePanelStateService';
+import { createScorePanelMessageRouter } from './scorePanelMessageRouter';
+import { createScorePanelAuditWorkflowService } from './scorePanelAuditWorkflowService';
+import { createScorePanelExportWorkflowService } from './scorePanelExportWorkflowService';
+import { createScorePanelFixWorkflowService } from './scorePanelFixWorkflowService';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -89,15 +63,15 @@ export class PbirScorePanel {
   private readonly bridge: AnalyzerBridgeService | undefined;
   private readonly context: vscode.ExtensionContext;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly scoreState = createScorePanelStateService();
+  private readonly messageRouter;
+  private readonly auditWorkflow;
+  private readonly exportWorkflow;
+  private readonly fixWorkflow;
   private isDisposed = false;
   private isReady = false;
-  private pendingMessages: ScorePanelHostToWebviewMessagePayload[] = [];
   private reportPath: string;
   private pageName: string | undefined;
-  private currentResult: ScoreResult | undefined;
-  private savedConfig: DesignAnalyzerConfig | null = null;
-  private selectedPageIndex = 0;
-  private reviewPacketPreviewOptions = defaultReviewPacketPreviewOptions;
   private auditSession: VisualAuditSession | undefined;
   private auditProvider: VisualAuditProvider;
   private readonly fixOpportunityHistory = new Map<string, FixOpportunity>();
@@ -105,10 +79,6 @@ export class PbirScorePanel {
   private fixSelectionApprovalState: NonNullable<ScorePanelState['fixSelection']>['approvalState'] = 'NeedsPreview';
   private fixApplySessions: FixApplySessionRecord[] = [];
   private fixWorkflowMessage: string | undefined;
-  private lastScoreDiagnosticsJson: string | undefined;
-  private storyAssessmentCurrentSnapshot: StoryAssessmentReportSnapshot | undefined;
-  private storyAssessmentDiffByPage: Record<string, StoryAssessmentDiffResult> | undefined;
-  private storyAssessmentLastComparedAt: string | undefined;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -182,17 +152,18 @@ export class PbirScorePanel {
   }
 
   static async copyCurrentScoreDiagnostics(): Promise<boolean> {
-    if (!PbirScorePanel.instance?.lastScoreDiagnosticsJson) {
+    const lastScoreDiagnosticsJson = PbirScorePanel.instance?.scoreState.getLastScoreDiagnosticsJson();
+    if (!lastScoreDiagnosticsJson) {
       return false;
     }
 
-    await vscode.env.clipboard.writeText(PbirScorePanel.instance.lastScoreDiagnosticsJson);
+    await vscode.env.clipboard.writeText(lastScoreDiagnosticsJson);
     PbirScorePanel.diagnosticsOutput.show(true);
     return true;
   }
 
   async requestScreenshotUpload(): Promise<void> {
-    await this.handleUploadScreenshots();
+    await this.auditWorkflow.uploadScreenshots();
   }
 
   private constructor(
@@ -208,6 +179,78 @@ export class PbirScorePanel {
     this.reportPath = reportPath;
     this.pageName = pageName;
     this.auditProvider = createActiveProvider(context);
+    this.messageRouter = createScorePanelMessageRouter({
+      getPageCount: () => this.pageNamesFromResult().length,
+      onReady: async () => {
+        this.isReady = true;
+        this.flushPendingMessages();
+      },
+      onRefresh: () => this.refresh(),
+      onSelectTab: async (pageIndex) => {
+        this.scoreState.setSelectedPageIndex(pageIndex, this.pageNamesFromResult().length);
+      },
+      onSetIntentFeedback: (message) => this.handleSetIntentFeedback(message),
+      onUploadScreenshots: () => this.auditWorkflow.uploadScreenshots(),
+      onAttachScreenshot: (pageNameValue) => this.auditWorkflow.attachScreenshot(pageNameValue),
+      onRemoveScreenshot: (captureId) => this.auditWorkflow.removeScreenshot(captureId),
+      onAssignCapture: (captureId, targetPageName) => this.auditWorkflow.assignCapture(captureId, targetPageName),
+      onAnalyzeCapture: (captureId, pageNameValue) => this.auditWorkflow.analyzeCapture(captureId, pageNameValue),
+      onExportReviewWorkflow: () => this.exportWorkflow.exportReviewWorkflow(),
+      onSetReviewPacketPreviewProfile: (profile) => this.handleSetReviewPacketPreviewProfile(profile),
+      onSetReviewPacketPreviewTemplateVariant: (templateVariant) => this.handleSetReviewPacketPreviewTemplateVariant(templateVariant),
+      onOpenReviewPacketPreview: () => this.exportWorkflow.openReviewPacketPreview(),
+      onToggleFixOpportunitySelection: (opportunityId) => this.fixWorkflow.toggleFixOpportunitySelection(opportunityId),
+      onPreviewSelectedFixOpportunities: () => this.fixWorkflow.previewSelectedFixOpportunities(),
+      onApproveSelectedFixOpportunities: () => this.fixWorkflow.approveSelectedFixOpportunities(),
+      onApplySelectedFixOpportunities: () => this.fixWorkflow.applySelectedFixOpportunities(),
+      onRollbackFixSession: (sessionId) => this.fixWorkflow.rollbackFixSession(sessionId),
+      onRegenerateFixOpportunities: (opportunityIds) => this.fixWorkflow.regenerateFixOpportunities(opportunityIds),
+      onApproveFixOpportunity: (opportunityId) => this.fixWorkflow.approveFixOpportunity(opportunityId),
+      onApplyFixOpportunity: (opportunityId) => this.fixWorkflow.applyFixOpportunity(opportunityId),
+      onRollbackFixOpportunity: (opportunityId) => this.fixWorkflow.rollbackFixOpportunity(opportunityId),
+      onOpenSettings: async () => {
+        await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
+      },
+    });
+    this.auditWorkflow = createScorePanelAuditWorkflowService({
+      context,
+      getReportPath: () => this.reportPath,
+      getCurrentResult: () => this.scoreState.getCurrentResult(),
+      getAuditProvider: () => this.auditProvider,
+      getAuditSession: () => this.auditSession,
+      setAuditSession: (session) => {
+        this.auditSession = session;
+      },
+      postMessage: (message) => this.postMessage(message),
+    });
+    this.exportWorkflow = createScorePanelExportWorkflowService({
+      context,
+      getReportPath: () => this.reportPath,
+      getCurrentResult: () => this.scoreState.getCurrentResult(),
+      getReviewPacketPreviewOptions: () => this.scoreState.getReviewPacketPreviewOptions(),
+    });
+    this.fixWorkflow = createScorePanelFixWorkflowService({
+      getCurrentResult: () => this.scoreState.getCurrentResult(),
+      getFixOpportunityHistory: () => this.fixOpportunityHistory,
+      getSelectedFixOpportunityIds: () => this.selectedFixOpportunityIds,
+      setSelectedFixOpportunityIds: (ids) => {
+        this.selectedFixOpportunityIds = ids;
+      },
+      getFixSelectionApprovalState: () => this.fixSelectionApprovalState,
+      setFixSelectionApprovalState: (state) => {
+        this.fixSelectionApprovalState = state;
+      },
+      getFixApplySessions: () => this.fixApplySessions,
+      setFixApplySessions: (sessions) => {
+        this.fixApplySessions = sessions;
+      },
+      getFixWorkflowMessage: () => this.fixWorkflowMessage,
+      setFixWorkflowMessage: (message) => {
+        this.fixWorkflowMessage = message;
+      },
+      refresh: () => this.refresh(),
+      postCurrentScoreState: () => this.postCurrentScoreState(),
+    });
     this.panel.webview.html = this.getReactHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -219,112 +262,7 @@ export class PbirScorePanel {
   }
 
   private async handleMessage(message: unknown): Promise<void> {
-    const parsedMessage = parseScorePanelWebviewMessage(message);
-    if (!parsedMessage.ok) {
-      void vscode.window.showWarningMessage(parsedMessage.error);
-      return;
-    }
-
-    const payload = parsedMessage.message;
-
-    switch (payload.type) {
-      case 'webviewReady':
-        this.isReady = true;
-        this.flushPendingMessages();
-        return;
-      case 'refresh':
-        await this.refresh();
-        return;
-      case 'selectTab':
-        this.selectedPageIndex = clampSelectedPageIndex(
-          payload.pageIndex,
-          this.pageNamesFromResult().length,
-        );
-        return;
-      case 'setIntentFeedback':
-        await this.handleSetIntentFeedback(payload);
-        return;
-      case 'revealVisual': {
-        const revealed = await revealVisualInPbirExplorer(payload.pageName, payload.visualId);
-        if (!revealed) {
-          void vscode.window.showWarningMessage(
-            `Could not locate '${payload.visualId}' on page '${payload.pageName}' in the PBIR sidecar.`,
-          );
-        }
-        return;
-      }
-      case 'navigateToTarget': {
-        const revealed = await revealNavigationTargetInPbirExplorer(payload.target);
-        if (!revealed) {
-          void vscode.window.showWarningMessage(
-            `Could not navigate to '${payload.target.label}'. ${payload.target.reason}`,
-          );
-        }
-        return;
-      }
-      case 'uploadScreenshots':
-        await this.handleUploadScreenshots();
-        return;
-      case 'attachScreenshot':
-        await this.handleAttachScreenshot(payload.pageName);
-        return;
-      case 'removeScreenshot':
-        await this.handleRemoveScreenshot(payload.captureId);
-        return;
-      case 'assignCapture':
-        await this.handleAssignCapture(payload.captureId, payload.targetPageName);
-        return;
-      case 'analyzeCapture':
-        await this.handleAnalyzeCapture(payload.captureId, payload.pageName);
-        return;
-      case 'exportReviewWorkflow':
-        await this.handleExportReviewWorkflow();
-        return;
-      case 'setReviewPacketPreviewProfile':
-        await this.handleSetReviewPacketPreviewProfile(payload.profile);
-        return;
-      case 'setReviewPacketPreviewTemplateVariant':
-        await this.handleSetReviewPacketPreviewTemplateVariant(payload.templateVariant);
-        return;
-      case 'openReviewPacketPreview':
-        await this.handleOpenReviewPacketPreview();
-        return;
-      case 'toggleFixOpportunitySelection':
-        await this.handleToggleFixOpportunitySelection(payload.opportunityId);
-        return;
-      case 'previewSelectedFixOpportunities':
-        await this.handlePreviewSelectedFixOpportunities();
-        return;
-      case 'approveSelectedFixOpportunities':
-        await this.handleApproveSelectedFixOpportunities();
-        return;
-      case 'applySelectedFixOpportunities':
-        await this.handleApplySelectedFixOpportunities();
-        return;
-      case 'rollbackFixSession':
-        await this.handleRollbackFixSession(payload.sessionId);
-        return;
-      case 'regenerateFixOpportunities':
-        await this.handleRegenerateFixOpportunities(payload.opportunityIds);
-        return;
-      case 'approveFixOpportunity':
-        await this.handleApproveFixOpportunity(payload.opportunityId);
-        return;
-      case 'applyFixOpportunity':
-        await this.handleApplyFixOpportunity(payload.opportunityId);
-        return;
-      case 'rollbackFixOpportunity':
-        await this.handleRollbackFixOpportunity(payload.opportunityId);
-        return;
-      case 'openSettings':
-        await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
-        return;
-    }
-  }
-
-  private findFixOpportunity(opportunityId: string): FixOpportunity | undefined {
-    return this.currentResult?.fixOpportunities?.find((item) => item.id === opportunityId)
-      ?? this.fixOpportunityHistory.get(opportunityId);
+    await this.messageRouter.route(message);
   }
 
   private buildPresentationResult(result: ScoreResult): ScoreResult {
@@ -352,15 +290,6 @@ export class PbirScorePanel {
     });
   }
 
-  private currentPreviewableOpportunities(): FixOpportunity[] {
-    return (this.currentResult?.fixOpportunities ?? []).filter((item) => item.state !== 'Applied' && item.state !== 'RolledBack');
-  }
-
-  private selectedFixOpportunities(): FixOpportunity[] {
-    const selectedSet = new Set(this.selectedFixOpportunityIds);
-    return this.currentPreviewableOpportunities().filter((item) => selectedSet.has(item.id));
-  }
-
   private buildFixSelectionState(result: ScoreResult): ScorePanelState['fixSelection'] {
     return buildFixWorkflowPayload({
       opportunities: result.fixOpportunities ?? [],
@@ -371,242 +300,8 @@ export class PbirScorePanel {
     }).fixSelection;
   }
 
-  private async handleToggleFixOpportunitySelection(opportunityId: string): Promise<void> {
-    const opportunity = this.findFixOpportunity(opportunityId);
-    if (!opportunity || opportunity.state === 'Applied' || opportunity.state === 'RolledBack') {
-      return;
-    }
-
-    this.selectedFixOpportunityIds = this.selectedFixOpportunityIds.includes(opportunityId)
-      ? this.selectedFixOpportunityIds.filter((id) => id !== opportunityId)
-      : [...this.selectedFixOpportunityIds, opportunityId];
-    this.fixSelectionApprovalState = 'NeedsPreview';
-    this.fixWorkflowMessage = undefined;
-    await this.postCurrentScoreState();
-  }
-
-  private async handlePreviewSelectedFixOpportunities(): Promise<void> {
-    const selected = this.selectedFixOpportunities();
-    if (selected.length === 0) {
-      this.fixWorkflowMessage = 'Select one or more opportunities before previewing fixes.';
-      await this.postCurrentScoreState();
-      return;
-    }
-
-    const compatibility = evaluateFixOpportunityCompatibility(selected);
-    if (!compatibility.isCompatible) {
-      this.fixSelectionApprovalState = 'NeedsPreview';
-      this.fixWorkflowMessage = 'Selected opportunities are incompatible or stale. Resolve the blocked items before previewing.';
-      await this.postCurrentScoreState();
-      return;
-    }
-
-    this.fixSelectionApprovalState = 'Previewed';
-    this.fixWorkflowMessage = undefined;
-    await this.postCurrentScoreState();
-  }
-
-  private async handleApproveSelectedFixOpportunities(): Promise<void> {
-    const selected = this.selectedFixOpportunities();
-    const compatibility = evaluateFixOpportunityCompatibility(selected);
-    if (selected.length === 0 || !compatibility.isCompatible || this.fixSelectionApprovalState !== 'Previewed') {
-      return;
-    }
-
-    this.fixSelectionApprovalState = 'Approved';
-    await this.postCurrentScoreState();
-  }
-
-  private async handleApplySelectedFixOpportunities(): Promise<void> {
-    const selected = this.selectedFixOpportunities();
-    const previousResult = this.currentResult;
-    if (selected.length === 0 || !previousResult || this.fixSelectionApprovalState !== 'Approved') {
-      return;
-    }
-
-    const applyResult = applyFixOpportunityBatch(selected);
-    if (applyResult.state !== 'Applied') {
-      for (const opportunity of selected) {
-        this.fixOpportunityHistory.set(opportunity.id, {
-          ...opportunity,
-          state: applyResult.state,
-        });
-      }
-      this.fixWorkflowMessage = applyResult.state === 'Stale'
-        ? 'Selected opportunities are stale or drifted. Regenerate them before retrying.'
-        : 'Selected opportunities cannot be applied together.';
-      this.fixSelectionApprovalState = 'NeedsPreview';
-      await this.postCurrentScoreState();
-      return;
-    }
-
-    await this.refresh();
-    if (!this.currentResult) {
-      return;
-    }
-
-    const outcomeItems = selected.map((opportunity) => {
-      const outcome = evaluateFixOutcome(opportunity, previousResult, this.currentResult!);
-      this.fixOpportunityHistory.set(opportunity.id, {
-        ...opportunity,
-        state: outcome.nextState,
-        outcome: outcome.outcome,
-      });
-      return {
-        opportunityId: opportunity.id,
-        title: opportunity.title,
-        state: outcome.nextState,
-        outcome: outcome.outcome,
-      };
-    });
-
-    const groupedOutcomeSummary = summarizeBatchFixOutcomes(outcomeItems);
-    const session = createFixApplySessionRecord({
-      appliedAt: applyResult.session?.appliedAt ?? new Date().toISOString(),
-      opportunities: selected.map((opportunity) => ({
-        id: opportunity.id,
-        title: opportunity.title,
-        state: this.fixOpportunityHistory.get(opportunity.id)?.state ?? 'Applied',
-      })),
-      rollbackAvailable: applyResult.session?.rollbackAvailable ?? false,
-      groupedOutcomeSummary,
-    });
-
-    this.fixApplySessions = [
-      {
-        ...session,
-        id: applyResult.session?.id ?? session.id,
-      },
-      ...this.fixApplySessions,
-    ];
-    this.selectedFixOpportunityIds = [];
-    this.fixSelectionApprovalState = 'NeedsPreview';
-    this.fixWorkflowMessage = undefined;
-    await this.postCurrentScoreState();
-  }
-
-  private async handleRollbackFixSession(sessionId: string): Promise<void> {
-    const session = this.fixApplySessions.find((item) => item.id === sessionId);
-    if (!session) {
-      return;
-    }
-
-    const opportunities = session.opportunityIds
-      .map((id) => this.fixOpportunityHistory.get(id))
-      .filter((item): item is FixOpportunity => Boolean(item));
-    const rollback = rollbackFixSession(session, opportunities);
-    this.fixApplySessions = this.fixApplySessions.map((item) => item.id === sessionId
-      ? recordFixSessionRollback(item, rollback.rollbackHistory[rollback.rollbackHistory.length - 1])
-      : item);
-    for (const opportunity of opportunities) {
-      this.fixOpportunityHistory.set(opportunity.id, {
-        ...opportunity,
-        state: 'RolledBack',
-        outcome: undefined,
-      });
-    }
-
-    await this.refresh();
-    await this.postCurrentScoreState();
-  }
-
-  private async handleRegenerateFixOpportunities(opportunityIds?: string[]): Promise<void> {
-    const currentSelection = this.currentResult
-      ? this.buildFixSelectionState(this.buildPresentationResult(this.currentResult))
-      : undefined;
-    const staleIds = opportunityIds
-      ?? currentSelection?.compatibility.blockingReasons
-        .filter((reason) => reason.code === 'staleOpportunity' || reason.code === 'targetDrifted')
-        .flatMap((reason) => reason.opportunityIds)
-      ?? [];
-
-    const staleSet = new Set(staleIds);
-    await this.refresh();
-    const regeneratedOpportunityIds = (this.currentResult?.fixOpportunities ?? [])
-      .filter((item) => staleSet.has(item.id) || staleSet.has(item.remediationItemId))
-      .map((item) => item.id);
-
-    if (this.fixApplySessions[0]) {
-      this.fixApplySessions[0] = markFixSessionRegenerated(this.fixApplySessions[0], {
-        staleOpportunityIds: staleIds,
-        regeneratedOpportunityIds,
-      });
-    }
-
-    this.selectedFixOpportunityIds = regeneratedOpportunityIds;
-    this.fixSelectionApprovalState = 'NeedsPreview';
-    this.fixWorkflowMessage = staleIds.length > 0
-      ? `Regenerated ${regeneratedOpportunityIds.length} opportunity${regeneratedOpportunityIds.length === 1 ? '' : 'ies'} from stale selections.`
-      : 'Fix opportunities regenerated from the latest score state.';
-    await this.postCurrentScoreState();
-  }
-
-  private async handleApproveFixOpportunity(opportunityId: string): Promise<void> {
-    const opportunity = this.findFixOpportunity(opportunityId);
-    if (!opportunity) {
-      void vscode.window.showWarningMessage(`Fix opportunity '${opportunityId}' is no longer available.`);
-      return;
-    }
-
-    this.fixOpportunityHistory.set(opportunityId, {
-      ...opportunity,
-      state: 'Approved',
-    });
-    await this.postCurrentScoreState();
-  }
-
-  private async handleApplyFixOpportunity(opportunityId: string): Promise<void> {
-    const opportunity = this.findFixOpportunity(opportunityId);
-    const previousResult = this.currentResult;
-    if (!opportunity || !previousResult) {
-      void vscode.window.showWarningMessage(`Fix opportunity '${opportunityId}' is no longer available.`);
-      return;
-    }
-
-    const applyResult = applyFixOpportunity(opportunity);
-    this.fixOpportunityHistory.set(opportunityId, {
-      ...opportunity,
-      state: applyResult.state,
-    });
-
-    if (applyResult.state !== 'Applied') {
-      await this.postCurrentScoreState();
-      return;
-    }
-
-    await this.refresh();
-    if (!this.currentResult) {
-      return;
-    }
-
-    const outcome = evaluateFixOutcome(opportunity, previousResult, this.currentResult);
-    this.fixOpportunityHistory.set(opportunityId, {
-      ...opportunity,
-      state: outcome.nextState,
-      outcome: outcome.outcome,
-    });
-    await this.postCurrentScoreState();
-  }
-
-  private async handleRollbackFixOpportunity(opportunityId: string): Promise<void> {
-    const opportunity = this.findFixOpportunity(opportunityId);
-    if (!opportunity) {
-      void vscode.window.showWarningMessage(`Fix opportunity '${opportunityId}' is no longer available for rollback.`);
-      return;
-    }
-
-    const rollbackResult = rollbackFixOpportunity(opportunity);
-    this.fixOpportunityHistory.set(opportunityId, {
-      ...opportunity,
-      state: rollbackResult.state,
-      outcome: undefined,
-    });
-    await this.refresh();
-    await this.postCurrentScoreState();
-  }
-
   private pageNamesFromResult(): string[] {
-    const result = this.currentResult;
+    const result = this.scoreState.getCurrentResult();
     if (!result) return [];
     if (result.pageScores && result.pageScores.length > 0) {
       return result.pageScores.map((p) => p.pageName);
@@ -615,113 +310,8 @@ export class PbirScorePanel {
     return [];
   }
 
-  private async handleUploadScreenshots(): Promise<void> {
-    const uris = await vscode.window.showOpenDialog({
-      title: 'Select Report Screenshots',
-      canSelectMany: true,
-      canSelectFiles: true,
-      canSelectFolders: false,
-      filters: { Images: ['png', 'jpg', 'jpeg', 'webp'] },
-      openLabel: 'Add Screenshots',
-    });
-
-    if (!uris || uris.length === 0) return;
-
-    const session = await this.loadAuditSession();
-    const pageNames = this.pageNamesFromResult();
-    await addCaptures(this.context, session, uris.map((u) => u.fsPath), pageNames);
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleAttachScreenshot(pageName: string): Promise<void> {
-    const uris = await vscode.window.showOpenDialog({
-      title: `Attach Screenshot to "${pageName}"`,
-      canSelectMany: false,
-      canSelectFiles: true,
-      canSelectFolders: false,
-      filters: { Images: ['png', 'jpg', 'jpeg', 'webp'] },
-      openLabel: 'Attach',
-    });
-
-    if (!uris || uris.length === 0) return;
-
-    const session = await this.loadAuditSession();
-    await addCaptures(this.context, session, [uris[0].fsPath], [pageName]);
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleRemoveScreenshot(captureId: string): Promise<void> {
-    const session = await this.loadAuditSession();
-    const allCaptures = [
-      ...session.pages.flatMap((p) => p.captures),
-      ...session.unmatchedCaptures,
-    ];
-    const capture = allCaptures.find((c) => c.captureId === captureId);
-
-    removeCapture(session, captureId);
-
-    if (capture?.storedPath && fs.existsSync(capture.storedPath)) {
-      try {
-        fs.unlinkSync(capture.storedPath);
-      } catch {
-        // Non-fatal: asset cleanup failure
-      }
-    }
-
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleAssignCapture(captureId: string, targetPageName: string): Promise<void> {
-    const session = await this.loadAuditSession();
-    assignCapture(session, captureId, targetPageName);
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleAnalyzeCapture(captureId: string, pageName: string): Promise<void> {
-    const session = await this.loadAuditSession();
-    const page = session.pages.find((p) => p.pageName === pageName);
-    const capture = page?.captures.find((c) => c.captureId === captureId);
-
-    if (!capture) {
-      void vscode.window.showErrorMessage(`Capture ${captureId} not found for page "${pageName}".`);
-      return;
-    }
-
-    this.postMessage({ type: 'auditAnalyzing', captureId });
-
-    try {
-      const pageScore = this.currentResult?.pageScores?.find((p) => p.pageName === pageName);
-      const findings = await this.auditProvider.analyzeCapture({ capture, pageName, pageScore });
-
-      if (page) {
-        page.findings = page.findings.filter((f) => f.captureId !== captureId);
-        page.findings.push(...findings);
-      }
-
-      await saveSession(this.context, session);
-      this.auditSession = session;
-      this.postAuditState();
-    } catch (err) {
-      void vscode.window.showErrorMessage(
-        `Audit analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      this.postAuditState();
-    }
-  }
-
   private async loadAuditSession(): Promise<VisualAuditSession> {
-    if (!this.auditSession) {
-      this.auditSession = await loadSession(this.context, this.reportPath);
-    }
-    return this.auditSession;
+    return this.auditWorkflow.loadAuditSession();
   }
 
   private async handleSetIntentFeedback(
@@ -729,7 +319,9 @@ export class PbirScorePanel {
   ): Promise<void> {
     const session = await loadIntentFeedbackSession(this.context, this.reportPath);
     const analyzerVersion = String(this.context.extension.packageJSON?.version ?? 'unknown');
-    const reportSessionId = `${session.reportKey}:${this.currentResult?.scoredAt ?? new Date().toISOString()}`;
+    const currentResult = this.scoreState.getCurrentResult();
+    const savedConfig = this.scoreState.getSavedConfig();
+    const reportSessionId = `${session.reportKey}:${currentResult?.scoredAt ?? new Date().toISOString()}`;
 
     upsertIntentFeedback(session, {
       pageName: message.pageName,
@@ -745,159 +337,52 @@ export class PbirScorePanel {
 
     await saveIntentFeedbackSession(this.context, session);
 
-    if (this.currentResult && this.savedConfig) {
-      const reviewPacketPreview = buildReviewWorkflowExportData(this.currentResult, session.entries);
-      this.postScoreState(this.savedConfig, this.currentResult, session.entries, reviewPacketPreview);
+    if (currentResult && savedConfig) {
+      const reviewPacketPreview = buildReviewWorkflowExportData(currentResult, session.entries);
+      this.postScoreState(savedConfig, currentResult, session.entries, reviewPacketPreview);
     }
   }
 
   private async handleSetReviewPacketPreviewProfile(
     profile: ReviewWorkflowExportProfile,
   ): Promise<void> {
-    this.reviewPacketPreviewOptions = normalizeReviewPacketPreviewOptions({
-      ...this.reviewPacketPreviewOptions,
+    this.scoreState.setReviewPacketPreviewOptions(normalizeReviewPacketPreviewOptions({
+      ...this.scoreState.getReviewPacketPreviewOptions(),
       profile,
-    });
-    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.reviewPacketPreviewOptions);
+    }));
+    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.scoreState.getReviewPacketPreviewOptions());
     await this.postCurrentScoreState();
   }
 
   private async handleSetReviewPacketPreviewTemplateVariant(
     templateVariant: ReviewWorkflowMarkdownRenderOptions['templateVariant'],
   ): Promise<void> {
-    this.reviewPacketPreviewOptions = normalizeReviewPacketPreviewOptions({
-      ...this.reviewPacketPreviewOptions,
+    this.scoreState.setReviewPacketPreviewOptions(normalizeReviewPacketPreviewOptions({
+      ...this.scoreState.getReviewPacketPreviewOptions(),
       templateVariant,
-    });
-    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.reviewPacketPreviewOptions);
+    }));
+    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.scoreState.getReviewPacketPreviewOptions());
     await this.postCurrentScoreState();
   }
 
-  private async handleOpenReviewPacketPreview(): Promise<void> {
-    if (!this.currentResult) {
-      void vscode.window.showWarningMessage('Score the report before opening the review packet preview.');
-      return;
-    }
-
-    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
-    const reviewPacketPreview = buildReviewWorkflowExportData(this.currentResult, session.entries);
-    const html = buildReviewPacketPreviewHtml(
-      reviewPacketPreview,
-      this.reportPath,
-      this.reviewPacketPreviewOptions,
-    );
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-review-preview-'));
-    const reportName = path.basename(this.reportPath).replace(/\.Report$/i, '');
-    const profileSuffix = this.reviewPacketPreviewOptions.profile.toLowerCase();
-    const tempFilePath = path.join(tempDir, `${reportName}-${profileSuffix}-preview.html`);
-
-    fs.writeFileSync(tempFilePath, html, 'utf8');
-    await vscode.env.openExternal(vscode.Uri.file(tempFilePath));
-  }
-
   async exportReviewWorkflow(): Promise<void> {
-    if (!this.currentResult) {
-      void vscode.window.showWarningMessage('Score the report before exporting the review summary.');
-      return;
-    }
-
-    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
-    const exportData = buildReviewWorkflowExportData(this.currentResult, session.entries);
-    const formatChoice = await vscode.window.showQuickPick(
-      [
-        { label: 'Markdown', description: 'Human-readable review summary (.md)' },
-        { label: 'HTML', description: 'Styled consultant packet (.html)' },
-        { label: 'PDF', description: 'Fixed-layout consultant packet (.pdf)' },
-        { label: 'JSON', description: 'Machine-readable review workflow snapshot (.json)' },
-      ],
-      { placeHolder: 'Choose review export format' },
-    );
-
-    if (!formatChoice) return;
-
-    const selectedFormat = formatChoice.label.toLowerCase();
-    const isMarkdown = selectedFormat === 'markdown';
-    const isHtml = selectedFormat === 'html';
-    const isPdf = selectedFormat === 'pdf';
-    let markdownProfile: ReviewWorkflowExportProfile = 'consultant';
-    let markdownOptions: ReviewWorkflowMarkdownRenderOptions = {};
-
-    if (isMarkdown || isHtml || isPdf) {
-      const exportSelection = await chooseProfiledDocumentExportOptions(
-        isMarkdown ? 'markdown' : isHtml ? 'html' : 'pdf',
-        this.reviewPacketPreviewOptions,
-      );
-      if (!exportSelection) return;
-      markdownProfile = exportSelection.profile;
-      markdownOptions = {
-        templateVariant: exportSelection.templateVariant,
-        branding: exportSelection.branding,
-      };
-    }
-
-    const saveUri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(
-        path.join(
-          path.dirname(this.reportPath),
-          `review-workflow-summary.${isMarkdown ? 'md' : isHtml ? 'html' : isPdf ? 'pdf' : 'json'}`,
-        ),
-      ),
-      filters: isMarkdown
-        ? { Markdown: ['md'] }
-        : isHtml
-          ? { HTML: ['html'] }
-          : isPdf
-            ? { PDF: ['pdf'] }
-            : { JSON: ['json'] },
-      saveLabel: 'Export',
-    });
-
-    if (!saveUri) return;
-
-    if (isPdf) {
-      const content = await exportReviewWorkflowAsPdf(exportData, markdownProfile, markdownOptions);
-      fs.writeFileSync(saveUri.fsPath, content);
-    } else {
-      const content = isMarkdown
-        ? exportReviewWorkflowAsMarkdown(exportData, markdownProfile, markdownOptions)
-        : isHtml
-          ? exportReviewWorkflowAsHtml(exportData, markdownProfile, markdownOptions)
-          : exportReviewWorkflowAsJson(exportData);
-
-      fs.writeFileSync(saveUri.fsPath, content, 'utf8');
-    }
-
-    const openAction = 'Open File';
-    const choice = await vscode.window.showInformationMessage(
-      `Review workflow summary exported to ${path.basename(saveUri.fsPath)}`,
-      openAction,
-    );
-
-    if (choice === openAction) {
-      if (isPdf) {
-        await vscode.commands.executeCommand('vscode.open', saveUri);
-      } else {
-        await vscode.window.showTextDocument(saveUri);
-      }
-    }
-  }
-
-  private async handleExportReviewWorkflow(): Promise<void> {
-    await this.exportReviewWorkflow();
+    await this.exportWorkflow.exportReviewWorkflow();
   }
 
   private async postCurrentScoreState(): Promise<void> {
-    if (!this.currentResult || !this.savedConfig) {
+    const currentResult = this.scoreState.getCurrentResult();
+    const savedConfig = this.scoreState.getSavedConfig();
+    if (!currentResult || !savedConfig) {
       return;
     }
 
     const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
     const reviewPacketPreview = buildReviewWorkflowExportData(
-      this.currentResult,
+      currentResult,
       intentFeedbackSession.entries,
     );
 
-    this.postScoreState(this.savedConfig, this.currentResult, intentFeedbackSession.entries, reviewPacketPreview);
+    this.postScoreState(savedConfig, currentResult, intentFeedbackSession.entries, reviewPacketPreview);
   }
 
   private postScoreState(
@@ -919,87 +404,35 @@ export class PbirScorePanel {
       state: buildScorePanelState({
         config,
         result: presentationResult,
-        selectedPageIndex: clampSelectedPageIndex(
-          this.selectedPageIndex,
-          presentationResult.pageScores?.length ?? 0,
-        ),
+        selectedPageIndex: this.scoreState.getSelectedPageIndex(),
         intentFeedback,
-        storyAssessmentCurrentSnapshot: this.storyAssessmentCurrentSnapshot,
-        storyAssessmentDiffByPage: this.storyAssessmentDiffByPage,
-        storyAssessmentLastComparedAt: this.storyAssessmentLastComparedAt,
+        storyAssessmentCurrentSnapshot: this.scoreState.getStoryAssessmentCurrentSnapshot(),
+        storyAssessmentDiffByPage: this.scoreState.getStoryAssessmentDiffByPage(),
+        storyAssessmentLastComparedAt: this.scoreState.getStoryAssessmentLastComparedAt(),
         fixSelection: fixWorkflow.fixSelection,
         fixApplySessions: fixWorkflow.fixApplySessions,
         reviewPacketPreview,
         reviewPacketPreviewHtml: buildReviewPacketPreviewHtml(
           reviewPacketPreview,
           this.reportPath,
-          this.reviewPacketPreviewOptions,
+          this.scoreState.getReviewPacketPreviewOptions(),
         ),
-        reviewPacketPreviewProfile: this.reviewPacketPreviewOptions.profile,
-        reviewPacketPreviewTemplateVariant: this.reviewPacketPreviewOptions.templateVariant,
+        reviewPacketPreviewProfile: this.scoreState.getReviewPacketPreviewOptions().profile,
+        reviewPacketPreviewTemplateVariant: this.scoreState.getReviewPacketPreviewOptions().templateVariant,
       }),
     });
   }
 
-  private buildAuditState(session: VisualAuditSession, providerConfigured: boolean): AuditState {
-    const pageNames = this.pageNamesFromResult();
-    const coverage = computeCoverage(session, pageNames);
-
-    const pages: AuditPageState[] = session.pages.map((p) => ({
-      pageName: p.pageName,
-      captures: p.captures.map((c) => ({
-        captureId: c.captureId,
-        pageName: c.pageName,
-        stateName: c.stateName,
-        fileName: c.fileName,
-        storedPath: c.storedPath,
-        findingCount: p.findings.filter((f) => f.captureId === c.captureId).length,
-      })),
-      findings: p.findings.map((f): AuditFindingDisplay => ({
-        findingId: f.findingId,
-        captureId: f.captureId,
-        findingType: f.findingType,
-        severity: f.severity,
-        confidence: f.confidence,
-        issueSource: f.issueSource,
-        text: f.text,
-        recommendation: f.recommendation,
-        regionHint: f.regionHint,
-      })),
-    }));
-
-    const unmatchedCaptures: AuditCaptureSummary[] = session.unmatchedCaptures.map((c) => ({
-      captureId: c.captureId,
-      pageName: c.pageName,
-      stateName: c.stateName,
-      fileName: c.fileName,
-      storedPath: c.storedPath,
-      findingCount: 0,
-    }));
-
-    return {
-      coverage,
-      pages,
-      unmatchedCaptures,
-      isAnalyzing: false,
-      providerName: this.auditProvider.providerName,
-      providerConfigured,
-    };
-  }
-
   private async postAuditState(): Promise<void> {
-    const session = await this.loadAuditSession();
-    const providerConfigured = await this.auditProvider.isConfigured();
-    const auditState = this.buildAuditState(session, providerConfigured);
-    this.postMessage({ type: 'auditState', audit: auditState });
+    await this.auditWorkflow.postAuditState();
   }
 
   private async refreshStoryAssessmentState(result: ScoreResult): Promise<void> {
     const currentSnapshot = buildStoryAssessmentReportSnapshot(result);
     if (currentSnapshot.pages.length === 0) {
-      this.storyAssessmentCurrentSnapshot = undefined;
-      this.storyAssessmentDiffByPage = undefined;
-      this.storyAssessmentLastComparedAt = undefined;
+      this.scoreState.setStoryAssessmentCurrentSnapshot(undefined);
+      this.scoreState.setStoryAssessmentDiffByPage(undefined);
+      this.scoreState.setStoryAssessmentLastComparedAt(undefined);
       return;
     }
 
@@ -1008,9 +441,9 @@ export class PbirScorePanel {
       ? compareStoryAssessmentSnapshots(priorSnapshot, currentSnapshot)
       : undefined;
 
-    this.storyAssessmentCurrentSnapshot = currentSnapshot;
-    this.storyAssessmentDiffByPage = diff?.byPage;
-    this.storyAssessmentLastComparedAt = priorSnapshot ? result.scoredAt : undefined;
+    this.scoreState.setStoryAssessmentCurrentSnapshot(currentSnapshot);
+    this.scoreState.setStoryAssessmentDiffByPage(diff?.byPage);
+    this.scoreState.setStoryAssessmentLastComparedAt(priorSnapshot ? result.scoredAt : undefined);
     await saveStoryAssessmentSnapshot(this.context, this.reportPath, currentSnapshot);
   }
 
@@ -1029,8 +462,10 @@ export class PbirScorePanel {
       }
 
       const savedConfig = await loadDesignAnalyzerConfig(this.context);
-      this.savedConfig = savedConfig;
-      this.reviewPacketPreviewOptions = await loadReviewPacketPreviewOptions(this.context, this.reportPath);
+      this.scoreState.setSavedConfig(savedConfig);
+      this.scoreState.setReviewPacketPreviewOptions(
+        await loadReviewPacketPreviewOptions(this.context, this.reportPath),
+      );
 
       if (surfaceDiscovery.surface.surfaceType === 'fabricApp') {
         this.panel.title = 'Fabric App Review';
@@ -1074,7 +509,7 @@ export class PbirScorePanel {
             enabledEnrichers: ['storytelling', 'executiveReadability'],
           },
         );
-        this.currentResult = normalizedResult;
+        this.scoreState.setCurrentResult(normalizedResult);
         await this.refreshStoryAssessmentState(normalizedResult);
         await this.captureScoreDiagnostics(normalizedResult);
         const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
@@ -1128,7 +563,7 @@ export class PbirScorePanel {
           enabledEnrichers: ['storytelling', 'executiveReadability'],
         },
       );
-      this.currentResult = normalizedResult;
+      this.scoreState.setCurrentResult(normalizedResult);
       await this.refreshStoryAssessmentState(normalizedResult);
       await this.captureScoreDiagnostics(normalizedResult);
       const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
@@ -1148,10 +583,8 @@ export class PbirScorePanel {
       // Load audit session and push state to webview alongside score
       try {
         this.auditProvider = createActiveProvider(this.context);
-        this.auditSession = await loadSession(this.context, this.reportPath);
-        const providerConfigured = await this.auditProvider.isConfigured();
-        const auditState = this.buildAuditState(this.auditSession, providerConfigured);
-        this.postMessage({ type: 'auditState', audit: auditState });
+        this.auditSession = await this.auditWorkflow.loadAuditSession();
+        await this.auditWorkflow.postAuditState();
       } catch {
         // Non-fatal: audit state failure should not break scoring
       }
@@ -1168,19 +601,16 @@ export class PbirScorePanel {
     this.panel.title = surfaceDiscovery.status === 'supported' && surfaceDiscovery.surface.surfaceType === 'fabricApp'
       ? 'Fabric App Review'
       : 'PBIR Optimization Report';
-    this.currentResult = undefined;
-    this.savedConfig = null;
-    this.selectedPageIndex = 0;
-    this.pendingMessages = [];
+    this.scoreState.resetForHandoff();
     this.postMessage({
       type: 'error',
-      message: `Analyzer Workspace opened from Design Studio handoff for candidate ${payload.candidateId}. Analysis has not started. Run Retry when you are ready to start ${payload.analyzerId} with profile ${payload.analyzerProfileId}.`,
+      message: createScorePanelMessageRouter.buildHandoffMessage(payload),
     });
   }
 
   private postMessage(message: ScorePanelHostToWebviewMessagePayload): void {
     if (!this.isReady) {
-      this.pendingMessages.push(message);
+      this.scoreState.enqueuePendingMessage(message);
       return;
     }
 
@@ -1188,8 +618,8 @@ export class PbirScorePanel {
   }
 
   private flushPendingMessages(): void {
-    while (this.pendingMessages.length > 0) {
-      const message = this.pendingMessages.shift();
+    while (this.scoreState.getPendingMessages().length > 0) {
+      const message = this.scoreState.shiftPendingMessage();
       if (message) {
         void this.panel.webview.postMessage(withScorePanelEnvelope(message));
       }
@@ -1297,9 +727,9 @@ export class PbirScorePanel {
       backendLaunchDiagnostics: getRecordedBackendLaunchDiagnostics(),
     });
 
-    this.lastScoreDiagnosticsJson = JSON.stringify(diagnostics, null, 2);
+    this.scoreState.setLastScoreDiagnosticsJson(JSON.stringify(diagnostics, null, 2));
     PbirScorePanel.diagnosticsOutput.appendLine(`=== ${new Date().toISOString()} :: ${path.basename(this.reportPath)} ===`);
-    PbirScorePanel.diagnosticsOutput.appendLine(this.lastScoreDiagnosticsJson);
+    PbirScorePanel.diagnosticsOutput.appendLine(this.scoreState.getLastScoreDiagnosticsJson() ?? '');
     PbirScorePanel.diagnosticsOutput.appendLine('');
   }
 
@@ -1329,9 +759,7 @@ export class PbirScorePanel {
 
     this.isDisposed = true;
     this.isReady = false;
-    this.pendingMessages = [];
-    this.currentResult = undefined;
-    this.savedConfig = null;
+    this.scoreState.resetForDispose();
 
     if (PbirScorePanel.instance === this) {
       PbirScorePanel.instance = undefined;

@@ -7,6 +7,7 @@ import type {
   ScoreResult,
   VisualMetadataItem,
 } from '../contracts/scorePanel';
+import { captureFixFileVersionSync } from './fixPersistenceService';
 
 function compareText(left: string, right: string): number {
   if (left < right) {
@@ -45,6 +46,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readJsonFile(filePath: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+}
+
+function getTargetFileVersion(filePath: string) {
+  return captureFixFileVersionSync(filePath);
 }
 
 export function resolveReportDefinitionPaths(reportPath: string): ReportDefinitionPaths | undefined {
@@ -233,12 +238,14 @@ function buildTitleMutations(
   }
 
   const mutations: FixMutation[] = [];
+  const targetFileVersion = getTargetFileVersion(targetFile);
   if (titleVisual.y !== 24) {
     mutations.push({
       id: `${titleVisual.visualId}-position-y`,
       pageName: page.pageName,
       targetObjectId: titleVisual.visualId,
       targetFile,
+      targetFileVersion,
       propertyPath: 'position.y',
       storagePath: ['position', 'y'],
       storageValueFormat: 'plain',
@@ -254,6 +261,7 @@ function buildTitleMutations(
       pageName: page.pageName,
       targetObjectId: titleVisual.visualId,
       targetFile,
+      targetFileVersion,
       propertyPath: 'position.x',
       storagePath: ['position', 'x'],
       storageValueFormat: 'plain',
@@ -270,6 +278,7 @@ function buildTitleMutations(
       pageName: page.pageName,
       targetObjectId: titleVisual.visualId,
       targetFile,
+      targetFileVersion,
       propertyPath: 'title.text',
       storagePath: titleTarget.storagePath,
       storageValueFormat: titleTarget.storageValueFormat,
@@ -303,12 +312,14 @@ function buildLayoutMutations(
       const snappedX = snapDown32(visual.x);
       const snappedY = snapDown32(visual.y);
       const mutations: FixMutation[] = [];
+      const targetFileVersion = getTargetFileVersion(targetFile);
       if (snappedX !== visual.x) {
         mutations.push({
           id: `${visual.visualId}-layout-x`,
           pageName,
           targetObjectId: visual.visualId,
           targetFile,
+          targetFileVersion,
           propertyPath: 'position.x',
           storagePath: ['position', 'x'],
           storageValueFormat: 'plain',
@@ -323,6 +334,7 @@ function buildLayoutMutations(
           pageName,
           targetObjectId: visual.visualId,
           targetFile,
+          targetFileVersion,
           propertyPath: 'position.y',
           storagePath: ['position', 'y'],
           storageValueFormat: 'plain',
@@ -360,12 +372,14 @@ function buildNavigationMutations(
     }
 
     const mutations: FixMutation[] = [];
+    const targetFileVersion = getTargetFileVersion(targetFile);
     if (visual.x !== anchorX) {
       mutations.push({
         id: `${visual.visualId}-nav-x`,
         pageName,
         targetObjectId: visual.visualId,
         targetFile,
+        targetFileVersion,
         propertyPath: 'position.x',
         storagePath: ['position', 'x'],
         storageValueFormat: 'plain',
@@ -380,6 +394,7 @@ function buildNavigationMutations(
         pageName,
         targetObjectId: visual.visualId,
         targetFile,
+        targetFileVersion,
         propertyPath: 'position.y',
         storagePath: ['position', 'y'],
         storageValueFormat: 'plain',
@@ -411,12 +426,14 @@ function buildCrossPageTitleMutations(paths: ReportDefinitionPaths, pages: Plann
       return [];
     }
     const mutations: FixMutation[] = [];
+    const targetFileVersion = getTargetFileVersion(targetFile);
     if (visual.x !== anchorX) {
       mutations.push({
         id: `${visual.visualId}-cross-title-x`,
         pageName: page.pageName,
         targetObjectId: visual.visualId,
         targetFile,
+        targetFileVersion,
         propertyPath: 'position.x',
         storagePath: ['position', 'x'],
         storageValueFormat: 'plain',
@@ -431,6 +448,7 @@ function buildCrossPageTitleMutations(paths: ReportDefinitionPaths, pages: Plann
         pageName: page.pageName,
         targetObjectId: visual.visualId,
         targetFile,
+        targetFileVersion,
         propertyPath: 'position.y',
         storagePath: ['position', 'y'],
         storageValueFormat: 'plain',
@@ -474,6 +492,7 @@ function buildSemanticColorMutations(paths: ReportDefinitionPaths, pages: Planni
       pageName: assignment.sourcePageName,
       targetObjectId: assignment.sourceVisualId,
       targetFile,
+      targetFileVersion: getTargetFileVersion(targetFile),
       propertyPath: 'background.color',
       mutationType: 'setSemanticColor' as const,
       before: assignment.color,

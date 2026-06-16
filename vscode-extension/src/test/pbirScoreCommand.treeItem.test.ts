@@ -89,6 +89,25 @@ describe('pbir.scoreReport tree item targets', () => {
     );
   });
 
+  it('syncs the explorer project path when scoring a report chosen from the picker', async () => {
+    const provider = registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+    const setProjectPathSpy = jest.spyOn(provider, 'setProjectPath');
+    (vscode.window.showOpenDialog as jest.Mock).mockResolvedValue([
+      vscode.Uri.file(reportRoot),
+    ]);
+
+    const scoreHandler = getRegisteredHandler(PBIR_COMMANDS.scoreReport);
+    await scoreHandler();
+
+    expect(setProjectPathSpy).toHaveBeenCalledWith(reportRoot);
+    expect(PbirScorePanel.createOrShow).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      reportRoot,
+      undefined,
+    );
+  });
+
   it('warns when score diagnostics are not available yet', async () => {
     registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
 

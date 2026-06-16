@@ -276,21 +276,31 @@ function buildConcept(
 ): ReportConcept {
   const now = new Date().toISOString();
   const alternateConcepts = buildAlternateConcepts(brief);
-  const comparison = compareAlternateConcepts(
-    alternateConcepts,
-    preferredConceptId ?? existing?.preferredBaselineConceptId ?? alternateConcepts[0]?.id,
-  );
-  const preferred = alternateConcepts.find((concept) => concept.id === comparison.preferredConceptId) ?? alternateConcepts[0];
+  const selectedBaselineConceptId = preferredConceptId ?? existing?.preferredBaselineConceptId;
+  const comparison = selectedBaselineConceptId
+    ? compareAlternateConcepts(alternateConcepts, selectedBaselineConceptId)
+    : undefined;
+  const preferred = alternateConcepts.find((concept) => concept.id === selectedBaselineConceptId) ?? alternateConcepts[0];
   const reportConceptId = existing?.id ?? `report-concept:${threadId}`;
   const version = (existing?.version ?? 0) + 1;
-  const lifecycleState = existing?.approvedBaselineConceptId && existing.approvedBaselineConceptId === comparison.preferredConceptId
+  const isApprovedSelection = !!selectedBaselineConceptId
+    && existing?.approvedBaselineConceptId === selectedBaselineConceptId
+    && existing.approvalState === 'approved';
+  const isPendingSelection = !!selectedBaselineConceptId
+    && existing?.preferredBaselineConceptId === selectedBaselineConceptId
+    && existing.approvalState === 'pendingApproval';
+  const lifecycleState = isApprovedSelection
     ? 'approved'
-    : 'proposed';
-  const approvalState = existing?.approvedBaselineConceptId && existing.approvedBaselineConceptId === comparison.preferredConceptId
+    : isPendingSelection
+      ? 'proposed'
+      : 'draft';
+  const approvalState = isApprovedSelection
     ? 'approved'
-    : 'pendingApproval';
-  const approvedBaselineConceptId = existing?.approvedBaselineConceptId === comparison.preferredConceptId
-    ? comparison.preferredConceptId
+    : isPendingSelection
+      ? 'pendingApproval'
+      : 'notSubmitted';
+  const approvedBaselineConceptId = isApprovedSelection
+    ? selectedBaselineConceptId
     : undefined;
   const pageConcepts = buildPageConcepts(
     threadId,
@@ -365,15 +375,69 @@ function buildConcept(
     },
     analyticalFlow: preferred.analyticalFlow,
     alternateConcepts,
-    preferredBaselineConceptId: comparison.preferredConceptId,
+    preferredBaselineConceptId: selectedBaselineConceptId,
     approvedBaselineConceptId,
     comparison,
+  };
+}
+
+function submitConcept(reportConcept: ReportConcept): ReportConcept {
+  if (!reportConcept.preferredBaselineConceptId) {
+    throw new Error('A preferred concept baseline must be selected before submission.');
+  }
+
+  if (reportConcept.approvalState === 'approved') {
+    throw new Error('An approved concept baseline cannot be resubmitted.');
+  }
+
+  const updatedAt = new Date().toISOString();
+  const version = reportConcept.version + 1;
+  const sourceReportConceptVersionId = `${reportConcept.id}@v${version}`;
+  return {
+    ...reportConcept,
+    version,
+    lifecycleState: 'proposed',
+    approvalState: 'pendingApproval',
+    approvalKind: 'designApproval',
+    updatedAt,
+    approvedBaselineConceptId: undefined,
+    pageConcepts: reportConcept.pageConcepts.map((pageConcept) => ({
+      ...pageConcept,
+      version,
+      lifecycleState: 'proposed',
+      approvalState: 'pendingApproval',
+      approvalKind: 'designApproval',
+      updatedAt,
+      sourceReportConceptVersionId,
+    })),
+    kpiHierarchy: {
+      ...reportConcept.kpiHierarchy,
+      version,
+      lifecycleState: 'proposed',
+      approvalState: 'pendingApproval',
+      approvalKind: 'designApproval',
+      updatedAt,
+      sourceReportConceptVersionId,
+    },
+    navigationStructure: {
+      ...reportConcept.navigationStructure,
+      version,
+      lifecycleState: 'proposed',
+      approvalState: 'pendingApproval',
+      approvalKind: 'designApproval',
+      updatedAt,
+      sourceReportConceptVersionId,
+    },
   };
 }
 
 function approveConcept(reportConcept: ReportConcept): ReportConcept {
   if (!reportConcept.preferredBaselineConceptId) {
     throw new Error('A preferred concept baseline must be selected before approval.');
+  }
+
+  if (reportConcept.approvalState !== 'pendingApproval') {
+    throw new Error('The concept baseline must be submitted for approval before it can be approved.');
   }
 
   const updatedAt = new Date().toISOString();
@@ -493,6 +557,34 @@ export async function selectConceptBaseline(
     existing.currentConcept,
     preferredConceptId,
   );
+  const persisted: PersistedConceptState = {
+    threadId,
+    briefId: existing.briefId,
+    currentConcept: updatedConcept,
+    history: [
+      ...existing.history,
+      {
+        version: updatedConcept.version,
+        savedAt: updatedConcept.updatedAt,
+        concept: updatedConcept,
+      },
+    ],
+  };
+
+  writePersistedState(manifestPath(context, threadId), persisted);
+  return toState(persisted);
+}
+
+export async function submitConceptBaselineForApproval(
+  context: vscode.ExtensionContext,
+  threadId: string,
+): Promise<ConceptState> {
+  const existing = await loadConceptState(context, threadId);
+  if (!existing) {
+    throw new Error(`No Concept Studio state exists for thread ${threadId}.`);
+  }
+
+  const updatedConcept = submitConcept(existing.currentConcept);
   const persisted: PersistedConceptState = {
     threadId,
     briefId: existing.briefId,

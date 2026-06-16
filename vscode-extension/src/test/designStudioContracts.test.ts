@@ -281,6 +281,8 @@ describe('designStudio contracts', () => {
       'saveArtifact',
       'proposeArtifact',
       'approveArtifact',
+      'generateConcepts',
+      'selectConceptBaseline',
       'requestMaterialization',
       'compareIterations',
       'openAnalyzerHandoff',

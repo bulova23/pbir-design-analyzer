@@ -8,10 +8,12 @@ import {
   generateConceptArtifacts,
   loadConceptState,
   selectConceptBaseline,
+  submitConceptBaselineForApproval,
 } from '../design-studio/state/conceptStore';
 import {
   approveDesignBrief,
   saveDesignBriefDraft,
+  submitDesignBriefForApproval,
 } from '../design-studio/state/designBriefStore';
 
 function makeContext(tmpDir: string): ExtensionContext {
@@ -46,6 +48,7 @@ async function saveApprovedBrief(context: ExtensionContext, threadId: string): P
     requiredEvidenceDomains: ['Renewal trend', 'pipeline coverage'],
     targetAnalyzableSurfaceFamily: 'pbir',
   });
+  await submitDesignBriefForApproval(context, threadId);
   await approveDesignBrief(context, threadId);
 }
 
@@ -86,11 +89,11 @@ describe('conceptStore', () => {
     expect(conceptState.currentConcept.analyticalFlow.steps.length).toBeGreaterThan(0);
     expect(conceptState.currentConcept.pageConcepts.length).toBeGreaterThan(0);
     expect(conceptState.currentConcept.sourceBriefId).toBe('design-brief:thread-2');
-    expect(conceptState.currentConcept.sourceBriefVersionId).toBe('design-brief:thread-2@v2');
+    expect(conceptState.currentConcept.sourceBriefVersionId).toBe('design-brief:thread-2@v3');
     expect(conceptState.currentConcept.pageConcepts[0]).toEqual(
       expect.objectContaining({
         kind: 'pageConcept',
-        sourceBriefVersionId: 'design-brief:thread-2@v2',
+        sourceBriefVersionId: 'design-brief:thread-2@v3',
         sourceReportConceptVersionId: 'report-concept:thread-2@v1',
         title: expect.any(String),
         intendedPurpose: expect.any(String),
@@ -106,9 +109,14 @@ describe('conceptStore', () => {
       }),
     );
     expect(conceptState.currentConcept.alternateConcepts.length).toBeGreaterThan(1);
+    expect(conceptState.currentConcept.preferredBaselineConceptId).toBeUndefined();
+    expect(conceptState.currentConcept.approvedBaselineConceptId).toBeUndefined();
+    expect(conceptState.currentConcept.approvalState).toBe('notSubmitted');
     expect(comparison.preferredConceptId).toBe(conceptState.currentConcept.alternateConcepts[0].id);
-    expect(comparison.summary).toContain('Baseline concept selected');
+    expect(conceptState.currentConcept.comparison).toBeUndefined();
     expect(comparison.decisions.length).toBe(conceptState.currentConcept.alternateConcepts.length);
+    expect(conceptState.readiness.canEnterDraftStudio).toBe(false);
+    expect(conceptState.readiness.reasons).toContain('A preferred baseline must be selected before Draft Studio review.');
     expect(conceptState.currentConcept).not.toHaveProperty('materialization');
     expect(conceptState.currentConcept).not.toHaveProperty('analyzableSurface');
     expect(fs.existsSync(path.join(tmp, 'design-studio', 'threads'))).toBe(true);
@@ -127,8 +135,8 @@ describe('conceptStore', () => {
     const reloaded = await loadConceptState(context, 'thread-3');
 
     expect(selected.currentConcept.preferredBaselineConceptId).toBe(secondConceptId);
-    expect(selected.currentConcept.approvalState).toBe('pendingApproval');
-    expect(selected.currentConcept.lifecycleState).toBe('proposed');
+    expect(selected.currentConcept.approvalState).toBe('notSubmitted');
+    expect(selected.currentConcept.lifecycleState).toBe('draft');
     expect(selected.currentConcept.approvedBaselineConceptId).toBeUndefined();
     expect(selected.currentConcept.comparison?.preferredConceptId).toBe(secondConceptId);
     expect(selected.currentConcept.comparison?.decisions).toEqual(
@@ -153,20 +161,52 @@ describe('conceptStore', () => {
 
     expect(selected.currentConcept.preferredBaselineConceptId).toBe(secondConceptId);
     expect(selected.currentConcept.approvedBaselineConceptId).toBeUndefined();
-    expect(selected.currentConcept.approvalState).toBe('pendingApproval');
+    expect(selected.currentConcept.approvalState).toBe('notSubmitted');
     expect(selected.readiness.canEnterDraftStudio).toBe(false);
+
+    const submitted = await submitConceptBaselineForApproval(context, 'thread-4');
+
+    expect(submitted.currentConcept.version).toBe(3);
+    expect(submitted.currentConcept.preferredBaselineConceptId).toBe(secondConceptId);
+    expect(submitted.currentConcept.approvedBaselineConceptId).toBeUndefined();
+    expect(submitted.currentConcept.approvalState).toBe('pendingApproval');
+    expect(submitted.currentConcept.lifecycleState).toBe('proposed');
+    expect(submitted.readiness.canEnterDraftStudio).toBe(false);
 
     const approved = await approveConceptBaseline(context, 'thread-4');
 
-    expect(approved.currentConcept.version).toBe(3);
+    expect(approved.currentConcept.version).toBe(4);
     expect(approved.currentConcept.approvedBaselineConceptId).toBe(secondConceptId);
     expect(approved.currentConcept.approvalState).toBe('approved');
     expect(approved.currentConcept.lifecycleState).toBe('approved');
     expect(approved.readiness.canEnterDraftStudio).toBe(true);
-    expect(approved.history.map((entry) => entry.version)).toEqual([1, 2, 3]);
-    expect(approved.history[1].concept.approvalState).toBe('pendingApproval');
-    expect(approved.history[2].concept.approvalState).toBe('approved');
+    expect(approved.history.map((entry) => entry.version)).toEqual([1, 2, 3, 4]);
+    expect(approved.history[1].concept.approvalState).toBe('notSubmitted');
+    expect(approved.history[2].concept.approvalState).toBe('pendingApproval');
+    expect(approved.history[3].concept.approvalState).toBe('approved');
     expect(approved.history[1].concept.approvedBaselineConceptId).toBeUndefined();
-    expect(approved.history[2].concept.approvedBaselineConceptId).toBe(secondConceptId);
+    expect(approved.history[2].concept.approvedBaselineConceptId).toBeUndefined();
+    expect(approved.history[3].concept.approvedBaselineConceptId).toBe(secondConceptId);
+  });
+
+  it('resets concept approval progress when the preferred baseline changes before approval', async () => {
+    const tmp = makeTempDir();
+    const context = makeContext(tmp);
+    await saveApprovedBrief(context, 'thread-5');
+
+    const generated = await generateConceptArtifacts(context, 'thread-5');
+    const firstConceptId = generated.currentConcept.alternateConcepts[0].id;
+    const secondConceptId = generated.currentConcept.alternateConcepts[1].id;
+
+    await selectConceptBaseline(context, 'thread-5', firstConceptId);
+    await submitConceptBaselineForApproval(context, 'thread-5');
+    const changed = await selectConceptBaseline(context, 'thread-5', secondConceptId);
+
+    expect(changed.currentConcept.version).toBe(4);
+    expect(changed.currentConcept.preferredBaselineConceptId).toBe(secondConceptId);
+    expect(changed.currentConcept.approvedBaselineConceptId).toBeUndefined();
+    expect(changed.currentConcept.approvalState).toBe('notSubmitted');
+    expect(changed.currentConcept.lifecycleState).toBe('draft');
+    expect(changed.currentConcept.comparison?.preferredConceptId).toBe(secondConceptId);
   });
 });

@@ -251,6 +251,89 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed ordering and linked specs.
 - `service-dotnet/` - backend host and scoring services
 - `docs/` - usage guidance, changelog, release notes, roadmap, and release support
 
+## Backend Artifact Ownership
+
+Workstream 4B makes the backend packaging boundary explicit.
+
+Source-owned files:
+
+- `service-dotnet/RpcHost/` and backend source under `service-dotnet/`
+- extension packaging scripts under `vscode-extension/scripts/`
+- extension manifest and release docs:
+  - `vscode-extension/package.json`
+  - `README.md`
+  - `docs/RELEASING.md`
+
+Generated backend files:
+
+- `vscode-extension/backend/rpc/`
+  - local development build output for the current machine
+  - rebuilt by `npm run build` or `npm run build:backend`
+  - ignored in git
+- `vscode-extension/backend/targets/<target>/rpc/`
+  - target-specific packaged backend staging outputs
+  - rebuilt by `npm run package:all` or `node scripts/build-backend.mjs --target <target> --output backend/targets/<target>/rpc`
+  - intentionally treated as generated artifacts, not hand-maintained source
+
+Packaging-owned files:
+
+- `pbir-design-analyzer-<version>-<target>.vsix`
+- the staged backend payload copied into each packaged VSIX as `backend/rpc/`
+
+Do not manually edit:
+
+- files under `vscode-extension/backend/rpc/`
+- files under `vscode-extension/backend/targets/`
+- generated `.vsix` files
+
+Current staged cleanup path:
+
+- `vscode-extension/backend/targets/` remains checked in for now because it is the reproducible multi-target packaging staging area used by `package:all`
+- treat those files as generated snapshots
+- use verification and rebuild commands instead of editing them by hand
+- if the repo later removes checked-in targets, that should happen as a separate intentional cleanup change with release-process validation
+
+## Backend Packaging Workflow
+
+Bucket A removed runtime fallback to repo-local `Debug` and `Release` publish leftovers.
+
+Current behavior:
+
+- repo-hosted development uses `vscode-extension/backend/rpc/` for the local machine after `npm run build` or `npm run build:backend`
+- installed and packaged extension runtime uses only the packaged `backend/rpc/` payload inside the VSIX
+- repo-local `service-dotnet/RpcHost/bin/Debug/...` and `service-dotnet/RpcHost/bin/Release/...` outputs are not part of runtime resolution
+
+Useful commands:
+
+```bash
+cd vscode-extension
+npm run build:backend
+npm run verify:backend:targets
+npm run clean:backend:targets
+npm run package:all
+```
+
+Command intent:
+
+- `npm run build:backend`
+  - rebuilds `backend/rpc/` for the current platform only
+- `npm run verify:backend:targets`
+  - checks that all supported packaged targets exist and that each target still contains the runtime-critical backend files
+- `npm run clean:backend:targets`
+  - removes only the known generated target staging directories under `backend/targets/`
+- `npm run package:all`
+  - recompiles the extension/webviews
+  - rebuilds every packaged backend target under `backend/targets/<target>/rpc/`
+  - creates the five target-specific VSIX files
+
+To validate packaged backend runtime behavior:
+
+1. Run `cd vscode-extension && npm run verify:backend:targets`.
+2. Run `cd vscode-extension && npm run package:all`.
+3. Install the VSIX that matches the test machine target.
+4. Score a real PBIR report and confirm the backend starts normally.
+5. Treat any success that depends on repo-local `service-dotnet/RpcHost/bin/Debug` or `Release` outputs as a bug, because packaged-only runtime resolution is now the contract.
+
 ## Installation
 
 Build and package locally:
@@ -266,6 +349,7 @@ Build all platform-targeted VSIX packages:
 
 ```bash
 cd vscode-extension
+npm run verify:backend:targets
 npm run package:all
 ```
 

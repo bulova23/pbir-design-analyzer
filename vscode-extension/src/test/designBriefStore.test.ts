@@ -6,6 +6,7 @@ import {
   approveDesignBrief,
   loadDesignBriefState,
   saveDesignBriefDraft,
+  submitDesignBriefForApproval,
 } from '../design-studio/state/designBriefStore';
 
 function makeContext(tmpDir: string): ExtensionContext {
@@ -73,6 +74,7 @@ describe('designBriefStore', () => {
 
     expect(initial.current.version).toBe(1);
     expect(updated.current.version).toBe(2);
+    expect(updated.current.approvalState).toBe('notSubmitted');
     expect(updated.current.consumptionContext).toBe('Daily intervention check');
     expect(updated.current.decisionCadence).toBe('Daily');
     expect(updated.current.narrativeRisksOrConstraints).toEqual(['Preserve segment comparability']);
@@ -84,7 +86,7 @@ describe('designBriefStore', () => {
     expect(fs.existsSync(path.join('/Users/me/Workspace', 'design-brief.json'))).toBe(false);
   });
 
-  it('requires explicit approval before concept generation can proceed', async () => {
+  it('requires explicit submission and approval before concept generation can proceed', async () => {
     const tmp = makeTempDir();
     const context = makeContext(tmp);
 
@@ -101,19 +103,128 @@ describe('designBriefStore', () => {
     });
 
     expect(draft.validation.canGenerateConcepts).toBe(false);
-    expect(draft.current.approvalState).toBe('pendingApproval');
+    expect(draft.current.approvalState).toBe('notSubmitted');
+
+    const submitted = await submitDesignBriefForApproval(context, 'thread-1');
+
+    expect(submitted.current.version).toBe(2);
+    expect(submitted.current.approvalState).toBe('pendingApproval');
+    expect(submitted.current.lifecycleState).toBe('draft');
+    expect(submitted.validation.isValid).toBe(true);
+    expect(submitted.validation.canGenerateConcepts).toBe(false);
 
     const approved = await approveDesignBrief(context, 'thread-1');
 
-    expect(approved.current.version).toBe(2);
+    expect(approved.current.version).toBe(3);
     expect(approved.current.approvalState).toBe('approved');
     expect(approved.current.lifecycleState).toBe('approved');
     expect(approved.validation.canGenerateConcepts).toBe(true);
-    expect(approved.history.map((entry) => entry.version)).toEqual([1, 2]);
-    expect(approved.history[0].brief.approvalState).toBe('pendingApproval');
+    expect(approved.history.map((entry) => entry.version)).toEqual([1, 2, 3]);
+    expect(approved.history[0].brief.approvalState).toBe('notSubmitted');
     expect(approved.history[0].brief.lifecycleState).toBe('draft');
-    expect(approved.history[1].brief.approvalState).toBe('approved');
-    expect(approved.history[1].brief.lifecycleState).toBe('approved');
+    expect(approved.history[1].brief.approvalState).toBe('pendingApproval');
+    expect(approved.history[1].brief.lifecycleState).toBe('draft');
+    expect(approved.history[2].brief.approvalState).toBe('approved');
+    expect(approved.history[2].brief.lifecycleState).toBe('approved');
+  });
+
+  it('rejects approval before submission even when required fields are missing', async () => {
+    const tmp = makeTempDir();
+    const context = makeContext(tmp);
+
+    await saveDesignBriefDraft(context, 'thread-1', {
+      audience: 'Operations managers',
+      businessObjective: '',
+      keyDecisions: [],
+      primaryKpis: [],
+      dimensions: [],
+      intendedStory: '',
+      successCriteria: [],
+      reportType: 'dashboard',
+      navigationExpectations: '',
+    });
+
+    await expect(submitDesignBriefForApproval(context, 'thread-1')).rejects.toThrow(
+      'Design Brief must be valid before submission for approval.',
+    );
+  });
+
+  it('rejects approval unless the brief is already pending approval', async () => {
+    const tmp = makeTempDir();
+    const context = makeContext(tmp);
+
+    await saveDesignBriefDraft(context, 'thread-1', {
+      audience: 'Operations managers',
+      businessObjective: 'Reduce inventory exceptions',
+      keyDecisions: ['Which plants need action today'],
+      primaryKpis: ['Exception count'],
+      dimensions: ['Plant'],
+      intendedStory: 'Open with exceptions, then show root causes.',
+      successCriteria: ['Manager can identify a plant to contact immediately'],
+      reportType: 'dashboard',
+      navigationExpectations: 'Start at summary, then move to root-cause detail.',
+    });
+
+    await expect(approveDesignBrief(context, 'thread-1')).rejects.toThrow(
+      'Design Brief must be submitted for approval before approval can be recorded.',
+    );
+  });
+
+  it('preserves lineage and versioning across save, submit, and approve transitions', async () => {
+    const tmp = makeTempDir();
+    const context = makeContext(tmp);
+
+    const saved = await saveDesignBriefDraft(context, 'thread-4', {
+      audience: 'Finance leads',
+      businessObjective: 'Prioritize collections follow-up',
+      keyDecisions: ['Which accounts need outreach now'],
+      primaryKpis: ['Overdue balance'],
+      dimensions: ['Region'],
+      intendedStory: 'Start with exposure, then show the biggest drivers.',
+      successCriteria: ['Lead can assign the next outreach action quickly'],
+      reportType: 'dashboard',
+      navigationExpectations: 'Overview first, then account detail.',
+    });
+    const submitted = await submitDesignBriefForApproval(context, 'thread-4');
+    const approved = await approveDesignBrief(context, 'thread-4');
+
+    expect(saved.current.id).toBe(submitted.current.id);
+    expect(submitted.current.id).toBe(approved.current.id);
+    expect(saved.history[0]?.brief.id).toBe(approved.current.id);
+    expect(approved.history.map((entry) => entry.version)).toEqual([1, 2, 3]);
+    expect(approved.history.map((entry) => entry.brief.approvalState)).toEqual([
+      'notSubmitted',
+      'pendingApproval',
+      'approved',
+    ]);
+    expect(approved.history.map((entry) => entry.brief.kind)).toEqual([
+      'designBrief',
+      'designBrief',
+      'designBrief',
+    ]);
+  });
+
+  it('rejects re-submission once a brief is already approved', async () => {
+    const tmp = makeTempDir();
+    const context = makeContext(tmp);
+
+    await saveDesignBriefDraft(context, 'thread-5', {
+      audience: 'Operations managers',
+      businessObjective: 'Reduce inventory exceptions',
+      keyDecisions: ['Which plants need action today'],
+      primaryKpis: ['Exception count'],
+      dimensions: ['Plant'],
+      intendedStory: 'Open with exceptions, then show root causes.',
+      successCriteria: ['Manager can identify a plant to contact immediately'],
+      reportType: 'dashboard',
+      navigationExpectations: 'Start at summary, then move to root-cause detail.',
+    });
+    await submitDesignBriefForApproval(context, 'thread-5');
+    await approveDesignBrief(context, 'thread-5');
+
+    await expect(submitDesignBriefForApproval(context, 'thread-5')).rejects.toThrow(
+      'Approved Design Briefs cannot be resubmitted without creating a new draft revision.',
+    );
   });
 
   it('rejects approval when required fields are missing', async () => {
@@ -133,7 +244,7 @@ describe('designBriefStore', () => {
     });
 
     await expect(approveDesignBrief(context, 'thread-1')).rejects.toThrow(
-      'Design Brief must be valid before approval.',
+      'Design Brief must be submitted for approval before approval can be recorded.',
     );
   });
 

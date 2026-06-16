@@ -2,8 +2,8 @@ import fs from 'fs';
 import os from 'os';
 import { spawnSync } from 'child_process';
 import path from 'path';
+import { backendTargets, detectDefaultTarget } from './backend-targets.mjs';
 
-const targets = ['win32-x64', 'win32-arm64', 'linux-x64', 'darwin-x64', 'darwin-arm64'];
 const rootDir = process.cwd();
 const lockPath = path.join(rootDir, '.package-vsix.lock');
 const vsceBin = path.join(rootDir, 'node_modules', '@vscode', 'vsce', 'vsce');
@@ -17,7 +17,7 @@ const packageJson = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'ut
 const version = packageJson.version;
 
 const requestedTargets = process.argv.includes('--all')
-  ? targets
+  ? backendTargets.map((descriptor) => descriptor.target)
   : [readArg('--target') ?? detectDefaultTarget()];
 
 acquirePackagingLock();
@@ -110,26 +110,6 @@ function acquirePackagingLock() {
 
 function releasePackagingLock() {
   fs.rmSync(lockPath, { force: true });
-}
-
-function detectDefaultTarget() {
-  if (process.platform === 'win32' && process.arch === 'x64') {
-    return 'win32-x64';
-  }
-  if (process.platform === 'win32' && process.arch === 'arm64') {
-    return 'win32-arm64';
-  }
-  if (process.platform === 'linux' && process.arch === 'x64') {
-    return 'linux-x64';
-  }
-  if (process.platform === 'darwin' && process.arch === 'x64') {
-    return 'darwin-x64';
-  }
-  if (process.platform === 'darwin' && process.arch === 'arm64') {
-    return 'darwin-arm64';
-  }
-
-  throw new Error(`Unsupported local packaging platform: ${process.platform}-${process.arch}`);
 }
 
 function run(command) {

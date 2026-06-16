@@ -5,7 +5,7 @@ jest.mock('../views/pbirExplorerReveal', () => ({
   revealVisualInPbirExplorer: jest.fn(),
 }));
 
-import { PbirScorePanel } from '../views/PbirScorePanel';
+import { createScorePanelMessageRouter } from '../views/scorePanelMessageRouter';
 import { withScorePanelEnvelope } from '../views/scorePanelProtocol';
 import { revealNavigationTargetInPbirExplorer } from '../views/pbirExplorerReveal';
 
@@ -16,9 +16,34 @@ describe('PbirScorePanel navigation messages', () => {
 
   it('routes navigateToTarget messages through the shared target reveal helper', async () => {
     (revealNavigationTargetInPbirExplorer as jest.Mock).mockResolvedValue(true);
-    const panel = Object.create(PbirScorePanel.prototype) as any;
+    const router = createScorePanelMessageRouter({
+      getPageCount: () => 0,
+      onReady: jest.fn(),
+      onRefresh: jest.fn(),
+      onSelectTab: jest.fn(),
+      onSetIntentFeedback: jest.fn(),
+      onUploadScreenshots: jest.fn(),
+      onAttachScreenshot: jest.fn(),
+      onRemoveScreenshot: jest.fn(),
+      onAssignCapture: jest.fn(),
+      onAnalyzeCapture: jest.fn(),
+      onExportReviewWorkflow: jest.fn(),
+      onSetReviewPacketPreviewProfile: jest.fn(),
+      onSetReviewPacketPreviewTemplateVariant: jest.fn(),
+      onOpenReviewPacketPreview: jest.fn(),
+      onToggleFixOpportunitySelection: jest.fn(),
+      onPreviewSelectedFixOpportunities: jest.fn(),
+      onApproveSelectedFixOpportunities: jest.fn(),
+      onApplySelectedFixOpportunities: jest.fn(),
+      onRollbackFixSession: jest.fn(),
+      onRegenerateFixOpportunities: jest.fn(),
+      onApproveFixOpportunity: jest.fn(),
+      onApplyFixOpportunity: jest.fn(),
+      onRollbackFixOpportunity: jest.fn(),
+      onOpenSettings: jest.fn(),
+    });
 
-    await panel.handleMessage(withScorePanelEnvelope({
+    await router.route(withScorePanelEnvelope({
       type: 'navigateToTarget',
       target: {
         kind: 'page',
@@ -41,9 +66,34 @@ describe('PbirScorePanel navigation messages', () => {
 
   it('shows a non-blocking warning when a navigation target cannot be resolved', async () => {
     (revealNavigationTargetInPbirExplorer as jest.Mock).mockResolvedValue(false);
-    const panel = Object.create(PbirScorePanel.prototype) as any;
+    const router = createScorePanelMessageRouter({
+      getPageCount: () => 0,
+      onReady: jest.fn(),
+      onRefresh: jest.fn(),
+      onSelectTab: jest.fn(),
+      onSetIntentFeedback: jest.fn(),
+      onUploadScreenshots: jest.fn(),
+      onAttachScreenshot: jest.fn(),
+      onRemoveScreenshot: jest.fn(),
+      onAssignCapture: jest.fn(),
+      onAnalyzeCapture: jest.fn(),
+      onExportReviewWorkflow: jest.fn(),
+      onSetReviewPacketPreviewProfile: jest.fn(),
+      onSetReviewPacketPreviewTemplateVariant: jest.fn(),
+      onOpenReviewPacketPreview: jest.fn(),
+      onToggleFixOpportunitySelection: jest.fn(),
+      onPreviewSelectedFixOpportunities: jest.fn(),
+      onApproveSelectedFixOpportunities: jest.fn(),
+      onApplySelectedFixOpportunities: jest.fn(),
+      onRollbackFixSession: jest.fn(),
+      onRegenerateFixOpportunities: jest.fn(),
+      onApproveFixOpportunity: jest.fn(),
+      onApplyFixOpportunity: jest.fn(),
+      onRollbackFixOpportunity: jest.fn(),
+      onOpenSettings: jest.fn(),
+    });
 
-    await panel.handleMessage(withScorePanelEnvelope({
+    await router.route(withScorePanelEnvelope({
       type: 'navigateToTarget',
       target: {
         kind: 'visual',

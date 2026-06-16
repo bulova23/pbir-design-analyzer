@@ -50,6 +50,14 @@ internal enum MaterializationSourceRole
     ComparisonProposal,
 }
 
+internal enum DesignProviderCapabilityKind
+{
+    DesignAssistance,
+    GenerationAssistance,
+    ScreenshotIterationAssistance,
+    SemanticModelAwareAssistance,
+}
+
 internal enum DesignArtifactAuthorSource
 {
     User,
@@ -65,7 +73,7 @@ internal sealed record DesignArtifactProvenance(
     string Source,
     string? ProviderId = null,
     string? ProviderDisplayName = null,
-    Providers.DesignProviderCapabilityKind? ProviderCapabilityKind = null,
+    DesignProviderCapabilityKind? ProviderCapabilityKind = null,
     string? ProviderCapabilityId = null,
     string? RequestId = null,
     string? ProposalId = null,

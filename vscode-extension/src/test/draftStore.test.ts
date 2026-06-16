@@ -14,10 +14,13 @@ import {
 import {
   approveConceptBaseline,
   generateConceptArtifacts,
+  selectConceptBaseline,
+  submitConceptBaselineForApproval,
 } from '../design-studio/state/conceptStore';
 import {
   approveDesignBrief,
   saveDesignBriefDraft,
+  submitDesignBriefForApproval,
 } from '../design-studio/state/designBriefStore';
 
 function makeContext(tmpDir: string): ExtensionContext {
@@ -52,12 +55,15 @@ async function saveApprovedBrief(context: ExtensionContext, threadId: string): P
     requiredEvidenceDomains: ['Renewal trend', 'pipeline coverage'],
     targetAnalyzableSurfaceFamily: 'pbir',
   });
+  await submitDesignBriefForApproval(context, threadId);
   await approveDesignBrief(context, threadId);
 }
 
 async function saveApprovedConcept(context: ExtensionContext, threadId: string): Promise<void> {
   await saveApprovedBrief(context, threadId);
-  await generateConceptArtifacts(context, threadId);
+  const conceptState = await generateConceptArtifacts(context, threadId);
+  await selectConceptBaseline(context, threadId, conceptState.currentConcept.alternateConcepts[0].id);
+  await submitConceptBaselineForApproval(context, threadId);
   await approveConceptBaseline(context, threadId);
 }
 

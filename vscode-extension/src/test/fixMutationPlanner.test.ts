@@ -329,6 +329,11 @@ describe('fixMutationPlanner', () => {
           before: 180,
           after: 24,
           storagePath: ['position', 'y'],
+          targetFileVersion: expect.objectContaining({
+            contentHash: expect.any(String),
+            size: expect.any(Number),
+            modifiedTimeMs: expect.any(Number),
+          }),
         }),
         expect.objectContaining({
           pageName: 'Overview',
@@ -337,6 +342,11 @@ describe('fixMutationPlanner', () => {
           before: 100,
           after: 24,
           storagePath: ['position', 'x'],
+          targetFileVersion: expect.objectContaining({
+            contentHash: expect.any(String),
+            size: expect.any(Number),
+            modifiedTimeMs: expect.any(Number),
+          }),
         }),
         expect.objectContaining({
           pageName: 'Overview',
@@ -345,9 +355,16 @@ describe('fixMutationPlanner', () => {
           before: 'Overview Title',
           after: 'Overview',
           storagePath: ['visual', 'visualContainerObjects', 'title', 0, 'properties', 'text', 'expr', 'Literal', 'Value'],
+          targetFileVersion: expect.objectContaining({
+            contentHash: expect.any(String),
+            size: expect.any(Number),
+            modifiedTimeMs: expect.any(Number),
+          }),
         }),
       ]),
     );
+    expect(mutations.every((mutation) => mutation.targetFileVersion?.contentHash)).toBe(true);
+    expect(new Set(mutations.map((mutation) => mutation.targetFileVersion?.contentHash)).size).toBe(1);
   });
 
   it('keeps semantic color mutations disabled until schema-correct support exists', () => {

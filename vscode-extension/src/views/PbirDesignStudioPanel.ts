@@ -9,12 +9,23 @@ import {
 } from '../design-studio/state/refinementStore';
 import { loadIterationState } from '../design-studio/state/iterationStore';
 import {
+  approveDesignBrief,
+  saveDesignBriefDraft,
+  submitDesignBriefForApproval,
+} from '../design-studio/state/designBriefStore';
+import {
+  approveConceptBaseline,
+  generateConceptArtifacts,
+  selectConceptBaseline,
+  submitConceptBaselineForApproval,
+} from '../design-studio/state/conceptStore';
+import {
   parseDesignStudioWebviewMessage,
   withDesignStudioEnvelope,
   type DesignStudioHostToWebviewMessagePayload,
   type DesignStudioStudioState,
 } from '../design-studio/contracts/designStudioProtocol';
-import type { MaterializedSurfaceCandidate } from '../design-studio/contracts/designStudioModels';
+import type { DesignBriefDraftInput, MaterializedSurfaceCandidate } from '../design-studio/contracts/designStudioModels';
 import { PBIR_COMMANDS } from '../platform/extensionIds';
 
 declare global {
@@ -101,6 +112,61 @@ export class PbirDesignStudioPanel {
       case 'loadStudioState':
         await this.refresh();
         return;
+      case 'saveArtifact': {
+        if (parsed.message.artifactKind !== 'designBrief') {
+          void vscode.window.showWarningMessage(`Save is not supported for ${parsed.message.artifactKind} in this MVP shell.`);
+          return;
+        }
+
+        if (!isDesignBriefDraftInput(parsed.message.artifact)) {
+          void vscode.window.showWarningMessage('Design Brief save payload is invalid.');
+          return;
+        }
+
+        await saveDesignBriefDraft(this.context, this.threadId, parsed.message.artifact);
+        await this.refresh();
+        return;
+      }
+      case 'proposeArtifact': {
+        if (parsed.message.artifactKind === 'designBrief') {
+          await submitDesignBriefForApproval(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
+        if (parsed.message.artifactKind === 'reportConcept') {
+          await submitConceptBaselineForApproval(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
+        void vscode.window.showWarningMessage(`Submit for approval is not supported for ${parsed.message.artifactKind} in this MVP shell.`);
+        return;
+      }
+      case 'approveArtifact': {
+        if (parsed.message.artifactKind === 'designBrief') {
+          await approveDesignBrief(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
+        if (parsed.message.artifactKind === 'reportConcept') {
+          await approveConceptBaseline(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
+        void vscode.window.showWarningMessage(`Approval is not supported for ${parsed.message.artifactKind} in this MVP shell.`);
+        return;
+      }
+      case 'generateConcepts':
+        await generateConceptArtifacts(this.context, this.threadId);
+        await this.refresh();
+        return;
+      case 'selectConceptBaseline':
+        await selectConceptBaseline(this.context, this.threadId, parsed.message.conceptId);
+        await this.refresh();
+        return;
       case 'openAnalyzerHandoff': {
         const candidate = this.handoffCandidatesByRequestId.get(parsed.message.requestId);
         if (!candidate) {
@@ -148,7 +214,7 @@ export class PbirDesignStudioPanel {
       type: 'studioState',
       state: {
         threadId: workspaceState.threadId,
-        currentBrief: undefined,
+        currentBrief: workspaceState.currentBrief,
         iterationHistory: iterationState?.iterations ?? [],
         pendingRefinementProposals: refinementState?.proposals ?? [],
         workspace: workspaceState.workspace,
@@ -228,4 +294,45 @@ export class PbirDesignStudioPanel {
       this.disposables.pop()?.dispose();
     }
   }
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function isReportType(value: unknown): value is DesignBriefDraftInput['reportType'] {
+  return value === 'dashboard'
+    || value === 'scorecard'
+    || value === 'narrativeBriefing'
+    || value === 'operationalMonitoring';
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
+
+function isOptionalStringArray(value: unknown): value is string[] | undefined {
+  return value === undefined || isStringArray(value);
+}
+
+function isDesignBriefDraftInput(value: unknown): value is DesignBriefDraftInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.audience === 'string'
+    && typeof candidate.businessObjective === 'string'
+    && isStringArray(candidate.keyDecisions)
+    && isStringArray(candidate.primaryKpis)
+    && isStringArray(candidate.dimensions)
+    && typeof candidate.intendedStory === 'string'
+    && isStringArray(candidate.successCriteria)
+    && isReportType(candidate.reportType)
+    && typeof candidate.navigationExpectations === 'string'
+    && isOptionalString(candidate.consumptionContext)
+    && isOptionalString(candidate.decisionCadence)
+    && isOptionalStringArray(candidate.narrativeRisksOrConstraints)
+    && isOptionalStringArray(candidate.requiredEvidenceDomains)
+    && isOptionalString(candidate.targetAnalyzableSurfaceFamily);
 }

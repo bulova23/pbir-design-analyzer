@@ -11,10 +11,13 @@ import {
 import {
   approveConceptBaseline,
   generateConceptArtifacts,
+  selectConceptBaseline,
+  submitConceptBaselineForApproval,
 } from '../design-studio/state/conceptStore';
 import {
   approveDesignBrief,
   saveDesignBriefDraft,
+  submitDesignBriefForApproval,
 } from '../design-studio/state/designBriefStore';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -53,8 +56,11 @@ async function createDraftState(context: ExtensionContext, threadId: string): Pr
     requiredEvidenceDomains: ['trend', 'pipeline coverage'],
     targetAnalyzableSurfaceFamily: 'pbir',
   });
+  await submitDesignBriefForApproval(context, threadId);
   await approveDesignBrief(context, threadId);
-  await generateConceptArtifacts(context, threadId);
+  const conceptState = await generateConceptArtifacts(context, threadId);
+  await selectConceptBaseline(context, threadId, conceptState.currentConcept.alternateConcepts[0].id);
+  await submitConceptBaselineForApproval(context, threadId);
   await approveConceptBaseline(context, threadId);
   return generateDraftArtifacts(context, threadId);
 }

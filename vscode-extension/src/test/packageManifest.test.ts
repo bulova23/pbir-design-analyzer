@@ -50,4 +50,14 @@ describe('extension manifest 0.5.2 runtime posture', () => {
       }),
     ]));
   });
+
+  it('declares explicit backend target maintenance scripts for packaged runtime assets', () => {
+    expect(packageJson.scripts).toEqual(expect.objectContaining({
+      'build:backend': 'node scripts/build-backend.mjs',
+      'clean:backend': 'node scripts/clean-paths.mjs backend/rpc',
+      'package:all': 'node scripts/package-vsix.mjs --all',
+      'clean:backend:targets': 'node scripts/clean-backend-targets.mjs',
+      'verify:backend:targets': 'node scripts/verify-backend-targets.mjs',
+    }));
+  });
 });

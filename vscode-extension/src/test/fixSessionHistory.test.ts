@@ -50,11 +50,16 @@ describe('fixSessionHistory', () => {
     const rollbackFailed = recordFixSessionRollback(rolledBack, {
       rolledBackAt: '2026-06-01T22:32:00.000Z',
       state: 'RollbackFailed',
+      validationErrors: ['rollback-conflict:/tmp/report.json'],
     });
 
     expect(rollbackFailed.rollbackHistory).toEqual([
       { rolledBackAt: '2026-06-01T22:31:00.000Z', state: 'RolledBack' },
-      { rolledBackAt: '2026-06-01T22:32:00.000Z', state: 'RollbackFailed' },
+      {
+        rolledBackAt: '2026-06-01T22:32:00.000Z',
+        state: 'RollbackFailed',
+        validationErrors: ['rollback-conflict:/tmp/report.json'],
+      },
     ]);
   });
 

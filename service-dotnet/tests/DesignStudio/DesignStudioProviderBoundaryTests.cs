@@ -7,15 +7,15 @@ namespace PowerBIModelingService.Tests.DesignStudio;
 public sealed class DesignStudioProviderBoundaryTests
 {
     private static readonly Assembly CoreAssembly = typeof(ScoreResult).Assembly;
-    private const string ProvidersNamespace = "PowerBIModelingService.Services.DesignStudio.Providers";
+    private const string DesignStudioNamespacePrefix = "PowerBIModelingService.Services.DesignStudio";
+    private const string ModelsNamespace = "PowerBIModelingService.Services.DesignStudio.Models";
 
-    [Fact(DisplayName = "Design Studio provider registry types exist and remain backend-internal")]
-    public void ProviderRegistry_InternalTypesExist()
+    [Fact(DisplayName = "Design Studio backend no longer exposes speculative provider registry runtime types")]
+    public void ProviderRegistry_SpeculativeRuntimeTypesAreRemoved()
     {
-        string[] expectedTypeNames =
+        string[] speculativeTypeNames =
         [
             "IDesignStudioProvider",
-            "DesignProviderCapabilityKind",
             "DesignProviderCapability",
             "DesignProviderWorkflowConstraints",
             "DesignProviderFailureBehavior",
@@ -23,36 +23,31 @@ public sealed class DesignStudioProviderBoundaryTests
             "DesignProviderTrustPosture",
         ];
 
-        foreach (var typeName in expectedTypeNames)
+        foreach (var typeName in speculativeTypeNames)
         {
-            var type = CoreAssembly.GetType($"{ProvidersNamespace}.{typeName}", throwOnError: false);
-            Assert.NotNull(type);
-            Assert.True(type!.IsNotPublic, $"{typeName} should remain backend-internal.");
+            var matchingType = CoreAssembly
+                .GetTypes()
+                .SingleOrDefault(type => type.Name == typeName && type.Namespace?.StartsWith(DesignStudioNamespacePrefix, StringComparison.Ordinal) == true);
+
+            Assert.Null(matchingType);
         }
     }
 
-    [Fact(DisplayName = "Design Studio provider models do not expose report mutation, PBIR generation, or materialization authority")]
-    public void ProviderRegistry_DoesNotExposeMutationOrMaterializationAuthority()
+    [Fact(DisplayName = "Design Studio keeps only provider provenance vocabulary inside the contract mirror")]
+    public void ProviderRegistry_OnlyContractMirrorVocabularyRemains()
     {
-        string[] providerTypeNames =
-        [
-            "IDesignStudioProvider",
-            "DesignProviderCapability",
-            "DesignProviderWorkflowConstraints",
-        ];
+        var capabilityKindType = CoreAssembly.GetType($"{ModelsNamespace}.DesignProviderCapabilityKind", throwOnError: false);
+        Assert.NotNull(capabilityKindType);
+        Assert.True(capabilityKindType!.IsNotPublic, "DesignProviderCapabilityKind should remain backend-internal.");
 
-        var methods = providerTypeNames
-            .Select(typeName => CoreAssembly.GetType($"{ProvidersNamespace}.{typeName}", throwOnError: false))
-            .Where(type => type is not null)
-            .SelectMany(type => type!.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
-            .Select(method => method.Name)
-            .ToArray();
+        var provenanceType = CoreAssembly.GetType($"{ModelsNamespace}.DesignArtifactProvenance", throwOnError: false);
+        Assert.NotNull(provenanceType);
 
-        Assert.DoesNotContain(methods, method => method.Contains("Materialize", StringComparison.Ordinal));
-        Assert.DoesNotContain(methods, method => method.Contains("GeneratePbir", StringComparison.Ordinal));
-        Assert.DoesNotContain(methods, method => method.Contains("CreateSurface", StringComparison.Ordinal));
-        Assert.DoesNotContain(methods, method => method.Contains("Mutate", StringComparison.Ordinal));
-        Assert.DoesNotContain(methods, method => method.Contains("Apply", StringComparison.Ordinal));
-        Assert.DoesNotContain(methods, method => method.Contains("Deploy", StringComparison.Ordinal));
+        var providerCapabilityProperty = provenanceType!
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(property => property.Name == "ProviderCapabilityKind");
+
+        Assert.Equal("Nullable`1", providerCapabilityProperty.PropertyType.Name);
+        Assert.Equal("DesignProviderCapabilityKind", Nullable.GetUnderlyingType(providerCapabilityProperty.PropertyType)?.Name);
     }
 }

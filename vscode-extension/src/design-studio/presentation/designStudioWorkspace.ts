@@ -8,7 +8,7 @@ import { loadDesignBriefState } from '../state/designBriefStore';
 import { loadDraftState } from '../state/draftStore';
 import { loadIterationState } from '../state/iterationStore';
 import { loadRefinementState } from '../state/refinementStore';
-import type { AlternateReportConcept, DesignArtifactApprovalState, DesignArtifactApprovalKind } from '../contracts/designStudioModels';
+import type { AlternateReportConcept, DesignArtifactApprovalState, DesignArtifactApprovalKind, DesignBrief } from '../contracts/designStudioModels';
 import type {
   DesignStudioAnalyzerHandoffViewModel,
   DesignStudioApprovalCardViewModel,
@@ -29,6 +29,7 @@ import type {
 
 export interface DesignStudioWorkspaceBuildResult {
   threadId: string;
+  currentBrief?: DesignBrief;
   workspace: DesignStudioWorkspaceViewModel;
   handoffCandidatesByRequestId: Map<string, NonNullable<ReturnType<typeof materializeDesignStudioRequest> extends infer T ? T extends { ok: true; candidate: infer C } ? C : never : never>>;
 }
@@ -218,6 +219,12 @@ function buildConceptReview(conceptState: NonNullable<Awaited<ReturnType<typeof 
   return {
     title: 'Concept Review Artifacts',
     summary: 'Review the chapter structure, KPI hierarchy, navigation path, and analytical flow before Draft Studio work begins.',
+    conceptId: conceptState.currentConcept.id,
+    approvalState: conceptState.currentConcept.approvalState,
+    alternateConcepts: conceptState.currentConcept.alternateConcepts,
+    comparison: conceptState.currentConcept.comparison,
+    preferredBaselineConceptId: conceptState.currentConcept.preferredBaselineConceptId,
+    approvedBaselineConceptId: conceptState.currentConcept.approvedBaselineConceptId,
     selectedConceptLabel: selectedConcept?.label ?? 'Current concept baseline',
     chapterStructure: selectedConcept?.chapterMap.chapters.map((chapter) => ({
       title: chapter.title,
@@ -282,14 +289,14 @@ function firstNonApprovedStage(stages: DesignStudioWorkflowStageViewModel[]): De
     return ready.id;
   }
 
-  const blocked = stages.find((stage) => stage.status === 'blocked');
-  if (blocked) {
-    return blocked.id;
-  }
-
   const notStarted = stages.find((stage) => stage.status === 'notStarted');
   if (notStarted) {
     return notStarted.id;
+  }
+
+  const blocked = stages.find((stage) => stage.status === 'blocked');
+  if (blocked) {
+    return blocked.id;
   }
 
   return stages.at(-1)?.id ?? 'brief';
@@ -479,7 +486,7 @@ export async function buildDesignStudioWorkspace(
         : briefState.current.approvalState === 'approved'
           ? 'approved'
           : briefState.validation.isValid
-            ? 'inProgress'
+            ? 'ready'
             : 'inProgress',
     ),
     buildStage(
@@ -487,10 +494,12 @@ export async function buildDesignStudioWorkspace(
       !briefState || briefState.current.approvalState !== 'approved'
         ? 'blocked'
         : !conceptState
-          ? 'ready'
+          ? 'notStarted'
           : conceptState.currentConcept.approvalState === 'approved'
             ? 'approved'
-            : 'inProgress',
+            : conceptState.currentConcept.approvalState === 'pendingApproval'
+              ? 'ready'
+              : 'inProgress',
     ),
     buildStage(
       'draft',
@@ -537,6 +546,7 @@ export async function buildDesignStudioWorkspace(
 
   return {
     threadId,
+    currentBrief: briefState?.current,
     handoffCandidatesByRequestId,
     workspace: {
       reportLabel,

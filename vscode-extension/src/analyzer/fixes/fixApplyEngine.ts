@@ -1,16 +1,29 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import type {
   FixApplyResult,
   FixApplySessionRecord,
   FixBatchApplyResult,
+  FixFileVersionSnapshot,
   FixMutation,
   FixOpportunity,
+  RollbackFileBackup,
 } from '../contracts/scorePanel';
 import { evaluateFixOpportunityCompatibility } from './fixCompatibility';
+import {
+  FixPersistenceValidationError,
+  type FixPersistenceService,
+  NodeFixPersistenceService,
+} from './fixPersistenceService';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sameFileVersion(left: FixFileVersionSnapshot | undefined, right: FixFileVersionSnapshot | undefined): boolean {
+  return Boolean(left)
+    && Boolean(right)
+    && left!.contentHash === right!.contentHash
+    && left!.size === right!.size
+    && left!.modifiedTimeMs === right!.modifiedTimeMs;
 }
 
 function getStoragePath(mutation: FixMutation): Array<string | number> {
@@ -98,18 +111,6 @@ function setPropertyValue(source: Record<string, unknown>, storagePath: Array<st
   current[finalSegment] = value;
 }
 
-function validateMutation(mutation: FixMutation): boolean {
-  const content = JSON.parse(fs.readFileSync(mutation.targetFile, 'utf8')) as unknown;
-  const currentValue = decodeStoredValue(mutation, getPropertyValue(content, getStoragePath(mutation)));
-  return currentValue === mutation.before;
-}
-
-function validateMutations(mutations: FixMutation[]): string[] {
-  return mutations.flatMap((mutation) => (validateMutation(mutation)
-    ? []
-    : [`${mutation.targetObjectId}:${mutation.propertyPath}`]));
-}
-
 function sortOpportunities(opportunities: FixOpportunity[]): FixOpportunity[] {
   return [...opportunities].sort((left, right) => {
     const leftPage = left.affectedPages[0] ?? '';
@@ -122,13 +123,13 @@ function sortOpportunities(opportunities: FixOpportunity[]): FixOpportunity[] {
   });
 }
 
-function collectUniqueBackups(opportunities: FixOpportunity[]): Map<string, string> {
-  const backups = new Map<string, string>();
+function collectUniqueBackups(opportunities: FixOpportunity[]): Map<string, RollbackFileBackup> {
+  const backups = new Map<string, RollbackFileBackup>();
 
   for (const opportunity of opportunities) {
     for (const backup of opportunity.rollbackPlan.fileBackups) {
       if (!backups.has(backup.targetFile)) {
-        backups.set(backup.targetFile, backup.beforeContent);
+        backups.set(backup.targetFile, backup);
       }
     }
   }
@@ -136,21 +137,89 @@ function collectUniqueBackups(opportunities: FixOpportunity[]): Map<string, stri
   return backups;
 }
 
-function restoreBackups(backups: Map<string, string>): void {
-  for (const [targetFile, beforeContent] of backups.entries()) {
-    if (fs.existsSync(targetFile) && fs.readFileSync(targetFile, 'utf8') === beforeContent) {
+function collectExpectedFileVersions(
+  mutations: FixMutation[],
+  backups: Map<string, RollbackFileBackup>,
+): Map<string, FixFileVersionSnapshot> {
+  const versions = new Map<string, FixFileVersionSnapshot>();
+
+  for (const mutation of mutations) {
+    const expected = mutation.targetFileVersion ?? backups.get(mutation.targetFile)?.beforeVersion;
+    if (!expected) {
       continue;
     }
-    fs.writeFileSync(targetFile, beforeContent, 'utf8');
+
+    const existing = versions.get(mutation.targetFile);
+    if (!existing || sameFileVersion(existing, expected)) {
+      versions.set(mutation.targetFile, expected);
+    }
+  }
+
+  return versions;
+}
+
+function assignAppliedVersions(opportunities: FixOpportunity[], writtenVersions: Map<string, FixFileVersionSnapshot>): void {
+  for (const opportunity of opportunities) {
+    opportunity.rollbackPlan.fileBackups = opportunity.rollbackPlan.fileBackups.map((backup) => ({
+      ...backup,
+      appliedVersion: writtenVersions.get(backup.targetFile) ?? backup.appliedVersion,
+    }));
   }
 }
 
-function buildUpdatedFileJson(mutations: FixMutation[]): Map<string, Record<string, unknown>> {
+async function validateExpectedFileVersions(
+  persistence: FixPersistenceService,
+  expectedVersions: Map<string, FixFileVersionSnapshot>,
+): Promise<string[]> {
+  const errors: string[] = [];
+
+  for (const [targetFile, expectedVersion] of expectedVersions.entries()) {
+    const currentVersion = await persistence.captureFileVersion(targetFile);
+    if (!sameFileVersion(currentVersion, expectedVersion)) {
+      errors.push(`target-file-drift:${targetFile}`);
+    }
+  }
+
+  return errors;
+}
+
+async function validateMutationState(
+  persistence: FixPersistenceService,
+  mutation: FixMutation,
+  expectedValue: unknown,
+  prefix?: string,
+): Promise<string[]> {
+  const content = await persistence.readJsonFile(mutation.targetFile);
+  const currentValue = decodeStoredValue(mutation, getPropertyValue(content, getStoragePath(mutation)));
+  return currentValue === expectedValue
+    ? []
+    : [`${prefix ? `${prefix}:` : ''}${mutation.targetObjectId}:${mutation.propertyPath}`];
+}
+
+async function validateMutations(
+  persistence: FixPersistenceService,
+  mutations: FixMutation[],
+  expectedValueSelector: (mutation: FixMutation) => unknown,
+  prefix?: string,
+): Promise<string[]> {
+  const results = await Promise.all(mutations.map(async (mutation) => validateMutationState(
+    persistence,
+    mutation,
+    expectedValueSelector(mutation),
+    prefix,
+  )));
+  return results.flat();
+}
+
+async function buildUpdatedFileJson(
+  persistence: FixPersistenceService,
+  mutations: FixMutation[],
+): Promise<Map<string, Record<string, unknown>>> {
   const fileJson = new Map<string, Record<string, unknown>>();
 
   for (const mutation of mutations) {
     if (!fileJson.has(mutation.targetFile)) {
-      fileJson.set(mutation.targetFile, JSON.parse(fs.readFileSync(mutation.targetFile, 'utf8')) as Record<string, unknown>);
+      fileJson.set(mutation.targetFile, await persistence.readJsonFile(mutation.targetFile));
     }
 
     setPropertyValue(
@@ -163,78 +232,71 @@ function buildUpdatedFileJson(mutations: FixMutation[]): Map<string, Record<stri
   return fileJson;
 }
 
-function persistFilesAtomically(fileJson: Map<string, Record<string, unknown>>): string[] {
-  const tempFiles: string[] = [];
-  const persistedTargets: string[] = [];
+function buildFailedApplyResult(
+  opportunityId: string,
+  state: 'Stale' | 'FailedValidation',
+  validationErrors: string[],
+): FixApplyResult {
+  return {
+    opportunityId,
+    state,
+    appliedMutationCount: 0,
+    validationErrors,
+  };
+}
 
+function buildFailedBatchResult(
+  opportunities: FixOpportunity[],
+  state: 'Stale' | 'FailedValidation',
+  validationErrors: string[],
+): FixBatchApplyResult {
+  return {
+    state,
+    opportunityIds: opportunities.map((opportunity) => opportunity.id),
+    appliedMutationCount: 0,
+    validationErrors,
+    applyOrder: opportunities.map((opportunity) => opportunity.id),
+  };
+}
+
+async function attemptBackupRestore(
+  persistence: FixPersistenceService,
+  backups: RollbackFileBackup[],
+): Promise<string[]> {
   try {
-    for (const [targetFile, json] of fileJson.entries()) {
-      // 0.5.1 safe fallback: when a surgical patcher is not available for the
-      // supported mutation surface, rewrite the validated JSON atomically via
-      // temp-file + rename rather than attempting best-effort in-place edits.
-      const tempFile = path.join(path.dirname(targetFile), `${path.basename(targetFile)}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
-      tempFiles.push(tempFile);
-      fs.writeFileSync(tempFile, JSON.stringify(json, null, 2), 'utf8');
-      fs.renameSync(tempFile, targetFile);
-      persistedTargets.push(targetFile);
-    }
-
-    return persistedTargets;
+    const restoreResult = await persistence.restoreBackups(backups);
+    return restoreResult.conflictErrors;
   } catch (error) {
-    for (const tempFile of tempFiles) {
-      if (fs.existsSync(tempFile)) {
-        fs.rmSync(tempFile, { force: true });
-      }
-    }
-    throw error;
+    return [error instanceof Error ? error.message : 'restore-failed'];
   }
 }
 
-function validateWrittenMutations(mutations: FixMutation[]): string[] {
-  return mutations.flatMap((mutation) => {
-    const content = JSON.parse(fs.readFileSync(mutation.targetFile, 'utf8')) as unknown;
-    const currentValue = decodeStoredValue(mutation, getPropertyValue(content, getStoragePath(mutation)));
-    return currentValue === mutation.after
-      ? []
-      : [`post-write:${mutation.targetObjectId}:${mutation.propertyPath}`];
-  });
-}
-
-export function applyFixOpportunity(opportunity: FixOpportunity): FixApplyResult {
+export async function applyFixOpportunity(
+  opportunity: FixOpportunity,
+  persistence: FixPersistenceService = new NodeFixPersistenceService(),
+): Promise<FixApplyResult> {
   if (!opportunity.rollbackPlan || opportunity.rollbackPlan.fileBackups.length === 0) {
-    return {
-      opportunityId: opportunity.id,
-      state: 'FailedValidation',
-      appliedMutationCount: 0,
-      validationErrors: ['rollback-plan-missing'],
-    };
-  }
-
-  const validationErrors = validateMutations(opportunity.mutations);
-  if (validationErrors.length > 0) {
-    return {
-      opportunityId: opportunity.id,
-      state: 'Stale',
-      appliedMutationCount: 0,
-      validationErrors,
-    };
+    return buildFailedApplyResult(opportunity.id, 'FailedValidation', ['rollback-plan-missing']);
   }
 
   const backups = collectUniqueBackups([opportunity]);
+  const expectedFileVersions = collectExpectedFileVersions(opportunity.mutations, backups);
+  const versionErrors = await validateExpectedFileVersions(persistence, expectedFileVersions);
+  if (versionErrors.length > 0) {
+    return buildFailedApplyResult(opportunity.id, 'Stale', versionErrors);
+  }
+
+  const validationErrors = await validateMutations(persistence, opportunity.mutations, (mutation) => mutation.before);
+  if (validationErrors.length > 0) {
+    return buildFailedApplyResult(opportunity.id, 'Stale', validationErrors);
+  }
 
   try {
-    const fileJson = buildUpdatedFileJson(opportunity.mutations);
-    persistFilesAtomically(fileJson);
-    const postWriteErrors = validateWrittenMutations(opportunity.mutations);
-    if (postWriteErrors.length > 0) {
-      restoreBackups(backups);
-      return {
-        opportunityId: opportunity.id,
-        state: 'FailedValidation',
-        appliedMutationCount: 0,
-        validationErrors: postWriteErrors,
-      };
-    }
+    const fileJson = await buildUpdatedFileJson(persistence, opportunity.mutations);
+    const writtenVersions = await persistence.writeJsonFilesAtomically(fileJson, {
+      validate: [async () => validateMutations(persistence, opportunity.mutations, (mutation) => mutation.after, 'post-write')],
+    });
+    assignAppliedVersions([opportunity], writtenVersions);
 
     return {
       opportunityId: opportunity.id,
@@ -243,63 +305,54 @@ export function applyFixOpportunity(opportunity: FixOpportunity): FixApplyResult
       validationErrors: [],
     };
   } catch (error) {
-    restoreBackups(backups);
-    return {
-      opportunityId: opportunity.id,
-      state: 'FailedValidation',
-      appliedMutationCount: 0,
-      validationErrors: [error instanceof Error ? error.message : 'apply-failed'],
-    };
+    const restoreErrors = await attemptBackupRestore(persistence, [...backups.values()]);
+    const validationErrorsFromError = error instanceof FixPersistenceValidationError
+      ? error.validationErrors
+      : [error instanceof Error ? error.message : 'apply-failed'];
+    return buildFailedApplyResult(opportunity.id, 'FailedValidation', [...validationErrorsFromError, ...restoreErrors]);
   }
 }
 
-export function applyFixOpportunityBatch(
+export async function applyFixOpportunityBatch(
   opportunities: FixOpportunity[],
   appliedAt: string = new Date().toISOString(),
-): FixBatchApplyResult {
+  persistence: FixPersistenceService = new NodeFixPersistenceService(),
+): Promise<FixBatchApplyResult> {
   const ordered = sortOpportunities(opportunities);
   const compatibility = evaluateFixOpportunityCompatibility(ordered);
   if (!compatibility.isCompatible) {
-    return {
-      state: compatibility.blockingReasons.some((reason) => reason.code === 'staleOpportunity' || reason.code === 'targetDrifted')
+    return buildFailedBatchResult(
+      ordered,
+      compatibility.blockingReasons.some((reason) => reason.code === 'staleOpportunity' || reason.code === 'targetDrifted')
         ? 'Stale'
         : 'FailedValidation',
-      opportunityIds: ordered.map((opportunity) => opportunity.id),
-      appliedMutationCount: 0,
-      validationErrors: compatibility.blockingReasons.map((reason) => `${reason.code}:${reason.opportunityIds.join(',')}`),
-      applyOrder: ordered.map((opportunity) => opportunity.id),
-    };
-  }
-
-  const validationErrors = ordered.flatMap((opportunity) => validateMutations(opportunity.mutations)
-    .map((error) => `${opportunity.id}:${error}`));
-  if (validationErrors.length > 0) {
-    return {
-      state: 'Stale',
-      opportunityIds: ordered.map((opportunity) => opportunity.id),
-      appliedMutationCount: 0,
-      validationErrors,
-      applyOrder: ordered.map((opportunity) => opportunity.id),
-    };
+      compatibility.blockingReasons.map((reason) => `${reason.code}:${reason.opportunityIds.join(',')}`),
+    );
   }
 
   const allMutations = ordered.flatMap((opportunity) => opportunity.mutations);
   const backups = collectUniqueBackups(ordered);
+  const expectedFileVersions = collectExpectedFileVersions(allMutations, backups);
+  const versionErrors = await validateExpectedFileVersions(persistence, expectedFileVersions);
+  if (versionErrors.length > 0) {
+    return buildFailedBatchResult(ordered, 'Stale', versionErrors);
+  }
+
+  const validationErrors = (await Promise.all(ordered.map(async (opportunity) => (await validateMutations(
+    persistence,
+    opportunity.mutations,
+    (mutation) => mutation.before,
+  )).map((error) => `${opportunity.id}:${error}`)))).flat();
+  if (validationErrors.length > 0) {
+    return buildFailedBatchResult(ordered, 'Stale', validationErrors);
+  }
 
   try {
-    const fileJson = buildUpdatedFileJson(allMutations);
-    persistFilesAtomically(fileJson);
-    const postWriteErrors = validateWrittenMutations(allMutations);
-    if (postWriteErrors.length > 0) {
-      restoreBackups(backups);
-      return {
-        state: 'FailedValidation',
-        opportunityIds: ordered.map((opportunity) => opportunity.id),
-        appliedMutationCount: 0,
-        validationErrors: postWriteErrors,
-        applyOrder: ordered.map((opportunity) => opportunity.id),
-      };
-    }
+    const fileJson = await buildUpdatedFileJson(persistence, allMutations);
+    const writtenVersions = await persistence.writeJsonFilesAtomically(fileJson, {
+      validate: [async () => validateMutations(persistence, allMutations, (mutation) => mutation.after, 'post-write')],
+    });
+    assignAppliedVersions(ordered, writtenVersions);
 
     return {
       state: 'Applied',
@@ -317,20 +370,38 @@ export function applyFixOpportunityBatch(
       },
     };
   } catch (error) {
-    restoreBackups(backups);
-    return {
-      state: 'FailedValidation',
-      opportunityIds: ordered.map((opportunity) => opportunity.id),
-      appliedMutationCount: 0,
-      validationErrors: [error instanceof Error ? error.message : 'apply-failed'],
-      applyOrder: ordered.map((opportunity) => opportunity.id),
-    };
+    const restoreErrors = await attemptBackupRestore(persistence, [...backups.values()]);
+    const validationErrorsFromError = error instanceof FixPersistenceValidationError
+      ? error.validationErrors
+      : [error instanceof Error ? error.message : 'apply-failed'];
+    return buildFailedBatchResult(ordered, 'FailedValidation', [...validationErrorsFromError, ...restoreErrors]);
   }
 }
 
-export function rollbackFixOpportunity(opportunity: FixOpportunity): FixApplyResult {
+export async function rollbackFixOpportunity(
+  opportunity: FixOpportunity,
+  persistence: FixPersistenceService = new NodeFixPersistenceService(),
+): Promise<FixApplyResult> {
+  const expectedAppliedVersions = new Map<string, FixFileVersionSnapshot>();
   for (const backup of opportunity.rollbackPlan.fileBackups) {
-    fs.writeFileSync(backup.targetFile, backup.beforeContent, 'utf8');
+    if (backup.appliedVersion) {
+      expectedAppliedVersions.set(backup.targetFile, backup.appliedVersion);
+    }
+  }
+
+  if (expectedAppliedVersions.size === 0) {
+    const mutationErrors = await validateMutations(persistence, opportunity.mutations, (mutation) => mutation.after, 'rollback-conflict');
+    if (mutationErrors.length > 0) {
+      return buildFailedApplyResult(opportunity.id, 'FailedValidation', mutationErrors);
+    }
+  }
+
+  const restoreResult = await persistence.restoreBackups(
+    opportunity.rollbackPlan.fileBackups,
+    expectedAppliedVersions.size > 0 ? expectedAppliedVersions : undefined,
+  );
+  if (restoreResult.conflictErrors.length > 0) {
+    return buildFailedApplyResult(opportunity.id, 'FailedValidation', restoreResult.conflictErrors);
   }
 
   return {
@@ -341,11 +412,12 @@ export function rollbackFixOpportunity(opportunity: FixOpportunity): FixApplyRes
   };
 }
 
-export function rollbackFixSession(
+export async function rollbackFixSession(
   session: FixApplySessionRecord,
   opportunities: FixOpportunity[],
   rolledBackAt: string = new Date().toISOString(),
-): FixApplySessionRecord & { state: 'RolledBack' | 'RollbackFailed' } {
+  persistence: FixPersistenceService = new NodeFixPersistenceService(),
+): Promise<FixApplySessionRecord & { state: 'RolledBack' | 'RollbackFailed' }> {
   try {
     for (const opportunityId of [...session.opportunityIds].reverse()) {
       const opportunity = opportunities.find((item) => item.id === opportunityId);
@@ -353,7 +425,21 @@ export function rollbackFixSession(
         throw new Error(`missing-opportunity:${opportunityId}`);
       }
 
-      rollbackFixOpportunity(opportunity);
+      const rollbackResult = await rollbackFixOpportunity(opportunity, persistence);
+      if (rollbackResult.state !== 'RolledBack') {
+        return {
+          ...session,
+          rollbackHistory: [
+            ...session.rollbackHistory,
+            {
+              rolledBackAt,
+              state: 'RollbackFailed',
+              validationErrors: rollbackResult.validationErrors,
+            },
+          ],
+          state: 'RollbackFailed',
+        };
+      }
     }
 
     return {
@@ -367,7 +453,7 @@ export function rollbackFixSession(
       ],
       state: 'RolledBack',
     };
-  } catch {
+  } catch (error) {
     return {
       ...session,
       rollbackHistory: [
@@ -375,6 +461,7 @@ export function rollbackFixSession(
         {
           rolledBackAt,
           state: 'RollbackFailed',
+          validationErrors: [error instanceof Error ? error.message : 'rollback-failed'],
         },
       ],
       state: 'RollbackFailed',

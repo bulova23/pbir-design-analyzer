@@ -1,0 +1,1289 @@
+{
+  "reportName": "Running Record Dataverse",
+  "fixture": "Running Record Dataverse.pbip",
+  "scoreSummary": {
+    "PageCount": 15,
+    "CompositeScore": 77.56,
+    "GestaltScore": 55,
+    "CognitiveLoadScore": 92.68498044072909,
+    "DataInkScore": 76.81159420289855,
+    "AccessibilityScore": 100,
+    "VisualBestPracticesScore": 80,
+    "EnterpriseGovernanceScore": 62,
+    "GraphicalPerceptionScore": 35,
+    "StephenFewScore": 88,
+    "TufteScore": 92.61538461538461,
+    "DensityScore": 100,
+    "NarrativeScore": 36.66666666666667,
+    "DataVisualCount": 53,
+    "NavigationVisualCount": 61,
+    "HiddenVisualCount": 0
+  },
+  "recommendations": [
+    "[Medium] Cognitive Load: \u0027Duplicate of By Class\u0027 has a weighted visual load of 15.0 (6 data, 12 navigation at 25% weight) (\u003E6 recommended max). Consider simplifying the page or splitting it into sub-pages.",
+    "[Medium] Cognitive Load: Consolidate slicers on \u0027At Risk with Time Slicer\u0027 into a single top band or left rail instead of scattering them across the page.",
+    "[Medium] Cognitive Load: Give \u0027By Class\u0027 a clearer upper-left entry point so the first scan lands on the main evidence before secondary controls.",
+    "[Medium] Data-Ink: 23% of visuals are decorative (images, shapes, text boxes). Remove non-essential decorative elements.",
+    "[Medium] Visual Best Practices: Add a clustered bar or column comparison visual to \u0027By Class ToolTip\u0027 so the KPI layer has categorical evidence.",
+    "[Low] Visual Best Practices: Keep title alignment and filter-band conventions stable across repeated report pages unless the layout change serves a clear user purpose.",
+    "[Medium] Narrative: \u0027Scholar RR Scores\u0027 needs a visible title or question anchor so users understand the page purpose in the first scan.",
+    "[Medium] Narrative: \u0027At or above goal\u0027 needs a clearer primary outcome before the detail visuals.",
+    "[Medium] Narrative: \u0027By Class ToolTip\u0027 KPI cards need a target, variance, or prior-period comparison.",
+    "[Medium] Narrative: \u0027By Class ToolTip\u0027 needs at least one supporting chart or table behind the KPI layer.",
+    "[Medium] Narrative: Strengthen \u0027By Class\u0027 as the overview page before the report branches into detail."
+  ],
+  "topLevelGuidedStoryImprovements": {
+    "highPriorityIds": [],
+    "mediumPriorityIds": [],
+    "rationale": ""
+  },
+  "reportConsistency": {
+    "IssueCount": 3,
+    "OverallFinding": "3 cross-page consistency issue(s) detected across layout, navigation.",
+    "affectedPages": [
+      "At Risk with Time Slicer",
+      "At-Risk Program Tracker",
+      "By Class",
+      "By Class ToolTip",
+      "By Teacher",
+      "Current - At-Risk list of Scholars by Grade",
+      "Duplicate of By Class",
+      "Historical - At-Risk list of Scholars by Grade",
+      "Page 1",
+      "Page 2",
+      "Scholar RR Scores",
+      "Strengths and Gaps",
+      "Teacher Growth"
+    ],
+    "issues": [
+      {
+        "Category": "layout",
+        "IssueCategory": "filterPlacement",
+        "Severity": "medium",
+        "Confidence": "high",
+        "AffectedPages": [
+          "At Risk with Time Slicer",
+          "By Class"
+        ]
+      },
+      {
+        "Category": "layout",
+        "IssueCategory": "layoutPattern",
+        "Severity": "medium",
+        "Confidence": "high",
+        "AffectedPages": [
+          "At Risk with Time Slicer",
+          "By Class ToolTip",
+          "By Teacher",
+          "Scholar RR Scores",
+          "Teacher Growth"
+        ]
+      },
+      {
+        "Category": "navigation",
+        "IssueCategory": "navigationPattern",
+        "Severity": "medium",
+        "Confidence": "medium",
+        "AffectedPages": [
+          "At Risk with Time Slicer",
+          "At-Risk Program Tracker",
+          "By Class",
+          "By Class ToolTip",
+          "By Teacher",
+          "Current - At-Risk list of Scholars by Grade",
+          "Duplicate of By Class",
+          "Historical - At-Risk list of Scholars by Grade",
+          "Page 1",
+          "Page 2",
+          "Scholar RR Scores",
+          "Strengths and Gaps",
+          "Teacher Growth"
+        ]
+      }
+    ]
+  },
+  "pageSummaries": [
+    {
+      "PageName": "By Class",
+      "CompositeScore": 63.11,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "Scholar RR Scores",
+      "CompositeScore": 74.5,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "At-Risk Program Tracker",
+      "CompositeScore": 70.68,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Current - At-Risk list of Scholars by Grade",
+      "CompositeScore": 74.25,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "By Teacher",
+      "CompositeScore": 79.12,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Teacher Growth",
+      "CompositeScore": 78.25,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "At Risk with Time Slicer",
+      "CompositeScore": 74.07,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Historical - At-Risk list of Scholars by Grade",
+      "CompositeScore": 73.92,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "Scholars per Grade",
+      "CompositeScore": 72.12,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Scholars per At-Risk Level",
+      "CompositeScore": 72.12,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "By Class ToolTip",
+      "CompositeScore": 68.83,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 4,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 0
+    },
+    {
+      "PageName": "Page 1",
+      "CompositeScore": 69.5,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Strengths and Gaps",
+      "CompositeScore": 69.5,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Duplicate of By Class",
+      "CompositeScore": 63.03,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "Page 2",
+      "CompositeScore": 69.5,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    }
+  ],
+  "validationExport": {
+    "pages": [
+      {
+        "PageName": "By Class",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Split; DominantConcept=goal; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "WeakDiagnosticOnly",
+        "FilterTopologyResult": "Slicers=8; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.semantic.competingStoryMetadata",
+          "gap.semantic.competingStoryRestructure",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Scholar RR Scores",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=6; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "At-Risk Program Tracker",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=5; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Current - At-Risk list of Scholars by Grade",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Split; DominantConcept=current; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "WeakDiagnosticOnly",
+        "FilterTopologyResult": "Slicers=3; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.semantic.competingStoryMetadata",
+          "gap.semantic.competingStoryRestructure"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Strong"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "By Teacher",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=6; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Teacher Growth",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=4; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "At Risk with Time Slicer",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=7; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Historical - At-Risk list of Scholars by Grade",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Split; DominantConcept=grade; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "WeakDiagnosticOnly",
+        "FilterTopologyResult": "Slicers=5; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.semantic.competingStoryMetadata",
+          "gap.semantic.competingStoryRestructure"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Strong"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Scholars per Grade",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Scholars per At-Risk Level",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "By Class ToolTip",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.supportingEvidenceFlow"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.layout.meaningfulVisibleTitle"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Page 1",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Strengths and Gaps",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Duplicate of By Class",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=ValidationSandbox; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Split; DominantConcept=goal; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "WeakDiagnosticOnly",
+        "FilterTopologyResult": "Slicers=9; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [],
+        "futureContractCandidateGapIds": [],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Page 2",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      }
+    ],
+    "crossPageNarrative": {
+      "DominantReportObjective": "diagnostic investigation",
+      "MainNarrativePath": [
+        "By Class",
+        "Scholar RR Scores",
+        "At-Risk Program Tracker",
+        "Current - At-Risk list of Scholars by Grade",
+        "By Teacher",
+        "Teacher Growth",
+        "At Risk with Time Slicer",
+        "Historical - At-Risk list of Scholars by Grade",
+        "Scholars per Grade",
+        "Scholars per At-Risk Level"
+      ],
+      "pageRoles": [
+        {
+          "PageName": "By Class",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Scholar RR Scores",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "At-Risk Program Tracker",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Current - At-Risk list of Scholars by Grade",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "By Teacher",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Teacher Growth",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "At Risk with Time Slicer",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Historical - At-Risk list of Scholars by Grade",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Scholars per Grade",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Scholars per At-Risk Level",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "By Class ToolTip",
+          "Role": "Tooltip",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Page 1",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Strengths and Gaps",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Duplicate of By Class",
+          "Role": "ValidationSandbox",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Page 2",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        }
+      ],
+      "orphanDecisions": [
+        {
+          "PageName": "By Class",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Scholar RR Scores",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "At-Risk Program Tracker",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Current - At-Risk list of Scholars by Grade",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "By Teacher",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Teacher Growth",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "At Risk with Time Slicer",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Historical - At-Risk list of Scholars by Grade",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Scholars per Grade",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Scholars per At-Risk Level",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "By Class ToolTip",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Page 1",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Strengths and Gaps",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Duplicate of By Class",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Page 2",
+          "OrphanState": "Connected"
+        }
+      ],
+      "dimensionScores": [
+        {
+          "DimensionId": "Flow",
+          "Score": 60,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Consistency",
+          "Score": 100,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Continuity",
+          "Score": 100,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Navigation",
+          "Score": 55,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Actionability",
+          "Score": 55,
+          "Confidence": "Medium"
+        }
+      ],
+      "reportLevelGapStableIds": [
+        "gap.report.missing-executive-entry-point"
+      ]
+    }
+  }
+}

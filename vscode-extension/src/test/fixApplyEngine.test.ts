@@ -3,6 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import type { FixOpportunity } from '../analyzer/contracts/scorePanel';
 import { applyFixOpportunity, applyFixOpportunityBatch, rollbackFixOpportunity, rollbackFixSession } from '../analyzer/fixes/fixApplyEngine';
+import { NodeFixPersistenceService } from '../analyzer/fixes/fixPersistenceService';
 import { buildFixOpportunities } from '../analyzer/fixes/fixOpportunityBuilder';
 import type { NormalizedFinding, PageScore, ScoreResult, VisualMetadataItem } from '../analyzer/contracts/scorePanel';
 
@@ -261,6 +262,11 @@ function titleOpportunity(reportPath: string): FixOpportunity {
   return buildFixOpportunities(result)[0];
 }
 
+function listTempFiles(targetFile: string): string[] {
+  return fs.readdirSync(path.dirname(targetFile))
+    .filter((entry) => entry.startsWith(`${path.basename(targetFile)}.`) && entry.endsWith('.tmp'));
+}
+
 describe('fixApplyEngine', () => {
   afterEach(() => {
     for (const entry of fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('pbir-fix-apply-'))) {
@@ -268,11 +274,32 @@ describe('fixApplyEngine', () => {
     }
   });
 
-  it('applies mutations only after validation and rewrites the target file', () => {
+  it('runs persistence writes through the abstraction and post-write validation hooks', async () => {
+    const reportPath = createReportRoot();
+    const targetFile = path.join(reportPath, 'definition', 'report.json');
+    const persistence = new NodeFixPersistenceService();
+    let validationRan = false;
+
+    const writtenVersions = await persistence.writeJsonFilesAtomically(new Map([
+      [targetFile, { name: 'Sales', validated: true }],
+    ]), {
+      validate: [async () => {
+        validationRan = true;
+        return [];
+      }],
+    });
+
+    expect(validationRan).toBe(true);
+    expect(JSON.parse(fs.readFileSync(targetFile, 'utf8'))).toEqual({ name: 'Sales', validated: true });
+    expect(writtenVersions.get(targetFile)?.contentHash).toEqual(expect.any(String));
+    expect(listTempFiles(targetFile)).toEqual([]);
+  });
+
+  it('applies mutations only after validation and rewrites the target file', async () => {
     const reportPath = createReportRoot();
     const fix = opportunity(reportPath);
 
-    const result = applyFixOpportunity(fix);
+    const result = await applyFixOpportunity(fix);
 
     expect(result).toMatchObject({
       opportunityId: fix.id,
@@ -285,7 +312,7 @@ describe('fixApplyEngine', () => {
     expect(updated.position.y).toBe(192);
   });
 
-  it('marks the opportunity stale instead of partially applying when before-values drift', () => {
+  it('marks the opportunity stale instead of partially applying when before-values drift', async () => {
     const reportPath = createReportRoot();
     const fix = opportunity(reportPath);
     const visualPath = fix.mutations[0].targetFile;
@@ -293,30 +320,44 @@ describe('fixApplyEngine', () => {
     visualJson.position.x = 999;
     fs.writeFileSync(visualPath, JSON.stringify(visualJson), 'utf8');
 
-    const result = applyFixOpportunity(fix);
+    const result = await applyFixOpportunity(fix);
 
     expect(result.state).toBe('Stale');
     expect(result.appliedMutationCount).toBe(0);
   });
 
-  it('restores original file contents through deterministic rollback', () => {
+  it('detects concurrent file drift even when targeted before-values still match', async () => {
+    const reportPath = createReportRoot();
+    const fix = opportunity(reportPath);
+    const visualPath = fix.mutations[0].targetFile;
+    const visualJson = JSON.parse(fs.readFileSync(visualPath, 'utf8')) as Record<string, unknown>;
+    visualJson.externalComment = 'changed-after-preview';
+    fs.writeFileSync(visualPath, JSON.stringify(visualJson), 'utf8');
+
+    const result = await applyFixOpportunity(fix);
+
+    expect(result.state).toBe('Stale');
+    expect(result.validationErrors).toEqual(expect.arrayContaining([expect.stringContaining('target-file-drift')]));
+  });
+
+  it('restores original file contents through deterministic rollback', async () => {
     const reportPath = createReportRoot();
     const fix = opportunity(reportPath);
     const original = fs.readFileSync(fix.mutations[0].targetFile, 'utf8');
 
-    const applyResult = applyFixOpportunity(fix);
+    const applyResult = await applyFixOpportunity(fix);
     expect(applyResult.state).toBe('Applied');
 
-    const rollbackResult = rollbackFixOpportunity(fix);
+    const rollbackResult = await rollbackFixOpportunity(fix);
     expect(rollbackResult.state).toBe('RolledBack');
     expect(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')).toBe(original);
   });
 
-  it('applies schema-correct title mutations through storage paths', () => {
+  it('applies schema-correct title mutations through storage paths', async () => {
     const reportPath = createTitleReportRoot();
     const fix = titleOpportunity(reportPath);
 
-    const result = applyFixOpportunity(fix);
+    const result = await applyFixOpportunity(fix);
 
     expect(result.state).toBe('Applied');
     const updated = JSON.parse(fs.readFileSync(fix.mutations[0].targetFile, 'utf8')) as {
@@ -328,7 +369,7 @@ describe('fixApplyEngine', () => {
     expect(updated.visual.visualContainerObjects.title[0].properties.text.expr.Literal.Value).toBe('\'Overview\'');
   });
 
-  it('marks schema-correct title opportunities stale when the stored title drifts', () => {
+  it('marks schema-correct title opportunities stale when the stored title drifts', async () => {
     const reportPath = createTitleReportRoot();
     const fix = titleOpportunity(reportPath);
     const titlePath = fix.mutations[0].targetFile;
@@ -338,13 +379,13 @@ describe('fixApplyEngine', () => {
     titleJson.visual.visualContainerObjects.title[0].properties.text.expr.Literal.Value = '\'Drifted Title\'';
     fs.writeFileSync(titlePath, JSON.stringify(titleJson), 'utf8');
 
-    const result = applyFixOpportunity(fix);
+    const result = await applyFixOpportunity(fix);
 
     expect(result.state).toBe('Stale');
     expect(result.appliedMutationCount).toBe(0);
   });
 
-  it('applies compatible opportunities in deterministic order', () => {
+  it('applies compatible opportunities in deterministic order', async () => {
     const reportPath = createReportRoot();
     const first = opportunity(reportPath);
     const second = {
@@ -357,6 +398,7 @@ describe('fixApplyEngine', () => {
         id: 'mutation-z',
         targetObjectId: 'chart-2',
         targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+        targetFileVersion: undefined,
         propertyPath: 'position.x',
         before: 80,
         after: 24,
@@ -375,7 +417,7 @@ describe('fixApplyEngine', () => {
     fs.mkdirSync(path.dirname(second.mutations[0].targetFile), { recursive: true });
     fs.writeFileSync(second.mutations[0].targetFile, second.rollbackPlan.fileBackups[0].beforeContent, 'utf8');
 
-    const result = applyFixOpportunityBatch([second, first], '2026-06-01T22:20:00.000Z');
+    const result = await applyFixOpportunityBatch([second, first], '2026-06-01T22:20:00.000Z');
 
     expect(result.state).toBe('Applied');
     expect(result.applyOrder).toEqual([first.id, second.id]);
@@ -383,7 +425,7 @@ describe('fixApplyEngine', () => {
     expect(result.session?.rollbackAvailable).toBe(true);
   });
 
-  it('validates the full batch before applying any mutation', () => {
+  it('validates the full batch before applying any mutation', async () => {
     const reportPath = createReportRoot();
     const first = opportunity(reportPath);
     const second = {
@@ -394,6 +436,7 @@ describe('fixApplyEngine', () => {
         id: 'mutation-b',
         targetObjectId: 'chart-2',
         targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+        targetFileVersion: undefined,
         before: 80,
         after: 24,
       }],
@@ -412,14 +455,14 @@ describe('fixApplyEngine', () => {
     fs.writeFileSync(second.mutations[0].targetFile, second.rollbackPlan.fileBackups[0].beforeContent, 'utf8');
     const originalFirst = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
 
-    const result = applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
+    const result = await applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
 
     expect(result.state).toBe('Stale');
     expect(result.appliedMutationCount).toBe(0);
     expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
   });
 
-  it('blocks the entire batch when one selected opportunity conflicts', () => {
+  it('blocks the entire batch when one selected opportunity conflicts', async () => {
     const reportPath = createReportRoot();
     const first = opportunity(reportPath);
     const second = {
@@ -428,14 +471,14 @@ describe('fixApplyEngine', () => {
     } satisfies FixOpportunity;
 
     const original = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
-    const result = applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
+    const result = await applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
 
     expect(result.state).toBe('FailedValidation');
     expect(result.validationErrors).toEqual(expect.arrayContaining([expect.stringContaining('overlappingMutation')]));
     expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(original);
   });
 
-  it('restores grouped apply changes through session rollback', () => {
+  it('restores grouped apply changes through session rollback', async () => {
     const reportPath = createReportRoot();
     const first = opportunity(reportPath);
     const second = {
@@ -447,6 +490,7 @@ describe('fixApplyEngine', () => {
         id: 'mutation-z',
         targetObjectId: 'chart-2',
         targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+        targetFileVersion: undefined,
         propertyPath: 'position.x',
         before: 80,
         after: 24,
@@ -467,18 +511,39 @@ describe('fixApplyEngine', () => {
 
     const originalFirst = fs.readFileSync(first.mutations[0].targetFile, 'utf8');
     const originalSecond = fs.readFileSync(second.mutations[0].targetFile, 'utf8');
-    const applyResult = applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
+    const applyResult = await applyFixOpportunityBatch([first, second], '2026-06-01T22:20:00.000Z');
 
     expect(applyResult.session).toBeDefined();
 
-    const rollbackResult = rollbackFixSession(applyResult.session!, [first, second], '2026-06-01T22:21:00.000Z');
+    const rollbackResult = await rollbackFixSession(applyResult.session!, [first, second], '2026-06-01T22:21:00.000Z');
 
     expect(rollbackResult.state).toBe('RolledBack');
     expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
     expect(fs.readFileSync(second.mutations[0].targetFile, 'utf8')).toBe(originalSecond);
   });
 
-  it('rolls back already-staged file changes when an atomic batch persistence step fails', () => {
+  it('detects rollback drift instead of overwriting unexpected external edits', async () => {
+    const reportPath = createReportRoot();
+    const fix = opportunity(reportPath);
+    const targetFile = fix.mutations[0].targetFile;
+
+    const applyResult = await applyFixOpportunity(fix);
+    expect(applyResult.state).toBe('Applied');
+
+    const currentJson = JSON.parse(fs.readFileSync(targetFile, 'utf8')) as Record<string, unknown>;
+    currentJson.externalComment = 'edited-after-apply';
+    fs.writeFileSync(targetFile, JSON.stringify(currentJson), 'utf8');
+
+    const rollbackResult = await rollbackFixOpportunity(fix);
+
+    expect(rollbackResult.state).toBe('FailedValidation');
+    expect(rollbackResult.validationErrors).toEqual(expect.arrayContaining([expect.stringContaining('rollback-conflict')]));
+    expect(JSON.parse(fs.readFileSync(targetFile, 'utf8'))).toMatchObject({
+      externalComment: 'edited-after-apply',
+    });
+  });
+
+  it('rolls back already-staged file changes when an atomic batch persistence step fails', async () => {
     const reportPath = createReportRoot();
     const first = opportunity(reportPath);
     const second = {
@@ -490,6 +555,7 @@ describe('fixApplyEngine', () => {
         id: 'mutation-z',
         targetObjectId: 'chart-2',
         targetFile: first.mutations[0].targetFile.replace('chart-1', 'chart-2'),
+        targetFileVersion: undefined,
         propertyPath: 'position.x',
         storagePath: ['position', 'x'],
         before: 80,
@@ -515,11 +581,13 @@ describe('fixApplyEngine', () => {
     fs.chmodSync(secondDir, 0o500);
 
     try {
-      const result = applyFixOpportunityBatch([first, second], '2026-06-06T14:00:00.000Z');
+      const result = await applyFixOpportunityBatch([first, second], '2026-06-06T14:00:00.000Z');
       expect(result.state).toBe('FailedValidation');
       expect(result.appliedMutationCount).toBe(0);
       expect(fs.readFileSync(first.mutations[0].targetFile, 'utf8')).toBe(originalFirst);
       expect(fs.readFileSync(second.mutations[0].targetFile, 'utf8')).toBe(originalSecond);
+      expect(listTempFiles(first.mutations[0].targetFile)).toEqual([]);
+      expect(listTempFiles(second.mutations[0].targetFile)).toEqual([]);
     } finally {
       fs.chmodSync(second.mutations[0].targetFile, 0o600);
       fs.chmodSync(secondDir, 0o700);

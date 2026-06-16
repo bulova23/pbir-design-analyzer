@@ -1,5 +1,218 @@
 # Session Summaries
 
+## 2026-06-16 Report Design Studio Docs Shell-Alignment Correction
+
+- Corrected the first-pass Report Design Studio docs after comparing them against the actual shipped shell.
+- Root issue: the docs mixed underlying Design Brief / Concept / Draft foundations with the visible MVP shell and therefore overstated interactivity.
+- Updated:
+  - `docs/report-design-studio-user-guide.md`
+  - `docs/report-design-studio-workflow-walkthrough.md`
+- New documentation stance:
+  - Design Brief, Concept Studio, Draft Studio, and Prepare For Review are described as read-only explanatory/review stages in the shipped shell
+  - live user actions are limited to Review Design handoff, Refinement Studio proposal decisions, and Compare Iterations selection
+- This keeps the docs aligned with what a consultant actually sees in the current UI.
+
+## 2026-06-16 Report Design Studio UAT And User Documentation
+
+- Created:
+  - `docs/report-design-studio-user-guide.md`
+  - `docs/report-design-studio-workflow-walkthrough.md`
+  - `docs/report-design-studio-uat-guide.md`
+  - `docs/report-design-studio-uat-gap-analysis.md`
+- Wrote the user guide to explain:
+  - what Report Design Studio is for
+  - how it relates to PBIR Design Analyzer, Story Assessment, and Analyzer Workspace
+  - how readiness, approval, and validation differ
+- Wrote the workflow walkthrough to document each stage:
+  - Design Brief
+  - Concept Studio
+  - Draft Studio
+  - Prepare For Review
+  - Review Design
+  - Refinement Studio
+  - Compare Iterations
+- Wrote the UAT guide with consultant-style scripts and pass/fail checklists for:
+  - Executive Dashboard
+  - Operational Monitoring
+  - Analytical Investigation
+- Wrote the gap analysis to document where the MVP shell is still explanatory rather than fully self-serve, including missing early-stage shell actions, middle-stage vocabulary friction, and incomplete workflow-completion signaling.
+- Final documentation answer:
+  - a new consultant could not yet use Report Design Studio successfully from documentation alone because the current shipped shell does not expose a complete self-serve early-stage action path
+- Validation:
+  - verified all four documentation files exist
+  - verified the key workflow, UAT, and final-gap-analysis sections exist
+
+## 2026-06-16 Story Assessment Navigation Target Fix
+
+- Fixed the inert Story Assessment `Open target` action without changing scoring, navigation-target heuristics, or score-panel architecture.
+- Root cause was explorer/report desynchronization, not a broken webview click path:
+  - the score panel already posted valid `navigateToTarget` messages
+  - the host router already routed them to `revealNavigationTargetInPbirExplorer`
+  - but `pbirAnalyzer.scoreReport` did not update `pbirTreeProvider` when the report came from the picker, so target resolution ran against the wrong or empty PBIR tree
+- Added `syncExplorerToReport` in `vscode-extension/src/commands/pbirCommands.ts` and now call it before opening the score panel for:
+  - `pbirAnalyzer.scoreReport`
+  - `pbirAnalyzer.exportReviewWorkflow`
+  - `pbirAnalyzer.uploadScreenshots`
+- Added regression coverage in `vscode-extension/src/test/pbirScoreCommand.treeItem.test.ts` proving picker-based score launches call `setProjectPath(reportRoot)`.
+- Validation passed:
+  - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScoreCommand.treeItem.test.ts`
+  - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScorePanel.navigation.test.ts src/test/pbirExplorerReveal.test.ts`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+
+## 2026-06-16 Design Studio Installed VSIX Refresh
+
+- Confirmed the continued blank Design Studio page was not a new regression in the workspace fix; VS Code Insiders was still loading a stale installed `0.6.0` bundle from `~/.vscode-insiders/extensions/bcrowell.pbir-design-analyzer-0.6.0/webview-dist/design-studio.js`.
+- Proved the installed bundle still contained `process.env.NODE_ENV`, while the workspace `vscode-extension/webview-dist/design-studio.js` did not.
+- Rebuilt the shipped VSIX from the current workspace with `cd vscode-extension && npm run package`.
+- Reinstalled the fresh artifact with `/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code --install-extension /Users/bcrowell/Documents/GitHub/pbir-design-analyzer/vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix --force`.
+- Verified the installed Design Studio bundle is now refreshed and fixed:
+  - no `process.env.NODE_ENV`
+  - no `process` token remains at all
+  - installed file size is `177818`, matching the rebuilt workspace bundle
+- Next step is a VS Code Insiders window reload and a fresh Design Studio open so the running webview host stops using any previously cached script state.
+
+## 2026-06-15 Design Studio Webview Startup Crash
+
+- Fixed the blank Report Design Studio startup failure without changing Design Studio architecture or scoring behavior.
+- Root cause was shared webview build-tooling leakage: the packaged `webview-dist/design-studio.js` bundle still contained React branches guarded by `process.env.NODE_ENV`, which crash in VS Code webviews where `process` is undefined.
+- Added compile-time production defines to all three webview Vite configs:
+  - `vscode-extension/webview-src/vite.design-studio.config.ts`
+  - `vscode-extension/webview-src/vite.analyzer-score.config.ts`
+  - `vscode-extension/webview-src/vite.analyzer-config.config.ts`
+- Added a regression smoke test at `vscode-extension/webview-src/design-studio/__tests__/bundleRuntime.test.ts` that loads the built Design Studio bundle in jsdom with `process` absent and asserts the shell plus workflow rail render.
+- Rebuilt webview assets and confirmed the rebuilt Design Studio bundle no longer contains `process.env.NODE_ENV`.
+- Validation passed:
+  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/bundleRuntime.test.ts`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Manual verification passed:
+  - reopened Report Design Studio
+  - confirmed the shell rendered instead of a blank page
+  - confirmed the workflow rail rendered, including `Prepare For Review`, `Review Design`, and `Compare Iterations`
+
+## 2026-06-15 PBIR Engineering Remediation Release Candidate Validation
+
+- Confirmed Workstream 9 was already complete before release-candidate validation.
+- Passed the full required validation set:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run verify:backend:targets`
+  - `cd vscode-extension && npm run package:all`
+- Built all `0.6.0` VSIX targets and installed `vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix` into a clean VS Code host.
+- Confirmed packaged-backend-only startup from the installed extension payload under `/tmp/pbir-rc-vscode-ext/.../backend/rpc/ModelingLanguageServer`, with no repo-local Debug/Release fallback and no double launch inside the clean host.
+- Manual smoke passed for extension activation, packaged backend startup, score panel rendering, review-workflow export, and screenshot-upload dialog availability.
+- Manual smoke found two release blockers:
+  - packaged Design Studio opened a blank webview and VS Code logged a blocked `vscode-webview` request for `bcrowell.pbir-design-analyzer`
+  - default `PBIR Score Diagnostics` logging still persisted a large scored payload with findings and local report paths
+- Wrote the RC report:
+  - `docs/pbir-engineering-remediation-release-candidate-validation.md`
+- Recommendation:
+  - not ready for internal install until those two blockers are fixed and the same clean-host RC validation pass is rerun
+
+## 2026-06-15 PBIR Engineering Remediation Workstream 9
+
+- Implemented Workstream 9 only from the 2026-06-14 remediation spec and plan.
+- Removed speculative backend-only Design Studio runtime scaffolding:
+  - `service-dotnet/Services/DesignStudio/Providers/IDesignStudioProvider.cs`
+  - `service-dotnet/Services/DesignStudio/Providers/ProviderCapabilityModels.cs`
+  - `service-dotnet/Services/DesignStudio/Materialization/MaterializationGatewayModels.cs`
+- Retained `service-dotnet/Services/DesignStudio/Models/DesignStudioModels.cs` as the backend contract mirror for active Design Studio artifact, provenance, materialization-handoff, and iteration vocabulary.
+- Moved `DesignProviderCapabilityKind` into `DesignStudioModels.cs` because it still participates in mirrored provenance contracts even though no provider registry runtime remains.
+- Reworked Design Studio backend reflection coverage to prove:
+  - speculative provider registry runtime types are absent
+  - the duplicate materialization namespace is absent
+  - approval separation, analyzer-owned validation, and non-mutation/no-execution guarantees remain locked on the surviving backend models
+- Added documentation:
+  - `docs/superpowers/implementation-notes/2026-06-15-design-studio-backend-abstraction-cleanup.md`
+- Validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Stop condition respected:
+  - no provider-backed generation
+  - no new backend runtime providers
+  - no TypeScript Design Studio runtime changes
+  - no scoring or additional decomposition work
+
+## 2026-06-15 PBIR Engineering Remediation Workstream 7C
+
+- Implemented Workstream 7C only from the 2026-06-14 remediation spec and plan.
+- Added scorer output extraction services:
+  - `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs`
+  - `RecommendationAssemblyService`
+  - `ScoreResultAssemblyService`
+  - `ScoreCompatibilityAdapter`
+- Rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to delegate recommendation buffering, bookmark-aware recommendation population, score-result assembly, page-score assembly, and legacy score synchronization.
+- Added focused coverage proving:
+  - bookmark-aware recommendation text remains stable
+  - deprecated compatibility fields still mirror current score fields
+  - assembled `ScoreResult` output preserves public, internal, and compatibility population behavior
+- Regression gate passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+- Validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationAssemblyServiceTests|FullyQualifiedName~ScoreCompatibilityAdapterTests|FullyQualifiedName~ScoreResultAssemblyServiceTests"`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Stop condition respected:
+  - no scoring semantic changes
+  - no baseline updates
+  - no final `PbirScoringService` thin-orchestrator cleanup
+
+## 2026-06-15 PBIR Engineering Remediation Workstream 6
+
+- Implemented Workstream 6 only from the 2026-06-14 remediation spec and plan.
+- Added focused score-panel orchestration services:
+  - `vscode-extension/src/views/scorePanelMessageRouter.ts`
+  - `vscode-extension/src/views/scorePanelStateService.ts`
+  - `vscode-extension/src/views/scorePanelAuditWorkflowService.ts`
+  - `vscode-extension/src/views/scorePanelExportWorkflowService.ts`
+  - `vscode-extension/src/views/scorePanelFixWorkflowService.ts`
+- Rewired `vscode-extension/src/views/PbirScorePanel.ts` into a thinner lifecycle shell that delegates routing, state handling, and workflow orchestration.
+- Added coverage proving:
+  - message routing stays stable
+  - score-state clamping and handoff reset stay stable
+  - audit, export, and fix workflows preserve existing behavior
+  - Design Studio handoff warning text stays stable
+  - navigation routing still goes through the shared reveal helper
+- Validation passed:
+  - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScorePanel.navigation.test.ts src/test/pbirReviewWorkflowExportCommand.test.ts src/test/pbirUploadScreenshotsCommand.test.ts src/test/scorePanelMessageRouter.test.ts src/test/scorePanelStateService.test.ts src/test/scorePanelAuditWorkflowService.test.ts src/test/scorePanelExportWorkflowService.test.ts src/test/scorePanelFixWorkflowService.test.ts`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm test`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- Notes:
+  - manual smoke guidance was documented but not executed in this session
+  - no `PbirScoringService` decomposition, Design Studio backend abstraction cleanup, scoring semantic changes, or new product features were started
+
+## 2026-06-15 PBIR Engineering Remediation Workstream 4B
+
+- Implemented Workstream 4B only from the 2026-06-14 remediation spec and plan.
+- Documented backend artifact ownership, packaging-owned outputs, packaged-only runtime expectations, and staged cleanup guidance in:
+  - `README.md`
+  - `docs/RELEASING.md`
+- Added backend target maintenance commands and scripts:
+  - `npm run verify:backend:targets`
+  - `npm run clean:backend:targets`
+  - shared target inventory in `vscode-extension/scripts/backend-targets.mjs`
+- Added coverage proving:
+  - packaged backend target directories and runtime-critical files are represented
+  - package manifest still declares backend target maintenance commands
+  - repo-local Debug and Release outputs remain excluded from runtime resolution
+- Validation passed:
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm run verify:backend:targets`
+  - `cd vscode-extension && npm run package:all`
+- Notes:
+  - `package:all` rebuilt the checked-in backend target payloads under `vscode-extension/backend/targets/`
+  - existing backend nullable warnings remain outside Workstream 4B scope
+- Stop condition respected:
+  - no Workstream 8, 6, 7, or 9 implementation was started
+
 ## 2026-06-15 PBIR Engineering Remediation Workstream 2B
 
 - Implemented Workstream 2B only from the 2026-06-14 remediation spec and plan.
@@ -1287,3 +1500,11 @@
 - 2026-06-13: Implemented Report Design Studio Task 10 trust-boundary and regression guardrails. Added a dedicated Jest trust-boundary suite, hardened Design Studio protocol parsing for nested `studioState` payloads and cross-thread lineage rejection, added backend reflection tests for workflow/ownership restrictions, and wrote durable trust-boundary documentation at `docs/report-design-studio-trust-boundary.md` plus an implementation note. Required validation passed with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
 - 2026-06-13: Revalidated the existing Report Design Studio Task 10 working-tree slice against the requested guardrail matrix and confirmed no additional product changes were needed. Required validation passed again with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
 - 2026-06-14: Completed Report Design Studio MVP Validation Review Round 3 without product-code changes. Wrote `docs/report-design-studio-mvp-validation-review-round3.md`, re-ran executive, operational, analytical, and Design Brief workflow validation through a browser-driven local harness using the live Design Studio React components, concluded that UX Phase 5 materially improved approval teaching and the remaining usability blockers, and recommended **Ready For Guided Internal Pilot Only** rather than broad self-serve rollout.
+- 2026-06-15: Implemented PBIR engineering remediation Workstream 8 only. Added a dedicated fix persistence service, moved deterministic fix apply/rollback onto async atomic writes with post-write validation hooks, added file-version drift checks from planning through apply, made rollback conflict-aware instead of silently overwriting external edits, expanded focused Jest coverage for persistence safety, and passed `cd vscode-extension && npx jest --runTestsByPath src/test/fixApplyEngine.test.ts src/test/fixMutationPlanner.test.ts src/test/fixSessionHistory.test.ts src/test/fixBatchPreview.test.ts`, `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+
+- 2026-06-15: Completed PBIR engineering remediation Workstream 7A by extracting report discovery, report model loading, and theme resolution from `PbirScoringService`; added focused xUnit coverage; full backend and extension validation passed; representative before/after scoring outputs matched after normalization of runtime-only path/timestamp fields.
+- 2026-06-15: Completed PBIR engineering remediation Workstream 7B by extracting Story Assessment and Cross-Page Narrative sequencing from `PbirScoringService` into focused orchestrator services, adding direct xUnit coverage for the new seams, keeping `PbirScoringService` as the scoring entry point, and passing `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`. A literal before/after representative-output diff was not rerun because the dirty workspace did not preserve a safe pre-7B baseline.
+- 2026-06-15: Captured the post-7B scoring regression baseline before Workstream 7C using the existing real-report corpus (`Sales & Production`, `Sales Analysis`, `Running Record Dataverse`, `Sales AWF`), stored compact normalized baseline projections under `service-dotnet/tests/Baselines/Post7BScoring/`, added `Post7BScoringBaselineTests` to compare live scorer plus official validation-export output against those baselines when fixtures are available, documented normalization and future comparison rules at `docs/story-assessment/2026-06-15-post-7b-scoring-regression-baseline.md`, and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`.
+- 2026-06-15: Completed PBIR engineering remediation Workstream 7D by extracting scorer config parsing into `ScoringConfigurationService`, rewiring `PbirScoringService` into a thinner orchestration facade for config and page-summary assembly glue, adding focused xUnit coverage for the new config service seam, preserving identical Post-7B normalized baseline output, and passing `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`, `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`.
+- 2026-06-16: Completed Report Design Studio MVP Workflow Completion Phase 1 for Design Brief execution only. Made Design Brief executable inside the main shell with inline editing, save draft, explicit submission for approval, explicit approval, persisted resume, field-level validation, next-step guidance, stage-status transitions, and Concept Studio unlock gating after approval; preserved lineage/versioning and trust boundaries; and passed `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.
+- 2026-06-16: Completed Report Design Studio MVP Workflow Completion Phase 2 for Concept Studio execution only. Made Concept Studio executable from the main shell with deterministic concept generation, alternate review/comparison, explicit baseline selection, explicit submit-for-approval and approval steps, Draft Studio unlock gating after approved concept baseline, selected-stage header correctness, and regression coverage across store, workspace, protocol, and webview flows; passed `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`.

@@ -115,6 +115,677 @@ describe('DesignStudio App shell', () => {
     expect(screen.queryByRole('heading', { name: 'Design Approval' })).not.toBeInTheDocument();
   });
 
+  it('renders the executable Design Brief workflow, keeps header selection in sync, and unlocks Concept Studio only after approval', async () => {
+    render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: undefined,
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'brief',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'notStarted', readinessLabel: 'Not started', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Concept Studio', description: 'Concepts stay blocked until the brief is approved.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Design Brief',
+            description: 'Define the brief.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+        },
+      },
+    }));
+
+    expect(await screen.findByRole('heading', { name: 'Design Brief' })).toBeInTheDocument();
+    expect(screen.getByText('Current stage')).toBeInTheDocument();
+    expect(screen.getAllByText('Design Brief').length).toBeGreaterThan(0);
+    expect(screen.getByText('Complete required fields to continue.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Draft' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit For Approval' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Approve Brief' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/Audience/), { target: { value: 'Executive sponsors' } });
+    fireEvent.change(screen.getByLabelText(/Business Objective/), { target: { value: 'Reduce churn risk' } });
+    fireEvent.change(screen.getByLabelText(/Key Decisions/), { target: { value: 'Which segments need retention action' } });
+    fireEvent.change(screen.getByLabelText(/Primary KPIs/), { target: { value: 'Churn rate' } });
+    fireEvent.change(screen.getByLabelText(/Dimensions/), { target: { value: 'Segment' } });
+    fireEvent.change(screen.getByLabelText(/Intended Story/), { target: { value: 'Start with risk, then isolate causes.' } });
+    fireEvent.change(screen.getByLabelText(/Success Criteria/), { target: { value: 'Sponsor can focus the retention review quickly' } });
+    fireEvent.change(screen.getByLabelText(/Navigation Expectations/), { target: { value: 'Overview to segment detail.' } });
+
+    expect(screen.getByText('Ready for approval.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit For Approval' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'saveArtifact',
+      artifactKind: 'designBrief',
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit For Approval' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'proposeArtifact',
+      artifactKind: 'designBrief',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 2,
+          lifecycleState: 'draft',
+          approvalState: 'pendingApproval',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:05:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'brief',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'ready', readinessLabel: 'Ready', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Concept Studio', description: 'Concepts stay blocked until the brief is approved.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Design Brief',
+            description: 'Define the brief.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'pendingApproval',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Submitted for approval. Approve the brief to continue.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve Brief' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Concept Studio/ })).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve Brief' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'approveArtifact',
+      artifactKind: 'designBrief',
+      artifactId: 'design-brief:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'concept',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'notStarted', readinessLabel: 'Not started', title: 'Concept Studio', description: 'Concepts can now proceed.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Concept Studio',
+            description: 'Concepts can now proceed.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'approved',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Design Brief approved. Continue to Concept Studio.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Concept Studio/ })).not.toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /Concept Studio/ }));
+    expect(screen.getByText('Current stage')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Concept Studio' })).toBeInTheDocument();
+    expect(screen.getAllByText('Generate concept options from the approved Design Brief.').length).toBeGreaterThan(0);
+  });
+
+  it('executes the Concept Studio workflow from generation through approval and keeps the selected-stage header accurate', async () => {
+    render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'concept',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'notStarted', readinessLabel: 'Not started', title: 'Concept Studio', description: 'Generate concept options from the approved Design Brief.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Draft Studio',
+            description: 'Stale summary that should not override the selected stage header.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'approved',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+        },
+      },
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Concept Studio/ }));
+    expect(await screen.findByRole('heading', { name: 'Concept Studio' })).toBeInTheDocument();
+    expect(screen.getAllByText('Generate concept options from the approved Design Brief.').length).toBeGreaterThan(0);
+    expect(screen.getByText('Current stage')).toBeInTheDocument();
+    expect(screen.getAllByText('Concept Studio').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Concepts' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'generateConcepts',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'concept',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'inProgress', readinessLabel: 'In progress', title: 'Concept Studio', description: 'Review concept alternatives and choose a baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Design Brief',
+            description: 'Stale summary that should not override the selected stage header.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          conceptReview: {
+            title: 'Concept Review Artifacts',
+            summary: 'Review the chapter structure, KPI hierarchy, navigation path, and analytical flow before Draft Studio work begins.',
+            selectedConceptLabel: 'Current concept baseline',
+            chapterStructure: [],
+            kpiHierarchy: [],
+            navigationStructure: [],
+            analyticalFlow: [],
+            alternateConcepts: [
+              {
+                id: 'concept-operating-rhythm',
+                label: 'Operating-rhythm command deck',
+                summary: 'Leads with the operating KPI and then branches into intervention pages.',
+                chapterMap: { chapters: [{ id: 'chapter-1', title: 'Decision priorities', objective: 'Show what needs intervention first.', pageRecommendationIds: ['page-1'] }] },
+                pageRecommendations: [{ id: 'page-1', title: 'Overview', objective: 'Summarize the decision KPI.', chapterId: 'chapter-1', recommendedKpis: ['Churn rate'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-1', label: 'Churn rate', level: 'primary', childNodeIds: [] }], supportingDimensions: ['Segment'] },
+                navigationStructure: { pattern: 'hubAndSpoke', rationale: 'Keeps the top-level action path tight.', sections: [{ id: 'nav-1', label: 'Priorities', pageRecommendationIds: ['page-1'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-1', label: 'Find the risk', objective: 'Spot the highest-risk segment.', pageRecommendationId: 'page-1' }] },
+              },
+              {
+                id: 'concept-narrative',
+                label: 'Narrative-first storyline',
+                summary: 'Frames the business story first and then supports it with action pages.',
+                chapterMap: { chapters: [{ id: 'chapter-2', title: 'Story setup', objective: 'Frame the narrative and the stakes.', pageRecommendationIds: ['page-2'] }] },
+                pageRecommendations: [{ id: 'page-2', title: 'Narrative setup', objective: 'Explain the business objective and decision path.', chapterId: 'chapter-2', recommendedKpis: ['Churn rate'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-2', label: 'Churn rate', level: 'primary', childNodeIds: ['kpi-3'] }, { id: 'kpi-3', label: 'Decision confidence', level: 'diagnostic', childNodeIds: [] }], supportingDimensions: ['Segment'] },
+                navigationStructure: { pattern: 'linearNarrative', rationale: 'Guides the user through a fixed story sequence.', sections: [{ id: 'nav-2', label: 'Story', pageRecommendationIds: ['page-2'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-2', label: 'Frame the story', objective: 'Explain the stakes before details.', pageRecommendationId: 'page-2' }] },
+              },
+            ],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Concept alternatives')).toBeInTheDocument();
+    expect(screen.getByText('Select a preferred baseline before submitting for approval.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Narrative-first storyline' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'selectConceptBaseline',
+      conceptId: 'concept-narrative',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'concept',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'inProgress', readinessLabel: 'In progress', title: 'Concept Studio', description: 'Review concept alternatives and choose a baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Draft Studio',
+            description: 'Another stale summary.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          conceptReview: {
+            title: 'Concept Review Artifacts',
+            summary: 'Review the chapter structure, KPI hierarchy, navigation path, and analytical flow before Draft Studio work begins.',
+            selectedConceptLabel: 'Narrative-first storyline',
+            chapterStructure: [{ title: 'Story setup', objective: 'Frame the narrative and the stakes.' }],
+            kpiHierarchy: [{ label: 'Churn rate', level: 'primary', depth: 0 }],
+            navigationStructure: [{ label: 'Story', depth: 0 }],
+            analyticalFlow: [{ label: 'Frame the story', objective: 'Explain the stakes before details.' }],
+            alternateConcepts: [
+              {
+                id: 'concept-operating-rhythm',
+                label: 'Operating-rhythm command deck',
+                summary: 'Leads with the operating KPI and then branches into intervention pages.',
+                chapterMap: { chapters: [{ id: 'chapter-1', title: 'Decision priorities', objective: 'Show what needs intervention first.', pageRecommendationIds: ['page-1'] }] },
+                pageRecommendations: [{ id: 'page-1', title: 'Overview', objective: 'Summarize the decision KPI.', chapterId: 'chapter-1', recommendedKpis: ['Churn rate'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-1', label: 'Churn rate', level: 'primary', childNodeIds: [] }], supportingDimensions: ['Segment'] },
+                navigationStructure: { pattern: 'hubAndSpoke', rationale: 'Keeps the top-level action path tight.', sections: [{ id: 'nav-1', label: 'Priorities', pageRecommendationIds: ['page-1'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-1', label: 'Find the risk', objective: 'Spot the highest-risk segment.', pageRecommendationId: 'page-1' }] },
+              },
+              {
+                id: 'concept-narrative',
+                label: 'Narrative-first storyline',
+                summary: 'Frames the business story first and then supports it with action pages.',
+                chapterMap: { chapters: [{ id: 'chapter-2', title: 'Story setup', objective: 'Frame the narrative and the stakes.', pageRecommendationIds: ['page-2'] }] },
+                pageRecommendations: [{ id: 'page-2', title: 'Narrative setup', objective: 'Explain the business objective and decision path.', chapterId: 'chapter-2', recommendedKpis: ['Churn rate'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-2', label: 'Churn rate', level: 'primary', childNodeIds: ['kpi-3'] }, { id: 'kpi-3', label: 'Decision confidence', level: 'diagnostic', childNodeIds: [] }], supportingDimensions: ['Segment'] },
+                navigationStructure: { pattern: 'linearNarrative', rationale: 'Guides the user through a fixed story sequence.', sections: [{ id: 'nav-2', label: 'Story', pageRecommendationIds: ['page-2'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-2', label: 'Frame the story', objective: 'Explain the stakes before details.', pageRecommendationId: 'page-2' }] },
+              },
+            ],
+            preferredBaselineConceptId: 'concept-narrative',
+            comparison: {
+              preferredConceptId: 'concept-narrative',
+              summary: 'Baseline concept selected: Narrative-first storyline.',
+              decisions: [
+                { conceptId: 'concept-operating-rhythm', label: 'Operating-rhythm command deck', disposition: 'alternative' },
+                { conceptId: 'concept-narrative', label: 'Narrative-first storyline', disposition: 'preferredBaseline' },
+              ],
+            },
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Submit the selected baseline for approval.')).toBeInTheDocument();
+    expect(screen.getByText('Preferred baseline: Narrative-first storyline')).toBeInTheDocument();
+    expect(screen.getByText('Narrative-first storyline vs Operating-rhythm command deck')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Baseline For Approval' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'proposeArtifact',
+      artifactKind: 'reportConcept',
+      artifactId: 'report-concept:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'concept',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'ready', readinessLabel: 'Ready', title: 'Concept Studio', description: 'Submit and approve the selected baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Design Brief',
+            description: 'Still stale.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'pendingApproval',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          conceptReview: {
+            title: 'Concept Review Artifacts',
+            summary: 'Review the chapter structure, KPI hierarchy, navigation path, and analytical flow before Draft Studio work begins.',
+            selectedConceptLabel: 'Narrative-first storyline',
+            chapterStructure: [{ title: 'Story setup', objective: 'Frame the narrative and the stakes.' }],
+            kpiHierarchy: [{ label: 'Churn rate', level: 'primary', depth: 0 }],
+            navigationStructure: [{ label: 'Story', depth: 0 }],
+            analyticalFlow: [{ label: 'Frame the story', objective: 'Explain the stakes before details.' }],
+            alternateConcepts: [
+              {
+                id: 'concept-operating-rhythm',
+                label: 'Operating-rhythm command deck',
+                summary: 'Leads with the operating KPI and then branches into intervention pages.',
+                chapterMap: { chapters: [{ id: 'chapter-1', title: 'Decision priorities', objective: 'Show what needs intervention first.', pageRecommendationIds: ['page-1'] }] },
+                pageRecommendations: [{ id: 'page-1', title: 'Overview', objective: 'Summarize the decision KPI.', chapterId: 'chapter-1', recommendedKpis: ['Churn rate'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-1', label: 'Churn rate', level: 'primary', childNodeIds: [] }], supportingDimensions: ['Segment'] },
+                navigationStructure: { pattern: 'hubAndSpoke', rationale: 'Keeps the top-level action path tight.', sections: [{ id: 'nav-1', label: 'Priorities', pageRecommendationIds: ['page-1'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-1', label: 'Find the risk', objective: 'Spot the highest-risk segment.', pageRecommendationId: 'page-1' }] },
+              },
+              {
+                id: 'concept-narrative',
+                label: 'Narrative-first storyline',
+                summary: 'Frames the business story first and then supports it with action pages.',
+                chapterMap: { chapters: [{ id: 'chapter-2', title: 'Story setup', objective: 'Frame the narrative and the stakes.', pageRecommendationIds: ['page-2'] }] },
+                pageRecommendations: [{ id: 'page-2', title: 'Narrative setup', objective: 'Explain the business objective and decision path.', chapterId: 'chapter-2', recommendedKpis: ['Churn rate'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-2', label: 'Churn rate', level: 'primary', childNodeIds: ['kpi-3'] }, { id: 'kpi-3', label: 'Decision confidence', level: 'diagnostic', childNodeIds: [] }], supportingDimensions: ['Segment'] },
+                navigationStructure: { pattern: 'linearNarrative', rationale: 'Guides the user through a fixed story sequence.', sections: [{ id: 'nav-2', label: 'Story', pageRecommendationIds: ['page-2'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-2', label: 'Frame the story', objective: 'Explain the stakes before details.', pageRecommendationId: 'page-2' }] },
+              },
+            ],
+            preferredBaselineConceptId: 'concept-narrative',
+            comparison: {
+              preferredConceptId: 'concept-narrative',
+              summary: 'Baseline concept selected: Narrative-first storyline.',
+              decisions: [
+                { conceptId: 'concept-operating-rhythm', label: 'Operating-rhythm command deck', disposition: 'alternative' },
+                { conceptId: 'concept-narrative', label: 'Narrative-first storyline', disposition: 'preferredBaseline' },
+              ],
+            },
+            conceptId: 'report-concept:design-studio:active-report',
+            approvalState: 'pendingApproval',
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Approve the concept baseline to unlock Draft Studio.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve Concept Baseline' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'approveArtifact',
+      artifactKind: 'reportConcept',
+      artifactId: 'report-concept:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Churn rate'],
+          dimensions: ['Segment'],
+          intendedStory: 'Start with risk, then isolate causes.',
+          successCriteria: ['Sponsor can focus the retention review quickly'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Overview to segment detail.',
+        },
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'draft',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Selected baseline approved.' },
+            { id: 'draft', label: 'Draft Studio', status: 'ready', readinessLabel: 'Ready', title: 'Draft Studio', description: 'Draft Studio is now unlocked.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare an analyzable candidate without mutating the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Launch Analyzer Workspace explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Design Brief',
+            description: 'Still stale.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'approved',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          conceptReview: {
+            title: 'Concept Review Artifacts',
+            summary: 'Review the chapter structure, KPI hierarchy, navigation path, and analytical flow before Draft Studio work begins.',
+            selectedConceptLabel: 'Narrative-first storyline',
+            chapterStructure: [{ title: 'Story setup', objective: 'Frame the narrative and the stakes.' }],
+            kpiHierarchy: [{ label: 'Churn rate', level: 'primary', depth: 0 }],
+            navigationStructure: [{ label: 'Story', depth: 0 }],
+            analyticalFlow: [{ label: 'Frame the story', objective: 'Explain the stakes before details.' }],
+            alternateConcepts: [],
+            preferredBaselineConceptId: 'concept-narrative',
+            approvedBaselineConceptId: 'concept-narrative',
+            conceptId: 'report-concept:design-studio:active-report',
+            approvalState: 'approved',
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Concept baseline approved. Continue to Draft Studio.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Draft Studio/ })).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('renders materialization readiness and exposes an explicit analyzer handoff entry without auto-launching it', async () => {
     render(<App />);
 
@@ -426,6 +1097,28 @@ describe('DesignStudio App shell', () => {
       type: 'studioState',
       state: {
         threadId: 'design-studio:active-report',
+        currentBrief: {
+          id: 'design-brief:design-studio:active-report',
+          threadId: 'design-studio:active-report',
+          kind: 'designBrief',
+          version: 3,
+          lifecycleState: 'approved',
+          approvalState: 'approved',
+          approvalKind: 'designApproval',
+          createdAt: '2026-06-16T12:00:00.000Z',
+          updatedAt: '2026-06-16T12:10:00.000Z',
+          authorSource: 'user',
+          provenance: { source: 'user' },
+          audience: 'Executive sponsors',
+          businessObjective: 'Reduce churn risk',
+          keyDecisions: ['Which segments need retention action'],
+          primaryKpis: ['Revenue'],
+          dimensions: ['Region'],
+          intendedStory: 'Start with the business question and move into action.',
+          successCriteria: ['Leader can identify where intervention is needed first'],
+          reportType: 'dashboard',
+          navigationExpectations: 'Executive Summary first, then Regional Analysis and Store Detail.',
+        },
         iterationHistory: [],
         pendingRefinementProposals: [],
         workspace: {
@@ -457,7 +1150,11 @@ describe('DesignStudio App shell', () => {
           conceptReview: {
             title: 'Concept Review Artifacts',
             summary: 'Review the report concept before Draft Studio work begins.',
+            conceptId: 'report-concept:design-studio:active-report',
+            approvalState: 'approved',
             selectedConceptLabel: 'Narrative-first storyline',
+            preferredBaselineConceptId: 'concept-narrative',
+            approvedBaselineConceptId: 'concept-narrative',
             chapterStructure: [
               { title: 'Executive Summary', objective: 'Open with the main business question.' },
               { title: 'Regional Analysis', objective: 'Show where performance diverges.' },
@@ -477,27 +1174,36 @@ describe('DesignStudio App shell', () => {
               { label: 'Investigation', objective: 'Compare regions and segments.' },
               { label: 'Conclusion', objective: 'Identify where intervention is needed first.' },
             ],
-            comparisons: [
+            alternateConcepts: [
               {
-                comparisonConceptLabel: 'Operating-rhythm command deck',
-                chapterStructure: {
-                  baselineItems: ['Story setup', 'Regional Analysis'],
-                  comparisonItems: ['Decision priorities', 'Regional Analysis'],
-                },
-                kpiHierarchy: {
-                  baselineItems: ['Revenue', 'Margin', 'Forecast Accuracy'],
-                  comparisonItems: ['Revenue', 'Intervention Rate'],
-                },
-                navigationStructure: {
-                  baselineItems: ['Executive Summary', 'Regional Analysis', 'Store Detail'],
-                  comparisonItems: ['Priorities', 'Regional Analysis', 'Action Queue'],
-                },
-                analyticalFlow: {
-                  baselineItems: ['Question', 'Investigation', 'Conclusion'],
-                  comparisonItems: ['Question', 'Investigation', 'Evidence', 'Decision'],
-                },
+                id: 'concept-narrative',
+                label: 'Narrative-first storyline',
+                summary: 'Frames the business question first and then supports it with action pages.',
+                chapterMap: { chapters: [{ id: 'chapter-1', title: 'Executive Summary', objective: 'Open with the main business question.', pageRecommendationIds: ['page-1'] }] },
+                pageRecommendations: [{ id: 'page-1', title: 'Executive Summary', objective: 'Where is revenue underperforming?', chapterId: 'chapter-1', recommendedKpis: ['Revenue'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-1', label: 'Revenue', level: 'primary', childNodeIds: ['kpi-2'] }, { id: 'kpi-2', label: 'Margin', level: 'supporting', childNodeIds: ['kpi-3'] }, { id: 'kpi-3', label: 'Forecast Accuracy', level: 'diagnostic', childNodeIds: [] }], supportingDimensions: ['Region'] },
+                navigationStructure: { pattern: 'linearNarrative', rationale: 'Move through the story in order.', sections: [{ id: 'nav-1', label: 'Executive Summary', pageRecommendationIds: ['page-1'] }, { id: 'nav-2', label: 'Store Detail', pageRecommendationIds: ['page-1'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-1', label: 'Question', objective: 'Where is revenue underperforming?', pageRecommendationId: 'page-1' }, { id: 'flow-2', label: 'Investigation', objective: 'Compare regions and segments.', pageRecommendationId: 'page-1' }, { id: 'flow-3', label: 'Conclusion', objective: 'Identify where intervention is needed first.', pageRecommendationId: 'page-1' }] },
+              },
+              {
+                id: 'concept-operating-rhythm',
+                label: 'Operating-rhythm command deck',
+                summary: 'Leads with decision priorities and action zones.',
+                chapterMap: { chapters: [{ id: 'chapter-2', title: 'Decision priorities', objective: 'Surface the first intervention points.', pageRecommendationIds: ['page-2'] }] },
+                pageRecommendations: [{ id: 'page-2', title: 'Action Queue', objective: 'Rank the next interventions.', chapterId: 'chapter-2', recommendedKpis: ['Revenue'] }],
+                kpiHierarchy: { nodes: [{ id: 'kpi-4', label: 'Revenue', level: 'primary', childNodeIds: ['kpi-5'] }, { id: 'kpi-5', label: 'Intervention Rate', level: 'supporting', childNodeIds: [] }], supportingDimensions: ['Region'] },
+                navigationStructure: { pattern: 'hubAndSpoke', rationale: 'Lead with priorities first.', sections: [{ id: 'nav-3', label: 'Priorities', pageRecommendationIds: ['page-2'] }, { id: 'nav-4', label: 'Action Queue', pageRecommendationIds: ['page-2'] }] },
+                analyticalFlow: { steps: [{ id: 'flow-4', label: 'Question', objective: 'Where is revenue underperforming?', pageRecommendationId: 'page-2' }, { id: 'flow-5', label: 'Investigation', objective: 'Compare regions and segments.', pageRecommendationId: 'page-2' }, { id: 'flow-6', label: 'Evidence', objective: 'Support the recommendation with proof.', pageRecommendationId: 'page-2' }, { id: 'flow-7', label: 'Decision', objective: 'Pick the next intervention.', pageRecommendationId: 'page-2' }] },
               },
             ],
+            comparison: {
+              preferredConceptId: 'concept-narrative',
+              summary: 'Baseline concept selected: Narrative-first storyline.',
+              decisions: [
+                { conceptId: 'concept-narrative', label: 'Narrative-first storyline', disposition: 'preferredBaseline' },
+                { conceptId: 'concept-operating-rhythm', label: 'Operating-rhythm command deck', disposition: 'alternative' },
+              ],
+            },
           },
         },
       },
@@ -505,17 +1211,17 @@ describe('DesignStudio App shell', () => {
 
     expect(await screen.findByText('Prepare For Review')).toBeInTheDocument();
     expect(screen.getByText('Review Design')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Concept Review Artifacts' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Chapter Structure' })).toBeInTheDocument();
-    expect(screen.getAllByText('Executive Summary').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'KPI Hierarchy' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Concept Studio execution' })).toBeInTheDocument();
+    expect(screen.getByText('Concept baseline approved. Continue to Draft Studio.')).toBeInTheDocument();
+    expect(screen.getByText('Preferred baseline: Narrative-first storyline')).toBeInTheDocument();
+    expect(screen.getByText('Narrative-first storyline vs Operating-rhythm command deck')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'KPI Hierarchy Comparison' })).toBeInTheDocument();
     expect(screen.getAllByText('Forecast Accuracy').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'Navigation Structure' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Navigation Structure Comparison' })).toBeInTheDocument();
     expect(screen.getAllByText('Store Detail').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'Analytical Flow' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Analytical Flow Comparison' })).toBeInTheDocument();
     expect(screen.getAllByText('Where is revenue underperforming?').length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: 'Chapter Structure Comparison' })).toBeInTheDocument();
-    expect(screen.getByText('Narrative-first storyline vs Operating-rhythm command deck')).toBeInTheDocument();
     expect(screen.getAllByText('Evidence').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Decision').length).toBeGreaterThan(0);
   });

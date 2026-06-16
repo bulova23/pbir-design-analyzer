@@ -158,6 +158,14 @@ function readWorkspaceGovernanceSettings(): WorkspaceGovernanceSettings {
     };
 }
 
+function syncExplorerToReport(reportPath: string | undefined): void {
+    if (!reportPath) {
+        return;
+    }
+
+    pbirTreeProvider?.setProjectPath(reportPath);
+}
+
 /**
  * Registers all PBIR-related VS Code commands.
  * Called from register.ts during extension activation.
@@ -314,6 +322,8 @@ export function registerPbirCommands(
                     vscode.window.showErrorMessage(`Report not found: ${reportPath}`);
                     return;
                 }
+
+                syncExplorerToReport(reportPath);
 
                 // Feature 003: Pass pageName to panel if provided (for per-page scoring)
                 await PbirScorePanel.createOrShow(context, bridge, reportPath, pageName);
@@ -576,6 +586,7 @@ export function registerPbirCommands(
                     return;
                 }
 
+                syncExplorerToReport(reportPath);
                 const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
                 await panel.exportReviewWorkflow();
             } catch (error: unknown) {
@@ -597,6 +608,7 @@ export function registerPbirCommands(
                 return;
             }
             // Open the score panel so the upload dialog has context
+            syncExplorerToReport(reportPath);
             const bridge = getBridge();
             const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
             await panel.requestScreenshotUpload();

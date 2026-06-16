@@ -1,1111 +1,378 @@
 # Current Focus
 
+## Active Session
+
+- 2026-06-16 Concept Studio execution workflow is complete:
+  - delivered:
+    - made Concept Studio executable from the main shell after Design Brief approval
+    - added explicit shell actions for:
+      - `Generate Concepts`
+      - `Select Baseline`
+      - `Submit Baseline For Approval`
+      - `Approve Concept Baseline`
+    - made Concept Studio workflow transitions explicit across:
+      - blocked
+      - not started
+      - concepts generated
+      - baseline selected
+      - ready for approval
+      - approved
+    - preserved lineage/versioning by requiring separate concept generation, selection, submission, and approval versions
+    - kept Draft Studio blocked until concept approval, then unlocked it after approved concept baseline
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no provider-backed generation
+    - no draft execution work beyond concept-gated unlock
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start Draft Studio execution as a separate scoped slice without changing Concept Studio approval semantics
+
+- 2026-06-16 Report Design Studio Design Brief execution is complete:
+  - delivered:
+    - executable Design Brief authoring in the main shell
+    - explicit `Save Draft`, `Submit For Approval`, and `Approve Brief` actions
+    - resumed persisted brief state through `currentBrief`
+    - stage-status transitions for `Not started`, `In progress`, `Ready`, and `Approved`
+    - Concept Studio blocking until Design Brief approval, then explicit unlock
+    - selected-stage/header consistency fixes for the Design Studio shell
+  - preserved:
+    - approval ownership
+    - lineage/versioning
+    - validation ownership
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no automatic progression
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if the workflow completion effort resumes, start Concept Studio execution as a separate scoped slice without changing Design Brief semantics introduced here
+
+- 2026-06-16 Report Design Studio docs were corrected to match the shipped read-only shell:
+  - issue:
+    - the first-pass user docs mixed underlying Design Studio stage foundations with the actual shipped shell
+    - that caused the walkthrough to imply writable Design Brief fields and early-stage controls that are not present in the current UI
+  - corrected:
+    - `docs/report-design-studio-user-guide.md`
+    - `docs/report-design-studio-workflow-walkthrough.md`
+  - updated doc position:
+    - the current shipped shell is primarily a read-only workflow and review surface for:
+      - Design Brief
+      - Concept Studio
+      - Draft Studio
+      - Prepare For Review
+    - live actions are currently limited to:
+      - Review Design handoff
+      - Refinement proposal approve/reject/defer
+      - Compare Iterations selectors
+  - next recommended step:
+    - keep all user-facing Design Studio docs anchored to the shipped shell, not the underlying store/view foundations
+    - if the product later exposes full early-stage editing in the main shell, update the walkthrough again at that time
+
+- 2026-06-16 Report Design Studio UAT and user documentation is complete:
+  - created:
+    - `docs/report-design-studio-user-guide.md`
+    - `docs/report-design-studio-workflow-walkthrough.md`
+    - `docs/report-design-studio-uat-guide.md`
+    - `docs/report-design-studio-uat-gap-analysis.md`
+  - documentation focus:
+    - explain what Report Design Studio is and how it relates to PBIR Design Analyzer, Story Assessment, and Analyzer Workspace
+    - document the consultant workflow stage-by-stage using the actual shipped MVP shell terminology
+    - explain approval semantics:
+      - Ready
+      - Approved
+      - Validated
+      - Design Approval
+      - Materialization Approval
+      - Refinement Approval
+      - Validation Approval
+    - provide realistic UAT scripts for:
+      - Executive Dashboard
+      - Operational Monitoring
+      - Analytical Investigation
+  - key conclusion:
+    - the documentation can explain the workflow clearly, but the current shipped MVP still does not expose a complete self-serve early-stage action path in the main shell
+    - the gap analysis therefore answers the final readiness question as `no` for documentation-only self-serve consultant use
+  - validation:
+    - verified all four documentation files exist
+    - verified the required major sections and final readiness answer are present
+  - next recommended step:
+    - use the new docs for guided pilot support
+    - fix shell-exposed early-stage actions, middle-stage workflow language, and workflow completion signaling before claiming documentation-only self-serve readiness
+
+- 2026-06-16 Story Assessment navigation target fix is complete:
+  - root cause:
+    - the `Open target` action path in Story Assessment was valid end-to-end, but score-panel commands that opened a report chosen from the picker did not sync `pbirTreeProvider` to that report path
+    - as a result, `navigateToTarget` resolved against an empty or unrelated PBIR explorer tree, so the action appeared inert even though the webview click handler and host message router were working
+  - implementation:
+    - added `syncExplorerToReport` in `vscode-extension/src/commands/pbirCommands.ts`
+    - now synchronize the explorer project path before opening the score panel for:
+      - `pbirAnalyzer.scoreReport`
+      - `pbirAnalyzer.exportReviewWorkflow`
+      - `pbirAnalyzer.uploadScreenshots`
+  - regression coverage:
+    - added a command-level regression in `vscode-extension/src/test/pbirScoreCommand.treeItem.test.ts` proving picker-based score launches call `setProjectPath(reportRoot)` before opening the score panel
+  - validation passed:
+    - focused:
+      - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScoreCommand.treeItem.test.ts`
+      - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScorePanel.navigation.test.ts src/test/pbirExplorerReveal.test.ts`
+    - required:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - reload the extension host or reinstall/package if testing from the installed VSIX
+    - manually confirm Story Assessment `Open target` now reveals and opens the active report target when the score panel was launched from a picked report path
+
+- 2026-06-16 Design Studio installed VSIX refresh is complete:
+  - confirmed:
+    - the workspace fix for the Design Studio blank webview already existed locally
+    - the still-blank user repro came from a stale installed Insiders extension payload at:
+      - `~/.vscode-insiders/extensions/bcrowell.pbir-design-analyzer-0.6.0/webview-dist/design-studio.js`
+    - the stale installed bundle still contained `process.env.NODE_ENV`, while the workspace bundle did not
+  - packaging and install:
+    - rebuilt the shipped VSIX from the current workspace with:
+      - `cd vscode-extension && npm run package`
+    - reinstalled the fresh artifact into VS Code Insiders with:
+      - `/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code --install-extension /Users/bcrowell/Documents/GitHub/pbir-design-analyzer/vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix --force`
+  - verification:
+    - confirmed the installed Design Studio bundle now matches the fixed shape:
+      - size `177818`
+      - no `process.env.NODE_ENV`
+      - no `process` token remains in the installed `design-studio.js`
+  - next recommended step:
+    - reload the VS Code Insiders window so any cached webview host state is discarded
+    - reopen Report Design Studio and confirm the shell renders from the refreshed installed extension payload
+
+- 2026-06-15 Design Studio webview startup crash is fixed:
+  - root cause:
+    - the blank Report Design Studio page came from shared webview build-tooling leakage, not Design Studio application code
+    - the packaged `design-studio.js` bundle still contained React `process.env.NODE_ENV` runtime branches, which crash in a browser-like VS Code webview where `process` is undefined
+  - implementation:
+    - added compile-time production defines in:
+      - `vscode-extension/webview-src/vite.design-studio.config.ts`
+      - `vscode-extension/webview-src/vite.analyzer-score.config.ts`
+      - `vscode-extension/webview-src/vite.analyzer-config.config.ts`
+    - added regression coverage in:
+      - `vscode-extension/webview-src/design-studio/__tests__/bundleRuntime.test.ts`
+    - rebuilt webview assets so the shipped Design Studio bundle no longer emits `process.env.NODE_ENV`
+  - validation passed:
+    - targeted guard:
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/bundleRuntime.test.ts`
+    - required validation:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - manual verification:
+    - reopened Report Design Studio and confirmed the shell rendered instead of a blank page
+    - confirmed the workflow rail rendered, including `Prepare For Review`, `Review Design`, and `Compare Iterations`
+  - next recommended step:
+    - return to the remaining release-candidate blocker for default score-diagnostics payload logging
+
+- 2026-06-15 PBIR engineering remediation release-candidate validation is complete:
+  - confirmed:
+    - Workstream 9 remained complete before RC validation
+    - required validation commands passed:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm run verify:backend:targets`
+      - `cd vscode-extension && npm run package:all`
+    - clean-host VSIX install succeeded for:
+      - `vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
+    - packaged backend launched from the installed extension target path, not from repo-local build outputs
+    - score panel rendered and review-workflow export succeeded
+    - screenshot upload flow opened its native file-picker dialog
+  - release blockers found:
+    - packaged Design Studio opened a blank webview and VS Code logged a blocked `vscode-webview` request for `bcrowell.pbir-design-analyzer`
+    - default `PBIR Score Diagnostics` logging still persisted a large scored payload with findings and local report paths
+  - documentation added:
+    - `docs/pbir-engineering-remediation-release-candidate-validation.md`
+  - recommendation:
+    - not ready for internal install until the packaged Design Studio webview failure and default score-diagnostics logging hygiene failure are fixed and revalidated
+  - next recommended step:
+    - fix the packaged Design Studio webview bootstrap/runtime issue first
+    - then suppress full default score-diagnostics payload logging in normal operation
+    - rerun the same clean-host RC validation flow after both blockers are resolved
+
+- 2026-06-15 PBIR engineering remediation Workstream 9 is complete:
+  - implemented:
+    - removed speculative backend-only Design Studio provider scaffolding:
+      - `service-dotnet/Services/DesignStudio/Providers/IDesignStudioProvider.cs`
+      - `service-dotnet/Services/DesignStudio/Providers/ProviderCapabilityModels.cs`
+    - removed the duplicate backend-only materialization gateway model file:
+      - `service-dotnet/Services/DesignStudio/Materialization/MaterializationGatewayModels.cs`
+    - retained `service-dotnet/Services/DesignStudio/Models/DesignStudioModels.cs` as the active backend contract mirror for shipped Design Studio artifact and handoff vocabulary
+    - moved `DesignProviderCapabilityKind` into `DesignStudioModels.cs` because it remains part of the mirrored provenance contract, not a live provider registry
+    - rewrote focused Design Studio backend reflection tests so they now:
+      - assert speculative provider registry runtime types are absent
+      - assert the duplicate materialization namespace is absent
+      - preserve approval-separation, analyzer-owned validation, no-mutation, and non-execution trust boundaries on the remaining backend models
+    - documented the Workstream 9 audit and ownership decision in:
+      - `docs/superpowers/implementation-notes/2026-06-15-design-studio-backend-abstraction-cleanup.md`
+  - preserved:
+    - no provider-backed generation
+    - no new Design Studio runtime features
+    - no backend provider wiring
+    - no TypeScript Design Studio runtime behavior changes
+    - no scoring changes
+  - audit outcome:
+    - active backend runtime boundary protection remains in the internal Design Studio model vocabulary and reflection tests that lock approval separation, analyzer-owned validation, and non-mutation guarantees
+    - speculative future-provider runtime surface was removed because it had no runtime call sites and only survived through reflection-presence tests
+  - validation passed:
+    - focused Design Studio backend suite:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 9 as requested
+    - if provider-backed generation is ever scoped later, reintroduce backend provider abstractions only with a real runtime execution path, explicit trust semantics, and fresh documentation
+
+- 2026-06-15 PBIR engineering remediation Workstream 7D is complete:
+  - implemented:
+    - extracted scorer config parsing into `service-dotnet/Services/Pbir/ScoringConfigurationService.cs`
+    - rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to delegate framework-weight, navigation-scoring, and governance-rule shaping to the new service
+    - added an internal `PbirScoringService` composition constructor so extracted collaborators can be supplied directly without changing the public scoring entry point
+    - collapsed repeated page-summary and zero-visual orchestration glue inside `PbirScoringService` into focused helpers
+    - added focused xUnit coverage in `service-dotnet/tests/Services/ScoringConfigurationServiceTests.cs`
+  - preserved:
+    - no scoring semantic changes
+    - no findings changes
+    - no recommendation logic changes
+    - no Story Assessment changes
+    - no Cross-Page Narrative changes
+    - no public contract changes
+  - regression gate passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+  - validation passed:
+    - focused scorer checks:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~ScoringConfigurationServiceTests|FullyQualifiedName~PbirScoringServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 7D as requested
+    - do not begin Workstream 9
+
+- 2026-06-15 PBIR engineering remediation Workstream 7C is complete:
+  - implemented:
+    - extracted recommendation buffering and bookmark-aware recommendation population into `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs` via `RecommendationAssemblyService`
+    - extracted score-result and page-score assembly into `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs` via `ScoreResultAssemblyService`
+    - extracted backward-compatible legacy score population into `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs` via `ScoreCompatibilityAdapter`
+    - rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to delegate recommendation/result/compatibility output shaping to the extracted services
+    - added focused xUnit coverage for the extracted 7C services:
+      - `service-dotnet/tests/Services/RecommendationAssemblyServiceTests.cs`
+      - `service-dotnet/tests/Services/ScoreCompatibilityAdapterTests.cs`
+      - `service-dotnet/tests/Services/ScoreResultAssemblyServiceTests.cs`
+  - preserved:
+    - no scoring semantic changes
+    - no recommendation logic changes
+    - no public contract changes
+    - no Story Assessment changes
+    - no Cross-Page Narrative changes
+    - no Design Studio changes
+  - regression gate passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+  - validation passed:
+    - focused extracted-service tests:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationAssemblyServiceTests|FullyQualifiedName~ScoreCompatibilityAdapterTests|FullyQualifiedName~ScoreResultAssemblyServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 7C as requested
+    - do not begin final `PbirScoringService` thin-orchestrator cleanup without a separately scoped follow-on workstream
+
+- 2026-06-15 Post-7B scoring regression baseline is complete:
+  - implemented:
+    - captured a compact representative regression baseline for:
+      - `Sales & Production`
+      - `Sales Analysis`
+      - `Running Record Dataverse`
+      - `Sales AWF`
+    - stored normalized baseline projections at:
+      - `service-dotnet/tests/Baselines/Post7BScoring/`
+    - added focused real-fixture regression coverage in:
+      - `service-dotnet/tests/Post7BScoringBaselineTests.cs`
+    - documented baseline sources, normalization rules, baseline locations, and future 7C/7D comparison workflow in:
+      - `docs/story-assessment/2026-06-15-post-7b-scoring-regression-baseline.md`
+  - preserved:
+    - no scorer behavior changes
+    - no extension behavior changes
+    - no architecture changes
+    - no Workstream 7C implementation
+  - validation target:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - validation passed:
+    - focused baseline gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - use `Post7BScoringBaselineTests` as the first regression gate before any Workstream 7C or 7D scorer slice
+
+- 2026-06-15 PBIR engineering remediation Workstream 7B is complete:
+  - implemented:
+    - extracted Story Assessment sequencing into `service-dotnet/Services/Pbir/StoryAssessmentOrchestrator.cs`
+    - extracted Cross-Page Narrative sequencing into `service-dotnet/Services/Pbir/CrossPageNarrativeOrchestrator.cs`
+    - extracted focused seams for internal Story Signal Registry and Special Page Assessment orchestration into:
+      - `service-dotnet/Services/Pbir/StorySignalRegistryService.cs`
+      - `service-dotnet/Services/Pbir/SpecialPageAssessmentService.cs`
+    - rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to use the new orchestrators while remaining the scoring entry point
+    - added direct xUnit coverage for the extracted orchestration services
+    - added `InternalsVisibleTo("Tests")` for direct internal service/model coverage
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - focused regression coverage passed:
+    - extracted service tests: `StoryAssessmentOrchestratorTests`, `CrossPageNarrativeOrchestratorTests`
+    - existing `PbirScoringServiceTests` coverage for Story Assessment and Guided Story Improvements slices
+  - regression-gate note:
+    - a literal before/after representative-output diff was not rerun in this session because the current workspace did not preserve a safe pre-7B baseline separate from unrelated in-progress work
+    - relied on focused extracted-service tests plus existing Story Assessment regression coverage and full required validation instead
+  - next recommended step:
+    - stop after Workstream 7B as requested
+    - do not begin recommendation extraction, result assembly extraction, or backward-compat adapter extraction without a separately scoped follow-on workstream
+
+- 2026-06-15 PBIR engineering remediation Workstream 7A is complete:
+  - implemented:
+    - extracted report discovery into `service-dotnet/Services/Pbir/ReportDiscoveryService.cs`
+    - extracted report JSON/page model loading into `service-dotnet/Services/Pbir/ReportModelLoader.cs`
+    - extracted theme resolution into `service-dotnet/Services/Pbir/ThemeResolutionService.cs`
+    - moved private scoring foundation models into `service-dotnet/Services/Pbir/PbirScoringFoundationModels.cs`
+    - rewired `PbirScoringService` into a thinner orchestrator for foundation loading concerns
+    - added focused xUnit coverage for the extracted service seams
+  - regression gate passed:
+    - representative before/after scoring outputs matched after normalization of runtime-only `reportPath` and `scoredAt` fields
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 7A as requested
+    - do not begin Story Assessment extraction without a separately scoped follow-on workstream
+
 ## Active Branch
 
 - Branch: `codex/ux-consolidation-remediation-0-2-2`
 
 ## Current Objective
 
-- 2026-06-15 PBIR engineering remediation Workstream 2B is complete:
-  - implemented:
-    - documented cross-language contract ownership, required versus optional rules, compatibility/versioning expectations, and phased schema/codegen migration in `docs/architecture/contract-schema-and-ownership-strategy.md`
-    - added explicit top-level score payload field inventories in `vscode-extension/src/views/scoreResultPayload.ts` without changing runtime behavior
-    - added Jest drift coverage proving TypeScript and C# Design Studio lifecycle, approval, validation, and materialization vocabularies stay aligned
-    - added Jest coverage proving required score payload fields remain explicit, optional score payload fields remain backward compatible, and Design Studio envelopes reject unsupported schema versions
-    - added a score payload parity check that keeps required TypeScript-consumed fields aligned with the backend `ScoreResult` contract
-  - preserved:
-    - no `PbirScorePanel` decomposition
-    - no `PbirScoringService` decomposition
-    - no fix engine persistence refactor
-    - no backend artifact cleanup
-    - no provider-backed generation
-    - no new product features
-    - no runtime behavior change for valid payloads
-  - validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop after Workstream 2B as requested
-    - if Bucket B work resumes later, continue with Workstream 4B or Workstream 8 without widening this contract scope
-
-- 2026-06-14 PBIR engineering remediation Bucket A is complete:
-  - implemented:
-    - byte-correct JSON-RPC request framing in `service-dotnet/RpcHost/Program.cs`
-    - focused RPC framing coverage for ASCII, multibyte UTF-8, malformed `Content-Length`, and short-read handling
-    - default-redacted RPC request/response logging with diagnostic-mode-only payload capture in `vscode-extension/src/services/rpc/AnalyzerBridgeService.ts`
-    - explicit required-field validation for authoritative score payload fields in `vscode-extension/src/views/scoreResultPayload.ts`
-    - packaged-backend-only runtime resolution in `vscode-extension/src/languageServer/analyzerBackendClient.ts`
-    - backend preflight gating so normal activation no longer sacrificially launches the backend twice
-  - preserved:
-    - no `PbirScorePanel` decomposition
-    - no `PbirScoringService` decomposition
-    - no contract codegen or schema migration
-    - no fix-engine persistence refactor
-    - no Design Studio backend abstraction cleanup
-    - no provider-backed generation
-    - no new product features
-    - no scoring semantic changes for valid payloads
-  - validation passed:
-    - focused Jest coverage:
-      - `src/test/AnalyzerBridgeService.test.ts`
-      - `src/test/analyzerBackendClient.test.ts`
-      - `src/test/scoreResultPayload.test.ts`
-    - focused xUnit coverage:
-      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~RpcHostJsonRpcTests`
-    - required full validation:
-      - `cd vscode-extension && npm test`
-      - `cd vscode-extension && npm run compile`
-      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-      - `cd vscode-extension && npm run package:all`
-  - note:
-    - `npm run package:all` passed and rebuilt packaged backend target assets
-    - existing nullable warnings in `service-dotnet/Services/Pbir/PbirScoringService.cs` and `CrossPageNarrativeInputBuilder.cs` still appear during packaging/build, but they are pre-existing and non-blocking for Bucket A
-  - next recommended step:
-    - stop after Bucket A as requested
-    - if work resumes, start Bucket B only under the existing contract, trust-boundary, and no-new-feature guardrails
-
-- 2026-06-14 PBIR engineering remediation design and planning is complete:
-  - created:
-    - `docs/superpowers/specs/2026-06-14-pbir-engineering-remediation-design.md`
-    - `docs/superpowers/plans/2026-06-14-pbir-engineering-remediation-plan.md`
-  - defined:
-    - nine remediation workstreams
-    - target architecture and dependency map
-    - release buckets and execution order
-    - focused and full validation strategy
-    - rollback guidance and per-workstream definitions of done
-  - preserved:
-    - no implementation work
-    - no source refactors
-    - no file removals
-  - next recommended step:
-    - execute Bucket A first and keep all implementation work inside the documented trust, compatibility, and runtime boundaries
-- 2026-06-14 Report Design Studio guided internal pilot planning is complete:
-  - created:
-    - `docs/report-design-studio-guided-pilot-plan.md`
-    - `docs/report-design-studio-guided-pilot-results.md`
-  - defined:
-    - pilot participants and counts
-    - scenario coverage
-    - stage-by-stage workflow
-    - workflow, timing, understanding, trust, adoption, confidence, and recommendation metrics
-    - success thresholds and readiness criteria
-    - final A/B/C decision gate
-  - preserved:
-    - no feature implementation
-    - no architecture changes
-    - no provider-backed generation
-  - next recommended step:
-    - run the guided internal pilot and capture evidence in the results template before considering broader internal usage or any provider-backed generation work
-- 2026-06-14 Report Design Studio MVP validation review Round 3 is complete:
-  - reviewed:
-    - current Design Studio MVP after UX Phases 1-5
-    - the same executive dashboard, operational monitoring, and analytical investigation scenarios used in Round 1 and Round 2
-    - current Design Brief, Concept Studio, Draft Studio, Prepare For Review, Review Design, Refinement Studio, and Compare Iterations UX
-    - current approval and trust-boundary teaching inside the workflow
-  - documentation:
-    - `docs/report-design-studio-mvp-validation-review-round3.md`
-  - result:
-    - UX Phase 5 materially improved the MVP
-    - approval teaching is now strong enough for consultant-speed comprehension
-    - concept comparison, analytical investigation support, iteration readability, and Design Brief disclosure are improved
-    - analytical investigation remains the weakest scenario
-    - middle-stage detail language still exposes some platform vocabulary
-    - the MVP is ready for guided internal pilot usage
-    - the MVP is still not ready for broad self-serve internal consultant usage
-  - validation used:
-    - focused browser-driven review against a temporary local harness importing the live Design Studio React components with seeded workflow state
-    - Playwright snapshots and screenshots across the Executive Dashboard, Operational Monitoring, Analytical Investigation, and Design Brief surfaces
-  - next recommended step:
-    - proceed with guided internal pilot usage only
-    - do not start provider-backed generation, Microsoft Fabric skills integration, or broad self-serve rollout until the remaining UX blockers are intentionally addressed
-- 2026-06-14 Report Design Studio UX Phase 5 fast comprehension and decision confidence is complete:
-  - implemented:
-    - richer concept baseline comparison for chapter structure, KPI hierarchy, navigation structure, and analytical flow
-    - explicit analytical-investigation support with question, investigation, evidence, conclusion, and decision teaching
-    - stronger Ready vs Approved vs Validated teaching with owner and effect framing
-    - iteration progress snapshot indicators ahead of deeper comparison detail
-    - Design Brief progressive disclosure for essential versus advanced context
-  - preserved:
-    - presentation-only UX architecture
-    - existing workflow ids
-    - existing trust boundaries
-    - no provider-backed generation
-    - no Microsoft Fabric skills integration
-    - no AI generation
-    - no report mutation
-    - no PBIR generation
-    - no deployment
-    - no automation
-  - validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop after UX Phase 5 as requested; do not start provider-backed generation or Microsoft skills integration unless a new explicit scope is opened
-- 2026-06-14 Report Design Studio MVP validation review Round 2 is complete:
-  - reviewed:
-    - current Design Studio implementation after UX Phases 1-4
-    - Round 1 review baseline
-    - current concept visibility, draft visibility, workflow language, approval clarity, iteration readability, and trust-boundary teaching
-  - documentation:
-    - `docs/report-design-studio-mvp-validation-review-round2.md`
-  - result:
-    - UX Phase 4 materially improved the MVP
-    - Draft Studio visibility is resolved as a major blocker
-    - Concept Studio visibility, workflow language, approval clarity, and analytical-investigation support are improved but not fully resolved
-    - the MVP is now suitable for guided internal pilot usage
-    - the MVP is still not ready for broad self-serve internal consultant use
-  - validation passed:
-    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/designBriefStore.test.ts src/test/conceptStore.test.ts src/test/draftStore.test.ts src/test/materializationCoordinator.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts src/test/iterationStore.test.ts src/test/designStudioProtocol.test.ts src/test/designStudioContracts.test.ts src/test/pbirDesignStudioCommand.treeItem.test.ts src/test/designStudioWorkspace.test.ts src/test/iterationExperience.test.ts`
-    - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/ConceptStudioView.test.tsx webview-src/design-studio/__tests__/DraftStudioView.test.tsx webview-src/design-studio/__tests__/App.test.tsx webview-src/design-studio/__tests__/ClosedLoopView.test.tsx`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
-  - next recommended step:
-    - use the Round 2 review to decide guided pilot usage; do not start provider-backed generation until the remaining UX blockers are intentionally addressed
-- 2026-06-14 Report Design Studio UX Phase 4 artifact visibility and workflow language is complete:
-  - implemented:
-    - presentation-only Concept Studio review artifacts in the shell for chapter structure, KPI hierarchy, navigation structure, and analytical flow
-    - presentation-only Draft Studio review artifacts in the shell for draft pages, layouts, navigation, and KPI placement
-    - consultant-friendly middle-stage labels:
-      - Prepare For Review
-      - Review Design
-    - clearer consultant-facing validation language so validation approval renders as Validated
-    - iteration comparison emphasis reordered to:
-      - What Improved
-      - What Was Accepted
-      - What Changed
-    - focused workspace-presenter and webview coverage proving artifact visibility, consultant language, approval distinction, and preserved non-automation behavior
-  - preserved:
-    - existing workflow ids and stage architecture
-    - existing trust boundaries and analyzer ownership
-    - no provider-backed generation
-    - no AI generation
-    - no report mutation
-    - no PBIR generation
-    - no deployment
-    - no automation
-  - validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop after UX Phase 4 as requested; do not start provider-backed generation unless a new explicit scope is opened
-- 2026-06-14 Report Design Studio MVP validation review is complete:
-  - reviewed:
-    - Design Brief
-    - Concept Studio
-    - Draft Studio
-    - Materialize Candidate
-    - Analyzer Handoff
-    - Refinement Studio
-    - Compare Iterations
-  - validated with realistic workflow framing for:
-    - executive dashboard
-    - operational monitoring
-    - analytical investigation
-  - documentation:
-    - `docs/report-design-studio-mvp-validation-review.md`
-  - result:
-    - workflow is coherent and directionally valuable
-    - refinement and iteration loops are useful
-    - the MVP is not yet ready for broad self-serve internal consultant use without product-context guidance
-    - the MVP is suitable for a guided internal pilot
-  - highest-priority improvement areas before provider-backed generation:
-    - stronger Concept Studio artifact visibility
-    - stronger Draft Studio artifact visibility
-    - clearer Materialization and Analyzer Handoff language
-    - clearer approval and trust-boundary teaching inside the workflow
-    - stronger iteration readability for consultant review
-  - validation passed:
-    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/designBriefStore.test.ts src/test/conceptStore.test.ts src/test/draftStore.test.ts src/test/materializationCoordinator.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts src/test/iterationStore.test.ts src/test/designStudioProtocol.test.ts src/test/designStudioContracts.test.ts src/test/pbirDesignStudioCommand.treeItem.test.ts`
-    - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/ConceptStudioView.test.tsx webview-src/design-studio/__tests__/App.test.tsx webview-src/design-studio/__tests__/ClosedLoopView.test.tsx`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
-  - next recommended step:
-    - do not add provider-backed generation yet; first improve consultant-facing artifact review, middle-stage terminology, and approval legibility inside the existing MVP workflow
-- 2026-06-14 Report Design Studio UX Phase 3 iteration experience is complete:
-  - implemented:
-    - Iteration Timeline inside the Compare Iterations stage
-    - Before and After iteration selection
-    - human-readable Change Summary
-    - Recommendation Evolution with accepted, rejected, and deferred outcomes
-    - Approval Evolution across design, materialization, refinement, and validation checkpoints
-    - Validation Evolution with user-facing analyzer-review and validation summaries
-    - shared iteration-experience presenter reused by store and webview
-  - preserved:
-    - existing Task 9 closed-loop architecture
-    - existing iteration store authority and lineage checks
-    - materialization, analyzer handoff, and refinement lineage models
-    - advisory-only trust boundaries
-    - no provider-backed generation
-    - no AI generation
-    - no report mutation
-    - no PBIR generation
-    - no deployment
-    - no automation UX
-    - no auto-optimization
-    - no automatic analyzer execution
-  - validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - note:
-    - the .NET validation command still emits existing nullable warnings outside this Phase 3 slice, but the test run passed
-  - next recommended step:
-    - stop after UX Phase 3 as requested; if work resumes, keep future iteration or automation work behind the existing explicit trust boundaries
-- 2026-06-14 Report Design Studio UX Phase 2 refinement experience is complete:
-  - implemented:
-    - consultant-style Suggested Improvements view in the Design Studio shell
-    - grouped refinement recommendations for story, layout, KPI, navigation, and report-structure improvements
-    - proposal review cards with recommendation, rationale, expected impact, source analyzer output, and affected design artifacts
-    - explicit proposal-state workflow for approve, reject, and defer
-    - proposal comparison framing for original design intent, current design state, and proposed refinement
-    - stage-local shell rendering so refinement, materialization, and handoff content stay scoped to the selected stage
-    - persisted refinement proposals and iteration history included in Design Studio studio-state refresh payloads
-  - validation passed:
-    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/refinementStore.test.ts src/test/designStudioProtocol.test.ts src/test/designStudioContracts.test.ts`
-    - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/App.test.tsx`
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - preserved:
-    - no provider-backed generation
-    - no AI generation
-    - no automatic refinement
-    - no report mutation
-    - no PBIR generation
-    - no deployment
-    - no automation UX
-    - no advanced iteration diffing
-    - no embedded analyzer execution
-  - next recommended step:
-    - stop after UX Phase 2 as requested; if work resumes, improve Compare Iterations UX on top of the existing closed-loop foundations without widening authority
-- 2026-06-14 Report Design Studio UX Phase 1 implementation is complete:
-  - implemented:
-    - Explorer entry via `pbirAnalyzer.openDesignStudio`
-    - Design Studio shell webview host and bundle
-    - persistent workflow rail
-    - stage status indicators for not started, in progress, ready, approved, and blocked
-    - approval cards for design, materialization, refinement, and validation
-    - materialization readiness presentation
-    - explicit Analyzer Workspace handoff entry without automatic analyzer execution
-    - browser-safe Design Studio protocol validation for the new shell
-    - `build:webview` race fix exposed by the third Vite webview bundle
-  - validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-    - `cd vscode-extension && npm run build:webview`
-    - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/App.test.tsx`
-    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/pbirDesignStudioCommand.treeItem.test.ts src/test/packageManifest.test.ts src/test/designStudioProtocol.test.ts`
-  - preserved:
-    - no advanced diffing
-    - no provider-specific UX
-    - no automation UX
-    - no embedded analyzer execution
-    - no advanced lineage visualization
-  - session closeout note:
-    - current turn revalidated the existing UX Phase 1 implementation on this branch and found no additional product-code gaps inside the requested scope
-  - next recommended step:
-    - stop after UX Phase 1 as requested; if work resumes, add richer stage detail and refinement/comparison polish inside the new shell without widening scope
-- 2026-06-13 Report Design Studio UX Phase 1 design and planning is complete:
-  - created:
-    - `docs/superpowers/specs/2026-06-13-report-design-studio-ux-design.md`
-    - `docs/superpowers/plans/2026-06-13-report-design-studio-ux-plan.md`
-  - defined:
-    - Explorer-first primary entry
-    - workspace-style shell with persistent workflow rail
-    - explicit stages for Design Brief, Concept Studio, Draft Studio, Materialize Candidate, Analyze Draft, Suggested Improvements, and Compare Iterations
-    - separate approval UX for design, materialization, refinement, and validation
-    - progressive-disclosure provenance and lineage UX
-  - preserved:
-    - no code implementation
-    - no architecture redesign
-    - no provider-generation scope
-    - no analyzer ownership change
-  - next recommended step:
-    - implement the shell and entry slice first, then add Materialization, Analyzer Handoff, Suggested Improvements, and Compare Iterations UX on top of the existing contracts and stores
-- 2026-06-13 Report Design Studio Tasks 1-10 manual smoke test and UX review is complete:
-  - reviewed:
-    - the full Design Brief -> Concept -> Draft -> Materialization -> Analyzer Handoff -> Refinement -> Closed Loop workflow
-    - current webview UX for Design Brief, Concept Studio, Draft Studio, and Closed Loop
-    - trust-boundary separation across design, refinement, materialization, and validation approvals
-  - result:
-    - workflow contracts and guardrails are coherent and strongly validated
-    - the shipped product experience is not yet a complete user-understandable Design Studio workflow
-    - the largest gap is missing integrated UX for launch, Materialization, Refinement Studio, and Analyzer Handoff
-  - documentation:
-    - `docs/report-design-studio-manual-smoke-test.md`
-  - focused validation passed:
-    - `cd vscode-extension && npx jest --runTestsByPath src/test/designBriefStore.test.ts src/test/conceptStore.test.ts src/test/draftStore.test.ts src/test/materializationCoordinator.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts src/test/iterationStore.test.ts`
-    - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/ConceptStudioView.test.tsx webview-src/design-studio/__tests__/ClosedLoopView.test.tsx`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
-  - next recommended step:
-    - do not add provider-backed generation yet; first expose an integrated Design Studio shell and first-class UX for Materialization, Refinement Studio, and Analyzer Handoff
-- 2026-06-13 Report Design Studio Task 10 validation reconciliation is complete:
-  - verified:
-    - the current working tree already contains the requested Task 10 trust-boundary and regression-guardrail implementation
-    - workflow, approval, lineage, provider, materialization, analyzer-ownership, protocol, and regression guardrails are covered in the existing Task 10 slice
-  - required validation re-run passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here unless a new post-Task-10 scope is explicitly requested
-- 2026-06-13 Report Design Studio Task 10 Trust Boundary And Regression Guardrails is now complete:
-  - implemented:
-    - dedicated Jest trust-boundary regression coverage for workflow gating, approval separation, provider restrictions, materialization non-mutation, analyzer-owned validation, and closed-loop non-automation
-    - stricter Design Studio protocol validation for nested `studioState` host payloads, including cross-thread lineage rejection and guardrail-shape enforcement
-    - backend trust-boundary reflection coverage preserving approval ownership, provider/materialization restrictions, and absence of mutation/deployment/auto-approval/analyzer-run bypass methods
-    - durable trust-boundary and implementation documentation at:
-      - `docs/report-design-studio-trust-boundary.md`
-      - `docs/superpowers/implementation-notes/2026-06-13-report-design-studio-task10-guardrails.md`
-  - preserved:
-    - no new Design Studio capability
-    - no provider execution
-    - no report generation
-    - no PBIR asset generation
-    - no deployment
-    - no new analyzer functionality
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here unless a new post-Task-10 scope is explicitly requested
-- 2026-06-13 Report Design Studio pre-Task-10 workflow coherence cleanup is now complete:
-  - implemented:
-    - explicit Draft Studio approval transition via immutable approved draft versions
-    - approved-draft-only materialization request construction from persisted Draft Studio state
-    - iteration record metadata cleanup so `approvalCheckpoint` is the non-contradictory approval source of truth
-    - persisted-state reconciliation for iteration source versions, snapshots, materialized candidates, analyzer lineage, refinement lineage, and validation linkage
-    - focused Jest coverage proving explicit draft approval, immutable approved lineage, approved-only materialization, and inconsistent iteration lineage rejection
-  - preserved:
-    - no Task 10 work
-    - no new trust-boundary guardrails
-    - no provider execution
-    - no report mutation
-    - no PBIR file generation
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here as requested; do not start Task 10
-- 2026-06-13 Report Design Studio Task 9 Closed-Loop Comparison And Approval Workflow is now complete:
-  - implemented:
-    - explicit iteration store with lineage, comparison snapshots, approval checkpoints, and no-automation guardrails
-    - closed-loop comparison model for concept, draft, analyzer-output, recommendation, and validation-status changes
-    - minimal internal/design-studio Closed Loop view and comparison component
-    - backend-internal Design Studio model symmetry for iteration workflow contracts
-    - focused Jest and xUnit coverage proving lineage preservation, comparison visibility, analyzer-owned validation approval, and no hidden automation or mutation
-  - preserved:
-    - no provider execution
-    - no AI generation
-    - no PBIR file generation
-    - no report mutation
-    - no deployment
-    - no automatic analyzer execution
-    - no automatic validation approval
-    - no Task 10 work
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here as requested; do not start Task 10
-- 2026-06-13 pre-Task-9 readiness cleanup is now complete:
-  - implemented:
-    - explicit analyzer-owned validation-approval evidence and helper semantics
-    - snapshot-backed analyzer handoff downgraded to preview-only until a real Analyzer Workspace runtime path exists
-    - documented Analyzer Workspace return contract for Refinement Studio ingestion with explicit result identity, analyzer run id, source candidate id, source artifact/version fingerprint, validation result status, and ingestion path
-    - focused trust-boundary tests covering no implied validation approval and no snapshot executability overstatement
-  - preserved:
-    - no Task 9 implementation
-    - no Closed Loop Optimization
-    - no provider execution
-    - no report mutation
-    - no hidden shared state
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here as requested; do not start Task 9
-- 2026-06-13 architecture readiness review in progress:
-  - scope:
-    - review Report Design Studio through Task 8 before Task 9 Closed Loop Optimization
-    - verify lineage, analyzer handoff, analyzer workspace authority, approval-state separation, and trust-boundary protections
-    - do not implement code
-  - validation:
-    - run focused tests only if they add confidence for the review
-  - next recommended step:
-    - complete the review closeout and pause for a small cleanup slice before Task 9
-- 2026-06-13 architecture readiness review complete:
-  - reviewed:
-    - Design Brief -> Concept -> Draft lineage
-    - refinement proposal lineage
-    - materialization candidate lineage
-    - analyzer handoff payload
-    - analyzer workspace peer launch
-    - non-execution guarantees
-    - approval-state separation
-    - trust-boundary protections
-  - result:
-    - lineage, provenance, diagnostics, and advisory-only/non-executing boundaries are preserved
-    - Analyzer Workspace remains the authoritative validation surface
-    - analyzer results can return through the existing refinement ingestion model
-    - Task 9 should pause for a small cleanup slice
-  - remaining cleanup:
-    - define concrete ownership and transitions for `validationApproval`
-    - correct the snapshot-backed handoff contract so executable status matches real Analyzer Workspace runtime capability
-    - document the exact analyzer-result return contract that Task 9 iteration records should consume
-  - focused validation passed:
-    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/designStudioContracts.test.ts src/test/designStudioProtocol.test.ts src/test/materializationCoordinator.test.ts src/test/materializationHandoffResolver.test.ts src/test/analyzerHandoffService.test.ts src/test/refinementStore.test.ts`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
-- 2026-06-13 Report Design Studio Task 8 Analyzer Handoff is now complete:
-  - implemented:
-    - `AnalyzerHandoffService` with executable eligibility validation, compatibility reuse, payload construction, and peer-workflow analyzer workspace launch
-    - internal `AnalyzerWorkspaceHandoffPayload` preserving lineage, provenance, provenance trace, diagnostics, analyzer selection, surface family, and executable eligibility
-    - non-executing analyzer workspace shell launch via `PbirScorePanel.createOrShowHandoffShell`
-    - internal command seam `pbirAnalyzer.openAnalyzerWorkspaceHandoff`
-    - focused Jest coverage for executable, preview-blocked, unsupported, lineage-preserving, provenance-preserving, and diagnostics-preserving handoff behavior
-  - preserved:
-    - no automatic analyzer execution
-    - no automatic scoring
-    - no automatic validation
-    - no report mutation
-    - no PBIR file generation
-    - no deployment
-    - no Task 9 work
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here as requested; do not start Task 9 Closed Loop Optimization
-- 2026-06-13 pre-Task-8 analyzer handoff readiness cleanup is now complete:
-  - implemented:
-    - explicit internal analyzer handoff contract for repository-backed, snapshot-backed, synthetic preview, and unsupported readiness states
-    - materialized-candidate handoff eligibility resolver with executable, non-executable preview, and unsupported outcomes
-    - shared analyzable-surface builders to remove materialization-local surface capability duplication
-    - thin analyzer/surface compatibility adapter over shared analyzer registry vocabulary
-    - richer materialization diagnostics for mapping degradation, omitted evidence, synthetic preview limits, and missing executable references
-    - explicit no-open side-effect tracking for analyzer workspace boundaries
-    - approval-semantics documentation confirming design, materialization, and validation approvals remain separate and deployment approval does not exist
-  - preserved:
-    - no Task 8 implementation
-    - no analyzer launch
-    - no analyzer handoff execution
-    - no analyzer workspace opening
-    - no PBIR file generation
-    - no report mutation
-    - no deployment
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - implementation note:
-    - `docs/superpowers/implementation-notes/2026-06-13-report-design-studio-task8-readiness-cleanup.md`
-  - next recommended step:
-    - stop here as requested; Task 8 may later consume the new handoff contract and resolver without widening the no-execution boundary
-- 2026-06-13 architecture review complete:
-  - reviewed Report Design Studio through Task 7 before starting Task 8 Analyzer Handoff
-  - result:
-    - Task 8 should pause for a small cleanup slice
-    - lineage, trust-boundary posture, and refinement round-trip foundations are strong enough
-    - the main remaining gap is that `MaterializedSurfaceCandidate` still carries a synthetic `design-studio://` source location rather than a handoff-ready executable surface reference
-    - materialization diagnostics are still too thin for future refinement-loop triage
-    - analyzer capability ownership should be centralized before handoff logic builds on materialization-local duplication
-  - no code changes
-- Report Design Studio Task 7 Materialization Gateway is now complete on the active branch:
-  - implemented:
-    - explicit Task 7 materialization coordinator and mapper
-    - semantic `MaterializationRequest` hardening at the protocol trust boundary and gateway boundary
-    - explicit materialization modes for concept preview, draft candidate creation, and refinement comparison
-    - `MaterializedSurfaceCandidate` provenance trace and analyzer handoff metadata shape
-    - diagnostic-friendly source lineage with explicit artifact kind and source role
-    - backend-internal materialization gateway model types for architecture symmetry and boundary coverage
-  - preserved:
-    - no PBIR asset generation
-    - no report mutation
-    - no deployment
-    - no analyzer handoff execution
-    - no provider execution
-    - no Task 8 work
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - next recommended step:
-    - stop here as requested, then do a small cleanup slice to define the executable analyzer handoff reference and tighten diagnostics before starting Task 8
-- Report Design Studio materialization readiness hardening is now complete on the active branch:
-  - implemented:
-    - exact source lineage entries for `MaterializationRequest`, `MaterializedSurfaceCandidate`, and `RefinementProposal`
-    - strict complete-fingerprint stale analyzer-output rejection with explicit diagnostics
-    - explicit refinement proposal review, approval, and rejection workflow transitions
-    - deep nested protocol validation for materialization request payloads
-    - stable backlink identities anchored on design and draft artifact ids/version ids
-  - preserved:
-    - no Task 7 materialization behavior
-    - no analyzer handoff
-    - no analyzable surface creation
-    - no PBIR asset generation
-    - no report mutation
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-- Report Design Studio Task 7 post-hardening readiness review is now complete on the active branch:
-  - reviewed:
-    - `MaterializationRequest` lineage
-    - `MaterializedSurfaceCandidate` lineage
-    - `RefinementProposal` lineage
-    - strict stale analyzer-output rejection
-    - refinement approval workflow
-    - deep protocol validation
-    - stable backlink identity
-    - trust-boundary protections
-  - result:
-    - Task 7 may proceed
-    - remaining cleanup should be carried into the first Task 7 slice:
-      - tighten semantic validation for `MaterializationRequest` payloads before trusting live execution inputs
-      - decide whether materialization diagnostics need explicit artifact kind or role in `sourceLineage`
-  - focused validation passed:
-    - `npx jest --runTestsByPath src/test/designStudioProtocol.test.ts src/test/refinementStore.test.ts src/test/designArtifactBacklinkResolver.test.ts`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
-- Report Design Studio Task 6 to Task 7 readiness review is now complete on the active branch:
-  - reviewed:
-    - design brief approval/versioning
-    - concept approval/versioning
-    - draft artifact lineage
-    - provider provenance
-    - refinement proposal lineage
-    - analyzer output ingestion
-    - backlink resolution
-    - approval semantics
-    - runtime protocol guards
-    - trust-boundary protections
-  - result:
-    - Task 6 boundaries are preserved
-    - Task 7 should pause until exact source-version references, refinement approval semantics, and nested materialization protocol validation are tightened
-  - focused validation:
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
-- Report Design Studio Task 6 is now complete on the active branch:
-  - implemented:
-    - Refinement Studio analyzer-consumption persistence
-    - ingestion adapters for Story Assessment, Guided Story Improvements, Issues, Fix Plan, and Cross-Page Narrative
-    - explicit design-artifact backlink resolution for page concept, draft page, draft layout, navigation concept, and KPI hierarchy concept linkage
-    - advisory-only RefinementProposal lineage with source analyzer payload provenance and no-mutation guarantees
-    - safe stale analyzer-output rejection via explicit source artifact version checks
-  - preserved:
-    - no materialization
-    - no analyzer handoff
-    - no closed loop
-    - no PBIR asset generation
-    - no analyzable surface creation
-    - no report mutation
-    - no provider integration requirement
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-- Report Design Studio Task 5 readiness cleanup is now complete on the active branch:
-  - implemented:
-    - immutable Design Brief approval versioning
-    - immutable Concept approval versioning
-    - exact source brief version lineage on concept artifacts
-    - explicit approval semantics via `approvalKind`
-    - runtime Design Studio protocol validation and safe rejection behavior
-    - explicit provider metadata deferral for workflow phase, evidence-domain fit, and analyzer-handoff expectations
-  - preserved:
-    - no PBIR asset generation
-    - no analyzable surface creation
-    - no materialization
-    - no analyzer handoff execution
-    - no report mutation
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-- Report Design Studio Task 1 to Task 3 readiness cleanup is now complete on the active branch:
-  - Task 1 Establish Studio Boundaries And Internal Contracts
-  - Task 2 Implement Design Brief Foundation
-  - Task 3 Implement Concept Studio Artifact Layer
-  - implemented:
-    - internal-only Design Studio contract vocabulary in extension and backend
-    - separate lifecycle and approval vocabularies
-    - Design Brief validation and approval gating for concept generation
-    - studio-owned Design Brief persistence and version history
-    - optional Design Brief constraint fields for Draft Studio and future surface neutrality
-    - internal-only Concept Studio persistence and artifact composition
-    - first-class PageConcept artifact outputs
-    - alternate concept comparison and preferred-baseline selection
-    - separate preferred-baseline selection versus explicit Draft Studio approval
-    - focused trust-boundary and non-leak coverage
-  - preserved:
-    - existing score-panel contracts
-    - existing Story Assessment contracts
-    - existing analyzer ownership
-    - no PBIR asset generation
-    - no analyzable surface generation from Concept Studio
-    - no materialization path
-    - no direct report mutation path
-    - no direct deployment path
-  - required validation passed:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-- Recommended `0.6.0` is complete on the active branch.
-- Story Assessment 2.2.1 release-blocking UX hardening is now complete:
-  - Open target deep-link navigation now resolves stable PBIR page and visual targets more reliably
-  - Story Maturity now uses a shared less-punitive calibration helper across the UI and diff snapshots
-  - Story Improvement Rationale now uses page-specific public wording instead of generic fallback text
-  - focused navigation and Story Assessment coverage was added in both Jest and xUnit
-- Story Assessment 2.0 validation planning is documented and the first implementation slice is now complete:
-  - Workstream 1 Validation Substrate
-  - Workstream 2 PBIR Expert Review Validation Framework
-- Story Assessment 2.0 Workstream 3 is complete:
-  - internal Signal Registry runtime extraction
-  - representative signal capture
-  - signal classification
-  - validation coverage
-- Story Assessment 2.0 Workstream 4 is now complete:
-  - internal archetype scoring
-  - matched and missed signal recording
-  - Level 1 validation harness
-  - promotion gate definition
-- Story Assessment 2.0 Workstream 5 is now complete:
-  - internal semantic coherence scoring
-  - dominant concept detection
-  - deterministic term clustering
-  - focused-versus-split coherence classification
-  - promotion-delayed competing-story detection
-  - expert-review validation support
-- Story Assessment 2.0 Workstream 6 is now complete:
-  - internal filter topology extraction
-  - bounded archetype reinforcement
-  - PBIR-specific versus cross-surface versus diagnostic-only classification
-  - usefulness validation across accuracy, explainability, and actionability
-- Story Assessment 2.0 semantic cleanup before Workstream 7 is now complete:
-  - `PromotionState` is the canonical internal lifecycle field
-  - `StoryAssessmentSurfaceScope` is the canonical product-surface field
-  - filter location scope remains separate from product-surface scope
-  - direct `PageScore` public-contract non-leak coverage now exists
-- Story Assessment 2.0 Workstream 7A is now complete:
-  - internal-only Story Gap assessment generation
-  - evidence-backed internal gap records
-  - remediation-layer classification for report, model, and restructure
-  - low-confidence gap downgrade behavior
-  - malformed-input graceful degradation
-  - direct `ScoreResult` and `PageScore` internal-only non-leak coverage
-- Story Assessment 2.0 Workstream 7B is now complete:
-  - internal-only Confidence Breakdown assessment generation
-  - per-dimension internal records for accuracy, consistency, explainability, and actionability
-  - explicit low-confidence causes for sparse evidence, conflicting evidence, weak archetype match, low semantic coherence, and missing context
-  - evidence-linked confidence drivers, reducers, and missing signals
-  - direct `ScoreResult` and `PageScore` internal-only non-leak coverage
-- Story Assessment 2.0 Level 1 validation export harness is now complete:
-  - standalone backend-only CLI under `service-dotnet/tools/StoryAssessmentValidationExport`
-  - internal-only JSON and Markdown review artifacts
-  - per-page export of internal Story Assessment outputs
-  - no `RpcHost`, score-panel contract, or VS Code UI changes
-- Keep Story Assessment outputs internal-only until explicit promotion evidence exists.
-
-## In Progress
-
-- Report Design Studio design and implementation planning follow-through is now partially implemented:
-  - completed implementation scope:
-    - Task 1 Establish Studio Boundaries And Internal Contracts
-    - Task 2 Implement Design Brief Foundation
-    - Task 3 Implement Concept Studio Artifact Layer
-    - Task 4 Draft Studio Artifact Layer
-    - Task 5 Provider-Neutral Capability Registry
-    - readiness cleanup before Draft Studio
-    - draft artifact persistence and version history
-    - draft page, layout, and navigation artifacts with preserved `PageConcept` lineage
-    - immutable draft source-version lineage for brief, concept, page, and navigation artifacts
-    - expanded provider provenance metadata for future execution-trace attribution
-    - provider-neutral Draft Studio adapter seam aligned to shared capability metadata
-    - zero-provider Draft Studio operation
-    - provider-neutral capability registry with graceful provider absence and non-bypass workflow constraints
-    - focused Draft Studio trust-boundary coverage
-  - intentionally not started:
-    - Refinement Studio
-    - materialization gateway
-    - analyzer handoff
-    - closed-loop comparison
-    - AI/provider integrations
-    - provider implementations
-  - implementation note:
-    - `docs/superpowers/implementation-notes/2026-06-12-report-design-studio-foundation-slice.md`
-    - `docs/superpowers/implementation-notes/2026-06-13-report-design-studio-readiness-cleanup.md`
-  - next recommended step:
-    - start Task 7 Materialization with request-validation hardening and source-diagnostics expectations explicitly included in the first slice
-- Report Design Studio design and implementation planning is now complete:
-  - deliverables written:
-    - `docs/superpowers/specs/2026-06-12-report-design-studio-design.md`
-    - `docs/superpowers/plans/2026-06-12-report-design-studio-plan.md`
-  - fixed architecture decisions captured:
-    - Report Design Studio is a peer workflow to the analyzer workspace
-    - design artifacts are first-class internal objects
-    - analyzable surfaces are derived objects
-    - materialization is the explicit trust and architecture boundary between creation and validation
-    - the analyzer workspace remains the authoritative quality gate
-  - design posture:
-    - separate workflow
-    - shared infrastructure
-    - provider-neutral adapters
-    - validation-first handoff through explicit materialization
-  - next recommended step:
-    - review the spec and plan, then choose whether to keep Report Design Studio as a deferred roadmap phase or break Phase 1 Design Briefs into a narrower implementation-only follow-up
-- Cross-Page Narrative Level 1 Round 2 review rerun against the fixed official validation export is now complete:
-  - reviewed official export output only for:
-    - `Sales & Production`
-    - `Sales Analysis`
-    - `Running Record Dataverse`
-    - `Sales AWF`
-  - confirmed the previous Round 2 observability limitation is resolved:
-    - page roles are now reviewable
-    - main narrative path is now reviewable
-    - narrative dimensions are now reviewable
-  - review report written at:
-    - `docs/story-assessment/2026-06-12-cross-page-narrative-level1-round2-review.md`
-  - promotion recommendation remains:
-    - no public contract promotion
-    - keep roles, graph, dimensions, scores, and report-level gaps internal
-  - next recommended step:
-    - improve entry-page recognition, reduce `DetailDrill` overuse, and recalibrate report-level dimensions before reconsidering promotion
-- Cross-Page Narrative validation export coverage is now complete:
-  - report-mode scoring was already populating the internal model
-  - official validation export root cause was adapter-only:
-    - nested Cross-Page Narrative properties were being reflected as non-public-only, so public properties on internal types were missed
-    - graph `MainNarrativePath` ids were exported without page-name shaping, reducing review usefulness
-  - validation export now shows:
-    - page roles
-    - readable main narrative path
-    - dominant report objective
-    - narrative dimensions
-    - report-level gaps
-  - no Story Assessment logic, Cross-Page Narrative logic, UI, or score-panel contract changes were made
-- Cross-Page Narrative Consistency design and implementation planning is now complete:
-  - `docs/superpowers/specs/2026-06-12-cross-page-narrative-consistency-design.md`
-  - `docs/superpowers/plans/2026-06-12-cross-page-narrative-consistency-plan.md`
-  - design posture:
-    - internal-only report-level Story Assessment layer
-    - PBIR-first, surface-neutral core
-    - validation-first with no Story Assessment 2.2 redesign, no UI work, and no contract changes
-  - recommended next step:
-    - implement the internal backend model and validation export slice before any promotion discussion
-- Cross-Page Narrative Consistency Task 1-9 implementation is now in progress on the active branch:
-  - use TDD for internal model, PBIR input extraction, graph/evaluator/scorer/gap-builder slices, and validation export updates
-  - preserve public contracts, Story Assessment 2.2 navigation/diff behavior, and Guided Story Improvements behavior
-  - Task 10 Level 1 corpus review is now complete as a follow-on documentation-only validation session
-- Cross-Page Narrative Consistency Task 1-9 backend implementation is now complete:
-  - internal-only report-level Cross-Page Narrative assessment model now exists on backend `ScoreResult`
-  - PBIR-first narrative input extraction, role classification, graph construction, consistency/orphan/navigation evaluation, scoring, and report-level gap generation now exist
-  - report-mode scoring now generates the internal Cross-Page Narrative assessment while single-page scoring skips it
-  - validation export JSON and Markdown now include internal Cross-Page Narrative report sections
-  - public contracts remain unchanged and Story Assessment 2.2 behavior remains unchanged
-- Cross-Page Narrative Task 10 Level 1 corpus review is now complete on the available local PBIR corpus:
-  - reviewed `Sales Analysis`
-  - reviewed `Sales & Production`
-  - corpus remained below the intended 12 to 20 report target and this limitation is now documented
-  - review report written at `docs/story-assessment/2026-06-12-cross-page-narrative-level1-review.md`
-  - promotion recommendation remains no public contract promotion and no UI exposure
-  - the official validation export CLI currently fails on both real reports with a null-reference path and should be fixed before broader corpus review
-- Story Assessment validation export reliability hardening is now complete:
-  - root cause was a null `ScoreSummary` path inside `ShapeCrossPageNarrative` during real-report export shaping
-  - export now degrades gracefully when optional Cross-Page Narrative nested artifacts are absent
-  - added regression coverage for real-fixture export determinism, sparse reports, malformed metadata, and missing nested artifacts
-  - reran the official export CLI successfully on:
-    - `Sales & Production`
-    - `Sales Analysis`
-  - full backend validation passed:
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-    - `246` passed, `0` failed
-- Story Assessment and Cross-Page Narrative Level 1 Validation Round 2 is now complete through the official export harness:
-  - corpus:
-    - `Sales & Production`
-    - `Sales Analysis`
-    - `Running Record Dataverse`
-    - `Sales AWF`
-  - report written at `docs/story-assessment/2026-06-12-level1-validation-round2.md`
-  - Guided Story Improvements remained stable enough to keep as the current narrow six-category public slice
-  - no additional Story Assessment public promotion candidates were identified
-  - Cross-Page Narrative official export now runs reliably on the expanded real corpus, but still emits placeholder values for page roles, main narrative path, and dimension scores
-  - no Cross-Page Narrative public promotion is recommended
-  - no report-level gap category became contract-eligible
-
-- Story Assessment 2.2 implementation is now in progress against:
-  - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
-  - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
-- Current execution goal:
-  - Phase 1 Deep Link Navigation
-  - Phase 2 Story Assessment Diff Mode
-  - Phase 3 combined workflow validation
-- Story Assessment 2.2 implementation is now complete in the extension layer:
-  - shared optional navigation target contract
-  - generic `navigateToTarget` protocol validation
-  - presentation-layer navigation target derivation with conservative fallback
-  - host reveal support for visual, page, and bounded report targets
-  - Story Assessment top-improvement navigation actions
-  - public-only Story Assessment snapshot builder, persistence store, and diff comparator
-  - compact `What Changed` Story Assessment block
-
-- Story Assessment 2.1 Guided Story Improvements implementation is now in progress against:
-  - `docs/superpowers/specs/2026-06-11-guided-story-improvements-design.md`
-  - `docs/superpowers/plans/2026-06-11-guided-story-improvements-plan.md`
-- Story Assessment 2.1 Guided Story Improvements is now implemented:
-  - score-panel presentation is now unified back into one Story Assessment narrative
-  - first UI-review refinements are now applied:
-    - public Story Type label
-    - Story Maturity labels
-    - absence-style Missing Signals
-    - top-three improvement cap
-    - problem → change → impact presentation
-  - narrow public Guided Story Improvements model
-  - validated six-gap mapping only
-  - hidden special-page suppression
-  - no separate Story Coaching / Guided Story Improvements card in the UI
-  - downstream Issues and Fix Plan consumption without duplication
-- Validation completed for the implementation slice:
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `cd vscode-extension && npm test`
-  - `cd vscode-extension && npm run compile`
-  - `cd vscode-extension && npm run package:all`
-- Recommended `0.5.1`, `0.5.2`, and `0.6.0` are complete.
-- Extension release packaging is now aligned to `0.6.0`:
-  - `vscode-extension/package.json` version is `0.6.0`
-  - the five target-specific `0.6.0` VSIX artifacts were rebuilt successfully on 2026-06-11
-- `0.6.0` delivered:
-  - shared repository snapshot seam
-  - async repository traversal for the local PBIR fallback tree and Fabric evidence extraction
-  - shared-snapshot Fabric evidence reuse
-  - host/webview protocol versioning and schema guards
-  - selected state validation
-  - externalized Fabric scoring configuration with provenance
-- Authoritative roadmap docs remain:
-  - `docs/superpowers/specs/2026-06-06-engineering-hardening-design.md`
-  - `docs/superpowers/plans/2026-06-06-engineering-hardening-plan.md`
-- New planning-only Story Assessment 2.0 docs now exist:
-  - `docs/superpowers/specs/2026-06-10-story-assessment-2-design-validation.md`
-  - `docs/superpowers/plans/2026-06-10-story-assessment-2-implementation-plan.md`
-- Story Assessment 2.0 foundation implementation now exists:
-  - internal-only validation substrate models
-  - PBIR validation corpus guidance
-  - reviewer rubric
-  - reviewer workflow
-  - validation observations placeholder
-- Story Assessment 2.0 runtime foundation now also exists:
-  - internal-only signal registry extraction in backend scoring
-  - representative layout, semantic, and context signal capture
-  - focused xUnit coverage for runtime capture and graceful degradation
-- Story Assessment 2.0 Workstream 4 validation foundation now also exists:
-  - internal-only best-fit archetype scoring for six planned archetypes
-  - matched/missed signal recording from the Signal Registry
-  - Level 1 reviewer-harness placeholders
-  - internal promotion gate thresholds for future contract eligibility
-  - focused archetype-validation xUnit coverage
-- Story Assessment 2.0 Workstream 5 validation foundation now also exists:
-  - internal-only semantic coherence scoring
-  - deterministic extracted-term normalization and token clustering
-  - dominant concept detection
-  - focused/split/sparse coherence classification
-  - precision-first competing-story detection with promotion-delayed status
-  - focused coherence-validation xUnit coverage
-- Story Assessment 2.0 Workstream 6 validation foundation now also exists:
-  - internal-only slicer/page/report filter topology extraction
-  - hierarchy-pattern and scope capture
-  - bounded reinforcement-only archetype scoring adjustments
-  - diagnostic-only noisy topology signal support
-  - focused topology-validation xUnit coverage
-- Story Assessment 2.0 semantic normalization now also exists:
-  - canonical lifecycle mapping through `PromotionState`
-  - canonical product-surface mapping through `StoryAssessmentSurfaceScope`
-  - explicit Workstream 7 internal-only guardrail
-- Story Assessment 2.0 Workstream 7A now also exists:
-  - internal-only `StoryGapAssessment` runtime generation
-  - missing-signal, semantic-coherence, and filter-topology gap shaping
-  - evidence-reference capture for signal, semantic, and topology sources
-  - bounded actionability downgrade for low-confidence gaps
-- Story Assessment 2.0 Workstream 7B now also exists:
-  - internal-only `StoryConfidenceBreakdownAssessment` runtime generation
-  - per-dimension rating, driver, reducer, missing-signal, and evidence-reference capture
-  - explicit strongest/weakest dimension summaries
-  - explicit low-confidence-cause classification
-- Story Assessment 2.0 validation export tooling now also exists:
-  - `dotnet run --project service-dotnet/tools/StoryAssessmentValidationExport -- <reportPath> [outputDir]`
-  - paired `story-assessment-validation.json` and `story-assessment-validation.md` outputs
-  - internal reflection-based shaping of backend-only Story Assessment data for Level 1 review
-- Story Assessment 2.0 backend accuracy tuning is now complete for the next validation slice:
-  - conservative internal special-page recognition
-  - archetype guardrails for special pages
-  - coherence tuning with diagnostic handling for non-primary pages
-  - higher-value Story Gap filtering
-  - validation export diagnostics for special-page review
-- Targeted false-positive tuning is now also complete:
-  - conservative `CustomerSegmentationDiagnostic` internal page type
-  - bounded compact `KeyInfluencers` alias handling
-  - real PBIR page-filter fallback through `filterConfig.filters`
-- Story Assessment 2.0 Level 1 promotion decision is now documented:
-  - filtered Story Gaps are the only outputs ready for narrow contract-promotion planning
-  - special-page handling remains a hidden guardrail only
-  - classification-heavy Story Assessment outputs remain internal
-- Story Assessment 2.1 Guided Story Improvements design and implementation plan are now documented:
-  - Option 3 selected: a dedicated subsection between Story Assessment and Issues
-  - the first user-facing slice stays limited to the six validated Story Gap categories
-  - Issues and Fix Plan are downstream consumers of Guided Story Improvements
-- Story Assessment 2.2 design and implementation plan are now documented:
-  - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
-  - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
-  - Deep Link Navigation is designed as a shared score-panel navigation-target layer
-  - Story Assessment Diff Mode is designed from public outputs only with extension-owned snapshot storage
-  - rollout recommendation:
-    - Phase 1: Deep Link Navigation
-    - Phase 2: Story Assessment Diff Mode
-    - Phase 3: combined workflow validation
-
-## Blockers
-
-- No blocker remains inside the implemented `0.6.0` scope.
-- External validation gap remains for a true virtual-workspace runtime smoke.
-- Attempted untrusted-workspace runtime smoke still reported `vscode.workspace.isTrusted === true` under the local VS Code test host, so this environment could not prove the blocked posture beyond packaged manifest declarations.
-
-## Validation Status
-
-- Story Assessment 2.2.1 UX hardening validation passed:
-  - focused Jest:
-    - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/pbirTreeProvider.localFallback.test.ts src/test/pbirScorePanel.navigation.test.ts src/test/storyAssessmentPresentation.test.ts src/test/pbirExplorerReveal.test.ts src/test/storyAssessmentSnapshot.test.ts`
-  - required extension validation:
-    - `cd vscode-extension && npm test`
-    - `cd vscode-extension && npm run compile`
-  - required backend validation because Story Improvement Rationale changed in backend scoring:
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - manual smoke was not executed in this session; use a local VSIX install against a real PBIR report before release cut if release-manager confidence requires it
-- Story Assessment 2.2 extension validation passed:
-  - `cd vscode-extension && npx jest -c jest.config.cjs --runTestsByPath src/test/navigationTargets.test.ts src/test/storyAssessmentSnapshot.test.ts src/test/storyAssessmentSnapshotStore.test.ts src/test/scorePanelProtocol.test.ts src/test/scoreResultPayload.test.ts`
-  - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/analyzer-score/App.test.tsx`
-  - `cd vscode-extension && npm test`
-  - `cd vscode-extension && npm run compile`
-- Backend tests were not rerun because this slice stayed within extension presentation, protocol, storage, and webview behavior and did not change backend scoring behavior or backend-facing assumptions.
-- Cross-Page Narrative Consistency Task 1-9 validation passed:
-  - focused xUnit coverage for:
-    - model boundary
-    - PBIR input extraction
-    - page role classification
-    - graph construction
-    - consistency evaluation
-    - orphan/navigation evaluation
-    - narrative scoring
-    - report-level gap generation
-    - report-mode integration
-    - validation export JSON and Markdown
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `242` passed, `0` failed
-- Cross-Page Narrative Task 10 Level 1 review validation status:
-  - required backend validation passed:
-    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-    - `242` passed, `0` failed
-  - official validation export CLI failed on both available real reports with `Object reference not set to an instance of an object.`
-  - review completed from the same backend internal assessment via a temporary read-only inspector because this session was documentation-only and did not modify code
-
-- `0.6.0` validation passed:
-  - focused phase-by-phase Jest runs
-  - `cd vscode-extension && npm test`
-  - `cd vscode-extension && npm run compile`
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `cd vscode-extension && npm run package:all`
-- VSIX inspection confirmed version, target integrity, backend target specificity, and current release-facing namespace/capability metadata.
-- `0.5.2` validation remains on record as previously completed.
-- Story Assessment 2.0 Workstream 6 validation passed:
-  - focused xUnit Workstream 6 coverage
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `171` passed, `0` failed
-- Story Assessment 2.0 semantic cleanup validation passed:
-  - focused xUnit semantic-cleanup coverage
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `175` passed, `0` failed
-- Story Assessment 2.0 Workstream 7A validation passed:
-  - focused xUnit story-gap coverage
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `186` passed, `0` failed
-- Story Assessment 2.0 Workstream 7B validation passed:
-  - focused xUnit confidence-breakdown coverage
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `197` passed, `0` failed
-- Story Assessment 2.0 validation export harness validation passed:
-  - JSON renderer tests
-  - Markdown renderer tests
-  - CLI smoke export against temp PBIR fixture
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `200` passed, `0` failed
-- Story Assessment 2.0 backend accuracy tuning validation passed:
-  - focused xUnit coverage for special-page recognition, archetype guardrails, coherence tuning, gap filtering, and export diagnostics
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `207` passed, `0` failed
-- Same-corpus Level 1 re-review passed with deterministic duplicate-report output and lower special-page false positives.
-- Targeted Level 1 false-positive tuning validation passed:
-  - focused xUnit coverage for customer diagnostic detection and compact key-influencer aliases
-  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `211` passed, `0` failed
-- Same-corpus rerun results:
-  - `Customer Analysis` no longer overclaims `PerformanceMonitor`; it now falls to `NarrativeWalkthrough`
-  - `RetKeyInf` remains unresolved on the corpus because the real page lacks bounded supporting cues
-  - duplicate-report export output remains deterministic
-- Promotion decision report completed:
-  - `docs/story-assessment/2026-06-11-level1-promotion-decision-report.md`
-  - recommendation: promote only filtered Story Gap candidates into narrow contract-planning work
-- Guided Story Improvements design and plan completed:
-  - `docs/superpowers/specs/2026-06-11-guided-story-improvements-design.md`
-  - `docs/superpowers/plans/2026-06-11-guided-story-improvements-plan.md`
-- Story Assessment 2.2 design and plan completed:
-  - `docs/superpowers/specs/2026-06-12-story-assessment-2-2-design.md`
-  - `docs/superpowers/plans/2026-06-12-story-assessment-2-2-implementation-plan.md`
-
-## Release Boundaries
-
-- Stop at Recommended `0.6.0`.
-- Do not expand into new feature pillars while the remaining hardening roadmap items are still intentionally deferred.
-
-## Next Recommended Step
-
-- For Report Design Studio, stop after Task 6 on this branch:
-  - do not start Task 7 Materialization or later work inside this branch without a new explicit scope decision
-  - keep Task 6 advisory-only:
-    - analyzer outputs may inform design proposals
-    - analyzer outputs must not trigger materialization, analyzer launch, report mutation, or PBIR generation
-  - if implementation resumes, Task 7 should consume the new refinement lineage and backlink records rather than re-deriving analyzer source context
-- For Report Design Studio, stop after Task 5 on this branch:
-  - do not start Task 7 Materialization or later work inside this branch without a new explicit scope decision
-  - if implementation resumes, keep materialization, analyzer handoff, and later workflow stages deferred until their explicit tasks
-  - Task 5 readiness review result:
-    - Draft Studio gating, zero-provider operation, provider provenance, and advisory-only workflow constraints are present
-    - do not start Task 6 until approval/version lineage is made immutable, concept lineage includes source-brief version references, and the Design Studio protocol has runtime validation
-    - do not start Task 7 before Task 6 because analyzer-ingestion linkage and approval-stage semantics are not ready
-- The next recommended step is post-implementation validation follow-through, not broader promotion:
-- Cross-Page Narrative next recommended step:
-  - restore faithful official export observability for page roles, pathing, and narrative dimensions
-  - rerun the official export workflow on a broader 12 to 20 report PBIR corpus after the narrative fields are reviewable
-  - keep page roles, narrative score, graph, dominant objective, and report-level gaps internal until broader evidence and a reliable review workflow exist
-- The next recommended step is post-implementation validation follow-through, not broader promotion:
-  - run the documented local VSIX smoke for page-level target, visual-level target, and unresolved-target warning behavior if a release gate requires live editor confirmation
-  - keep Guided Story Improvements limited to the six validated categories now shipped
-  - re-run Level 1 review on a broader corpus before considering any additional Story Assessment exposure
-  - continue to keep archetype, coherence, confidence, competing-story, signal-registry, and special-page labels internal-only
-- For Story Assessment 2.2 implementation, keep the scope workflow-only:
-  - build Deep Link Navigation from shared presentation-layer navigation targets rather than backend Story Assessment promotion
-  - build Diff Mode from current public Story Assessment outputs only
-  - persist diff snapshots in extension-owned global storage, not repo files
-  - prefer independent ship gates for navigation and diff mode even if both stay under one 2.2 umbrella
-- Parallel follow-up:
-  - expand the Level 1 corpus before any broader Story Assessment promotion decision
-  - keep `RetKeyInf` and similar compact special-page variants on the unresolved watch list
-- Workstream 8 guardrail:
-  - consume internal Story Assessment fields only
-  - do not add new public Story Assessment fields beyond Guided Story Improvements without new validation evidence
-  - do not add new score-panel contract or UI fields until Level 1 validation evidence exists
-- Do not promote new Story Assessment fields beyond Guided Story Improvements to the score-panel contract until Level 1 validation evidence exists.
-- Keep the remaining runtime-validation gap explicit:
-  - rerun untrusted-workspace blocked-posture smoke in an environment that can actually produce `vscode.workspace.isTrusted === false`
-  - run a true virtual-workspace blocked-posture smoke once a virtual workspace provider/session is available
+- Design Studio startup crash is fixed; next action is to address default score-diagnostics logging hygiene before retrying internal-install release-candidate validation.

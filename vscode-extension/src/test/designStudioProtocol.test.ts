@@ -64,6 +64,34 @@ describe('designStudioProtocol', () => {
     });
   });
 
+  it('accepts Concept Studio execution messages', () => {
+    const generate = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'generateConcepts',
+    }));
+    const selectBaseline = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'selectConceptBaseline',
+      conceptId: 'concept-narrative',
+    }));
+
+    expect(generate).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'generateConcepts',
+      },
+    });
+    expect(selectBaseline).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'selectConceptBaseline',
+        conceptId: 'concept-narrative',
+      },
+    });
+  });
+
   it('rejects protocol version mismatches', () => {
     const result = parseDesignStudioHostMessage({
       protocolVersion: 999,

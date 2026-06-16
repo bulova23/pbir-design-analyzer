@@ -862,11 +862,18 @@ export type FixOpportunityState =
 
 export type FixOutcomeStatus = 'Resolved' | 'Improved' | 'Unchanged' | 'Unexpected';
 
+export interface FixFileVersionSnapshot {
+  contentHash: string;
+  size: number;
+  modifiedTimeMs: number;
+}
+
 export interface FixMutation {
   id: string;
   pageName?: string;
   targetObjectId: string;
   targetFile: string;
+  targetFileVersion?: FixFileVersionSnapshot;
   propertyPath: string;
   storagePath?: Array<string | number>;
   storageValueFormat?: 'plain' | 'pbirStringLiteral';
@@ -878,6 +885,8 @@ export interface FixMutation {
 export interface RollbackFileBackup {
   targetFile: string;
   beforeContent: string;
+  beforeVersion?: FixFileVersionSnapshot;
+  appliedVersion?: FixFileVersionSnapshot;
 }
 
 export interface RollbackPlan {
@@ -987,6 +996,7 @@ export interface FixSelectionState {
 export interface FixSessionRollbackRecord {
   rolledBackAt: string;
   state: 'RolledBack' | 'RollbackFailed';
+  validationErrors?: string[];
 }
 
 export interface FixApplySessionRecord {
