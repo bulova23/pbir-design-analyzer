@@ -4,9 +4,11 @@ import type {
   DesignIterationRecord,
   IterationComparisonSnapshot,
   IterationRecommendationSnapshot,
+  RecommendationState,
   RefinementAnalyzerSource,
   ValidationResultStatus,
 } from '../contracts/designStudioModels';
+import { getRecommendationState } from '../contracts/designStudioModels';
 
 export interface IterationTimelineEntryViewModel {
   iterationId: string;
@@ -77,13 +79,13 @@ function withoutTrailingPeriod(value: string): string {
   return value.trim().replace(/[.]+$/u, '');
 }
 
-function describeRecommendationState(state: IterationRecommendationSnapshot['approvalState']): string {
+function describeRecommendationState(state: RecommendationState): string {
   switch (state) {
     case 'approved':
       return 'Accepted';
     case 'rejected':
       return 'Rejected';
-    case 'pendingApproval':
+    case 'deferred':
       return 'Deferred';
     default:
       return 'Proposed';
@@ -91,6 +93,10 @@ function describeRecommendationState(state: IterationRecommendationSnapshot['app
 }
 
 function stageLabel(iteration: DesignIterationRecord): string {
+  if (iteration.workflowCompletion?.state === 'completed') {
+    return 'Completed iteration';
+  }
+
   if (iteration.approvalCheckpoint.validationApproval.approvalState === 'approved') {
     return 'Validation checkpoint';
   }
@@ -122,10 +128,17 @@ function detailItems(iteration: DesignIterationRecord): string[] {
     items.push('Materialized candidate prepared');
   }
   if (iteration.analyzerResults.length > 0) {
-    items.push('Analyzer review recorded');
+    items.push('Analyzer review completed');
+    items.push('Attached analyzer results recorded');
+    for (const result of iteration.analyzerResults) {
+      items.push(`Analyzer run: ${result.analyzerRunId}`);
+    }
   }
   if (iteration.refinementProposals.length > 0) {
     items.push('Recommendation decisions recorded');
+  }
+  if (iteration.workflowCompletion?.state === 'completed') {
+    items.push('Iteration completed');
   }
   items.push('Approval checkpoint recorded');
   return items;
@@ -206,7 +219,7 @@ function buildAnalyzerOutputChanges(base: IterationComparisonSnapshot, candidate
 
 function buildRecommendationEvolution(candidate: IterationComparisonSnapshot): string[] {
   return candidate.recommendations.map((recommendation) =>
-    `${describeRecommendationState(recommendation.approvalState)} recommendation: ${withoutTrailingPeriod(recommendation.suggestedDesignChange)}.`);
+    `${describeRecommendationState(getRecommendationState(recommendation))} recommendation: ${withoutTrailingPeriod(recommendation.suggestedDesignChange)}.`);
 }
 
 function buildRecommendationChanges(base: IterationComparisonSnapshot, candidate: IterationComparisonSnapshot): string[] {
@@ -216,7 +229,7 @@ function buildRecommendationChanges(base: IterationComparisonSnapshot, candidate
   for (const recommendation of candidate.recommendations) {
     if (!seen.has(recommendation.suggestedDesignChange)) {
       seen.add(recommendation.suggestedDesignChange);
-      changes.push(`${describeRecommendationState(recommendation.approvalState)} recommendation: ${withoutTrailingPeriod(recommendation.suggestedDesignChange)}.`);
+      changes.push(`${describeRecommendationState(getRecommendationState(recommendation))} recommendation: ${withoutTrailingPeriod(recommendation.suggestedDesignChange)}.`);
     }
   }
 
@@ -262,6 +275,12 @@ function buildApprovalEvolution(base: DesignIterationRecord, candidate: DesignIt
     if (pair.before !== pair.after) {
       changes.push(`${pair.label} changed from ${formatApprovalState(pair.before)} to ${formatApprovalState(pair.after)}.`);
     }
+  }
+
+  const baseCompletionState = base.workflowCompletion?.state ?? 'active';
+  const candidateCompletionState = candidate.workflowCompletion?.state ?? 'active';
+  if (baseCompletionState !== candidateCompletionState) {
+    changes.push(`Workflow Completion changed from ${sentenceCase(baseCompletionState)} to ${sentenceCase(candidateCompletionState)}.`);
   }
 
   return changes;

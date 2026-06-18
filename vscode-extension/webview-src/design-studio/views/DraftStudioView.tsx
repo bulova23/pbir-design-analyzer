@@ -1,99 +1,158 @@
 import React from 'react';
 import type {
-  DraftLayoutArtifact,
-  DraftNavigationArtifact,
-  DraftPageArtifact,
-  DraftReportArtifact,
-} from '../../../src/design-studio/contracts/designStudioModels';
-import type { DraftProviderCapabilityPlaceholder } from '../../../src/design-studio/providers/draftProviderAdapter';
+  DesignStudioDraftReviewViewModel,
+} from '../../../src/design-studio/contracts/designStudioShell';
 
 interface DraftStudioViewProps {
   canGenerateDrafts: boolean;
-  currentDraft?: DraftReportArtifact;
-  pageArtifacts: DraftPageArtifact[];
-  layoutArtifacts: DraftLayoutArtifact[];
-  navigationArtifacts: DraftNavigationArtifact[];
-  providerCapabilities: DraftProviderCapabilityPlaceholder[];
+  draftReview?: DesignStudioDraftReviewViewModel;
   onGenerateDrafts(): void;
+  onSubmitDraftForApproval(): void;
+  onApproveDraft(): void;
+}
+
+function workflowStatusLabel(canGenerateDrafts: boolean, draftReview?: DesignStudioDraftReviewViewModel): string {
+  if (!canGenerateDrafts) {
+    return 'Blocked';
+  }
+
+  if (!draftReview) {
+    return 'Not Started';
+  }
+
+  if (draftReview.approvalState === 'approved') {
+    return 'Approved';
+  }
+
+  if (draftReview.approvalState === 'pendingApproval') {
+    return 'Ready For Approval';
+  }
+
+  return 'Draft Generated';
+}
+
+function nextStepGuidance(canGenerateDrafts: boolean, draftReview?: DesignStudioDraftReviewViewModel): string {
+  if (!canGenerateDrafts) {
+    return 'Approve the Concept baseline before generating a draft.';
+  }
+
+  if (!draftReview) {
+    return 'Generate a draft from the approved concept.';
+  }
+
+  if (draftReview.approvalState === 'approved') {
+    return 'Draft approved. Continue to Prepare For Review.';
+  }
+
+  if (draftReview.approvalState === 'pendingApproval') {
+    return 'Approve the draft to unlock Prepare For Review.';
+  }
+
+  return 'Submit draft for approval.';
 }
 
 export function DraftStudioView({
   canGenerateDrafts,
-  currentDraft,
-  pageArtifacts,
-  layoutArtifacts,
-  navigationArtifacts,
-  providerCapabilities,
+  draftReview,
   onGenerateDrafts,
+  onSubmitDraftForApproval,
+  onApproveDraft,
 }: DraftStudioViewProps) {
   return (
-    <section>
-      <h1>Draft Studio</h1>
+    <section className='detail-card'>
+      <h3>Draft Studio execution</h3>
       {!canGenerateDrafts ? (
-        <p>Draft generation is blocked until the Design Brief and Concept baseline are approved.</p>
+        <p>Draft generation is blocked until the Concept baseline is approved.</p>
       ) : (
         <p>Draft Studio produces isolated, reviewable, non-production draft artifacts only.</p>
       )}
 
-      <button
-        type='button'
-        disabled={!canGenerateDrafts}
-        onClick={onGenerateDrafts}
-      >
-        Generate Draft Artifacts
-      </button>
+      <section className='detail-card'>
+        <h4>Workflow status</h4>
+        <p><strong>Draft stage:</strong> {workflowStatusLabel(canGenerateDrafts, draftReview)}</p>
+        {draftReview ? <p><strong>Draft approval:</strong> {draftReview.draftStatusLabel}</p> : null}
+        <p>{nextStepGuidance(canGenerateDrafts, draftReview)}</p>
+      </section>
 
-      {currentDraft ? (
+      <div className='workflow-actions'>
+        <button
+          type='button'
+          disabled={!canGenerateDrafts || draftReview?.approvalState === 'approved'}
+          onClick={onGenerateDrafts}
+        >
+          Generate Draft
+        </button>
+        <button
+          type='button'
+          disabled={!draftReview || draftReview.approvalState !== 'notSubmitted'}
+          onClick={onSubmitDraftForApproval}
+        >
+          Submit Draft For Approval
+        </button>
+        <button
+          type='button'
+          disabled={!draftReview || draftReview.approvalState !== 'pendingApproval'}
+          onClick={onApproveDraft}
+        >
+          Approve Draft
+        </button>
+      </div>
+
+      {draftReview ? (
         <>
-          <h2>{currentDraft.summary}</h2>
-          <p>Draft status: {currentDraft.draftStatus.productionState}</p>
-          <p>Page drafts: {pageArtifacts.length}</p>
-          <p>Layout drafts: {layoutArtifacts.length}</p>
-          <p>Navigation drafts: {navigationArtifacts.length}</p>
+          <h3>{draftReview.title}</h3>
+          <p>{draftReview.summary}</p>
 
-          <h3>Draft Pages</h3>
-          <ul>
-            {pageArtifacts.map((artifact) => (
-              <li key={artifact.id}>
-                <p>{artifact.structureSummary}</p>
-                <p>{artifact.recommendedVisualRoles.join(', ')}</p>
-              </li>
-            ))}
-          </ul>
+          <section className='detail-card'>
+            <h4>Draft Pages</h4>
+            <ul>
+              {draftReview.draftPages.map((page) => (
+                <li key={`${page.title}:${page.structureSummary}`}>
+                  <strong>{page.title}</strong>
+                  <div>{page.structureSummary}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-          <h3>Draft Layouts</h3>
-          <ul>
-            {layoutArtifacts.map((artifact) => (
-              <li key={artifact.id}>
-                <p>{artifact.title}</p>
-                <p>{artifact.layoutType}</p>
-              </li>
-            ))}
-          </ul>
+          <section className='detail-card'>
+            <h4>Draft Layouts</h4>
+            <ul>
+              {draftReview.draftLayouts.map((layout) => (
+                <li key={`${layout.title}:${layout.layoutType}`}>
+                  <strong>{layout.title}</strong>
+                  <div>{layout.layoutType}</div>
+                  <div>{layout.zones.join(', ')}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-          <h3>Draft Navigation</h3>
-          <ul>
-            {navigationArtifacts.flatMap((artifact) => artifact.sections).map((section) => (
-              <li key={section.id}>{section.label}</li>
-            ))}
-          </ul>
+          <section className='detail-card'>
+            <h4>Draft Navigation</h4>
+            <ul>
+              {draftReview.draftNavigation.map((item) => (
+                <li key={`${item.label}:${item.pageTitle}`}>
+                  <strong>{item.label}</strong>
+                  <div>{item.pageTitle}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className='detail-card'>
+            <h4>KPI Placement</h4>
+            <ul>
+              {draftReview.draftPages.map((page) => (
+                <li key={`${page.title}:kpis`}>
+                  <strong>{page.title}</strong>
+                  <div>{page.kpiPlacement.join(', ')}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
         </>
       ) : null}
-
-      {providerCapabilities.length > 0 ? (
-        <>
-          <h2>Provider capabilities</h2>
-          <ul>
-            {providerCapabilities.map((capability) => (
-              <li key={capability.capabilityId}>
-                {capability.providerDisplayName}: {capability.capabilityKind}
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p>No draft providers installed. Draft Studio still works with system-generated artifacts.</p>
-      )}
     </section>
   );
 }

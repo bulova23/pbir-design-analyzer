@@ -28,6 +28,14 @@ internal enum DesignArtifactApprovalKind
     MaterializationApproval,
 }
 
+internal enum DesignStudioWorkflowCompletionState
+{
+    Active,
+    ReadyForCompletion,
+    Completed,
+    Reopened,
+}
+
 internal enum ValidationResultStatus
 {
     Validated,
@@ -507,6 +515,32 @@ internal sealed record IterationGuardrails(
     bool ReportMutationTriggered,
     bool PbirFilesGenerated);
 
+internal sealed record IterationCompletionChecklistItem(
+    string Id,
+    string Label,
+    bool Satisfied,
+    bool Required);
+
+internal sealed record IterationWorkflowCompletionHistoryEntry(
+    string Action,
+    string Actor,
+    DateTimeOffset Timestamp);
+
+internal sealed record IterationWorkflowCompletion(
+    DesignStudioWorkflowCompletionState State,
+    bool IsEligible,
+    IReadOnlyList<IterationCompletionChecklistItem> Checklist,
+    IReadOnlyList<string> OutstandingItems,
+    IReadOnlyList<DesignArtifactApprovalKind> ApprovalsSatisfied,
+    int DeferredRecommendationCount,
+    int UnresolvedRecommendationCount,
+    string NextStepGuidance,
+    DateTimeOffset? CompletedAt,
+    string? CompletedBy,
+    DateTimeOffset? ReopenedAt,
+    string? ReopenedBy,
+    IReadOnlyList<IterationWorkflowCompletionHistoryEntry> History);
+
 internal sealed record DesignIterationRecord(
     DesignArtifactMetadata Metadata,
     string? PreviousIterationId,
@@ -517,4 +551,5 @@ internal sealed record DesignIterationRecord(
     IterationApprovalState ApprovalCheckpoint,
     IterationComparisonSnapshot ComparisonSnapshot,
     IterationGuardrails Guardrails,
+    IterationWorkflowCompletion WorkflowCompletion,
     string ComparisonSummary);

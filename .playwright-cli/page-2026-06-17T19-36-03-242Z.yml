@@ -1,0 +1,121 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e6]: Report Design Studio
+      - heading "Report Design Studio" [level=1] [ref=e7]
+      - paragraph [ref=e8]: round6-executive-dashboard.Report
+    - generic [ref=e9]:
+      - generic [ref=e10]: Current stage
+      - strong [ref=e11]: Compare Iterations
+  - generic [ref=e12]:
+    - navigation "Workflow stages" [ref=e13]:
+      - button "Design Brief Approved" [ref=e14]:
+        - generic [ref=e15]: Design Brief
+        - generic [ref=e16]: Approved
+      - button "Concept Studio Approved" [ref=e17]:
+        - generic [ref=e18]: Concept Studio
+        - generic [ref=e19]: Approved
+      - button "Draft Studio Approved" [ref=e20]:
+        - generic [ref=e21]: Draft Studio
+        - generic [ref=e22]: Approved
+      - button "Refinement Studio Approved" [ref=e23]:
+        - generic [ref=e24]: Refinement Studio
+        - generic [ref=e25]: Approved
+      - button "Prepare For Review Approved" [ref=e26]:
+        - generic [ref=e27]: Prepare For Review
+        - generic [ref=e28]: Approved
+      - button "Review Design Results Attached" [ref=e29]:
+        - generic [ref=e30]: Review Design
+        - generic [ref=e31]: Results Attached
+      - button "Compare Iterations Review Result Recorded" [ref=e32]:
+        - generic [ref=e33]: Compare Iterations
+        - generic [ref=e34]: Review Result Recorded
+      - button "Workflow Completion Completed" [ref=e35]:
+        - generic [ref=e36]: Workflow Completion
+        - generic [ref=e37]: Completed
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - heading "Compare Iterations" [level=2] [ref=e41]
+          - paragraph [ref=e42]: Compare iterations to see what changed and whether validation improved.
+        - generic [ref=e43]: Review Result Recorded
+      - region "Validation Approval" [ref=e45]:
+        - generic [ref=e46]:
+          - heading "Validation Approval" [level=3] [ref=e47]
+          - generic [ref=e48]: Not submitted
+        - paragraph [ref=e49]:
+          - strong [ref=e50]: "Owner:"
+          - text: Analyzer Workspace
+        - paragraph [ref=e51]:
+          - strong [ref=e52]: "Unlocks:"
+          - text: Records the analyzer-owned validation outcome for this iteration.
+        - list [ref=e53]:
+          - listitem [ref=e54]: Cannot be self-approved by Design Studio.
+      - generic [ref=e55]:
+        - heading "Approval stages" [level=3] [ref=e56]
+        - generic [ref=e57]:
+          - article [ref=e58]:
+            - heading "Ready" [level=4] [ref=e59]
+            - paragraph [ref=e60]: "Owner: Design Studio workflow state"
+            - paragraph [ref=e61]: Ready means the stage can move into review.
+            - paragraph [ref=e62]: "Effect: the consultant can inspect the design without approving it yet."
+          - article [ref=e63]:
+            - heading "Approved" [level=4] [ref=e64]
+            - paragraph [ref=e65]: "Owner: Design Studio"
+            - paragraph [ref=e66]: Approved means Design Studio accepted the current design baseline.
+            - paragraph [ref=e67]: "Effect: the next stage can use that baseline explicitly."
+          - article [ref=e68]:
+            - heading "Validated" [level=4] [ref=e69]
+            - paragraph [ref=e70]: "Owner: Analyzer Workspace"
+            - paragraph [ref=e71]: Validated means Analyzer Workspace recorded the review outcome.
+            - paragraph [ref=e72]: "Effect: the current iteration has analyzer-owned validation evidence."
+      - generic [ref=e74]:
+        - heading "Iteration Timeline" [level=3] [ref=e75]
+        - paragraph [ref=e76]: Review how the design evolved, why decisions changed, and which version produced the current result.
+        - generic [ref=e77]:
+          - heading "Timeline" [level=4] [ref=e78]
+          - list [ref=e79]:
+            - listitem [ref=e80]:
+              - strong [ref=e81]: Version 1
+              - text: Current result
+              - generic [ref=e82]: Completed
+              - generic [ref=e83]: Completed iteration
+              - generic [ref=e84]: 2026-06-17 19:31 UTC
+              - generic [ref=e85]: "Leads with the business story, then reinforces it with Revenue, Gross margin, Forecast variance, Strategic risk flags and action pages. | Draft structure based on approved concept baseline: Leads with the business story, then reinforces it with Revenue, Gross margin, Forecast variance, Strategic risk flags and action pages."
+              - list [ref=e86]:
+                - listitem [ref=e87]: Concept ready
+                - listitem [ref=e88]: Draft ready
+                - listitem [ref=e89]: Materialized candidate prepared
+                - listitem [ref=e90]: Analyzer review recorded
+                - listitem [ref=e91]: Recommendation decisions recorded
+                - listitem [ref=e92]: Iteration completed
+                - listitem [ref=e93]: Approval checkpoint recorded
+        - generic [ref=e94]:
+          - heading "Progress Snapshot" [level=4] [ref=e95]
+          - generic [ref=e96]:
+            - paragraph [ref=e97]: Improvement signals
+            - strong [ref=e98]: "1"
+          - generic [ref=e99]:
+            - paragraph [ref=e100]: Accepted recommendations
+            - strong [ref=e101]: "0"
+          - generic [ref=e102]:
+            - paragraph [ref=e103]: Change highlights
+            - strong [ref=e104]: "1"
+          - heading "What Improved" [level=4] [ref=e105]
+          - paragraph [ref=e106]: This iteration updated the design history.
+          - list [ref=e107]:
+            - listitem [ref=e108]: Refine the design to address executive summary buries margin risk.
+          - heading "What Was Accepted" [level=4] [ref=e109]
+          - list
+          - heading "What Changed" [level=4] [ref=e110]
+          - list [ref=e111]:
+            - listitem [ref=e112]: "Deferred recommendation: Refine the design to address executive summary buries margin risk."
+          - heading "Approval Evolution" [level=4] [ref=e113]
+          - list
+          - heading "Completion Summary" [level=4] [ref=e114]
+          - paragraph [ref=e115]: "Status: Completed"
+          - paragraph [ref=e116]: "Completed date: 2026-06-17T19:31:51.792Z"
+          - paragraph [ref=e117]: "Completed approvals: 3"
+          - paragraph [ref=e118]: "Unresolved recommendations: 0"
+          - heading "Validation Evolution" [level=4] [ref=e119]
+          - list

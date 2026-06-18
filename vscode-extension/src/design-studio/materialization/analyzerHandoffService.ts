@@ -54,6 +54,8 @@ export class AnalyzerHandoffService {
     }
 
     const payload: AnalyzerWorkspaceHandoffPayload = {
+      threadId: candidate.threadId,
+      requestId: candidate.analyzerHandoff.metadata.requestId,
       candidateId: candidate.id,
       candidateLineage: candidate.sourceLineage.map((entry) => ({ ...entry })),
       candidateProvenance: {

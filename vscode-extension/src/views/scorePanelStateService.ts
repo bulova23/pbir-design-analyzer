@@ -7,6 +7,7 @@ import type {
   StoryAssessmentDiffResult,
   StoryAssessmentReportSnapshot,
 } from '../analyzer/contracts/scorePanel';
+import type { AnalyzerWorkspaceHandoffPayload } from '../design-studio/contracts/designStudioModels';
 import {
   clampSelectedPageIndex,
 } from './scorePanelProtocol';
@@ -27,6 +28,7 @@ export function createScorePanelStateService() {
   let storyAssessmentCurrentSnapshot: StoryAssessmentReportSnapshot | undefined;
   let storyAssessmentDiffByPage: Record<string, StoryAssessmentDiffResult> | undefined;
   let storyAssessmentLastComparedAt: string | undefined;
+  let currentHandoffPayload: AnalyzerWorkspaceHandoffPayload | undefined;
 
   return {
     getPendingMessages(): ScorePanelHostToWebviewMessagePayload[] {
@@ -94,6 +96,12 @@ export function createScorePanelStateService() {
     setStoryAssessmentLastComparedAt(value: string | undefined): void {
       storyAssessmentLastComparedAt = value;
     },
+    getCurrentHandoffPayload(): AnalyzerWorkspaceHandoffPayload | undefined {
+      return currentHandoffPayload;
+    },
+    setCurrentHandoffPayload(payload: AnalyzerWorkspaceHandoffPayload | undefined): void {
+      currentHandoffPayload = payload;
+    },
     resetForHandoff(): void {
       currentResult = undefined;
       savedConfig = null;
@@ -104,6 +112,7 @@ export function createScorePanelStateService() {
       currentResult = undefined;
       savedConfig = null;
       pendingMessages = [];
+      currentHandoffPayload = undefined;
     },
   };
 }

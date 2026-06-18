@@ -92,6 +92,79 @@ describe('designStudioProtocol', () => {
     });
   });
 
+  it('accepts Draft Studio execution messages', () => {
+    const generate = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'generateDrafts',
+    }));
+
+    expect(generate).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'generateDrafts',
+      },
+    });
+  });
+
+  it('accepts Prepare For Review execution messages', () => {
+    const create = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'createReviewCandidate',
+    }));
+
+    expect(create).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'createReviewCandidate',
+      },
+    });
+  });
+
+  it('accepts Workflow Completion execution messages', () => {
+    const complete = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'completeIteration',
+    }));
+    const reopen = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'reopenIteration',
+    }));
+
+    expect(complete).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'completeIteration',
+      },
+    });
+    expect(reopen).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'reopenIteration',
+      },
+    });
+  });
+
+  it('accepts explicit analyzer-result attachment messages', () => {
+    const attach = parseDesignStudioWebviewMessage(withDesignStudioEnvelope({
+      type: 'attachAnalyzerResults',
+      requestId: 'materialization-request:thread-1',
+    }));
+
+    expect(attach).toEqual({
+      ok: true,
+      message: {
+        protocolVersion: DESIGN_STUDIO_PROTOCOL_VERSION,
+        schemaVersion: DESIGN_STUDIO_PROTOCOL_SCHEMA_VERSION,
+        type: 'attachAnalyzerResults',
+        requestId: 'materialization-request:thread-1',
+      },
+    });
+  });
+
   it('rejects protocol version mismatches', () => {
     const result = parseDesignStudioHostMessage({
       protocolVersion: 999,

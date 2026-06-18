@@ -351,6 +351,7 @@ describe('refinementStore', () => {
       lifecycleState: 'reviewed',
       approvalState: 'pendingApproval',
       approvalKind: 'refinementApproval',
+      recommendationState: 'proposed',
     }));
 
     const approved = await approveRefinementProposal(context, 'thread-refine-workflow', proposalId!);
@@ -358,6 +359,7 @@ describe('refinementStore', () => {
       lifecycleState: 'approved',
       approvalState: 'approved',
       approvalKind: 'refinementApproval',
+      recommendationState: 'approved',
     }));
     expect(approved.proposals[0]?.noMutationGuarantee).toEqual(expect.objectContaining({
       directReportMutation: false,
@@ -388,6 +390,7 @@ describe('refinementStore', () => {
       lifecycleState: 'reviewed',
       approvalState: 'rejected',
       approvalKind: 'refinementApproval',
+      recommendationState: 'rejected',
     }));
   });
 
@@ -412,6 +415,7 @@ describe('refinementStore', () => {
       lifecycleState: 'reviewed',
       approvalState: 'pendingApproval',
       approvalKind: 'refinementApproval',
+      recommendationState: 'deferred',
       noMutationGuarantee: expect.objectContaining({
         directReportMutation: false,
         pbirAssetGenerationTriggered: false,

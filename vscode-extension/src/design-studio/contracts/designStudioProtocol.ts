@@ -3,6 +3,7 @@ import {
   DESIGN_STUDIO_APPROVAL_STATES,
   DESIGN_STUDIO_MATERIALIZATION_MODES,
   DESIGN_STUDIO_SOURCE_ROLES,
+  isRecommendationState,
 } from './designStudioModels';
 import {
   DESIGN_STUDIO_WORKFLOW_STAGE_IDS,
@@ -48,11 +49,17 @@ export const DESIGN_STUDIO_WEBVIEW_MESSAGE_TYPES = [
   'saveArtifact',
   'proposeArtifact',
   'approveArtifact',
+  'createReviewCandidate',
   'generateConcepts',
+  'generateDrafts',
   'selectConceptBaseline',
   'requestMaterialization',
   'compareIterations',
   'openAnalyzerHandoff',
+  'markReviewCompleted',
+  'attachAnalyzerResults',
+  'completeIteration',
+  'reopenIteration',
   'setRefinementProposalState',
 ] as const;
 
@@ -456,6 +463,30 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
     }
   }
 
+  if (value.reviewDesign !== undefined) {
+    const reviewDesign = isRecord(value.reviewDesign) ? value.reviewDesign : undefined;
+    if (
+      !reviewDesign
+      || !readString(reviewDesign, 'requestId')
+      || !readString(reviewDesign, 'reviewReadinessLabel')
+      || !readString(reviewDesign, 'handoffStatusLabel')
+      || !readString(reviewDesign, 'reviewStatusLabel')
+      || !readString(reviewDesign, 'completionStatusLabel')
+      || !readString(reviewDesign, 'analyzerId')
+      || !readString(reviewDesign, 'analyzerProfileId')
+      || !isStringArray(reviewDesign.readinessDiagnostics)
+      || !isStringArray(reviewDesign.ownershipMessages)
+      || !readString(reviewDesign, 'nextStepGuidance')
+      || readBoolean(reviewDesign, 'canOpenAnalyzerWorkspace') === undefined
+      || readBoolean(reviewDesign, 'canMarkReviewCompleted') === undefined
+      || (reviewDesign.canAttachAnalyzerResults !== undefined && readBoolean(reviewDesign, 'canAttachAnalyzerResults') === undefined)
+      || (reviewDesign.resultStatusLabel !== undefined && !readString(reviewDesign, 'resultStatusLabel'))
+      || (reviewDesign.availableResults !== undefined && !Array.isArray(reviewDesign.availableResults))
+    ) {
+      return false;
+    }
+  }
+
   if (value.refinementExperience !== undefined) {
     const experience = isRecord(value.refinementExperience) ? value.refinementExperience : undefined;
     const groups = Array.isArray(experience?.groups) ? experience.groups : undefined;
@@ -495,6 +526,9 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
         const comparison = isRecord(proposal.comparison) ? proposal.comparison : undefined;
         const availableActions = Array.isArray(proposal.availableActions) ? proposal.availableActions : undefined;
         const approvalState = readString(proposal, 'approvalState');
+        const recommendationState = proposal.recommendationState === undefined
+          ? undefined
+          : readString(proposal, 'recommendationState');
 
         return !!readString(proposal, 'id')
           && !!readString(proposal, 'title')
@@ -512,6 +546,7 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
           && !!readString(comparison, 'currentDesignState')
           && !!readString(comparison, 'proposedRefinement')
           && !!availableActions
+          && (recommendationState === undefined || isRecommendationState(recommendationState))
           && availableActions.every((action) => typeof action === 'string' && validActions.includes(action));
       });
     })) {
@@ -597,6 +632,38 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
     }
   }
 
+  if (value.workflowCompletion !== undefined) {
+    const workflowCompletion = isRecord(value.workflowCompletion) ? value.workflowCompletion : undefined;
+    const checklist = Array.isArray(workflowCompletion?.checklist) ? workflowCompletion.checklist : undefined;
+    const outstandingItems = Array.isArray(workflowCompletion?.outstandingItems) ? workflowCompletion.outstandingItems : undefined;
+    const approvalsSatisfied = Array.isArray(workflowCompletion?.approvalsSatisfied) ? workflowCompletion.approvalsSatisfied : undefined;
+    const state = workflowCompletion ? readString(workflowCompletion, 'state') : undefined;
+
+    if (
+      !workflowCompletion
+      || !state
+      || !['active', 'readyForCompletion', 'completed', 'reopened'].includes(state)
+      || !checklist
+      || !outstandingItems
+      || !approvalsSatisfied
+      || !readString(workflowCompletion, 'nextStepGuidance')
+      || readNumber(workflowCompletion, 'deferredRecommendationCount') === undefined
+      || readNumber(workflowCompletion, 'unresolvedRecommendationCount') === undefined
+      || readBoolean(workflowCompletion, 'canCompleteIteration') === undefined
+      || readBoolean(workflowCompletion, 'canReopenIteration') === undefined
+      || !checklist.every((item) =>
+        isRecord(item)
+          && !!readString(item, 'id')
+          && !!readString(item, 'label')
+          && readBoolean(item, 'satisfied') !== undefined
+          && readBoolean(item, 'required') !== undefined)
+      || !isStringArray(outstandingItems)
+      || !isStringArray(approvalsSatisfied)
+    ) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -666,11 +733,17 @@ export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'saveArtifact'; artifactKind: DesignStudioArtifactKind; artifact: unknown })
   | (DesignStudioEnvelope & { type: 'proposeArtifact'; artifactKind: DesignStudioArtifactKind; artifactId: string })
   | (DesignStudioEnvelope & { type: 'approveArtifact'; artifactKind: DesignStudioArtifactKind; artifactId: string })
+  | (DesignStudioEnvelope & { type: 'createReviewCandidate' })
   | (DesignStudioEnvelope & { type: 'generateConcepts' })
+  | (DesignStudioEnvelope & { type: 'generateDrafts' })
   | (DesignStudioEnvelope & { type: 'selectConceptBaseline'; conceptId: string })
   | (DesignStudioEnvelope & { type: 'requestMaterialization'; request: MaterializationRequest })
   | (DesignStudioEnvelope & { type: 'compareIterations'; baseIterationId: string; candidateIterationId: string })
   | (DesignStudioEnvelope & { type: 'openAnalyzerHandoff'; requestId: string })
+  | (DesignStudioEnvelope & { type: 'markReviewCompleted'; requestId: string })
+  | (DesignStudioEnvelope & { type: 'attachAnalyzerResults'; requestId: string })
+  | (DesignStudioEnvelope & { type: 'completeIteration' })
+  | (DesignStudioEnvelope & { type: 'reopenIteration' })
   | (DesignStudioEnvelope & { type: 'setRefinementProposalState'; proposalId: string; action: 'approve' | 'reject' | 'defer' });
 
 export function withDesignStudioEnvelope<T extends { type: string }>(message: T): T & DesignStudioEnvelope {
@@ -786,7 +859,12 @@ export function parseDesignStudioWebviewMessage(value: unknown):
         ? { ok: true, message: withDesignStudioEnvelope({ type, artifactKind, artifactId }) }
         : { ok: false, error: `Design Studio ${type} webview message is missing required fields.` };
     }
+    case 'createReviewCandidate':
+      return { ok: true, message: withDesignStudioEnvelope({ type }) };
     case 'generateConcepts':
+    case 'generateDrafts':
+    case 'completeIteration':
+    case 'reopenIteration':
       return { ok: true, message: withDesignStudioEnvelope({ type }) };
     case 'selectConceptBaseline': {
       const conceptId = readString(value, 'conceptId');
@@ -810,6 +888,18 @@ export function parseDesignStudioWebviewMessage(value: unknown):
       return requestId
         ? { ok: true, message: withDesignStudioEnvelope({ type, requestId }) }
         : { ok: false, error: 'Design Studio openAnalyzerHandoff webview message is missing requestId.' };
+    }
+    case 'markReviewCompleted': {
+      const requestId = readString(value, 'requestId');
+      return requestId
+        ? { ok: true, message: withDesignStudioEnvelope({ type, requestId }) }
+        : { ok: false, error: 'Design Studio markReviewCompleted webview message is missing requestId.' };
+    }
+    case 'attachAnalyzerResults': {
+      const requestId = readString(value, 'requestId');
+      return requestId
+        ? { ok: true, message: withDesignStudioEnvelope({ type, requestId }) }
+        : { ok: false, error: 'Design Studio attachAnalyzerResults webview message is missing requestId.' };
     }
     case 'setRefinementProposalState': {
       const proposalId = readString(value, 'proposalId');

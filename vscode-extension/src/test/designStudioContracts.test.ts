@@ -12,6 +12,7 @@ import {
   DESIGN_STUDIO_REPORT_TYPES,
   DESIGN_STUDIO_REQUIRED_BRIEF_FIELDS,
   DESIGN_STUDIO_SOURCE_ROLES,
+  DESIGN_STUDIO_WORKFLOW_COMPLETION_STATES,
   REFINEMENT_ANALYZER_SOURCES,
   hasAnalyzerOwnedValidationApproval,
   validateDesignBrief,
@@ -100,6 +101,7 @@ describe('designStudio contracts', () => {
     expect(extractCSharpEnumValues(csharpModels, 'DesignArtifactLifecycleState')).toEqual(DESIGN_STUDIO_LIFECYCLE_STATES);
     expect(extractCSharpEnumValues(csharpModels, 'DesignArtifactApprovalState')).toEqual(DESIGN_STUDIO_APPROVAL_STATES);
     expect(extractCSharpEnumValues(csharpModels, 'DesignArtifactApprovalKind')).toEqual(DESIGN_STUDIO_APPROVAL_KINDS);
+    expect(extractCSharpEnumValues(csharpModels, 'DesignStudioWorkflowCompletionState')).toEqual(DESIGN_STUDIO_WORKFLOW_COMPLETION_STATES);
     expect(extractCSharpEnumValues(csharpModels, 'ValidationResultStatus')).toEqual(['validated', 'rejected', 'needsReview']);
     expect(extractCSharpEnumValues(csharpModels, 'MaterializationMode')).toEqual(DESIGN_STUDIO_MATERIALIZATION_MODES);
     expect(extractCSharpEnumValues(csharpModels, 'MaterializationSourceRole')).toEqual(DESIGN_STUDIO_SOURCE_ROLES);
@@ -281,11 +283,17 @@ describe('designStudio contracts', () => {
       'saveArtifact',
       'proposeArtifact',
       'approveArtifact',
+      'createReviewCandidate',
       'generateConcepts',
+      'generateDrafts',
       'selectConceptBaseline',
       'requestMaterialization',
       'compareIterations',
       'openAnalyzerHandoff',
+      'markReviewCompleted',
+      'attachAnalyzerResults',
+      'completeIteration',
+      'reopenIteration',
       'setRefinementProposalState',
     ]);
 

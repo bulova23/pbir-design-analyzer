@@ -7,7 +7,12 @@ import {
   loadRefinementState,
   rejectRefinementProposal,
 } from '../design-studio/state/refinementStore';
-import { loadIterationState } from '../design-studio/state/iterationStore';
+import {
+  attachAnalyzerResultsAtomically,
+  completeIteration,
+  loadIterationState,
+  reopenIteration,
+} from '../design-studio/state/iterationStore';
 import {
   approveDesignBrief,
   saveDesignBriefDraft,
@@ -19,6 +24,22 @@ import {
   selectConceptBaseline,
   submitConceptBaselineForApproval,
 } from '../design-studio/state/conceptStore';
+import {
+  approveDraftArtifacts,
+  generateDraftArtifacts,
+  submitDraftForApproval,
+} from '../design-studio/state/draftStore';
+import {
+  approveReviewCandidate,
+  createReviewCandidate,
+  submitReviewCandidateForApproval,
+} from '../design-studio/state/prepareForReviewStore';
+import {
+  loadReviewDesignState,
+  markReviewCompleted,
+  recordReviewLaunch,
+  syncDiscoveredAnalyzerResults,
+} from '../design-studio/state/reviewDesignStore';
 import {
   parseDesignStudioWebviewMessage,
   withDesignStudioEnvelope,
@@ -140,6 +161,18 @@ export class PbirDesignStudioPanel {
           return;
         }
 
+        if (parsed.message.artifactKind === 'draftReportArtifact') {
+          await submitDraftForApproval(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
+        if (parsed.message.artifactKind === 'materializedSurfaceCandidate') {
+          await submitReviewCandidateForApproval(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
         void vscode.window.showWarningMessage(`Submit for approval is not supported for ${parsed.message.artifactKind} in this MVP shell.`);
         return;
       }
@@ -156,11 +189,34 @@ export class PbirDesignStudioPanel {
           return;
         }
 
+        if (parsed.message.artifactKind === 'draftReportArtifact') {
+          await approveDraftArtifacts(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
+        if (parsed.message.artifactKind === 'materializedSurfaceCandidate') {
+          await approveReviewCandidate(this.context, this.threadId);
+          await this.refresh();
+          return;
+        }
+
         void vscode.window.showWarningMessage(`Approval is not supported for ${parsed.message.artifactKind} in this MVP shell.`);
         return;
       }
+      case 'createReviewCandidate':
+        await createReviewCandidate(this.context, {
+          threadId: this.threadId,
+          reportPath: this.reportPath,
+        });
+        await this.refresh();
+        return;
       case 'generateConcepts':
         await generateConceptArtifacts(this.context, this.threadId);
+        await this.refresh();
+        return;
+      case 'generateDrafts':
+        await generateDraftArtifacts(this.context, this.threadId);
         await this.refresh();
         return;
       case 'selectConceptBaseline':
@@ -175,8 +231,65 @@ export class PbirDesignStudioPanel {
         }
 
         await vscode.commands.executeCommand(PBIR_COMMANDS.openAnalyzerWorkspaceHandoff, candidate);
+        await recordReviewLaunch(this.context, this.threadId, {
+          requestId: parsed.message.requestId,
+          candidate,
+          analyzerId: candidate.analyzerHandoff.metadata.targetAnalyzer,
+          analyzerProfileId: candidate.analyzerHandoff.metadata.targetAnalyzerProfile,
+        });
+        await this.refresh();
         return;
       }
+      case 'markReviewCompleted': {
+        const candidate = this.handoffCandidatesByRequestId.get(parsed.message.requestId);
+        if (!candidate) {
+          void vscode.window.showWarningMessage('No launched Design Studio review is available for the selected draft.');
+          return;
+        }
+
+        await markReviewCompleted(this.context, this.threadId, {
+          requestId: parsed.message.requestId,
+          candidate,
+        });
+        await this.refresh();
+        return;
+      }
+      case 'attachAnalyzerResults': {
+        const candidate = this.handoffCandidatesByRequestId.get(parsed.message.requestId);
+        if (!candidate) {
+          void vscode.window.showWarningMessage('No completed Design Studio review is available for result attachment.');
+          return;
+        }
+
+        const reviewState = await loadReviewDesignState(this.context, this.threadId);
+        const availableResults = reviewState?.currentReview?.availableResults ?? [];
+        if (availableResults.length === 0) {
+          void vscode.window.showWarningMessage('No analyzer results are available to attach for this review.');
+          return;
+        }
+
+        const attached = await attachAnalyzerResultsAtomically(this.context, this.threadId, {
+          requestId: parsed.message.requestId,
+          candidate,
+        });
+
+        if (!attached.ok) {
+          void vscode.window.showWarningMessage(attached.error);
+          await this.refresh();
+          return;
+        }
+
+        await this.refresh();
+        return;
+      }
+      case 'completeIteration':
+        await completeIteration(this.context, this.threadId);
+        await this.refresh();
+        return;
+      case 'reopenIteration':
+        await reopenIteration(this.context, this.threadId);
+        await this.refresh();
+        return;
       case 'setRefinementProposalState': {
         switch (parsed.message.action) {
           case 'approve':
@@ -199,7 +312,17 @@ export class PbirDesignStudioPanel {
   }
 
   async refresh(): Promise<void> {
-    const workspaceState = await buildDesignStudioWorkspace(this.context, this.reportPath);
+    let workspaceState = await buildDesignStudioWorkspace(this.context, this.reportPath);
+    if (workspaceState.workspace.reviewDesign?.candidateId && workspaceState.workspace.reviewDesign.requestId) {
+      const candidate = workspaceState.handoffCandidatesByRequestId.get(workspaceState.workspace.reviewDesign.requestId);
+      if (candidate) {
+        await syncDiscoveredAnalyzerResults(this.context, workspaceState.threadId, {
+          requestId: workspaceState.workspace.reviewDesign.requestId,
+          candidate,
+        });
+        workspaceState = await buildDesignStudioWorkspace(this.context, this.reportPath);
+      }
+    }
     const [iterationState, refinementState] = await Promise.all([
       loadIterationState(this.context, workspaceState.threadId),
       loadRefinementState(this.context, workspaceState.threadId),

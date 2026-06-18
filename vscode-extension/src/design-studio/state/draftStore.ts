@@ -184,12 +184,27 @@ function createMetadata<K extends DesignStudioArtifactKind>(
     kind,
     version,
     lifecycleState: 'draft',
-    approvalState: 'pendingApproval',
+    approvalState: 'notSubmitted',
     approvalKind: 'designApproval',
     createdAt,
     updatedAt,
     authorSource,
     provenance,
+  };
+}
+
+function submitArtifactVersion<T extends DesignArtifactMetadata>(
+  artifact: T,
+  version: number,
+  updatedAt: string,
+): T {
+  return {
+    ...artifact,
+    version,
+    lifecycleState: 'proposed',
+    approvalState: 'pendingApproval',
+    approvalKind: 'designApproval',
+    updatedAt,
   };
 }
 
@@ -517,6 +532,53 @@ export function buildApprovedDraftPrimaryLineage(state: DraftState): SourceArtif
   return [createSourceArtifactLineageEntry(state.currentDraft, { sourceRole: 'primary' })];
 }
 
+export async function submitDraftForApproval(
+  context: vscode.ExtensionContext,
+  threadId: string,
+): Promise<DraftState> {
+  const existing = await loadDraftState(context, threadId);
+  if (!existing) {
+    throw new Error(`No Draft Studio state exists for thread ${threadId}.`);
+  }
+
+  if (existing.currentDraft.approvalState === 'approved') {
+    throw new Error('An approved draft cannot be resubmitted.');
+  }
+
+  if (existing.currentDraft.approvalState === 'pendingApproval') {
+    throw new Error('Current draft version is already pending approval.');
+  }
+
+  const version = existing.currentDraft.version + 1;
+  const updatedAt = new Date().toISOString();
+  const submittedDraft = submitArtifactVersion(existing.currentDraft, version, updatedAt);
+  const submittedPages = existing.pageArtifacts.map((artifact) => submitArtifactVersion(artifact, version, updatedAt));
+  const submittedLayouts = existing.layoutArtifacts.map((artifact) => submitArtifactVersion(artifact, version, updatedAt));
+  const submittedNavigation = existing.navigationArtifacts.map((artifact) => submitArtifactVersion(artifact, version, updatedAt));
+
+  const persisted: PersistedDraftState = {
+    ...existing,
+    currentDraft: submittedDraft,
+    pageArtifacts: submittedPages,
+    layoutArtifacts: submittedLayouts,
+    navigationArtifacts: submittedNavigation,
+    history: [
+      ...existing.history,
+      {
+        version: submittedDraft.version,
+        savedAt: submittedDraft.updatedAt,
+        draft: submittedDraft,
+        pageArtifacts: submittedPages,
+        layoutArtifacts: submittedLayouts,
+        navigationArtifacts: submittedNavigation,
+      },
+    ],
+  };
+
+  writePersistedState(manifestPath(context, threadId), persisted);
+  return toState(persisted);
+}
+
 export async function approveDraftArtifacts(
   context: vscode.ExtensionContext,
   threadId: string,
@@ -528,6 +590,10 @@ export async function approveDraftArtifacts(
 
   if (existing.currentDraft.approvalState === 'approved') {
     throw new Error('Current draft version is already approved.');
+  }
+
+  if (existing.currentDraft.approvalState !== 'pendingApproval') {
+    throw new Error('The draft must be submitted for approval before it can be approved.');
   }
 
   const version = existing.currentDraft.version + 1;

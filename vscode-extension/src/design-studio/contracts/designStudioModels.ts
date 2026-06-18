@@ -40,6 +40,14 @@ export const DESIGN_STUDIO_APPROVAL_STATES = [
 ] as const;
 
 export type DesignArtifactApprovalState = typeof DESIGN_STUDIO_APPROVAL_STATES[number];
+export const DESIGN_STUDIO_RECOMMENDATION_STATES = [
+  'proposed',
+  'approved',
+  'rejected',
+  'deferred',
+] as const;
+
+export type RecommendationState = typeof DESIGN_STUDIO_RECOMMENDATION_STATES[number];
 export const DESIGN_STUDIO_APPROVAL_KINDS = [
   'designApproval',
   'refinementApproval',
@@ -48,6 +56,14 @@ export const DESIGN_STUDIO_APPROVAL_KINDS = [
 ] as const;
 
 export type DesignArtifactApprovalKind = typeof DESIGN_STUDIO_APPROVAL_KINDS[number];
+export const DESIGN_STUDIO_WORKFLOW_COMPLETION_STATES = [
+  'active',
+  'readyForCompletion',
+  'completed',
+  'reopened',
+] as const;
+
+export type DesignStudioWorkflowCompletionState = typeof DESIGN_STUDIO_WORKFLOW_COMPLETION_STATES[number];
 export type DesignArtifactAuthorSource = 'user' | 'provider' | 'system';
 export const DESIGN_STUDIO_MATERIALIZATION_MODES = [
   'conceptToStructurePreview',
@@ -209,6 +225,8 @@ export interface MaterializationAnalyzerHandoffContract {
 }
 
 export interface AnalyzerWorkspaceHandoffPayload {
+  threadId: string;
+  requestId: string;
   candidateId: string;
   candidateLineage: SourceArtifactLineageEntry[];
   candidateProvenance: DesignArtifactProvenance;
@@ -500,6 +518,23 @@ export interface RefinementSourceAnalyzerOutput {
   payload: unknown;
 }
 
+export interface DesignStudioAnalyzerResultReference {
+  analyzerResultId: string;
+  analyzerSource: RefinementAnalyzerSource;
+  analyzerRunId: string;
+  resultReference: string;
+  scoredAt: string;
+  sourceCandidateId: string;
+  sourceArtifactVersionFingerprint: string[];
+  analyzerCompletionStatus: 'completed';
+  validationResultStatus: ValidationResultStatus;
+  validationApprovalState: DesignArtifactApprovalState;
+  findingReferenceIds: string[];
+  recommendationReferenceIds: string[];
+  linkedProposalIds: string[];
+  provenance: DesignArtifactProvenance;
+}
+
 export interface RefinementNoMutationGuarantee {
   directReportMutation: false;
   materializationTriggered: false;
@@ -530,6 +565,7 @@ export interface StableArtifactBacklinkIdentity {
 
 export interface RefinementProposal extends DesignArtifactMetadata {
   kind: 'refinementProposal';
+  recommendationState?: RecommendationState;
   sourceArtifactId: string;
   sourceLineage: SourceArtifactLineageEntry[];
   sourceAnalyzerOutput: RefinementSourceAnalyzerOutput;
@@ -585,6 +621,7 @@ export interface IterationAnalyzerResultLink {
 export interface IterationRefinementProposalLink {
   proposalId: string;
   approvalState: DesignArtifactApprovalState;
+  recommendationState?: RecommendationState;
   suggestedDesignChange: string;
   expectedImpact: string;
   linkedFindingIds: string[];
@@ -637,6 +674,7 @@ export interface IterationRecommendationSnapshot {
   suggestedDesignChange: string;
   expectedImpact: string;
   approvalState: DesignArtifactApprovalState;
+  recommendationState?: RecommendationState;
 }
 
 export interface IterationComparisonSnapshot {
@@ -652,6 +690,35 @@ export interface IterationGuardrails {
   analyzerExecutionTriggered: false;
   reportMutationTriggered: false;
   pbirFilesGenerated: false;
+}
+
+export interface IterationCompletionChecklistItem {
+  id: string;
+  label: string;
+  satisfied: boolean;
+  required: boolean;
+}
+
+export interface IterationWorkflowCompletionHistoryEntry {
+  action: 'completed' | 'reopened';
+  actor: DesignArtifactAuthorSource;
+  timestamp: string;
+}
+
+export interface IterationWorkflowCompletion {
+  state: DesignStudioWorkflowCompletionState;
+  isEligible: boolean;
+  checklist: IterationCompletionChecklistItem[];
+  outstandingItems: string[];
+  approvalsSatisfied: DesignArtifactApprovalKind[];
+  deferredRecommendationCount: number;
+  unresolvedRecommendationCount: number;
+  nextStepGuidance: string;
+  completedAt?: string;
+  completedBy?: DesignArtifactAuthorSource;
+  reopenedAt?: string;
+  reopenedBy?: DesignArtifactAuthorSource;
+  history: IterationWorkflowCompletionHistoryEntry[];
 }
 
 export interface DesignIterationRecord {
@@ -672,6 +739,7 @@ export interface DesignIterationRecord {
   approvalCheckpoint: IterationApprovalState;
   comparisonSnapshot: IterationComparisonSnapshot;
   guardrails: IterationGuardrails;
+  workflowCompletion: IterationWorkflowCompletion;
   comparisonSummary: string;
 }
 
@@ -756,6 +824,41 @@ export function buildValidationApprovalEvidence(input: {
     validationResultStatus: input.validationResultStatus,
     refinementIngestionPath: VALIDATION_APPROVAL_REFINEMENT_INGESTION_PATH,
   };
+}
+
+export function isRecommendationState(value: string): value is RecommendationState {
+  return (DESIGN_STUDIO_RECOMMENDATION_STATES as readonly string[]).includes(value);
+}
+
+export function deriveRecommendationState(value: {
+  lifecycleState?: DesignArtifactLifecycleState;
+  approvalState: DesignArtifactApprovalState;
+}): RecommendationState {
+  if (value.approvalState === 'approved') {
+    return 'approved';
+  }
+
+  if (value.approvalState === 'rejected') {
+    return 'rejected';
+  }
+
+  if (value.lifecycleState === 'reviewed') {
+    return 'deferred';
+  }
+
+  return 'proposed';
+}
+
+export function getRecommendationState(value: {
+  recommendationState?: RecommendationState;
+  lifecycleState?: DesignArtifactLifecycleState;
+  approvalState: DesignArtifactApprovalState;
+}): RecommendationState {
+  return value.recommendationState ?? deriveRecommendationState(value);
+}
+
+export function isUnresolvedRecommendationState(value: RecommendationState): boolean {
+  return value === 'proposed' || value === 'deferred';
 }
 
 export function hasAnalyzerOwnedValidationApproval(value: {

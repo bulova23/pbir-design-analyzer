@@ -22,6 +22,7 @@ import {
 import {
   approveDraftArtifacts,
   generateDraftArtifacts,
+  submitDraftForApproval,
 } from '../design-studio/state/draftStore';
 
 function makeContext(tmpDir: string): ExtensionContext {
@@ -327,6 +328,7 @@ describe('materializationCoordinator', () => {
     const context = makeContext(makeTempDir());
     await saveApprovedConcept(context, 'thread-materialization-approved');
     await generateDraftArtifacts(context, 'thread-materialization-approved');
+    await submitDraftForApproval(context, 'thread-materialization-approved');
     const approved = await approveDraftArtifacts(context, 'thread-materialization-approved');
 
     const request = await createApprovedDraftMaterializationRequest(context, {

@@ -11,6 +11,7 @@ import type {
   RefinementProposal,
   ReportConcept,
 } from '../contracts/designStudioModels';
+import { getRecommendationState } from '../contracts/designStudioModels';
 import type {
   DesignStudioRefinementExperienceViewModel,
   DesignStudioRefinementGroupId,
@@ -227,7 +228,7 @@ function proposalComparison(
 }
 
 function proposalActions(proposal: RefinementProposal): DesignStudioRefinementProposalViewModel['availableActions'] {
-  switch (proposal.approvalState) {
+  switch (getRecommendationState(proposal)) {
     case 'approved':
       return ['defer', 'reject'];
     case 'rejected':
@@ -273,6 +274,7 @@ export function buildRefinementExperience(input: {
       rationale: proposal.rationale,
       expectedImpact: proposal.expectedImpact,
       approvalState: proposal.approvalState,
+      recommendationState: getRecommendationState(proposal),
       sourceAnalyzerLabel: sourceAnalyzerLabel(proposal.sourceAnalyzerOutput.analyzerSource),
       affectedArtifacts: affectedArtifactLabels.length > 0 ? affectedArtifactLabels : ['Current draft review surface'],
       supportingEvidence: buildSupportingEvidence(proposal, affectedArtifactLabels),

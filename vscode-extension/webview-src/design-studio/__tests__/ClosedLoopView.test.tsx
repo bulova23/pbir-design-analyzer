@@ -107,6 +107,29 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
       reportMutationTriggered: false,
       pbirFilesGenerated: false,
     },
+    workflowCompletion: {
+      state: version === 1 ? 'active' : 'completed',
+      isEligible: version === 2,
+      checklist: [
+        { id: 'briefApproved', label: 'Design Brief approved', satisfied: true, required: true },
+        { id: 'conceptApproved', label: 'Concept approved', satisfied: true, required: true },
+        { id: 'draftApproved', label: 'Draft approved', satisfied: true, required: true },
+        { id: 'candidateApproved', label: 'Review candidate approved', satisfied: true, required: true },
+        { id: 'reviewCompleted', label: 'Review completed', satisfied: version === 2, required: true },
+      ],
+      outstandingItems: version === 1 ? ['Review Design must be completed before the iteration can be closed.'] : [],
+      approvalsSatisfied: ['designApproval', 'materializationApproval'],
+      deferredRecommendationCount: 1,
+      unresolvedRecommendationCount: version === 1 ? 2 : 1,
+      nextStepGuidance: version === 2
+        ? 'Iteration completed. You may reopen if additional refinement is required.'
+        : 'Complete required workflow stages before closing this iteration.',
+      completedAt: version === 2 ? '2026-06-13T16:00:00.000Z' : undefined,
+      completedBy: version === 2 ? 'user' : undefined,
+      history: version === 2
+        ? [{ action: 'completed', actor: 'user', timestamp: '2026-06-13T16:00:00.000Z' }]
+        : [],
+    },
     ...overrides,
   };
 }
@@ -123,6 +146,7 @@ describe('ClosedLoopView', () => {
     expect(screen.getAllByText('Version 1').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Version 2').length).toBeGreaterThan(0);
     expect(screen.getByText('Current result')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Progress Snapshot' })).toBeInTheDocument();
     expect(screen.getByText('Improvement signals')).toBeInTheDocument();
     expect(screen.getByText('Accepted recommendations')).toBeInTheDocument();
@@ -138,6 +162,14 @@ describe('ClosedLoopView', () => {
     expect(screen.getByText('Validation Approval changed from Not submitted to Approved.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Validation Evolution' })).toBeInTheDocument();
     expect(screen.getAllByText('Validation status changed from Needs review to Validated.').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Completion Summary' })).toBeInTheDocument();
+    expect(screen.getByText(/Completed approvals:/)).toBeInTheDocument();
+    expect(screen.getByText(/Unresolved recommendations:/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Analyzer Review' })).toBeInTheDocument();
+    expect(screen.getByText('Review completion: Completed')).toBeInTheDocument();
+    expect(screen.getByText('Attached result state: Attached')).toBeInTheDocument();
+    expect(screen.getAllByText('Analyzer run: run-2').length).toBeGreaterThan(0);
+    expect(screen.getByText('Workflow Completion changed from Active to Completed.')).toBeInTheDocument();
   });
 
   it('lets the user compare a selected before and after iteration without mutating anything', () => {

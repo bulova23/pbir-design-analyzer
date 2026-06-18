@@ -54,6 +54,7 @@ import { createScorePanelMessageRouter } from './scorePanelMessageRouter';
 import { createScorePanelAuditWorkflowService } from './scorePanelAuditWorkflowService';
 import { createScorePanelExportWorkflowService } from './scorePanelExportWorkflowService';
 import { createScorePanelFixWorkflowService } from './scorePanelFixWorkflowService';
+import { recordAnalyzerWorkspaceReturn } from '../design-studio/state/analyzerWorkspaceReturnStore';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -90,6 +91,7 @@ export class PbirScorePanel {
       PbirScorePanel.instance.panel.reveal(vscode.ViewColumn.Beside);
       PbirScorePanel.instance.reportPath = reportPath;
       PbirScorePanel.instance.pageName = pageName;
+      PbirScorePanel.instance.scoreState.setCurrentHandoffPayload(undefined);
       await PbirScorePanel.instance.refresh();
       return PbirScorePanel.instance;
     }
@@ -511,6 +513,7 @@ export class PbirScorePanel {
         );
         this.scoreState.setCurrentResult(normalizedResult);
         await this.refreshStoryAssessmentState(normalizedResult);
+        await this.persistAnalyzerWorkspaceReturn(normalizedResult);
         await this.captureScoreDiagnostics(normalizedResult);
         const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
         const reviewPacketPreview = buildReviewWorkflowExportData(
@@ -565,6 +568,7 @@ export class PbirScorePanel {
       );
       this.scoreState.setCurrentResult(normalizedResult);
       await this.refreshStoryAssessmentState(normalizedResult);
+      await this.persistAnalyzerWorkspaceReturn(normalizedResult);
       await this.captureScoreDiagnostics(normalizedResult);
       const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
       const reviewPacketPreview = buildReviewWorkflowExportData(
@@ -602,9 +606,22 @@ export class PbirScorePanel {
       ? 'Fabric App Review'
       : 'PBIR Optimization Report';
     this.scoreState.resetForHandoff();
+    this.scoreState.setCurrentHandoffPayload(payload);
     this.postMessage({
       type: 'error',
       message: createScorePanelMessageRouter.buildHandoffMessage(payload),
+    });
+  }
+
+  private async persistAnalyzerWorkspaceReturn(result: ScoreResult): Promise<void> {
+    const handoffPayload = this.scoreState.getCurrentHandoffPayload();
+    if (!handoffPayload) {
+      return;
+    }
+
+    await recordAnalyzerWorkspaceReturn(this.context, {
+      handoff: handoffPayload,
+      scoreResult: result,
     });
   }
 

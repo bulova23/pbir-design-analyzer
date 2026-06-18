@@ -47,6 +47,7 @@ public sealed class DesignStudioTrustBoundaryTests
 
         Assert.Contains("ApprovalCheckpoint", iterationProperties);
         Assert.Contains("Guardrails", iterationProperties);
+        Assert.Contains("WorkflowCompletion", iterationProperties);
         Assert.DoesNotContain("ApprovalState", iterationProperties);
         Assert.DoesNotContain("ApprovalKind", iterationProperties);
     }

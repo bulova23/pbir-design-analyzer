@@ -10,6 +10,7 @@ import {
   approveDraftArtifacts,
   generateDraftArtifacts,
   loadDraftState,
+  submitDraftForApproval,
 } from '../design-studio/state/draftStore';
 import {
   approveConceptBaseline,
@@ -184,32 +185,37 @@ describe('draftStore', () => {
     expect(reloaded).toEqual(updated);
   });
 
-  it('requires explicit draft approval to mint immutable approved lineage', async () => {
+  it('requires explicit submit and approval transitions to mint immutable approved lineage', async () => {
     const tmp = makeTempDir();
     const context = makeContext(tmp);
     await saveApprovedConcept(context, 'thread-approval');
 
-    const pending = await generateDraftArtifacts(context, 'thread-approval');
+    const generated = await generateDraftArtifacts(context, 'thread-approval');
+    const pending = await submitDraftForApproval(context, 'thread-approval');
     const approved = await approveDraftArtifacts(context, 'thread-approval');
     const reloaded = await loadDraftState(context, 'thread-approval');
 
-    expect(pending.currentDraft.version).toBe(1);
+    expect(generated.currentDraft.version).toBe(1);
+    expect(generated.currentDraft.approvalState).toBe('notSubmitted');
+    expect(pending.currentDraft.version).toBe(2);
     expect(pending.currentDraft.approvalState).toBe('pendingApproval');
-    expect(approved.currentDraft.version).toBe(2);
+    expect(approved.currentDraft.version).toBe(3);
     expect(approved.currentDraft.lifecycleState).toBe('approved');
     expect(approved.currentDraft.approvalState).toBe('approved');
     expect(approved.currentDraft.approvalKind).toBe('designApproval');
-    expect(approved.currentDraft.sourceBriefVersionId).toBe(pending.currentDraft.sourceBriefVersionId);
-    expect(approved.currentDraft.sourceConceptVersionId).toBe(pending.currentDraft.sourceConceptVersionId);
-    expect(approved.currentDraft.sourceNavigationConceptVersionId).toBe(pending.currentDraft.sourceNavigationConceptVersionId);
+    expect(approved.currentDraft.sourceBriefVersionId).toBe(generated.currentDraft.sourceBriefVersionId);
+    expect(approved.currentDraft.sourceConceptVersionId).toBe(generated.currentDraft.sourceConceptVersionId);
+    expect(approved.currentDraft.sourceNavigationConceptVersionId).toBe(generated.currentDraft.sourceNavigationConceptVersionId);
     expect(approved.pageArtifacts.every((artifact: (typeof approved.pageArtifacts)[number]) => artifact.approvalState === 'approved')).toBe(true);
     expect(approved.layoutArtifacts.every((artifact: (typeof approved.layoutArtifacts)[number]) => artifact.approvalState === 'approved')).toBe(true);
     expect(approved.navigationArtifacts.every((artifact: (typeof approved.navigationArtifacts)[number]) => artifact.approvalState === 'approved')).toBe(true);
-    expect(approved.history).toHaveLength(2);
+    expect(approved.history).toHaveLength(3);
     expect(approved.history[0]?.draft.version).toBe(1);
-    expect(approved.history[0]?.draft.approvalState).toBe('pendingApproval');
+    expect(approved.history[0]?.draft.approvalState).toBe('notSubmitted');
     expect(approved.history[1]?.draft.version).toBe(2);
-    expect(approved.history[1]?.draft.approvalState).toBe('approved');
+    expect(approved.history[1]?.draft.approvalState).toBe('pendingApproval');
+    expect(approved.history[2]?.draft.version).toBe(3);
+    expect(approved.history[2]?.draft.approvalState).toBe('approved');
     expect(reloaded).toEqual(approved);
   });
 

@@ -6,6 +6,19 @@ interface ClosedLoopViewProps {
   iterations: DesignIterationRecord[];
 }
 
+function workflowCompletionLabel(value: DesignIterationRecord['workflowCompletion']['state']): string {
+  switch (value) {
+    case 'readyForCompletion':
+      return 'Ready For Completion';
+    case 'completed':
+      return 'Completed';
+    case 'reopened':
+      return 'Reopened';
+    default:
+      return 'Active';
+  }
+}
+
 export function ClosedLoopView({
   iterations,
 }: ClosedLoopViewProps) {
@@ -19,6 +32,9 @@ export function ClosedLoopView({
     : undefined;
   const acceptedRecommendations = comparison?.recommendationEvolution.filter((item) => item.startsWith('Accepted recommendation:')) ?? [];
   const changedRecommendations = comparison?.recommendationEvolution.filter((item) => !item.startsWith('Accepted recommendation:')) ?? [];
+  const analyzerRunIds = candidateIteration?.analyzerResults.map((result) => result.analyzerRunId) ?? [];
+  const attachedResultState = analyzerRunIds.length > 0 ? 'Attached' : 'Not attached';
+  const reviewCompletionState = analyzerRunIds.length > 0 ? 'Completed' : 'Not recorded';
   const improvementSignalCount = comparison
     ? comparison.changeSummary.length + comparison.validationEvolution.length
     : 0;
@@ -35,6 +51,7 @@ export function ClosedLoopView({
             <li key={entry.iterationId}>
               <strong>{entry.versionLabel}</strong>
               {entry.isCurrentResult ? <span> Current result</span> : null}
+              <span> {workflowCompletionLabel(iterations.find((iteration) => iteration.id === entry.iterationId)?.workflowCompletion?.state ?? 'active')}</span>
               <div>{entry.stageLabel}</div>
               <div>{entry.timestampLabel}</div>
               <div>{entry.summary}</div>
@@ -116,6 +133,21 @@ export function ClosedLoopView({
           <ul>
             {comparison.approvalEvolution.map((item) => (
               <li key={`approval:${item}`}>{item}</li>
+            ))}
+          </ul>
+
+          <h4>Completion Summary</h4>
+          <p>Status: {workflowCompletionLabel(candidateIteration?.workflowCompletion?.state ?? 'active')}</p>
+          <p>Completed date: {candidateIteration?.workflowCompletion?.completedAt ?? 'Not completed'}</p>
+          <p>Completed approvals: {candidateIteration?.workflowCompletion?.approvalsSatisfied.length ?? 0}</p>
+          <p>Unresolved recommendations: {candidateIteration?.workflowCompletion?.unresolvedRecommendationCount ?? 0}</p>
+
+          <h4>Analyzer Review</h4>
+          <p>Review completion: {reviewCompletionState}</p>
+          <p>Attached result state: {attachedResultState}</p>
+          <ul>
+            {analyzerRunIds.map((runId) => (
+              <li key={`run:${runId}`}>Analyzer run: {runId}</li>
             ))}
           </ul>
 

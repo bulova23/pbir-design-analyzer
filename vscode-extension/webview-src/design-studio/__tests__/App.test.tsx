@@ -61,7 +61,7 @@ describe('DesignStudio App shell', () => {
             },
             {
               kind: 'materializationApproval',
-              title: 'Materialization Approval',
+              title: 'Review Candidate Approval',
               approvalState: 'pendingApproval',
               owner: 'Design Studio',
               unlock: 'Allows candidate preparation for analysis.',
@@ -111,7 +111,7 @@ describe('DesignStudio App shell', () => {
     expect(screen.getAllByText('In progress').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'Materialization Approval' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review Candidate Approval' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Design Approval' })).not.toBeInTheDocument();
   });
 
@@ -786,8 +786,221 @@ describe('DesignStudio App shell', () => {
     expect(screen.getByRole('button', { name: /Draft Studio/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('renders materialization readiness and exposes an explicit analyzer handoff entry without auto-launching it', async () => {
+  it('executes Prepare For Review from candidate creation through approval and unlocks Review Design', async () => {
     render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'materialize',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'notStarted', readinessLabel: 'Not Started', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Prepare For Review',
+            description: 'Prepare the approved draft for consultant review without changing the report.',
+          },
+          approvalCards: [
+            {
+              kind: 'materializationApproval',
+              title: 'Review Candidate Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Design Studio',
+              unlock: 'Allows Review Design to continue from the approved review candidate.',
+              nonEffects: ['Does not run analyzers automatically.', 'Does not mutate PBIR assets.'],
+            },
+          ],
+          materializationReadiness: {
+            readinessLabel: 'Ready to create a review candidate',
+            executableEligibility: 'executable',
+            targetAnalyzer: 'pbirDesignReview',
+            targetAnalyzerProfile: 'consultant',
+            diagnostics: ['Create a review candidate from the approved draft.'],
+            candidateStatusLabel: 'Not Started',
+            materializationStatus: 'Not started',
+            nextStepGuidance: 'Create a review candidate from the approved draft.',
+            canCreateCandidate: true,
+            canSubmitCandidateForApproval: false,
+            canApproveCandidate: false,
+            sourceDraftVersionId: 'draft-report:design-studio:active-report@v3',
+            sourceConceptVersionId: 'report-concept:design-studio:active-report@v3',
+            sourceDesignBriefVersionId: 'design-brief:design-studio:active-report@v3',
+          },
+          analyzerHandoff: {
+            requestId: 'materialization-request:design-studio:active-report',
+            readinessLabel: 'Analyzer handoff blocked',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            canOpen: false,
+            diagnostics: ['Approve the review candidate before opening Review Design.'],
+          },
+        },
+      },
+    }));
+
+    expect((await screen.findAllByText('Create a review candidate from the approved draft.')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Candidate Summary' })).toBeInTheDocument();
+    expect(screen.getByText('draft-report:design-studio:active-report@v3')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create Review Candidate' }));
+    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
+      type: 'createReviewCandidate',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'materialize',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'inProgress', readinessLabel: 'Candidate Created', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Draft Studio',
+            description: 'Stale summary.',
+          },
+          approvalCards: [
+            {
+              kind: 'materializationApproval',
+              title: 'Review Candidate Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Design Studio',
+              unlock: 'Allows Review Design to continue from the approved review candidate.',
+              nonEffects: ['Does not run analyzers automatically.', 'Does not mutate PBIR assets.'],
+            },
+          ],
+          materializationReadiness: {
+            readinessLabel: 'Ready for consultant review',
+            executableEligibility: 'executable',
+            targetAnalyzer: 'pbirDesignReview',
+            targetAnalyzerProfile: 'consultant',
+            diagnostics: ['Draft-to-surface candidate materialization produced candidate metadata only.'],
+            candidateId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+            requestId: 'materialization-request:design-studio:active-report',
+            candidateStatusLabel: 'Candidate Created',
+            materializationStatus: 'Executable',
+            nextStepGuidance: 'Review readiness diagnostics before approval.',
+            canCreateCandidate: false,
+            canSubmitCandidateForApproval: true,
+            canApproveCandidate: false,
+            sourceDraftVersionId: 'draft-report:design-studio:active-report@v3',
+            sourceConceptVersionId: 'report-concept:design-studio:active-report@v3',
+            sourceDesignBriefVersionId: 'design-brief:design-studio:active-report@v3',
+            lineage: [
+              { label: 'Source draft', artifactVersionId: 'draft-report:design-studio:active-report@v3', approvalState: 'approved' },
+              { label: 'Source concept', artifactVersionId: 'report-concept:design-studio:active-report@v3', approvalState: 'approved' },
+              { label: 'Source design brief', artifactVersionId: 'design-brief:design-studio:active-report@v3', approvalState: 'approved' },
+            ],
+            approvalsUsed: ['Draft approval: Approved', 'Concept approval: Approved', 'Design Brief approval: Approved'],
+          },
+          analyzerHandoff: {
+            requestId: 'materialization-request:design-studio:active-report',
+            readinessLabel: 'Analyzer handoff blocked',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            canOpen: false,
+            diagnostics: ['Approve the review candidate before opening Review Design.'],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Review readiness diagnostics before approval.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review Diagnostics' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review Lineage' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Candidate For Approval' }));
+    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
+      type: 'proposeArtifact',
+      artifactKind: 'materializedSurfaceCandidate',
+      artifactId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'materialize',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the draft.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'ready', readinessLabel: 'Ready For Approval', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Concept Studio',
+            description: 'Stale summary.',
+          },
+          approvalCards: [
+            {
+              kind: 'materializationApproval',
+              title: 'Review Candidate Approval',
+              approvalState: 'pendingApproval',
+              owner: 'Design Studio',
+              unlock: 'Allows Review Design to continue from the approved review candidate.',
+              nonEffects: ['Does not run analyzers automatically.', 'Does not mutate PBIR assets.'],
+            },
+          ],
+          materializationReadiness: {
+            readinessLabel: 'Ready for consultant review',
+            executableEligibility: 'executable',
+            targetAnalyzer: 'pbirDesignReview',
+            targetAnalyzerProfile: 'consultant',
+            diagnostics: ['Draft-to-surface candidate materialization produced candidate metadata only.'],
+            candidateId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+            requestId: 'materialization-request:design-studio:active-report',
+            candidateStatusLabel: 'Ready For Approval',
+            materializationStatus: 'Executable',
+            nextStepGuidance: 'Approve the review candidate to unlock Review Design.',
+            canCreateCandidate: false,
+            canSubmitCandidateForApproval: false,
+            canApproveCandidate: true,
+          },
+          analyzerHandoff: {
+            requestId: 'materialization-request:design-studio:active-report',
+            readinessLabel: 'Analyzer handoff blocked',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            canOpen: false,
+            diagnostics: ['Approve the review candidate before opening Review Design.'],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Approve the review candidate to unlock Review Design.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve Candidate' }));
+    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
+      type: 'approveArtifact',
+      artifactKind: 'materializedSurfaceCandidate',
+      artifactId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+    }));
 
     dispatchHostMessage(withDesignStudioEnvelope({
       type: 'studioState',
@@ -803,24 +1016,41 @@ describe('DesignStudio App shell', () => {
             { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
             { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the draft.' },
             { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
-            { id: 'materialize', label: 'Materialize Candidate', status: 'approved', readinessLabel: 'Approved', title: 'Materialize Candidate', description: 'Prepare an analyzable candidate without mutating the report.' },
-            { id: 'handoff', label: 'Analyze Draft', status: 'ready', readinessLabel: 'Ready', title: 'Analyze Draft', description: 'Launch Analyzer Workspace explicitly when the candidate is ready.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'approved', readinessLabel: 'Approved', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'ready', readinessLabel: 'Ready', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
             { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
           ],
           currentStageSummary: {
-            title: 'Analyze Draft',
-            description: 'Launch Analyzer Workspace explicitly when the candidate is ready.',
+            title: 'Design Brief',
+            description: 'Stale summary.',
           },
-          approvalCards: [],
+          approvalCards: [
+            {
+              kind: 'materializationApproval',
+              title: 'Review Candidate Approval',
+              approvalState: 'approved',
+              owner: 'Design Studio',
+              unlock: 'Allows Review Design to continue from the approved review candidate.',
+              nonEffects: ['Does not run analyzers automatically.', 'Does not mutate PBIR assets.'],
+            },
+          ],
           materializationReadiness: {
-            readinessLabel: 'Ready for analysis',
+            readinessLabel: 'Ready for consultant review',
             executableEligibility: 'executable',
             targetAnalyzer: 'pbirDesignReview',
             targetAnalyzerProfile: 'consultant',
-            diagnostics: ['Repository-backed candidate is available for explicit analyzer handoff.'],
+            diagnostics: ['Draft-to-surface candidate materialization produced candidate metadata only.'],
+            candidateId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+            requestId: 'materialization-request:design-studio:active-report',
+            candidateStatusLabel: 'Approved',
+            materializationStatus: 'Executable',
+            nextStepGuidance: 'Review candidate approved. Continue to Review Design.',
+            canCreateCandidate: false,
+            canSubmitCandidateForApproval: false,
+            canApproveCandidate: false,
           },
           analyzerHandoff: {
-            requestId: 'materialization-request:2',
+            requestId: 'materialization-request:design-studio:active-report',
             readinessLabel: 'Ready to open Analyzer Workspace',
             analyzerId: 'pbirDesignReview',
             analyzerProfileId: 'consultant',
@@ -831,21 +1061,8 @@ describe('DesignStudio App shell', () => {
       },
     }));
 
-    expect(screen.getAllByText('pbirDesignReview').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('consultant').length).toBeGreaterThan(0);
-    expect(await screen.findByText('Ready to open Analyzer Workspace')).toBeInTheDocument();
-
-    expect(postMessage).not.toHaveBeenCalledWith(withDesignStudioEnvelope({
-      type: 'openAnalyzerHandoff',
-      requestId: 'materialization-request:2',
-    }));
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open Analyzer Workspace' }));
-
-    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
-      type: 'openAnalyzerHandoff',
-      requestId: 'materialization-request:2',
-    }));
+    expect(await screen.findByText('Review candidate approved. Continue to Review Design.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Review Design/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renders grouped suggested improvements with rationale, impact, comparison, and explicit proposal actions', async () => {
@@ -1311,5 +1528,567 @@ describe('DesignStudio App shell', () => {
     expect(screen.getByText('Ready means the stage can move into review.')).toBeInTheDocument();
     expect(screen.getByText('Approved means Design Studio accepted the current design baseline.')).toBeInTheDocument();
     expect(screen.getByText('Validated means Analyzer Workspace recorded the review outcome.')).toBeInTheDocument();
+  });
+
+  it('executes the Draft Studio workflow from generation through approval and unlocks Prepare For Review with an accurate selected-stage header', async () => {
+    render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'draft',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'notStarted', readinessLabel: 'Not started', title: 'Draft Studio', description: 'Generate and review the draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Prepare For Review',
+            description: 'Stale summary that should not override the selected Draft Studio header.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'approved',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+        },
+      },
+    }));
+
+    expect(await screen.findByRole('heading', { name: 'Draft Studio' })).toBeInTheDocument();
+    expect(screen.getByText('Generate a draft from the approved concept.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Draft' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'generateDrafts',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'draft',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'ready', readinessLabel: 'Ready', title: 'Draft Studio', description: 'Review the generated draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Prepare For Review',
+            description: 'Still stale.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          draftReview: {
+            title: 'Draft Review Artifacts',
+            summary: 'Review the designed pages, layouts, navigation, and KPI placement before approval.',
+            draftId: 'draft-report:design-studio:active-report',
+            approvalState: 'notSubmitted',
+            draftStatusLabel: 'Draft generated',
+            draftPages: [
+              {
+                title: 'Executive Summary',
+                structureSummary: 'Executive page with KPI row and risk narrative.',
+                kpiPlacement: ['Revenue', 'Margin'],
+              },
+              {
+                title: 'Sales Overview',
+                structureSummary: 'Sales page with regional comparison and drill path.',
+                kpiPlacement: ['Sales', 'Variance'],
+              },
+              {
+                title: 'Customer Analysis',
+                structureSummary: 'Customer page with cohort breakdown and next-step actions.',
+                kpiPlacement: ['Customers', 'Retention'],
+              },
+            ],
+            draftLayouts: [
+              {
+                title: 'KPI layout',
+                layoutType: 'kpiGrid',
+                zones: ['Top row', 'Narrative panel'],
+              },
+              {
+                title: 'Comparison layout',
+                layoutType: 'comparisonCanvas',
+                zones: ['Segment compare', 'Variance callout'],
+              },
+              {
+                title: 'Drill path layout',
+                layoutType: 'guidedDrill',
+                zones: ['Path selector', 'Detail pane'],
+              },
+            ],
+            draftNavigation: [
+              {
+                label: 'Executive Summary',
+                pageTitle: 'Executive Summary',
+              },
+              {
+                label: 'Sales Overview',
+                pageTitle: 'Sales Overview',
+              },
+              {
+                label: 'Customer Analysis',
+                pageTitle: 'Customer Analysis',
+              },
+            ],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Submit draft for approval.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Draft Pages' })).toBeInTheDocument();
+    expect(screen.getByText('Executive page with KPI row and risk narrative.')).toBeInTheDocument();
+    expect(screen.getByText('Sales page with regional comparison and drill path.')).toBeInTheDocument();
+    expect(screen.getByText('Customer page with cohort breakdown and next-step actions.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Draft Layouts' })).toBeInTheDocument();
+    expect(screen.getByText('KPI layout')).toBeInTheDocument();
+    expect(screen.getByText('Comparison layout')).toBeInTheDocument();
+    expect(screen.getByText('Drill path layout')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Draft Navigation' })).toBeInTheDocument();
+    expect(screen.getAllByText('Executive Summary').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Sales Overview').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Customer Analysis').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'KPI Placement' })).toBeInTheDocument();
+    expect(screen.getByText('Revenue, Margin')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Draft For Approval' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'proposeArtifact',
+      artifactKind: 'draftReportArtifact',
+      artifactId: 'draft-report:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'draft',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'ready', readinessLabel: 'Ready', title: 'Draft Studio', description: 'Review the generated draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'blocked', readinessLabel: 'Blocked', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Concept Studio',
+            description: 'Stale summary.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'pendingApproval',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          draftReview: {
+            title: 'Draft Review Artifacts',
+            summary: 'Review the designed pages, layouts, navigation, and KPI placement before approval.',
+            draftId: 'draft-report:design-studio:active-report',
+            approvalState: 'pendingApproval',
+            draftStatusLabel: 'Ready for approval',
+            draftPages: [
+              {
+                title: 'Executive Summary',
+                structureSummary: 'Executive page with KPI row and risk narrative.',
+                kpiPlacement: ['Revenue', 'Margin'],
+              },
+            ],
+            draftLayouts: [
+              {
+                title: 'KPI layout',
+                layoutType: 'kpiGrid',
+                zones: ['Top row', 'Narrative panel'],
+              },
+            ],
+            draftNavigation: [
+              {
+                label: 'Executive Summary',
+                pageTitle: 'Executive Summary',
+              },
+            ],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Approve the draft to unlock Prepare For Review.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve Draft' }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'approveArtifact',
+      artifactKind: 'draftReportArtifact',
+      artifactId: 'draft-report:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'materialize',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the generated draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'ready', readinessLabel: 'Ready', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Design Brief',
+            description: 'Stale summary.',
+          },
+          approvalCards: [
+            {
+              kind: 'designApproval',
+              title: 'Design Approval',
+              approvalState: 'approved',
+              owner: 'Design Studio',
+              unlock: 'Allows the next design stage to proceed.',
+              nonEffects: ['Does not validate the report.', 'Does not materialize the draft.'],
+            },
+          ],
+          draftReview: {
+            title: 'Draft Review Artifacts',
+            summary: 'Review the designed pages, layouts, navigation, and KPI placement before approval.',
+            draftId: 'draft-report:design-studio:active-report',
+            approvalState: 'approved',
+            draftStatusLabel: 'Approved draft',
+            draftPages: [
+              {
+                title: 'Executive Summary',
+                structureSummary: 'Executive page with KPI row and risk narrative.',
+                kpiPlacement: ['Revenue', 'Margin'],
+              },
+            ],
+            draftLayouts: [
+              {
+                title: 'KPI layout',
+                layoutType: 'kpiGrid',
+                zones: ['Top row', 'Narrative panel'],
+              },
+            ],
+            draftNavigation: [
+              {
+                label: 'Executive Summary',
+                pageTitle: 'Executive Summary',
+              },
+            ],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Draft approved. Continue to Prepare For Review.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Prepare For Review/ })).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('renders Review Design readiness, ownership, status transitions, and explicit launch/completion actions', async () => {
+    render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'handoff',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the generated draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'approved', readinessLabel: 'Approved', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'ready', readinessLabel: 'Ready', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Draft Studio',
+            description: 'Stale summary that should not override the selected stage header.',
+          },
+          approvalCards: [
+            {
+              kind: 'validationApproval',
+              title: 'Validation Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Analyzer Workspace',
+              unlock: 'Records the analyzer-owned validation outcome for this iteration.',
+              nonEffects: ['Cannot be self-approved by Design Studio.'],
+            },
+          ],
+          analyzerHandoff: {
+            requestId: 'materialization-request:design-studio:active-report',
+            readinessLabel: 'Ready to open Analyzer Workspace',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            canOpen: true,
+            diagnostics: ['Analysis has not started. Launch is explicit.'],
+          },
+          reviewDesign: {
+            requestId: 'materialization-request:design-studio:active-report',
+            candidateId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+            sourceDraftVersionId: 'draft-report:design-studio:active-report@v3',
+            sourceConceptVersionId: 'report-concept:design-studio:active-report@v3',
+            sourceDesignBriefVersionId: 'design-brief:design-studio:active-report@v3',
+            approvedReviewCandidateVersionId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report@v3',
+            reviewReadinessLabel: 'Ready for review',
+            handoffStatusLabel: 'Ready to launch Analyzer Workspace',
+            reviewStatusLabel: 'Not started',
+            completionStatusLabel: 'Review not completed',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            readinessDiagnostics: ['Approved review candidate is ready for explicit analyzer review.'],
+            ownershipMessages: [
+              'Analyzer Workspace owns validation.',
+              'Design Studio does not validate itself.',
+              'Review Design launches review only.',
+              'Validation remains analyzer-owned.',
+            ],
+            nextStepGuidance: 'Open Analyzer Workspace to review the design.',
+            canOpenAnalyzerWorkspace: true,
+            canMarkReviewCompleted: false,
+          },
+        },
+      },
+    }));
+
+    expect((await screen.findAllByRole('heading', { name: 'Review Design' })).length).toBeGreaterThan(0);
+    expect(screen.getByText('Open Analyzer Workspace to review the design.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Candidate Summary' })).toBeInTheDocument();
+    expect(screen.getByText('materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report@v3')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review Readiness' })).toBeInTheDocument();
+    expect(screen.getByText('Ready for review')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review Status' })).toBeInTheDocument();
+    expect(screen.getAllByText('Not started').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Analyzer Ownership' })).toBeInTheDocument();
+    expect(screen.getByText('Analyzer Workspace owns validation.')).toBeInTheDocument();
+    expect(screen.getByText('Validation remains analyzer-owned.')).toBeInTheDocument();
+    expect(screen.getByText('Ready to launch Analyzer Workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Analyzer Workspace' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mark Review Completed' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Analyzer Workspace' }));
+    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
+      type: 'openAnalyzerHandoff',
+      requestId: 'materialization-request:design-studio:active-report',
+    }));
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'handoff',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the generated draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'approved', readinessLabel: 'Approved', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'inProgress', readinessLabel: 'In Review', title: 'Review Design', description: 'Open Analyzer Workspace explicitly when the prepared review candidate is ready.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Concept Studio',
+            description: 'Stale summary that should not override the selected stage header.',
+          },
+          approvalCards: [
+            {
+              kind: 'validationApproval',
+              title: 'Validation Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Analyzer Workspace',
+              unlock: 'Records the analyzer-owned validation outcome for this iteration.',
+              nonEffects: ['Cannot be self-approved by Design Studio.'],
+            },
+          ],
+          analyzerHandoff: {
+            requestId: 'materialization-request:design-studio:active-report',
+            readinessLabel: 'Ready to open Analyzer Workspace',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            canOpen: true,
+            diagnostics: ['Analysis has not started. Launch is explicit.'],
+          },
+          reviewDesign: {
+            requestId: 'materialization-request:design-studio:active-report',
+            candidateId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report',
+            sourceDraftVersionId: 'draft-report:design-studio:active-report@v3',
+            sourceConceptVersionId: 'report-concept:design-studio:active-report@v3',
+            sourceDesignBriefVersionId: 'design-brief:design-studio:active-report@v3',
+            approvedReviewCandidateVersionId: 'materialized-surface-candidate:design-studio:active-report:materialization-request:design-studio:active-report@v3',
+            reviewReadinessLabel: 'Ready for review',
+            handoffStatusLabel: 'Analyzer Workspace opened',
+            reviewStatusLabel: 'Launched',
+            completionStatusLabel: 'Review not completed',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            readinessDiagnostics: ['Approved review candidate is ready for explicit analyzer review.'],
+            ownershipMessages: [
+              'Analyzer Workspace owns validation.',
+              'Design Studio does not validate itself.',
+              'Review Design launches review only.',
+              'Validation remains analyzer-owned.',
+            ],
+            nextStepGuidance: 'Complete review in Analyzer Workspace and return here.',
+            canOpenAnalyzerWorkspace: true,
+            canMarkReviewCompleted: true,
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Complete review in Analyzer Workspace and return here.')).toBeInTheDocument();
+    expect(screen.getByText('Launched')).toBeInTheDocument();
+    expect(screen.getByText('Analyzer Workspace opened')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Review Completed' }));
+    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
+      type: 'markReviewCompleted',
+      requestId: 'materialization-request:design-studio:active-report',
+    }));
+  });
+
+  it('renders analyzer result return details and posts an explicit attach action', async () => {
+    render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'handoff',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept baseline.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Review the generated draft baseline.' },
+            { id: 'refinement', label: 'Refinement Studio', status: 'blocked', readinessLabel: 'Blocked', title: 'Refinement Studio', description: 'Review advisory changes.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'approved', readinessLabel: 'Approved', title: 'Prepare For Review', description: 'Prepare the approved draft for consultant review without changing the report.' },
+            { id: 'handoff', label: 'Review Design', status: 'ready', readinessLabel: 'Analyzer Results Available', title: 'Review Design', description: 'Return analyzer results explicitly.' },
+            { id: 'compare', label: 'Compare Iterations', status: 'notStarted', readinessLabel: 'Not started', title: 'Compare Iterations', description: 'Review what changed.' },
+          ],
+          currentStageSummary: {
+            title: 'Review Design',
+            description: 'Return analyzer results explicitly.',
+          },
+          approvalCards: [
+            {
+              kind: 'validationApproval',
+              title: 'Validation Approval',
+              approvalState: 'notSubmitted',
+              owner: 'Analyzer Workspace',
+              unlock: 'Records the analyzer-owned validation outcome for this iteration.',
+              nonEffects: ['Cannot be self-approved by Design Studio.'],
+            },
+          ],
+          reviewDesign: {
+            requestId: 'materialization-request:design-studio:active-report',
+            candidateId: 'materialized-surface-candidate:design-studio:active-report',
+            sourceDraftVersionId: 'draft-report:design-studio:active-report@v3',
+            sourceConceptVersionId: 'report-concept:design-studio:active-report@v3',
+            sourceDesignBriefVersionId: 'design-brief:design-studio:active-report@v3',
+            approvedReviewCandidateVersionId: 'materialized-surface-candidate:design-studio:active-report@v3',
+            reviewReadinessLabel: 'Ready for review',
+            handoffStatusLabel: 'Analyzer results returned',
+            reviewStatusLabel: 'Analyzer Results Available',
+            completionStatusLabel: 'Review completed',
+            analyzerId: 'pbirDesignReview',
+            analyzerProfileId: 'consultant',
+            readinessDiagnostics: ['Analyzer results are ready to attach to this iteration.'],
+            ownershipMessages: [
+              'Analyzer Workspace owns validation.',
+              'Design Studio does not validate itself.',
+            ],
+            nextStepGuidance: 'Attach analyzer results to continue refinement.',
+            canOpenAnalyzerWorkspace: true,
+            canMarkReviewCompleted: false,
+            canAttachAnalyzerResults: true,
+            resultStatusLabel: 'Validation approval not attached yet',
+            availableResults: [
+              {
+                analyzerSourceLabel: 'Issues',
+                analyzerRunId: 'run-attach-1',
+                resultReference: 'issues:attach-1',
+                scoredAt: '2026-06-16T18:20:00.000Z',
+                sourceCandidateId: 'materialized-surface-candidate:design-studio:active-report',
+                sourceArtifactVersionFingerprint: [
+                  'design-brief:design-studio:active-report@v3',
+                  'report-concept:design-studio:active-report@v3',
+                  'draft-report:design-studio:active-report@v3',
+                ],
+                validationResultStatusLabel: 'Needs review',
+                validationApprovalStateLabel: 'Not submitted',
+                linkedRecommendationCount: 0,
+              },
+            ],
+          },
+        },
+      },
+    }));
+
+    expect(await screen.findByText('Attach analyzer results to continue refinement.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Available Analyzer Results' })).toBeInTheDocument();
+    expect(screen.getByText(/issues:attach-1/)).toBeInTheDocument();
+    expect(screen.getByText(/run-attach-1/)).toBeInTheDocument();
+    expect(screen.getByText('Validation approval not attached yet')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Analyzer Results' }));
+    expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
+      type: 'attachAnalyzerResults',
+      requestId: 'materialization-request:design-studio:active-report',
+    }));
   });
 });

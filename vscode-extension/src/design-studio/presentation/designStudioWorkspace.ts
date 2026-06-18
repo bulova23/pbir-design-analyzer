@@ -6,10 +6,13 @@ import { buildRefinementExperience } from './refinementExperience';
 import { loadConceptState } from '../state/conceptStore';
 import { loadDesignBriefState } from '../state/designBriefStore';
 import { loadDraftState } from '../state/draftStore';
-import { loadIterationState } from '../state/iterationStore';
+import { evaluateIterationCompletion, loadIterationState } from '../state/iterationStore';
+import { loadPrepareForReviewState } from '../state/prepareForReviewStore';
 import { loadRefinementState } from '../state/refinementStore';
+import { loadReviewDesignState } from '../state/reviewDesignStore';
 import type { AlternateReportConcept, DesignArtifactApprovalState, DesignArtifactApprovalKind, DesignBrief } from '../contracts/designStudioModels';
 import type {
+  DesignStudioAnalyzerResultSummaryViewModel,
   DesignStudioAnalyzerHandoffViewModel,
   DesignStudioApprovalCardViewModel,
   DesignStudioConceptComparisonViewModel,
@@ -20,7 +23,9 @@ import type {
   DesignStudioDraftNavigationReviewViewModel,
   DesignStudioDraftPageReviewViewModel,
   DesignStudioDraftReviewViewModel,
+  DesignStudioWorkflowCompletionViewModel,
   DesignStudioMaterializationReadinessViewModel,
+  DesignStudioReviewDesignViewModel,
   DesignStudioWorkflowStageId,
   DesignStudioWorkflowStageStatus,
   DesignStudioWorkflowStageViewModel,
@@ -36,7 +41,74 @@ export interface DesignStudioWorkspaceBuildResult {
 
 const DEFAULT_TARGET_SURFACE_TYPE = 'pbirReport';
 const DEFAULT_TARGET_ANALYZER = 'pbirDesignReview';
-const DEFAULT_TARGET_PROFILE = 'consultant';
+const DEFAULT_TARGET_PROFILE = 'default';
+
+function validationStatusLabel(value: string): string {
+  switch (value) {
+    case 'validated':
+      return 'Validated';
+    case 'rejected':
+      return 'Rejected';
+    case 'needsReview':
+      return 'Needs review';
+    case 'approved':
+      return 'Approved';
+    case 'pendingApproval':
+      return 'Pending approval';
+    default:
+      return 'Not submitted';
+  }
+}
+
+function validationResultSummaryLabel(input: {
+  validationResultStatus: string;
+  validationApprovalState: string;
+}): string {
+  if (input.validationResultStatus === 'validated' && input.validationApprovalState !== 'approved') {
+    return 'Validation pending';
+  }
+
+  return validationStatusLabel(input.validationResultStatus);
+}
+
+function analyzerSourceLabel(value: string): string {
+  switch (value) {
+    case 'storyAssessment':
+      return 'Story Assessment';
+    case 'guidedStoryImprovements':
+      return 'Guided Story Improvements';
+    case 'crossPageNarrative':
+      return 'Cross-Page Narrative';
+    case 'fixPlan':
+      return 'Fix Plan';
+    default:
+      return 'Issues';
+  }
+}
+
+function approvalStateLabel(value: DesignArtifactApprovalState): string {
+  switch (value) {
+    case 'approved':
+      return 'Approved';
+    case 'pendingApproval':
+      return 'Ready For Approval';
+    case 'rejected':
+      return 'Rejected';
+    default:
+      return 'Candidate Created';
+  }
+}
+
+function eligibilityLabel(value: NonNullable<DesignStudioMaterializationReadinessViewModel['executableEligibility']>): string {
+  switch (value) {
+    case 'executable':
+      return 'Executable';
+    case 'nonExecutablePreview':
+      return 'Preview only';
+    default:
+      return 'Unsupported';
+  }
+}
 
 function createThreadId(reportPath: string): string {
   return `design-studio:${crypto.createHash('md5').update(reportPath).digest('hex').slice(0, 16)}`;
@@ -58,6 +130,8 @@ function stageLabel(id: DesignStudioWorkflowStageId): string {
       return 'Review Design';
     case 'compare':
       return 'Compare Iterations';
+    case 'completion':
+      return 'Workflow Completion';
   }
 }
 
@@ -98,6 +172,11 @@ function stageSummary(id: DesignStudioWorkflowStageId): { title: string; descrip
         title: 'Compare Iterations',
         description: 'Compare iterations to see what changed and whether validation improved.',
       };
+    case 'completion':
+      return {
+        title: 'Workflow Completion',
+        description: 'Close the iteration explicitly without changing approval ownership, validation ownership, or report deployment state.',
+      };
   }
 }
 
@@ -120,13 +199,17 @@ function toReadinessLabel(status: DesignStudioWorkflowStageStatus, stageId: Desi
   }
 }
 
-function buildStage(id: DesignStudioWorkflowStageId, status: DesignStudioWorkflowStageStatus): DesignStudioWorkflowStageViewModel {
+function buildStage(
+  id: DesignStudioWorkflowStageId,
+  status: DesignStudioWorkflowStageStatus,
+  readinessLabelOverride?: string,
+): DesignStudioWorkflowStageViewModel {
   const summary = stageSummary(id);
   return {
     id,
     label: stageLabel(id),
     status,
-    readinessLabel: toReadinessLabel(status, id),
+    readinessLabel: readinessLabelOverride ?? toReadinessLabel(status, id),
     title: summary.title,
     description: summary.description,
   };
@@ -271,7 +354,13 @@ function buildDraftReview(
   return {
     title: 'Draft Review Artifacts',
     summary: 'Review the designed pages, layouts, navigation, and KPI placement before approval.',
-    draftStatusLabel: draftState.currentDraft.approvalState === 'approved' ? 'Approved draft' : 'Draft awaiting approval',
+    draftId: draftState.currentDraft.id,
+    approvalState: draftState.currentDraft.approvalState,
+    draftStatusLabel: draftState.currentDraft.approvalState === 'approved'
+      ? 'Approved draft'
+      : draftState.currentDraft.approvalState === 'pendingApproval'
+        ? 'Ready for approval'
+        : 'Draft generated',
     draftPages,
     draftLayouts,
     draftNavigation,
@@ -322,10 +411,10 @@ function buildApprovalCard(
     case 'materializationApproval':
       return {
         kind,
-        title: 'Materialization Approval',
+        title: 'Review Candidate Approval',
         approvalState,
         owner: 'Design Studio',
-        unlock: 'Allows candidate preparation for explicit analyzer handoff.',
+        unlock: 'Allows Review Design to continue from the approved review candidate.',
         nonEffects: [
           'Does not run analyzers automatically.',
           'Does not mutate PBIR assets.',
@@ -362,12 +451,15 @@ export async function buildDesignStudioWorkspace(
 ): Promise<DesignStudioWorkspaceBuildResult> {
   const threadId = createThreadId(reportPath);
   const reportLabel = path.basename(reportPath, path.extname(reportPath));
-  const [briefState, conceptState, draftState, refinementState, iterationState] = await Promise.all([
+  const [briefState, conceptState, draftState, prepareForReviewState, refinementState, reviewDesignState, iterationState, workflowCompletion] = await Promise.all([
     loadDesignBriefState(context, threadId),
     loadConceptState(context, threadId),
     loadDraftState(context, threadId),
+    loadPrepareForReviewState(context, threadId),
     loadRefinementState(context, threadId),
+    loadReviewDesignState(context, threadId),
     loadIterationState(context, threadId),
+    evaluateIterationCompletion(context, threadId),
   ]);
 
   const latestIteration = iterationState?.iterations.at(-1);
@@ -375,14 +467,14 @@ export async function buildDesignStudioWorkspace(
 
   let materializationReadiness: DesignStudioMaterializationReadinessViewModel | undefined;
   let analyzerHandoff: DesignStudioAnalyzerHandoffViewModel | undefined;
+  let reviewDesign: DesignStudioReviewDesignViewModel | undefined;
   let materializeStatus: DesignStudioWorkflowStageStatus = 'blocked';
   let handoffStatus: DesignStudioWorkflowStageStatus = 'blocked';
 
   if (draftState?.currentDraft.approvalState === 'approved') {
-    const requestId = `materialization-request:${threadId}`;
     const request = await createApprovedDraftMaterializationRequest(context, {
       threadId,
-      requestId,
+      requestId: prepareForReviewState?.currentRequest.id ?? `materialization-request:${threadId}`,
       targetSurfaceType: DEFAULT_TARGET_SURFACE_TYPE,
       targetAnalyzer: DEFAULT_TARGET_ANALYZER,
       targetAnalyzerProfile: DEFAULT_TARGET_PROFILE,
@@ -395,38 +487,202 @@ export async function buildDesignStudioWorkspace(
     const materialization = materializeDesignStudioRequest(request);
 
     if (materialization.ok) {
-      handoffCandidatesByRequestId.set(requestId, materialization.candidate);
+      const candidate = prepareForReviewState?.currentCandidate ?? materialization.candidate;
+      const candidateSummary = {
+        sourceDraftVersionId: draftState.currentDraft ? `${draftState.currentDraft.id}@v${draftState.currentDraft.version}` : undefined,
+        sourceConceptVersionId: draftState.currentDraft.sourceConceptVersionId,
+        sourceDesignBriefVersionId: draftState.currentDraft.sourceBriefVersionId,
+      };
+      const approvalsUsed = [
+        `Draft approval: ${draftState.currentDraft.approvalState === 'approved' ? 'Approved' : 'Not approved'}`,
+        `Concept approval: ${conceptState?.currentConcept.approvalState === 'approved' ? 'Approved' : 'Not approved'}`,
+        `Design Brief approval: ${briefState?.current.approvalState === 'approved' ? 'Approved' : 'Not approved'}`,
+      ];
+
+      if (candidate.approvalState === 'approved' && candidate.analyzerHandoff.metadata.executableEligibility === 'executable') {
+        handoffCandidatesByRequestId.set(request.id, candidate);
+      }
+
       materializationReadiness = {
-        readinessLabel: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
-          ? 'Ready for analysis'
-          : materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'nonExecutablePreview'
-            ? 'Preview only'
-            : 'Needs attention',
-        executableEligibility: materialization.candidate.analyzerHandoff.metadata.executableEligibility,
+        readinessLabel: !prepareForReviewState
+          ? 'Ready to create a review candidate'
+          : candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+            ? 'Ready for consultant review'
+            : candidate.analyzerHandoff.metadata.executableEligibility === 'nonExecutablePreview'
+              ? 'Preview only'
+              : 'Needs attention',
+        executableEligibility: candidate.analyzerHandoff.metadata.executableEligibility,
         targetAnalyzer: request.targetAnalyzer,
         targetAnalyzerProfile: request.targetAnalyzerProfile,
-        diagnostics: materialization.diagnostics,
+        diagnostics: prepareForReviewState ? candidate.materializationDiagnostics : ['Create a review candidate from the approved draft.'],
+        candidateId: prepareForReviewState?.currentCandidate.id,
+        requestId: prepareForReviewState?.currentRequest.id,
+        candidateStatusLabel: prepareForReviewState
+          ? approvalStateLabel(candidate.approvalState)
+          : 'Not Started',
+        materializationStatus: prepareForReviewState
+          ? eligibilityLabel(candidate.analyzerHandoff.metadata.executableEligibility)
+          : 'Not started',
+        nextStepGuidance: !prepareForReviewState
+          ? 'Create a review candidate from the approved draft.'
+          : candidate.approvalState === 'notSubmitted'
+            ? 'Review readiness diagnostics before approval.'
+            : candidate.approvalState === 'pendingApproval'
+              ? 'Approve the review candidate to unlock Review Design.'
+              : 'Review candidate approved. Continue to Review Design.',
+        canCreateCandidate: !prepareForReviewState,
+        canSubmitCandidateForApproval: prepareForReviewState?.currentCandidate.approvalState === 'notSubmitted',
+        canApproveCandidate: prepareForReviewState?.currentCandidate.approvalState === 'pendingApproval',
+        sourceDraftVersionId: candidateSummary.sourceDraftVersionId,
+        sourceConceptVersionId: candidateSummary.sourceConceptVersionId,
+        sourceDesignBriefVersionId: candidateSummary.sourceDesignBriefVersionId,
+        lineage: prepareForReviewState
+          ? [
+            {
+              label: 'Source draft',
+              artifactVersionId: candidateSummary.sourceDraftVersionId ?? 'Unavailable',
+              approvalState: draftState.currentDraft.approvalState,
+            },
+            ...(candidateSummary.sourceConceptVersionId
+              ? [{
+                label: 'Source concept',
+                artifactVersionId: candidateSummary.sourceConceptVersionId,
+                approvalState: conceptState?.currentConcept.approvalState ?? 'notSubmitted',
+              }]
+              : []),
+            ...(candidateSummary.sourceDesignBriefVersionId
+              ? [{
+                label: 'Source design brief',
+                artifactVersionId: candidateSummary.sourceDesignBriefVersionId,
+                approvalState: briefState?.current.approvalState ?? 'notSubmitted',
+              }]
+              : []),
+          ]
+          : undefined,
+        approvalsUsed,
       };
       analyzerHandoff = {
-        requestId,
-        readinessLabel: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+        requestId: request.id,
+        readinessLabel: candidate.approvalState === 'approved'
+          && candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
           ? 'Ready to open Analyzer Workspace'
           : 'Analyzer handoff blocked',
         analyzerId: request.targetAnalyzer,
         analyzerProfileId: request.targetAnalyzerProfile,
-        canOpen: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable',
-        diagnostics: materialization.candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+        canOpen: candidate.approvalState === 'approved'
+          && candidate.analyzerHandoff.metadata.executableEligibility === 'executable',
+        diagnostics: candidate.approvalState === 'approved'
+          && candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
           ? ['Analysis has not started. Launch is explicit.']
-          : materialization.diagnostics,
+          : candidate.approvalState !== 'approved'
+            ? ['Approve the review candidate before opening Review Design.']
+            : candidate.materializationDiagnostics,
       };
-      materializeStatus = latestIteration?.approvalCheckpoint.materializationApproval.approvalState === 'approved'
+      reviewDesign = {
+        requestId: request.id,
+        candidateId: candidate.id,
+        sourceDraftVersionId: candidateSummary.sourceDraftVersionId,
+        sourceConceptVersionId: candidateSummary.sourceConceptVersionId,
+        sourceDesignBriefVersionId: candidateSummary.sourceDesignBriefVersionId,
+        approvedReviewCandidateVersionId: prepareForReviewState?.currentCandidate
+          ? `${prepareForReviewState.currentCandidate.id}@v${prepareForReviewState.currentCandidate.version}`
+          : undefined,
+        reviewReadinessLabel: candidate.approvalState !== 'approved'
+          ? 'Blocked'
+          : candidate.analyzerHandoff.metadata.executableEligibility === 'unsupported'
+            ? 'Unsupported'
+            : candidate.analyzerHandoff.metadata.executableEligibility === 'nonExecutablePreview'
+              ? 'Preview only'
+              : 'Ready for review',
+        handoffStatusLabel: reviewDesignState?.currentReview?.status === 'completed'
+          ? 'Review recorded as completed'
+          : reviewDesignState?.currentReview?.status === 'launched'
+            ? 'Analyzer Workspace opened'
+            : candidate.approvalState === 'approved' && candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+              ? 'Ready to launch Analyzer Workspace'
+              : 'Analyzer Workspace launch blocked',
+        reviewStatusLabel: (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0
+          ? 'Results Attached'
+          : (reviewDesignState?.currentReview?.availableResults?.length ?? 0) > 0
+            ? 'Analyzer Results Available'
+            : reviewDesignState?.currentReview?.status === 'completed'
+              ? 'Awaiting Analyzer Results'
+              : reviewDesignState?.currentReview?.status === 'launched'
+                ? 'Review Launched'
+                : 'Review Not Started',
+        completionStatusLabel: reviewDesignState?.currentReview?.status === 'completed'
+          ? 'Review completed'
+          : 'Review not completed',
+        analyzerId: request.targetAnalyzer,
+        analyzerProfileId: request.targetAnalyzerProfile,
+        readinessDiagnostics: candidate.approvalState === 'approved'
+          ? candidate.materializationDiagnostics
+          : ['Approve a review candidate before launching review.'],
+        ownershipMessages: [
+          'Analyzer Workspace owns validation.',
+          'Design Studio does not validate itself.',
+          'Review Design launches review only.',
+          'Validation remains analyzer-owned.',
+        ],
+        nextStepGuidance: (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0
+          ? 'Analyzer results attached. Continue to Refinement Studio.'
+          : (reviewDesignState?.currentReview?.availableResults?.length ?? 0) > 0
+            ? 'Attach analyzer results to continue refinement.'
+            : reviewDesignState?.currentReview?.status === 'completed'
+              ? 'Review completed, but no analyzer results are attached yet.'
+              : reviewDesignState?.currentReview?.status === 'launched'
+                ? 'Complete review in Analyzer Workspace and return here.'
+                : candidate.approvalState === 'approved' && candidate.analyzerHandoff.metadata.executableEligibility === 'executable'
+                  ? 'Open Analyzer Workspace to review the design.'
+                  : candidate.approvalState !== 'approved'
+                    ? 'Approve a review candidate before launching review.'
+                    : candidate.analyzerHandoff.metadata.executableEligibility === 'unsupported'
+                      ? 'Review is unsupported for the current candidate.'
+                      : 'Review is preview-only for the current candidate.',
+        canOpenAnalyzerWorkspace: candidate.approvalState === 'approved'
+          && candidate.analyzerHandoff.metadata.executableEligibility === 'executable',
+        canMarkReviewCompleted: reviewDesignState?.currentReview?.status === 'launched',
+        canAttachAnalyzerResults: (reviewDesignState?.currentReview?.status === 'completed')
+          && (reviewDesignState?.currentReview?.availableResults?.length ?? 0) > 0
+          && (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) === 0,
+        resultStatusLabel: (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0
+          ? 'Analyzer results are attached to this iteration.'
+          : (reviewDesignState?.currentReview?.availableResults?.length ?? 0) > 0
+            ? 'Validation approval not attached yet'
+            : 'No analyzer results are attached yet.',
+        availableResults: (reviewDesignState?.currentReview?.availableResults ?? []).map<DesignStudioAnalyzerResultSummaryViewModel>((result) => ({
+          analyzerSourceLabel: analyzerSourceLabel(result.analyzerSource),
+          analyzerRunId: result.analyzerRunId,
+          resultReference: result.resultReference,
+          scoredAt: result.scoredAt,
+          sourceCandidateId: result.sourceCandidateId,
+          sourceArtifactVersionFingerprint: [...result.sourceArtifactVersionFingerprint],
+          validationResultStatusLabel: validationResultSummaryLabel({
+            validationResultStatus: result.validationResultStatus,
+            validationApprovalState: result.validationApprovalState,
+          }),
+          validationApprovalStateLabel: validationStatusLabel(result.validationApprovalState),
+          linkedRecommendationCount: result.linkedProposalIds.length,
+        })),
+      };
+      materializeStatus = !prepareForReviewState
+        ? 'notStarted'
+        : candidate.approvalState === 'approved'
+          ? 'approved'
+          : candidate.approvalState === 'pendingApproval'
+            ? 'ready'
+            : 'inProgress';
+      handoffStatus = (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0
         ? 'approved'
-        : 'ready';
-      handoffStatus = latestIteration?.approvalCheckpoint.validationApproval.approvalState === 'approved'
-        ? 'approved'
-        : analyzerHandoff.canOpen
+        : (reviewDesignState?.currentReview?.availableResults?.length ?? 0) > 0
           ? 'ready'
-          : 'blocked';
+          : reviewDesignState?.currentReview?.status === 'completed'
+            ? 'inProgress'
+            : reviewDesignState?.currentReview?.status === 'launched'
+              ? 'inProgress'
+              : prepareForReviewState?.currentCandidate.approvalState === 'approved' && analyzerHandoff.canOpen
+                ? 'ready'
+                : 'blocked';
     } else {
       materializationReadiness = {
         readinessLabel: 'Needs attention',
@@ -434,16 +690,46 @@ export async function buildDesignStudioWorkspace(
         targetAnalyzer: DEFAULT_TARGET_ANALYZER,
         targetAnalyzerProfile: DEFAULT_TARGET_PROFILE,
         diagnostics: materialization.diagnostics,
+        candidateStatusLabel: prepareForReviewState ? approvalStateLabel(prepareForReviewState.currentCandidate.approvalState) : 'Not Started',
+        materializationStatus: 'Unsupported',
+        nextStepGuidance: prepareForReviewState
+          ? 'Review readiness diagnostics before approval.'
+          : 'Create a review candidate from the approved draft.',
+        canCreateCandidate: !prepareForReviewState,
+        canSubmitCandidateForApproval: false,
+        canApproveCandidate: false,
       };
       analyzerHandoff = {
-        requestId,
+        requestId: request.id,
         readinessLabel: 'Analyzer handoff blocked',
         analyzerId: DEFAULT_TARGET_ANALYZER,
         analyzerProfileId: DEFAULT_TARGET_PROFILE,
         canOpen: false,
         diagnostics: materialization.diagnostics,
       };
-      materializeStatus = 'blocked';
+      reviewDesign = {
+        requestId: request.id,
+        reviewReadinessLabel: 'Unsupported',
+        handoffStatusLabel: 'Analyzer Workspace launch blocked',
+        reviewStatusLabel: 'Not started',
+        completionStatusLabel: 'Review not completed',
+        analyzerId: DEFAULT_TARGET_ANALYZER,
+        analyzerProfileId: DEFAULT_TARGET_PROFILE,
+        readinessDiagnostics: materialization.diagnostics,
+        ownershipMessages: [
+          'Analyzer Workspace owns validation.',
+          'Design Studio does not validate itself.',
+          'Review Design launches review only.',
+          'Validation remains analyzer-owned.',
+        ],
+        nextStepGuidance: 'Review the readiness diagnostics before launching review.',
+        canOpenAnalyzerWorkspace: false,
+        canMarkReviewCompleted: false,
+        canAttachAnalyzerResults: false,
+        resultStatusLabel: 'No analyzer results are attached yet.',
+        availableResults: [],
+      };
+      materializeStatus = prepareForReviewState ? 'inProgress' : 'notStarted';
       handoffStatus = 'blocked';
     }
   } else {
@@ -453,6 +739,12 @@ export async function buildDesignStudioWorkspace(
       targetAnalyzer: DEFAULT_TARGET_ANALYZER,
       targetAnalyzerProfile: DEFAULT_TARGET_PROFILE,
       diagnostics: ['Draft Studio approval is required before candidate preparation can proceed.'],
+      candidateStatusLabel: 'Blocked',
+      materializationStatus: 'Blocked',
+      nextStepGuidance: 'Approve the Draft before preparing for review.',
+      canCreateCandidate: false,
+      canSubmitCandidateForApproval: false,
+      canApproveCandidate: false,
     };
     analyzerHandoff = {
       requestId: `materialization-request:${threadId}`,
@@ -462,21 +754,54 @@ export async function buildDesignStudioWorkspace(
       canOpen: false,
       diagnostics: ['No approved draft is available for analyzer handoff.'],
     };
+    reviewDesign = {
+      requestId: `materialization-request:${threadId}`,
+      reviewReadinessLabel: 'Blocked',
+      handoffStatusLabel: 'Analyzer Workspace launch blocked',
+      reviewStatusLabel: 'Not started',
+      completionStatusLabel: 'Review not completed',
+      analyzerId: DEFAULT_TARGET_ANALYZER,
+      analyzerProfileId: DEFAULT_TARGET_PROFILE,
+      readinessDiagnostics: ['Approve a review candidate before launching review.'],
+      ownershipMessages: [
+        'Analyzer Workspace owns validation.',
+        'Design Studio does not validate itself.',
+        'Review Design launches review only.',
+        'Validation remains analyzer-owned.',
+      ],
+      nextStepGuidance: 'Approve a review candidate before launching review.',
+      canOpenAnalyzerWorkspace: false,
+      canMarkReviewCompleted: false,
+      canAttachAnalyzerResults: false,
+      resultStatusLabel: 'No analyzer results are attached yet.',
+      availableResults: [],
+    };
   }
 
-  const refinementStatus: DesignStudioWorkflowStageStatus = refinementState?.proposals.length
-    ? refinementState.proposals.every((proposal) => proposal.approvalState === 'approved')
-      ? 'approved'
-      : 'inProgress'
-    : latestIteration?.analyzerResults.length
-      ? 'ready'
-      : 'blocked';
+  const refinementStatus: DesignStudioWorkflowStageStatus = (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0
+    ? refinementState?.proposals.length
+      ? refinementState.proposals.every((proposal) => proposal.approvalState === 'approved')
+        ? 'approved'
+        : 'inProgress'
+      : 'ready'
+    : 'blocked';
 
-  const compareStatus: DesignStudioWorkflowStageStatus = (iterationState?.iterations.length ?? 0) >= 2
+  const compareStatus: DesignStudioWorkflowStageStatus = (iterationState?.iterations.length ?? 0) === 0
+    ? 'notStarted'
+    : (iterationState?.iterations.length ?? 0) >= 2
     ? latestIteration?.approvalCheckpoint.validationApproval.approvalState === 'approved'
       ? 'approved'
       : 'ready'
-    : 'notStarted';
+    : 'inProgress';
+  const completionStatus: DesignStudioWorkflowStageStatus = workflowCompletion.state === 'completed'
+    ? 'approved'
+    : workflowCompletion.state === 'readyForCompletion'
+      ? 'ready'
+      : workflowCompletion.state === 'reopened'
+        ? 'inProgress'
+        : workflowCompletion.outstandingItems.length > 0
+          ? 'blocked'
+          : 'inProgress';
 
   const stages: DesignStudioWorkflowStageViewModel[] = [
     buildStage(
@@ -506,23 +831,67 @@ export async function buildDesignStudioWorkspace(
       !conceptState || conceptState.currentConcept.approvalState !== 'approved'
         ? 'blocked'
         : !draftState
-          ? 'ready'
+          ? 'notStarted'
           : draftState.currentDraft.approvalState === 'approved'
             ? 'approved'
-            : 'inProgress',
+            : 'ready',
     ),
     buildStage('refinement', refinementStatus),
-    buildStage('materialize', materializeStatus),
-    buildStage('handoff', handoffStatus),
-    buildStage('compare', compareStatus),
+    buildStage(
+      'materialize',
+      materializeStatus,
+      !draftState || draftState.currentDraft.approvalState !== 'approved'
+        ? 'Blocked'
+        : !prepareForReviewState
+          ? 'Not Started'
+          : approvalStateLabel(prepareForReviewState.currentCandidate.approvalState),
+    ),
+    buildStage(
+      'handoff',
+      handoffStatus,
+      (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0
+        ? 'Results Attached'
+        : (reviewDesignState?.currentReview?.availableResults?.length ?? 0) > 0
+          ? 'Analyzer Results Available'
+          : reviewDesignState?.currentReview?.status === 'completed'
+            ? 'Awaiting Analyzer Results'
+            : reviewDesignState?.currentReview?.status === 'launched'
+              ? 'Review Launched'
+              : handoffStatus === 'ready'
+                ? 'Review Not Started'
+              : handoffStatus === 'approved'
+                ? 'Completed'
+                : handoffStatus === 'inProgress'
+                  ? 'Review Launched'
+                  : undefined,
+    ),
+    buildStage(
+      'compare',
+      compareStatus,
+      compareStatus === 'inProgress'
+        ? 'Review Result Recorded'
+        : undefined,
+    ),
+    buildStage(
+      'completion',
+      completionStatus,
+      workflowCompletion.state === 'completed'
+        ? 'Completed'
+        : workflowCompletion.state === 'readyForCompletion'
+          ? 'Ready For Completion'
+          : workflowCompletion.state === 'reopened'
+            ? 'Reopened'
+            : 'Active',
+    ),
   ];
 
   const designApprovalState: DesignArtifactApprovalState = draftState?.currentDraft.approvalState
     ?? conceptState?.currentConcept.approvalState
     ?? briefState?.current.approvalState
     ?? 'notSubmitted';
-  const materializationApprovalState: DesignArtifactApprovalState = latestIteration?.approvalCheckpoint.materializationApproval.approvalState
-    ?? (draftState?.currentDraft.approvalState === 'approved' ? 'approved' : 'notSubmitted');
+  const materializationApprovalState: DesignArtifactApprovalState = prepareForReviewState?.currentCandidate.approvalState
+    ?? latestIteration?.approvalCheckpoint.materializationApproval.approvalState
+    ?? 'notSubmitted';
   const refinementApprovalState: DesignArtifactApprovalState = latestIteration?.approvalCheckpoint.refinementApproval.approvalState
     ?? (refinementState?.proposals.length ? 'pendingApproval' : 'notSubmitted');
   const validationApprovalState: DesignArtifactApprovalState = latestIteration?.approvalCheckpoint.validationApproval.approvalState
@@ -541,8 +910,32 @@ export async function buildDesignStudioWorkspace(
       proposals: refinementState?.proposals ?? [],
     })
     : undefined;
+  const refinementExperienceViewModel = refinementExperience
+    ? (reviewDesignState?.currentReview?.attachedResults?.length ?? 0) > 0 && (refinementState?.proposals.length ?? 0) === 0
+      ? {
+        ...refinementExperience,
+        summary: 'Analyzer results are attached to this iteration. No advisory refinement proposals were returned.',
+        emptyState: 'Review completed without attached recommendations.',
+      }
+      : refinementExperience
+    : undefined;
   const conceptReview = conceptState ? buildConceptReview(conceptState) : undefined;
   const draftReview = conceptState && draftState ? buildDraftReview(conceptState, draftState) : undefined;
+  const workflowCompletionViewModel: DesignStudioWorkflowCompletionViewModel = {
+    state: workflowCompletion.state,
+    checklist: workflowCompletion.checklist.map((item) => ({ ...item })),
+    outstandingItems: [...workflowCompletion.outstandingItems],
+    approvalsSatisfied: workflowCompletion.approvalsSatisfied.map((approvalKind) => buildApprovalCard(approvalKind, 'approved').title),
+    deferredRecommendationCount: workflowCompletion.deferredRecommendationCount,
+    unresolvedRecommendationCount: workflowCompletion.unresolvedRecommendationCount,
+    nextStepGuidance: workflowCompletion.nextStepGuidance,
+    completedAt: workflowCompletion.completedAt,
+    completedBy: workflowCompletion.completedBy,
+    reopenedAt: workflowCompletion.reopenedAt,
+    reopenedBy: workflowCompletion.reopenedBy,
+    canCompleteIteration: workflowCompletion.state !== 'completed' && workflowCompletion.isEligible,
+    canReopenIteration: workflowCompletion.state === 'completed',
+  };
 
   return {
     threadId,
@@ -561,9 +954,11 @@ export async function buildDesignStudioWorkspace(
       ],
       materializationReadiness,
       analyzerHandoff,
-      refinementExperience,
+      reviewDesign,
+      refinementExperience: refinementExperienceViewModel,
       conceptReview,
       draftReview,
+      workflowCompletion: workflowCompletionViewModel,
     },
   };
 }

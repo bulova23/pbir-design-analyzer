@@ -11,7 +11,9 @@ import type {
 } from '../../analyzer/contracts/scorePanel';
 import type {
   CrossPageNarrativeAnalyzerOutput,
+  DesignStudioAnalyzerResultReference,
   DesignArtifactBacklinkRecord,
+  RecommendationState,
   RefinementAnalyzerSource,
   RefinementNoMutationGuarantee,
   RefinementProposal,
@@ -200,6 +202,8 @@ function createProposal(
     version,
     lifecycleState: 'proposed',
     approvalState: 'pendingApproval',
+    // Refinement proposals are the authoritative owner of recommendation state.
+    recommendationState: 'proposed',
     approvalKind: 'refinementApproval',
     createdAt: now,
     updatedAt: now,
@@ -285,11 +289,13 @@ function updateProposalState(
   proposal: RefinementProposal,
   lifecycleState: RefinementProposal['lifecycleState'],
   approvalState: RefinementProposal['approvalState'],
+  recommendationState: RecommendationState,
 ): RefinementProposal {
   return {
     ...proposal,
     lifecycleState,
     approvalState,
+    recommendationState,
     approvalKind: 'refinementApproval',
     updatedAt: new Date().toISOString(),
   };
@@ -493,6 +499,7 @@ export async function reviewRefinementProposal(
     proposal,
     'reviewed',
     'pendingApproval',
+    'proposed',
   ));
 }
 
@@ -503,6 +510,7 @@ export async function approveRefinementProposal(
 ): Promise<RefinementState> {
   return persistTransition(context, threadId, proposalId, (proposal) => updateProposalState(
     proposal,
+    'approved',
     'approved',
     'approved',
   ));
@@ -517,6 +525,7 @@ export async function rejectRefinementProposal(
     proposal,
     'reviewed',
     'rejected',
+    'rejected',
   ));
 }
 
@@ -529,7 +538,47 @@ export async function deferRefinementProposal(
     proposal,
     'reviewed',
     'pendingApproval',
+    'deferred',
   ));
+}
+
+export async function attachAnalyzerResultLineage(
+  context: vscode.ExtensionContext,
+  threadId: string,
+  results: DesignStudioAnalyzerResultReference[],
+): Promise<RefinementState | undefined> {
+  const filePath = manifestPath(context, threadId);
+  const existing = readPersistedState(filePath);
+  if (!existing) {
+    return undefined;
+  }
+
+  const resultByKey = new Map(results.map((result) => [
+    `${result.analyzerRunId}::${result.resultReference}`,
+    result,
+  ]));
+  const proposals = existing.proposals.map((proposal) => {
+    const result = resultByKey.get(`${proposal.sourceAnalyzerOutput.analyzerRunId}::${proposal.sourceAnalyzerOutput.resultReference}`);
+    if (!result) {
+      return proposal;
+    }
+
+    return {
+      ...proposal,
+      sourceAnalyzerOutput: {
+        ...proposal.sourceAnalyzerOutput,
+        sourceCandidateId: result.sourceCandidateId,
+        sourceArtifactVersionFingerprint: [...result.sourceArtifactVersionFingerprint],
+      },
+    };
+  });
+
+  const nextState: RefinementState = {
+    ...existing,
+    proposals,
+  };
+  writePersistedState(filePath, nextState);
+  return nextState;
 }
 
 export async function ingestStoryAssessmentOutput(

@@ -2,6 +2,353 @@
 
 ## Active Session
 
+- 2026-06-17 Design Studio Recommendation State Consistency is complete:
+  - objective:
+    - make recommendation state authoritative and consistent across Refinement Studio, Compare Iterations, Workflow Completion, and analyzer return attachment
+  - delivered:
+    - added a canonical recommendation-state model with:
+      - proposed
+      - approved
+      - rejected
+      - deferred
+    - chose persisted Refinement Studio proposals as the authoritative recommendation-state owner
+    - persisted canonical recommendation state into iteration links and iteration comparison snapshots for history preservation
+    - updated Refinement Studio presentation to display canonical recommendation state instead of reinterpreting approval state
+    - updated Compare Iterations recommendation evolution to read canonical recommendation state
+    - updated Workflow Completion deferred/unresolved counts to use canonical recommendation state and stop counting rejected recommendations as unresolved
+    - preserved analyzer-result identity, proposal identity, and source lineage through analyzer attachment and iteration recording
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - resume the remaining Round 6 follow-up items outside this slice:
+      - user-doc alignment with the executable shell
+      - comparison/analytical speed improvements for self-serve consultant usage
+
+- 2026-06-17 Report Design Studio MVP Validation Review Round 6 is complete:
+  - completed:
+    - re-ran the full live Design Studio MVP workflow for:
+      - Executive Dashboard
+      - Operational Monitoring
+      - Analytical Investigation
+    - validated the real analyzer return path in live workflow execution
+    - reviewed the live shell with browser tooling and Playwright
+    - created `docs/report-design-studio-mvp-validation-review-round6.md`
+  - outcome:
+    - decision gate `B. Ready For Guided Internal Pilot Only`
+    - not ready for self-serve internal consultant use
+    - ready for guided internal pilot use
+    - MVP not yet complete
+  - remaining blockers:
+    - recommendation-state inconsistency across Refinement Studio, Compare Iterations, and Workflow Completion
+    - current user-facing workflow docs materially contradict the executable shell
+    - analytical-investigation and comparison surfaces remain too slow for self-serve consultant usage
+  - next recommended step:
+    - fix late-stage recommendation-state consistency first
+    - then align the user guide and workflow walkthrough to the executable shell before any self-serve rollout claim
+
+- 2026-06-17 Design Studio Real Analyzer Return Integration is complete:
+  - delivered:
+    - replaced the primary seeded analyzer-return dependency with a real Analyzer Workspace return path
+    - added a real analyzer return contract carrying:
+      - thread id
+      - request id
+      - analyzer run id
+      - analyzer result id
+      - source candidate id
+      - source artifact/version fingerprint
+      - analyzer completion status
+      - validation status
+      - finding and recommendation references
+      - provenance metadata
+    - added Review Design discovery of completed analyzer results from persisted Analyzer Workspace return data instead of manual seeded injection
+    - changed explicit `Attach Analyzer Results` to consume real analyzer return payloads, preserve atomic attachment, and ingest analyzer-backed refinement inputs
+    - kept lineage validation in place across candidate identity, artifact fingerprint, and iteration recording
+    - updated Compare Iterations and Workflow Completion to show:
+      - analyzer run identity
+      - analyzer review completion
+      - attached result state
+  - preserved:
+    - analyzer ownership of execution, findings, review status, and validation approval
+    - Design Studio ownership of iteration management, design approvals, refinement workflow, and workflow completion
+    - no automatic analyzer execution
+    - no automatic validation approval
+    - no report mutation
+    - no provider execution
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - manual smoke:
+    - not run in this session
+  - next recommended step:
+    - stop here for this phase
+    - if follow-up work resumes, run the guided manual workflow smoke through Review Design, Analyzer Workspace return, explicit attach, Refinement Studio, Compare Iterations, and Workflow Completion without seeded artifacts
+
+- 2026-06-17 Report Design Studio MVP Validation Review Round 5 is complete:
+  - completed:
+    - re-ran the full live Design Studio workflow for:
+      - Executive Dashboard
+      - Operational Monitoring
+      - Analytical Investigation
+    - validated the current executable shell using Playwright plus seeded analyzer-return artifacts through the current implementation path
+    - created `docs/report-design-studio-mvp-validation-review-round5.md`
+  - outcome:
+    - decision gate `B. Ready For Guided Internal Pilot Only`
+    - workflow integrity blockers from Round 4 were resolved in live execution
+    - not ready for self-serve internal consultant use
+    - ready for guided internal pilot use
+  - remaining blockers:
+    - real analyzer-return plumbing still depends on seeded artifacts for this validation shape
+    - current Design Studio user docs still lag the executable shell
+    - analytical-investigation and comparison surfaces remain slower than self-serve consultant speed
+  - next recommended step:
+    - update user-facing Design Studio docs to match the executable shell and current completion model before any guided pilot package is reused
+
+- 2026-06-17 Report Design Studio Workflow Integrity Remediation is complete:
+  - delivered:
+    - added atomic analyzer-result attachment with rollback across refinement, review-design, and iteration persistence
+    - prevented attachment success when candidate lineage or source artifact/version fingerprint is missing or mismatched
+    - changed iteration recording to use attached analyzer results as the source of truth
+    - restored required analyzer-owned validation approval provenance when approved validation evidence is recorded
+    - aligned workflow-completion validation state with the latest iteration approval checkpoint
+    - prevented review surfaces from showing `Validated` when validation approval is still pending
+    - added regression coverage for attach success, attach rejection, rollback, refinement gating, and validation/completion consistency
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - manual smoke:
+    - not run in this session
+  - next recommended step:
+    - if Round 4 readiness is rechecked, rerun the live Design Studio workflow smoke specifically through `Attach Analyzer Results` and workflow completion
+
+- 2026-06-17 Report Design Studio MVP Validation Review Round 4 is in progress:
+  - completed:
+    - performed the first full end-to-end validation of the completed Design Studio workflow
+    - reviewed actual workflow execution using the live shell, Playwright, and seeded workflow artifacts
+    - created `docs/report-design-studio-mvp-validation-review-round4.md`
+  - outcome:
+    - decision gate `C. Requires Additional Workflow Work`
+    - not ready for self-serve internal consultant use
+    - not ready for guided internal pilot
+  - primary blocker:
+    - live `Attach Analyzer Results` fails with analyzer-owned validation provenance errors and can leave partially advanced workflow state behind
+  - next recommended step:
+    - fix analyzer-result attachment and validation/completion state consistency before any pilot or provider-backed generation planning
+
+- 2026-06-16 Analyzer Return Loop UX is complete:
+  - delivered:
+    - added explicit Review Design return-loop progression for:
+      - Review Not Started
+      - Review Launched
+      - Awaiting Analyzer Results
+      - Analyzer Results Available
+      - Results Attached
+      - Refinement Ready
+    - added explicit `Attach Analyzer Results` workflow messaging through the Design Studio protocol and shell
+    - added persisted analyzer-result availability and attachment tracking with:
+      - analyzer run id
+      - result reference
+      - source candidate id
+      - source artifact/version fingerprint
+      - validation result status
+      - validation approval state
+      - linked proposal ids
+    - updated iteration recording so attached analyzer results create explicit iteration history without:
+      - analyzer auto-execution
+      - automatic validation approval
+      - report mutation
+      - provider execution
+    - updated Refinement Studio unlock behavior to require explicit analyzer-result attachment
+    - updated Workflow Completion checklist and outstanding-item logic to include:
+      - Review Design completed
+      - Analyzer results attached
+      - Refinement reviewed
+      - Validation approval status recorded
+    - updated Compare Iterations and Review Design presentation to surface analyzer-return state more clearly
+  - preserved:
+    - analyzer ownership
+    - validation ownership
+    - approval separation
+    - advisory-only refinement ingestion
+    - no automatic analyzer execution
+    - no automatic validation approval
+    - no report mutation
+    - no provider execution
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion follow-up resumes, next slices should stay separate and may include:
+      - stronger Analyzer Workspace-to-Design Studio return plumbing from real analyzer surfaces
+      - richer Compare Iterations visualization for attached analyzer result trails
+      - explicit consultant-facing “no recommendations returned” iteration-closeout polish
+- 2026-06-16 Workflow Completion Model is complete:
+  - delivered:
+    - added explicit workflow-completion state modeling for iterations:
+      - active
+      - ready for completion
+      - completed
+      - reopened
+    - added persisted iteration workflow-completion snapshots with:
+      - completion checklist
+      - outstanding-item guidance
+      - satisfied approvals summary
+      - deferred and unresolved recommendation counts
+      - completed by / completed at
+      - reopened by / reopened at
+      - completion and reopen history
+    - added explicit shell-stage workflow completion after Compare Iterations with:
+      - consultant guidance
+      - completion checklist rendering
+      - outstanding item rendering
+      - completion state visibility
+      - `Complete Iteration`
+      - `Reopen Iteration`
+    - kept completion distinct from:
+      - design approval
+      - materialization approval
+      - refinement approval
+      - validation approval
+    - exposed completion state and completion summary inside Compare Iterations
+    - preserved iteration lineage, approval checkpoints, and auditability when completing or reopening
+    - kept Compare Iterations and iteration presentation backward-compatible with older records that do not yet contain completion snapshots
+    - mirrored the new completion contract into the backend-internal Design Studio C# models
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - analyzer ownership
+    - lineage model
+    - Design Studio trust boundaries
+    - no automatic validation approval
+    - no deployment or publication implication
+    - no provider-backed generation
+    - no analyzer return-loop UX
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion follow-up work resumes, next slices should be:
+      - analyzer return-loop UX
+      - richer non-blocking outstanding-item explanation for deferred recommendations
+      - any broader iteration auto-recording improvements as a separate scoped change
+- 2026-06-16 Review Design execution workflow is complete:
+  - delivered:
+    - made Review Design executable from the main shell after review-candidate approval
+    - added persisted explicit review-execution tracking for:
+      - not started
+      - launched
+      - completed
+    - rendered Review Design workflow detail directly in the shell for:
+      - candidate summary
+      - review readiness
+      - handoff status
+      - analyzer ownership
+      - review status
+      - completion state
+      - next-step guidance
+    - preserved explicit Analyzer Workspace launch through the existing handoff path
+    - kept validation approval analyzer-owned and separate from Review Design completion
+    - kept Refinement Studio blocked until explicit review completion exists, then unlocked it without auto-creating proposals
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - analyzer ownership
+    - validation ownership
+    - approval ownership
+    - lineage and provenance
+    - Design Studio trust boundaries
+    - no automatic analyzer execution
+    - no automatic validation approval
+    - no report mutation
+    - no provider execution
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start workflow-completion model or analyzer return-loop UX as separate scoped slices without changing Review Design trust semantics
+- 2026-06-16 Prepare For Review execution workflow is complete:
+  - delivered:
+    - made Prepare For Review executable from the main shell after Draft approval
+    - added explicit shell actions for:
+      - `Create Review Candidate`
+      - `Submit Candidate For Approval`
+      - `Approve Candidate`
+    - made Prepare For Review workflow transitions explicit across:
+      - blocked
+      - not started
+      - candidate created
+      - ready for approval
+      - approved
+    - rendered Prepare For Review review artifacts directly in the shell for:
+      - candidate summary
+      - review readiness
+      - review diagnostics
+      - review lineage
+      - materialization status
+      - approvals used
+    - preserved lineage/versioning by requiring separate candidate creation, submission, and approval versions
+    - kept Review Design blocked until review-candidate approval, then unlocked it after approved review-candidate lineage existed
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - lineage model
+    - materialization trust boundaries
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no analyzer execution
+    - no provider-backed generation
+    - no report mutation
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start Review Design execution as a separate scoped slice without changing Prepare For Review approval semantics
+- 2026-06-16 Draft Studio execution workflow is complete:
+  - delivered:
+    - made Draft Studio executable from the main shell after Concept baseline approval
+    - added explicit shell actions for:
+      - `Generate Draft`
+      - `Submit Draft For Approval`
+      - `Approve Draft`
+    - made Draft Studio workflow transitions explicit across:
+      - blocked
+      - not started
+      - draft generated
+      - ready for approval
+      - approved
+    - rendered Draft Studio review artifacts directly in the shell for:
+      - draft pages
+      - draft layouts
+      - draft navigation
+      - KPI placement
+    - preserved lineage/versioning by requiring separate draft generation, submission, and approval versions
+    - kept Prepare For Review blocked until draft approval, then unlocked it after approved draft lineage exists
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no provider-backed generation
+    - no Prepare For Review execution work beyond approved-draft unlock
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start Prepare For Review execution as a separate scoped slice without changing Draft Studio approval semantics
 - 2026-06-16 Concept Studio execution workflow is complete:
   - delivered:
     - made Concept Studio executable from the main shell after Design Brief approval
@@ -375,4 +722,7 @@
 
 ## Current Objective
 
-- Design Studio startup crash is fixed; next action is to address default score-diagnostics logging hygiene before retrying internal-install release-candidate validation.
+- Report Design Studio Round 4 review is complete.
+- Next action for this area:
+  - fix the live `Attach Analyzer Results` boundary first
+  - then re-run Round 4 before any self-serve or pilot readiness claim

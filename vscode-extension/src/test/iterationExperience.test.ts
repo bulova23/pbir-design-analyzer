@@ -43,6 +43,7 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
       {
         proposalId: `proposal:${version}:accepted`,
         approvalState: 'approved',
+        recommendationState: 'approved',
         suggestedDesignChange: version === 1
           ? 'Clarify the executive question.'
           : 'Improve report flow with a clearer executive entry point.',
@@ -52,6 +53,7 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
       {
         proposalId: `proposal:${version}:rejected`,
         approvalState: version === 1 ? 'pendingApproval' : 'rejected',
+        recommendationState: version === 1 ? 'proposed' : 'rejected',
         suggestedDesignChange: 'Add benchmark recommendation.',
         expectedImpact: 'Strengthen comparison context.',
         linkedFindingIds: ['finding-2'],
@@ -59,6 +61,7 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
       {
         proposalId: `proposal:${version}:deferred`,
         approvalState: version === 1 ? 'pendingApproval' : 'pendingApproval',
+        recommendationState: version === 1 ? 'proposed' : 'deferred',
         suggestedDesignChange: 'Add KPI hierarchy.',
         expectedImpact: 'Make drill paths easier to follow.',
         linkedFindingIds: ['finding-3'],
@@ -107,18 +110,21 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
             : 'Improve report flow with a clearer executive entry point.',
           expectedImpact: 'Improve report flow.',
           approvalState: 'approved',
+          recommendationState: 'approved',
         },
         {
           proposalId: `proposal:${version}:rejected`,
           suggestedDesignChange: 'Add benchmark recommendation.',
           expectedImpact: 'Strengthen comparison context.',
           approvalState: version === 1 ? 'pendingApproval' : 'rejected',
+          recommendationState: version === 1 ? 'proposed' : 'rejected',
         },
         {
           proposalId: `proposal:${version}:deferred`,
           suggestedDesignChange: 'Add KPI hierarchy.',
           expectedImpact: 'Make drill paths easier to follow.',
           approvalState: 'pendingApproval',
+          recommendationState: version === 1 ? 'proposed' : 'deferred',
         },
       ],
       validationStatus: version === 1 ? 'needsReview' : 'validated',
@@ -128,6 +134,29 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
       analyzerExecutionTriggered: false,
       reportMutationTriggered: false,
       pbirFilesGenerated: false,
+    },
+    workflowCompletion: {
+      state: version === 1 ? 'active' : 'completed',
+      isEligible: version === 2,
+      checklist: [
+        { id: 'briefApproved', label: 'Design Brief approved', satisfied: true, required: true },
+        { id: 'conceptApproved', label: 'Concept approved', satisfied: true, required: true },
+        { id: 'draftApproved', label: 'Draft approved', satisfied: true, required: true },
+        { id: 'candidateApproved', label: 'Review candidate approved', satisfied: true, required: true },
+        { id: 'reviewCompleted', label: 'Review completed', satisfied: version === 2, required: true },
+      ],
+      outstandingItems: version === 1 ? ['Review Design must be completed before the iteration can be closed.'] : [],
+      approvalsSatisfied: ['designApproval', 'materializationApproval'],
+      deferredRecommendationCount: 1,
+      unresolvedRecommendationCount: version === 1 ? 2 : 1,
+      nextStepGuidance: version === 2
+        ? 'Iteration completed. You may reopen if additional refinement is required.'
+        : 'Complete required workflow stages before closing this iteration.',
+      completedAt: version === 2 ? '2026-06-13T16:00:00.000Z' : undefined,
+      completedBy: version === 2 ? 'user' : undefined,
+      history: version === 2
+        ? [{ action: 'completed', actor: 'user', timestamp: '2026-06-13T16:00:00.000Z' }]
+        : [],
     },
     comparisonSummary: version === 1
       ? 'Started with an executive overview draft.'
@@ -153,7 +182,7 @@ describe('iterationExperience', () => {
       expect.objectContaining({
         iterationId: 'iteration:2',
         versionLabel: 'Version 2',
-        stageLabel: 'Validation checkpoint',
+        stageLabel: 'Completed iteration',
         summary: 'Improved report flow and added benchmark context.',
         isCurrentResult: true,
       }),
@@ -162,7 +191,10 @@ describe('iterationExperience', () => {
       'Concept ready',
       'Draft ready',
       'Materialized candidate prepared',
-      'Analyzer review recorded',
+      'Analyzer review completed',
+      'Attached analyzer results recorded',
+      'Analyzer run: run-2',
+      'Iteration completed',
       'Approval checkpoint recorded',
     ]));
   });
@@ -191,6 +223,7 @@ describe('iterationExperience', () => {
     expect(comparison.approvalEvolution).toEqual(expect.arrayContaining([
       'Refinement Approval changed from Pending approval to Rejected.',
       'Validation Approval changed from Not submitted to Approved.',
+      'Workflow Completion changed from Active to Completed.',
     ]));
     expect(comparison.validationEvolution).toEqual(expect.arrayContaining([
       'Validation status changed from Needs review to Validated.',

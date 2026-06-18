@@ -9,9 +9,11 @@ import type {
   DesignStudioWorkflowStageId,
   DesignStudioWorkflowStageViewModel,
 } from '../../src/design-studio/contracts/designStudioShell';
+import { getRecommendationState, type RecommendationState } from '../../src/design-studio/contracts/designStudioModels';
 import { ClosedLoopView } from './views/ClosedLoopView';
 import { ConceptStudioView } from './views/ConceptStudioView';
 import { DesignBriefView } from './views/DesignBriefView';
+import { DraftStudioView } from './views/DraftStudioView';
 import {
   createInitialDesignBriefState,
   designBriefReducer,
@@ -45,6 +47,19 @@ function approvalStateLabel(value: DesignStudioApprovalCardViewModel['approvalSt
       return 'Rejected';
     default:
       return 'Not submitted';
+  }
+}
+
+function recommendationStateLabel(value: RecommendationState): string {
+  switch (value) {
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'deferred':
+      return 'Deferred';
+    default:
+      return 'Proposed';
   }
 }
 
@@ -118,6 +133,8 @@ function approvalKindsForStage(stageId: DesignStudioWorkflowStageId): DesignStud
       return ['refinementApproval'];
     case 'compare':
       return ['validationApproval'];
+    case 'completion':
+      return [];
     default:
       return [];
   }
@@ -320,7 +337,9 @@ export function App() {
                     <article key={proposal.id} className='approval-card' aria-label={proposal.title}>
                       <div className='approval-card-header'>
                         <h5>{proposal.title}</h5>
-                        <span className='approval-card-state'>{approvalStateLabel(proposal.approvalState)}</span>
+                        <span className='approval-card-state'>
+                          {recommendationStateLabel(getRecommendationState(proposal))}
+                        </span>
                       </div>
                       <p>{proposal.summary}</p>
                       <p><strong>Recommendation:</strong> {proposal.recommendation}</p>
@@ -422,109 +441,356 @@ export function App() {
             />
           ) : null}
 
-          {selectedStage === 'draft' && workspace.draftReview ? (
-            <section className='detail-card'>
-              <h3>{workspace.draftReview.title}</h3>
-              <p>{workspace.draftReview.summary}</p>
-              <p><strong>Draft status:</strong> {workspace.draftReview.draftStatusLabel}</p>
-
-              <section className='detail-card'>
-                <h4>Draft Pages</h4>
-                <ul>
-                  {workspace.draftReview.draftPages.map((page) => (
-                    <li key={`${page.title}:${page.structureSummary}`}>
-                      <strong>{page.title}</strong>
-                      <div>{page.structureSummary}</div>
-                      <div>{page.kpiPlacement.join(', ')}</div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section className='detail-card'>
-                <h4>Draft Layouts</h4>
-                <ul>
-                  {workspace.draftReview.draftLayouts.map((layout) => (
-                    <li key={`${layout.title}:${layout.layoutType}`}>
-                      <strong>{layout.title}</strong>
-                      <div>{layout.layoutType}</div>
-                      <div>{layout.zones.join(', ')}</div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section className='detail-card'>
-                <h4>Draft Navigation</h4>
-                <ul>
-                  {workspace.draftReview.draftNavigation.map((item) => (
-                    <li key={`${item.label}:${item.pageTitle}`}>
-                      <strong>{item.label}</strong>
-                      <div>{item.pageTitle}</div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </section>
+          {selectedStage === 'draft' ? (
+            <DraftStudioView
+              canGenerateDrafts={selectedStageModel?.status !== 'blocked'}
+              draftReview={workspace.draftReview}
+              onGenerateDrafts={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'generateDrafts',
+                }));
+              }}
+              onSubmitDraftForApproval={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'proposeArtifact',
+                  artifactKind: 'draftReportArtifact',
+                  artifactId: workspace.draftReview?.draftId ?? `draft-report:${threadId}`,
+                }));
+              }}
+              onApproveDraft={() => {
+                vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                  type: 'approveArtifact',
+                  artifactKind: 'draftReportArtifact',
+                  artifactId: workspace.draftReview?.draftId ?? `draft-report:${threadId}`,
+                }));
+              }}
+            />
           ) : null}
 
           {selectedStage === 'materialize' && workspace.materializationReadiness ? (
             <section className='detail-card'>
-              <h3>Review preparation</h3>
-              <p>{workspace.materializationReadiness.readinessLabel}</p>
+              <h3>Prepare Design For Review</h3>
+              <p>{workspace.materializationReadiness.nextStepGuidance ?? workspace.materializationReadiness.readinessLabel}</p>
+              <section>
+                <h4>Review Candidate Status</h4>
+                <p>{workspace.materializationReadiness.candidateStatusLabel ?? workspace.materializationReadiness.readinessLabel}</p>
+              </section>
+              <section>
+                <h4>Candidate Summary</h4>
+                <dl>
+                  <div>
+                    <dt>Source draft</dt>
+                    <dd>{workspace.materializationReadiness.sourceDraftVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                  <div>
+                    <dt>Source concept</dt>
+                    <dd>{workspace.materializationReadiness.sourceConceptVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                  <div>
+                    <dt>Source design brief</dt>
+                    <dd>{workspace.materializationReadiness.sourceDesignBriefVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <h4>Review Readiness</h4>
+                <p>{workspace.materializationReadiness.readinessLabel}</p>
+              </section>
               <dl>
                 <div>
-                  <dt>Eligibility</dt>
-                  <dd>{workspace.materializationReadiness.executableEligibility}</dd>
+                  <dt>Materialization status</dt>
+                  <dd>{workspace.materializationReadiness.materializationStatus ?? workspace.materializationReadiness.executableEligibility}</dd>
                 </div>
                 <div>
-                  <dt>Analyzer</dt>
+                  <dt>Review destination</dt>
                   <dd>{workspace.materializationReadiness.targetAnalyzer}</dd>
                 </div>
                 <div>
-                  <dt>Profile</dt>
+                  <dt>Review profile</dt>
                   <dd>{workspace.materializationReadiness.targetAnalyzerProfile}</dd>
                 </div>
               </dl>
-              <ul>
-                {workspace.materializationReadiness.diagnostics.map((diagnostic) => (
-                  <li key={diagnostic}>{diagnostic}</li>
-                ))}
-              </ul>
+              {workspace.materializationReadiness.lineage?.length ? (
+                <section>
+                  <h4>Review Lineage</h4>
+                  <ul>
+                    {workspace.materializationReadiness.lineage.map((entry) => (
+                      <li key={`${entry.label}:${entry.artifactVersionId}`}>
+                        {entry.label}: {entry.artifactVersionId} ({approvalStateLabel(entry.approvalState)})
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {workspace.materializationReadiness.approvalsUsed?.length ? (
+                <section>
+                  <h4>Approvals Used</h4>
+                  <ul>
+                    {workspace.materializationReadiness.approvalsUsed.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              <section>
+                <h4>Review Diagnostics</h4>
+                <ul>
+                  {workspace.materializationReadiness.diagnostics.map((diagnostic) => (
+                    <li key={diagnostic}>{diagnostic}</li>
+                  ))}
+                </ul>
+              </section>
+              <div className='workflow-actions'>
+                {workspace.materializationReadiness.canCreateCandidate ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'createReviewCandidate',
+                      }));
+                    }}
+                  >
+                    Create Review Candidate
+                  </button>
+                ) : null}
+                {workspace.materializationReadiness.canSubmitCandidateForApproval ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'proposeArtifact',
+                        artifactKind: 'materializedSurfaceCandidate',
+                        artifactId: workspace.materializationReadiness?.candidateId ?? `materialized-surface-candidate:${threadId}`,
+                      }));
+                    }}
+                  >
+                    Submit Candidate For Approval
+                  </button>
+                ) : null}
+                {workspace.materializationReadiness.canApproveCandidate ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'approveArtifact',
+                        artifactKind: 'materializedSurfaceCandidate',
+                        artifactId: workspace.materializationReadiness?.candidateId ?? `materialized-surface-candidate:${threadId}`,
+                      }));
+                    }}
+                  >
+                    Approve Candidate
+                  </button>
+                ) : null}
+              </div>
             </section>
           ) : null}
 
-          {selectedStage === 'handoff' && workspace.analyzerHandoff ? (
+          {selectedStage === 'handoff' && workspace.reviewDesign ? (
             <section className='detail-card'>
-              <h3>Design review handoff</h3>
-              <p>{workspace.analyzerHandoff.readinessLabel}</p>
-              <p>
-                Analyzer: <strong>{workspace.analyzerHandoff.analyzerId}</strong>
-                {' '}· Profile: <strong>{workspace.analyzerHandoff.analyzerProfileId}</strong>
-              </p>
-              <ul>
-                {workspace.analyzerHandoff.diagnostics.map((diagnostic) => (
-                  <li key={diagnostic}>{diagnostic}</li>
-                ))}
-              </ul>
-              <button
-                type='button'
-                disabled={!workspace.analyzerHandoff.canOpen}
-                onClick={() => {
-                  vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
-                    type: 'openAnalyzerHandoff',
-                    requestId: workspace.analyzerHandoff!.requestId,
-                  }));
-                }}
-              >
-                Open Analyzer Workspace
-              </button>
+              <h3>Review Design</h3>
+              <p>{workspace.reviewDesign.nextStepGuidance}</p>
+              <section>
+                <h4>Candidate Summary</h4>
+                <dl>
+                  <div>
+                    <dt>Source design brief</dt>
+                    <dd>{workspace.reviewDesign.sourceDesignBriefVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                  <div>
+                    <dt>Source concept</dt>
+                    <dd>{workspace.reviewDesign.sourceConceptVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                  <div>
+                    <dt>Source draft</dt>
+                    <dd>{workspace.reviewDesign.sourceDraftVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                  <div>
+                    <dt>Approved review candidate</dt>
+                    <dd>{workspace.reviewDesign.approvedReviewCandidateVersionId ?? 'Not available yet'}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <h4>Review Readiness</h4>
+                <p>{workspace.reviewDesign.reviewReadinessLabel}</p>
+              </section>
+              <section>
+                <h4>Handoff Status</h4>
+                <p>{workspace.reviewDesign.handoffStatusLabel}</p>
+                <p>
+                  Analyzer: <strong>{workspace.reviewDesign.analyzerId}</strong>
+                  {' '}· Profile: <strong>{workspace.reviewDesign.analyzerProfileId}</strong>
+                </p>
+              </section>
+              <section>
+                <h4>Review Status</h4>
+                <p>{workspace.reviewDesign.reviewStatusLabel}</p>
+                <p>{workspace.reviewDesign.completionStatusLabel}</p>
+              </section>
+              <section>
+                <h4>Result Attachment</h4>
+                <p>{workspace.reviewDesign.resultStatusLabel ?? 'No analyzer results are attached yet.'}</p>
+              </section>
+              <section>
+                <h4>Analyzer Ownership</h4>
+                <ul>
+                  {workspace.reviewDesign.ownershipMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </section>
+              {(workspace.reviewDesign.availableResults?.length ?? 0) > 0 ? (
+                <section>
+                  <h4>Available Analyzer Results</h4>
+                  <ul>
+                    {(workspace.reviewDesign.availableResults ?? []).map((result) => (
+                      <li key={`${result.analyzerRunId}:${result.resultReference}`}>
+                        <strong>{result.analyzerSourceLabel}</strong>
+                        {' '}· {result.resultReference}
+                        {' '}· {result.analyzerRunId}
+                        {' '}· Validation status: {result.validationResultStatusLabel}
+                        {' '}· Validation approval: {result.validationApprovalStateLabel}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              <section>
+                <h4>Review Diagnostics</h4>
+                <ul>
+                  {workspace.reviewDesign.readinessDiagnostics.map((diagnostic) => (
+                    <li key={diagnostic}>{diagnostic}</li>
+                  ))}
+                </ul>
+              </section>
+              <div className='workflow-actions'>
+                <button
+                  type='button'
+                  disabled={!workspace.reviewDesign.canOpenAnalyzerWorkspace}
+                  onClick={() => {
+                    vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                      type: 'openAnalyzerHandoff',
+                      requestId: workspace.reviewDesign!.requestId,
+                    }));
+                  }}
+                >
+                  Open Analyzer Workspace
+                </button>
+                {workspace.reviewDesign.canMarkReviewCompleted ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'markReviewCompleted',
+                        requestId: workspace.reviewDesign!.requestId,
+                      }));
+                    }}
+                  >
+                    Mark Review Completed
+                  </button>
+                ) : null}
+                {workspace.reviewDesign.canAttachAnalyzerResults ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'attachAnalyzerResults',
+                        requestId: workspace.reviewDesign!.requestId,
+                      }));
+                    }}
+                  >
+                    Attach Analyzer Results
+                  </button>
+                ) : null}
+              </div>
             </section>
           ) : null}
 
           {selectedStage === 'compare' ? (
             <section className='detail-card'>
               <ClosedLoopView iterations={viewState.state.iterationHistory} />
+            </section>
+          ) : null}
+
+          {selectedStage === 'completion' && workspace.workflowCompletion ? (
+            <section className='detail-card'>
+              <h3>Workflow Completion</h3>
+              <p>{workspace.workflowCompletion.nextStepGuidance}</p>
+              <p>Completion is a workflow state. It does not grant validation approval, deployment approval, or report publication authority.</p>
+              <section>
+                <h4>Completion Checklist</h4>
+                <ul>
+                  {workspace.workflowCompletion.checklist.map((item) => (
+                    <li key={item.id}>
+                      {item.label}: {item.satisfied ? 'Satisfied' : 'Incomplete'}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>Outstanding Items</h4>
+                {workspace.workflowCompletion.outstandingItems.length > 0 ? (
+                  <ul>
+                    {workspace.workflowCompletion.outstandingItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No blocking workflow items remain.</p>
+                )}
+              </section>
+              <section>
+                <h4>Completed Approvals</h4>
+                {workspace.workflowCompletion.approvalsSatisfied.length > 0 ? (
+                  <ul>
+                    {workspace.workflowCompletion.approvalsSatisfied.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No approvals are satisfied yet.</p>
+                )}
+              </section>
+              <section>
+                <h4>Recommendation Summary</h4>
+                <p>Deferred recommendations: {workspace.workflowCompletion.deferredRecommendationCount}</p>
+                <p>Unresolved recommendations: {workspace.workflowCompletion.unresolvedRecommendationCount}</p>
+              </section>
+              {workspace.workflowCompletion.completedAt ? (
+                <section>
+                  <h4>Completion Audit</h4>
+                  <p>Completed by {workspace.workflowCompletion.completedBy ?? 'Unknown'} on {workspace.workflowCompletion.completedAt}</p>
+                  {workspace.workflowCompletion.reopenedAt ? (
+                    <p>Reopened by {workspace.workflowCompletion.reopenedBy ?? 'Unknown'} on {workspace.workflowCompletion.reopenedAt}</p>
+                  ) : null}
+                </section>
+              ) : null}
+              <div className='workflow-actions'>
+                {workspace.workflowCompletion.canCompleteIteration ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'completeIteration',
+                      }));
+                    }}
+                  >
+                    Complete Iteration
+                  </button>
+                ) : null}
+                {workspace.workflowCompletion.canReopenIteration ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                        type: 'reopenIteration',
+                      }));
+                    }}
+                  >
+                    Reopen Iteration
+                  </button>
+                ) : null}
+              </div>
             </section>
           ) : null}
         </section>

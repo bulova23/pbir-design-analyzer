@@ -3,7 +3,10 @@ import type {
   AlternateReportConcept,
   DesignArtifactApprovalKind,
   DesignArtifactApprovalState,
+  DesignStudioWorkflowCompletionState,
+  IterationCompletionChecklistItem,
   MaterializationHandoffEligibility,
+  RecommendationState,
 } from './designStudioModels';
 
 export const DESIGN_STUDIO_WORKFLOW_STAGE_IDS = [
@@ -14,6 +17,7 @@ export const DESIGN_STUDIO_WORKFLOW_STAGE_IDS = [
   'materialize',
   'handoff',
   'compare',
+  'completion',
 ] as const;
 
 export type DesignStudioWorkflowStageId = typeof DESIGN_STUDIO_WORKFLOW_STAGE_IDS[number];
@@ -57,6 +61,25 @@ export interface DesignStudioMaterializationReadinessViewModel {
   targetAnalyzer: string;
   targetAnalyzerProfile: string;
   diagnostics: string[];
+  candidateId?: string;
+  requestId?: string;
+  candidateStatusLabel?: string;
+  materializationStatus?: string;
+  nextStepGuidance?: string;
+  canCreateCandidate?: boolean;
+  canSubmitCandidateForApproval?: boolean;
+  canApproveCandidate?: boolean;
+  sourceDraftVersionId?: string;
+  sourceConceptVersionId?: string;
+  sourceDesignBriefVersionId?: string;
+  lineage?: DesignStudioPrepareForReviewLineageItemViewModel[];
+  approvalsUsed?: string[];
+}
+
+export interface DesignStudioPrepareForReviewLineageItemViewModel {
+  label: string;
+  artifactVersionId: string;
+  approvalState: DesignArtifactApprovalState;
 }
 
 export interface DesignStudioAnalyzerHandoffViewModel {
@@ -66,6 +89,41 @@ export interface DesignStudioAnalyzerHandoffViewModel {
   analyzerProfileId: string;
   canOpen: boolean;
   diagnostics: string[];
+}
+
+export interface DesignStudioReviewDesignViewModel {
+  requestId: string;
+  candidateId?: string;
+  sourceDraftVersionId?: string;
+  sourceConceptVersionId?: string;
+  sourceDesignBriefVersionId?: string;
+  approvedReviewCandidateVersionId?: string;
+  reviewReadinessLabel: string;
+  handoffStatusLabel: string;
+  reviewStatusLabel: string;
+  completionStatusLabel: string;
+  analyzerId: string;
+  analyzerProfileId: string;
+  readinessDiagnostics: string[];
+  ownershipMessages: string[];
+  nextStepGuidance: string;
+  canOpenAnalyzerWorkspace: boolean;
+  canMarkReviewCompleted: boolean;
+  canAttachAnalyzerResults?: boolean;
+  resultStatusLabel?: string;
+  availableResults?: DesignStudioAnalyzerResultSummaryViewModel[];
+}
+
+export interface DesignStudioAnalyzerResultSummaryViewModel {
+  analyzerSourceLabel: string;
+  analyzerRunId: string;
+  resultReference: string;
+  scoredAt: string;
+  sourceCandidateId: string;
+  sourceArtifactVersionFingerprint: string[];
+  validationResultStatusLabel: string;
+  validationApprovalStateLabel: string;
+  linkedRecommendationCount: number;
 }
 
 export const DESIGN_STUDIO_REFINEMENT_GROUP_IDS = [
@@ -93,6 +151,7 @@ export interface DesignStudioRefinementProposalViewModel {
   rationale: string;
   expectedImpact: string;
   approvalState: DesignArtifactApprovalState;
+  recommendationState?: RecommendationState;
   sourceAnalyzerLabel: string;
   affectedArtifacts: string[];
   supportingEvidence: string[];
@@ -185,10 +244,28 @@ export interface DesignStudioDraftNavigationReviewViewModel {
 export interface DesignStudioDraftReviewViewModel {
   title: string;
   summary: string;
+  draftId?: string;
+  approvalState?: DesignArtifactApprovalState;
   draftStatusLabel: string;
   draftPages: DesignStudioDraftPageReviewViewModel[];
   draftLayouts: DesignStudioDraftLayoutReviewViewModel[];
   draftNavigation: DesignStudioDraftNavigationReviewViewModel[];
+}
+
+export interface DesignStudioWorkflowCompletionViewModel {
+  state: DesignStudioWorkflowCompletionState;
+  checklist: IterationCompletionChecklistItem[];
+  outstandingItems: string[];
+  approvalsSatisfied: string[];
+  deferredRecommendationCount: number;
+  unresolvedRecommendationCount: number;
+  nextStepGuidance: string;
+  completedAt?: string;
+  completedBy?: string;
+  reopenedAt?: string;
+  reopenedBy?: string;
+  canCompleteIteration: boolean;
+  canReopenIteration: boolean;
 }
 
 export interface DesignStudioWorkspaceViewModel {
@@ -199,7 +276,9 @@ export interface DesignStudioWorkspaceViewModel {
   approvalCards: DesignStudioApprovalCardViewModel[];
   materializationReadiness?: DesignStudioMaterializationReadinessViewModel;
   analyzerHandoff?: DesignStudioAnalyzerHandoffViewModel;
+  reviewDesign?: DesignStudioReviewDesignViewModel;
   refinementExperience?: DesignStudioRefinementExperienceViewModel;
   conceptReview?: DesignStudioConceptReviewViewModel;
   draftReview?: DesignStudioDraftReviewViewModel;
+  workflowCompletion?: DesignStudioWorkflowCompletionViewModel;
 }

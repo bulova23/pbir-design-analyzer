@@ -29,6 +29,7 @@ import {
 import {
   approveDraftArtifacts,
   generateDraftArtifacts,
+  submitDraftForApproval,
   type DraftState,
 } from '../design-studio/state/draftStore';
 import {
@@ -224,6 +225,7 @@ describe('designStudio trust boundary guardrails', () => {
 
     const openAnalyzerWorkspace = jest.fn<Promise<void>, [unknown]>().mockResolvedValue(undefined);
     const handoffService = new AnalyzerHandoffService({ openAnalyzerWorkspace });
+    await submitDraftForApproval(context, 'thread-workflow-guardrails');
     const approvedDraft = await approveDraftArtifacts(context, 'thread-workflow-guardrails');
     const previewCandidate = await buildCandidate(context, approvedDraft);
     const previewResult = await handoffService.handoffCandidate(previewCandidate);
@@ -247,6 +249,7 @@ describe('designStudio trust boundary guardrails', () => {
   it('keeps approval stages separate and requires analyzer-owned validation evidence', async () => {
     const context = makeContext(makeTempDir());
     await createDraftState(context, 'thread-approval-guardrails');
+    await submitDraftForApproval(context, 'thread-approval-guardrails');
     const draftState = await approveDraftArtifacts(context, 'thread-approval-guardrails');
     const candidate = await buildCandidate(context, draftState, 'approval');
     const proposals = attachAnalyzerCandidateLineage(
@@ -313,6 +316,7 @@ describe('designStudio trust boundary guardrails', () => {
   it('keeps materialization explicit, candidate-only, diagnostic, and non-mutating', async () => {
     const context = makeContext(makeTempDir());
     await createDraftState(context, 'thread-materialization-guardrails');
+    await submitDraftForApproval(context, 'thread-materialization-guardrails');
     const draftState = await approveDraftArtifacts(context, 'thread-materialization-guardrails');
     const candidate = await buildCandidate(context, draftState, 'materialization');
 
@@ -349,6 +353,7 @@ describe('designStudio trust boundary guardrails', () => {
   it('keeps closed-loop iterations explicit and non-automating', async () => {
     const context = makeContext(makeTempDir());
     await createDraftState(context, 'thread-regression-guardrails');
+    await submitDraftForApproval(context, 'thread-regression-guardrails');
     const draftState = await approveDraftArtifacts(context, 'thread-regression-guardrails');
     const candidate = await buildCandidate(context, draftState, 'closed-loop');
     const proposals = attachAnalyzerCandidateLineage(

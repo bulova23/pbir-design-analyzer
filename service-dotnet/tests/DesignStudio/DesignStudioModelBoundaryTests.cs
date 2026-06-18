@@ -18,6 +18,7 @@ public sealed class DesignStudioModelBoundaryTests
             "DesignArtifactLifecycleState",
             "DesignArtifactApprovalState",
             "DesignArtifactApprovalKind",
+            "DesignStudioWorkflowCompletionState",
             "DesignArtifactAuthorSource",
             "DesignArtifactProvenance",
             "DesignArtifactValidationLink",
@@ -59,6 +60,9 @@ public sealed class DesignStudioModelBoundaryTests
             "IterationRecommendationSnapshot",
             "IterationComparisonSnapshot",
             "IterationGuardrails",
+            "IterationCompletionChecklistItem",
+            "IterationWorkflowCompletionHistoryEntry",
+            "IterationWorkflowCompletion",
             "DesignIterationRecord",
         ];
 
@@ -210,6 +214,7 @@ public sealed class DesignStudioModelBoundaryTests
         Assert.Contains("ApprovalCheckpoint", iterationProperties);
         Assert.Contains("ComparisonSnapshot", iterationProperties);
         Assert.Contains("Guardrails", iterationProperties);
+        Assert.Contains("WorkflowCompletion", iterationProperties);
         Assert.DoesNotContain("DeploymentApproval", iterationProperties);
 
         var approvalProperties = approvalStateType
