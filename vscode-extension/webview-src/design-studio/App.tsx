@@ -59,7 +59,7 @@ function recommendationStateLabel(value: RecommendationState): string {
     case 'deferred':
       return 'Deferred';
     default:
-      return 'Proposed';
+      return 'Outstanding';
   }
 }
 
@@ -329,6 +329,26 @@ export function App() {
               {workspace.refinementExperience.emptyState ? (
                 <p>{workspace.refinementExperience.emptyState}</p>
               ) : null}
+              {workspace.refinementExperience.groups.length > 0 ? (
+                <section className='detail-card'>
+                  <h4>Recommendation Outcomes</h4>
+                  <div className='summary-metric-grid'>
+                    {(['approved', 'rejected', 'deferred', 'proposed'] as const).map((state) => {
+                      const count = workspace.refinementExperience!.groups
+                        .flatMap((group) => group.proposals)
+                        .filter((proposal) => getRecommendationState(proposal) === state)
+                        .length;
+
+                      return (
+                        <article key={state} className='summary-metric-card'>
+                          <p>{recommendationStateLabel(state)}</p>
+                          <strong>{count}</strong>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
               {workspace.refinementExperience.groups.map((group) => (
                 <section key={group.id} className='detail-card'>
                   <h4>{group.title}</h4>
@@ -344,6 +364,7 @@ export function App() {
                       <p>{proposal.summary}</p>
                       <p><strong>Recommendation:</strong> {proposal.recommendation}</p>
                       <p><strong>Rationale:</strong> {proposal.rationale}</p>
+                      <p><strong>Why this matters:</strong> {proposal.expectedImpact}</p>
                       <p><strong>Expected Impact:</strong> {proposal.expectedImpact}</p>
                       <p><strong>Source Analyzer Output:</strong> {proposal.sourceAnalyzerLabel}</p>
                       <p><strong>Affected Design Artifacts:</strong> {proposal.affectedArtifacts.join(', ')}</p>

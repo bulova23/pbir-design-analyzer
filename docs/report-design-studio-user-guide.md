@@ -2,112 +2,77 @@
 
 ## What Report Design Studio Is
 
-Report Design Studio is the design-side companion to PBIR Design Analyzer.
+Report Design Studio is the design workflow inside PBIR Design Analyzer.
 
-Its purpose is to help a consultant think through the right report before the report is built or revised. It is meant to turn a design conversation into an explicit workflow:
+It helps a consultant move from report intent to a reviewed design iteration through an explicit staged workflow:
 
-- define the report intent
-- compare design directions
-- review a draft design baseline
-- prepare that draft for review
-- hand the draft to Analyzer Workspace for validation
-- review refinement recommendations
-- compare iterations over time
+- Design Brief
+- Approve Brief
+- Concept Studio
+- Generate Concepts
+- Select Baseline
+- Approve Concept
+- Draft Studio
+- Generate Draft
+- Approve Draft
+- Prepare For Review
+- Create Review Candidate
+- Approve Review Candidate
+- Review Design
+- Launch Analyzer Workspace
+- Return Real Analyzer Result
+- Attach Analyzer Results
+- Refinement Studio
+- Compare Iterations
+- Workflow Completion
+- Complete Iteration
 
-Report Design Studio is not the scoring engine.
+Report Design Studio does not replace Analyzer Workspace.
 
-Report Design Studio is not the place where report validation becomes authoritative.
+Report Design Studio does not validate its own work.
 
-Report Design Studio is the place where design intent, design options, and design refinements are organized before Analyzer Workspace evaluates the result.
+Report Design Studio does not mutate the PBIR report automatically.
 
-Important current MVP reality:
+## Self-Serve Onboarding
 
-- the shipped UI is primarily a workflow shell and review surface
-- most early stages are explanatory and read-only in the main shell today
-- the shell shows stage status, approval meaning, and design-review content
-- the shell does not yet expose a full inline consultant authoring flow for Design Brief, Concept Studio, and Draft Studio
+Use this workflow when you need to design or revise a report intentionally before relying on analyzer review.
 
-## How It Relates To The Rest Of The Product
+Recommended first-time path:
 
-### PBIR Design Analyzer
+1. Open a PBIR report in VS Code.
+2. Launch Report Design Studio.
+3. Complete and approve the Design Brief.
+4. Generate concepts and approve one baseline.
+5. Generate and approve a draft.
+6. Prepare and approve a review candidate.
+7. Launch Analyzer Workspace from Review Design.
+8. Return analyzer results to Design Studio and attach them.
+9. Review advisory proposals in Refinement Studio.
+10. Compare the iteration history.
+11. Complete the iteration explicitly in Workflow Completion.
 
-PBIR Design Analyzer is the overall VS Code extension and platform.
-
-Report Design Studio is one workflow inside that platform.
-
-PBIR Design Analyzer also includes Analyzer Workspace, scoring, Story Assessment, Issues, Fix Plan, export, screenshot flows, and navigation helpers.
-
-### Story Assessment
-
-Story Assessment is analyzer output.
-
-It explains what a page appears to say, what weakens the story, and what should change first.
-
-Report Design Studio can use Story Assessment results later as advisory input during Refinement Studio, but Story Assessment itself does not happen inside Design Studio.
-
-### Analyzer Workspace
-
-Analyzer Workspace is where validation happens.
-
-Report Design Studio can prepare a design candidate and hand it off, but Analyzer Workspace owns the review result. That means:
-
-- Design Studio can approve design baselines
-- Design Studio can approve refinement choices
-- Design Studio can prepare a review candidate
-- Design Studio cannot validate its own work
-
-## What Report Design Studio Helps A Consultant Do
-
-Use Report Design Studio when you want to answer:
-
-- What report are we trying to create?
-- Who is it for?
-- What business question should it answer?
-- What is the best report structure?
-- Which concept should become the baseline?
-- Is the draft ready to be reviewed?
-- What analyzer feedback should be accepted into the next iteration?
-
-In plain terms:
-
-Design Studio helps consultants design the right report before building the report.
+If you are new to the product, start with an executive dashboard or operational monitoring scenario before using the analytical investigation path. Round 6 found that the analytical investigation path is still the slowest self-serve scenario.
 
 ## How To Launch Report Design Studio
 
 Use one of these entry points:
 
-1. Open the **PBIR Design Analyzer** explorer view.
-2. Use the rocket command in the explorer title bar: **PBIR Design Analyzer: Open Report Design Studio**.
-3. Right-click a report node in the PBIR tree and choose **PBIR Design Analyzer: Open Report Design Studio**.
-4. Use the Command Palette and run **PBIR Design Analyzer: Open Report Design Studio**.
+1. Open the PBIR Design Analyzer explorer.
+2. Use PBIR Design Analyzer: Open Report Design Studio from the explorer title bar.
+3. Right-click a report node in the PBIR tree and choose PBIR Design Analyzer: Open Report Design Studio.
+4. Use the Command Palette and run PBIR Design Analyzer: Open Report Design Studio.
 
-If no report is already selected, the extension may prompt you to choose a PBIR report.
+## What You See
 
-## What You See When It Opens
+The shell includes:
 
-The main shell has:
+- a workflow rail
+- a selected-stage summary
+- stage-specific execution and review content
+- approval cards
+- stage-local workflow actions
 
-- a workflow rail on the left
-- a stage summary area in the center
-- stage-specific review content
-- approval teaching cards
-- stage-specific actions when the MVP exposes them
-
-What you can actually click in the current shipped shell:
-
-- workflow stage buttons in the left rail
-- `Open Analyzer Workspace` in Review Design when that stage is ready
-- `Approve Proposal`, `Reject Proposal`, and `Defer Proposal` in Refinement Studio when proposals exist
-- iteration selectors in Compare Iterations when two or more iterations exist
-
-What you should not expect in the current shipped shell:
-
-- a writable Design Brief form
-- start, save, submit, or approve buttons for Design Brief
-- concept-generation or baseline-selection controls in the shell
-- draft-generation or draft-approval controls in the shell
-
-The workflow rail stages are:
+The current executable workflow rail stages are:
 
 1. Design Brief
 2. Concept Studio
@@ -116,86 +81,230 @@ The workflow rail stages are:
 5. Review Design
 6. Refinement Studio
 7. Compare Iterations
+8. Workflow Completion
 
-## What The Status Labels Mean
+## Executable Workflow
 
-### Ready
+### Design Brief
 
-Ready means the stage is available for review or the next workflow step.
+Design Brief is an executable authoring stage.
 
-Ready does not mean approved.
+The shell supports:
 
-Example:
+- Save Draft
+- Submit For Approval
+- Approve Brief
+- essentials-first editing
+- optional advanced brief details
 
-- Draft Studio can be `Ready` because the concept baseline is approved and a draft can now be reviewed.
+Core brief fields include:
 
-### Approved
+- Audience
+- Business Objective
+- Key Decisions
+- Primary KPIs
+- Dimensions
+- Intended Story
+- Success Criteria
+- Report Type
+- Navigation Expectations
 
-Approved means Design Studio accepted the current baseline for that stage.
+Advanced details can include:
 
-Approved does not mean validated by Analyzer Workspace.
+- Consumption Context
+- Decision Cadence
+- Narrative Risks Or Constraints
+- Required Evidence Domains
+- Target Analyzable Surface Family
 
-Example:
+Done signal:
 
-- A draft can be `Approved` inside Design Studio, which means it is the accepted draft baseline for the next step.
+- the brief is valid
+- the brief is approved
+- Concept Studio unlocks
 
-### Validated
+### Concept Studio
 
-Validated means Analyzer Workspace returned the review outcome and Design Studio has analyzer-owned evidence for that iteration.
+Concept Studio is an executable concept-baseline stage.
 
-Validated is stronger than Approved.
+The shell supports:
 
-Example:
+- Generate Concepts
+- baseline selection
+- Submit Baseline For Approval
+- Approve Concept Baseline
 
-- Compare Iterations can show a validated outcome after Analyzer Workspace reviewed a prepared candidate and recorded the result.
+Concept Studio remains design-only. It creates concept artifacts, not PBIR assets and not analyzable review candidates.
 
-## What The Approval Types Mean
+Done signal:
+
+- a preferred baseline is selected
+- the baseline is approved
+- Draft Studio unlocks
+
+### Draft Studio
+
+Draft Studio is an executable draft-baseline stage.
+
+The shell supports:
+
+- Generate Draft
+- Submit Draft For Approval
+- Approve Draft
+
+Draft Studio shows reviewable draft artifacts such as:
+
+- Draft Pages
+- Draft Layouts
+- Draft Navigation
+- KPI Placement
+
+Done signal:
+
+- the draft baseline is generated
+- the draft is approved
+- Prepare For Review unlocks
+
+### Prepare For Review
+
+Prepare For Review turns an approved draft into a review candidate without mutating the report.
+
+The shell supports:
+
+- Create Review Candidate
+- Submit Candidate For Approval
+- Approve Candidate
+
+This stage shows:
+
+- candidate lineage
+- approvals used
+- review diagnostics
+- target analyzer
+- target analyzer profile
+- readiness and eligibility
+
+Done signal:
+
+- a review candidate exists
+- the candidate is approved
+- Review Design unlocks
+
+### Review Design
+
+Review Design is the trust-boundary stage between Design Studio and Analyzer Workspace.
+
+The shell supports:
+
+- Open Analyzer Workspace
+- Mark Review Completed
+- Attach Analyzer Results
+
+Review Design progresses through these practical states:
+
+- Review Not Started
+- Review Launched
+- Awaiting Analyzer Results
+- Analyzer Results Available
+- Results Attached
+
+Done signal:
+
+- Analyzer Workspace has reviewed the candidate
+- real analyzer results have returned
+- analyzer results have been attached explicitly
+- Refinement Studio unlocks
+
+### Refinement Studio
+
+Refinement Studio converts attached analyzer output into advisory design proposals.
+
+The shell supports proposal decisions such as:
+
+- Approve Proposal
+- Reject Proposal
+- Defer Proposal
+
+Refinement decisions are design decisions. They are not validation approval.
+
+### Compare Iterations
+
+Compare Iterations shows what changed across iterations.
+
+Use it to review:
+
+- iteration-to-iteration changes
+- approval evolution
+- validation evolution
+- attached analyzer-result lineage
+- recommendation outcomes
+
+Compare Iterations is a review surface. It does not own validation and it does not complete the workflow by itself.
+
+### Workflow Completion
+
+Workflow Completion is a separate closeout stage after Compare Iterations.
+
+The shell supports:
+
+- Complete Iteration
+- Reopen Iteration
+
+This stage shows:
+
+- completion checklist
+- outstanding items
+- approvals satisfied
+- recommendation summary
+- completion and reopen audit history
+
+Workflow Completion is explicit because completion is not the same thing as:
+
+- design approval
+- review-candidate approval
+- refinement approval
+- validation approval
+- deployment approval
+
+## Approval Model
 
 ### Design Approval
 
 Owner: Design Studio
 
+Used for:
+
+- Approve Brief
+- Approve Concept
+- Approve Draft
+
 Meaning:
 
-- the current design baseline is accepted for the next design stage
-
-Examples:
-
-- the Design Brief is accepted and Concept Studio may proceed
-- a concept baseline is accepted and Draft Studio may proceed
-- a draft is accepted and Prepare For Review may proceed
-
-Does not mean:
-
-- the report is validated
-- the report was built
-- the report was changed automatically
+- the current design artifact is accepted as the baseline for the next workflow step
 
 ### Materialization Approval
 
 Owner: Design Studio
 
+Used for:
+
+- Approve Review Candidate
+
 Meaning:
 
-- the approved draft is eligible to become a review candidate
-
-Does not mean:
-
-- analyzers already ran
-- PBIR files were created
-- the report was mutated
+- the approved draft can be handed to Analyzer Workspace as a review candidate
 
 ### Refinement Approval
 
 Owner: Design Studio
 
+Used for:
+
+- proposal decisions inside Refinement Studio
+
 Meaning:
 
-- a refinement recommendation is accepted into the next iteration path
-
-Does not mean:
-
-- the refined design is validated
+- Design Studio recorded the consultant's advisory refinement decision
 
 ### Validation Approval
 
@@ -203,125 +312,71 @@ Owner: Analyzer Workspace
 
 Meaning:
 
-- Analyzer Workspace evaluated a prepared candidate and returned the validation outcome with explicit provenance
+- Analyzer Workspace returned and owns the validation outcome and its provenance
 
-Does not mean:
+## Trust Boundaries
 
-- Design Studio self-approved the result
-- deployment approval exists
+Design Studio owns:
 
-## When You Are Done
+- brief authoring
+- concept generation and baseline approval
+- draft generation and approval
+- review-candidate preparation and approval
+- refinement decisions
+- workflow completion and reopen
+- iteration management
 
-For the current MVP, a consultant is effectively done when all of these are true:
+Analyzer Workspace owns:
 
-1. the design direction is clear
-2. the chosen concept baseline is clear
-3. the draft baseline is clear
-4. the design has been handed to Analyzer Workspace for review
-5. the refinement decisions are recorded
-6. Compare Iterations shows the current state of the design and validation outcome
+- analyzer execution
+- findings
+- validation approval
+- analyzer provenance
+- returned analyzer-result identity
 
-In the current MVP, “done” is more about reaching a documented and reviewable design state than completing an automated production workflow.
+Design Studio never:
 
-## Stage Summary
+- self-validates
+- grants validation approval
+- mutates the report automatically
+- treats attached analyzer results as Design Studio-authored findings
 
-### Design Brief
+## Analyzer Return Path
 
-In the current shipped shell, this stage is a read-only workflow summary.
+The analyzer return path is explicit:
 
-It tells you that the Design Brief stage is where the design intent baseline belongs.
+1. Review Design opens Analyzer Workspace.
+2. Analyzer Workspace performs the review.
+3. Analyzer Workspace records the analyzer-owned result.
+4. Design Studio returns to Review Design.
+5. Review Design discovers the real returned result.
+6. The user chooses Attach Analyzer Results.
+7. Design Studio records the attached result in iteration history.
+8. Refinement Studio unlocks using the attached analyzer-backed result.
 
-The underlying Design Studio foundation expects the brief model to contain:
+The attach step is intentional. Launching review alone does not unlock refinement.
 
-- audience
-- business objective
-- key decisions
-- primary KPIs
-- intended story
-- success criteria
-- report type
+## Workflow Completion And Reopen
 
-The underlying model can also capture:
+Use Workflow Completion when you want to close the current iteration explicitly.
 
-- dimensions
-- navigation expectations
-- consumption context
-- decision cadence
-- narrative risks or constraints
-- required evidence domains
-- target analyzable surface family
+Complete Iteration means:
 
-But the current shipped shell does not show those fields as editable inputs.
+- the current design iteration is closed as a workflow state
+- checklist and audit details are recorded
 
-### Concept Studio
+Complete Iteration does not mean:
 
-In the current shipped shell, this stage is a read-only concept review surface.
+- validation approval was granted
+- the report is deployed
+- publication happened
 
-It lets you inspect concept-review content, but not generate or approve the concept baseline directly in the shell.
+Reopen Iteration means:
 
-When concept review content exists, you should review:
+- the completed iteration is moved back into an active workflow state
+- completion history is preserved
+- the consultant can continue refinement and iteration work intentionally
 
-- chapter structure
-- KPI hierarchy
-- navigation structure
-- analytical flow
+## Screenshots
 
-### Draft Studio
-
-In the current shipped shell, this stage is a read-only draft review surface.
-
-It lets you inspect the current draft review summary, but not generate or approve drafts directly in the shell.
-
-You should review:
-
-- draft pages
-- draft layouts
-- draft navigation
-- KPI placement
-
-### Prepare For Review
-
-Use this stage to confirm the draft is ready to be reviewed.
-
-In user terms, this means:
-
-- the draft has been accepted
-- Design Studio can prepare a review candidate
-- the candidate is eligible, preview-only, or blocked
-
-### Review Design
-
-Use this stage to open Analyzer Workspace intentionally.
-
-This is the point where design review leaves Design Studio and validation becomes Analyzer Workspace work.
-
-### Refinement Studio
-
-Use this stage to review analyzer-driven design recommendations.
-
-You can:
-
-- approve a proposal
-- reject a proposal
-- defer a proposal
-
-### Compare Iterations
-
-Use this stage to review:
-
-- What Improved
-- What Was Accepted
-- What Changed
-- Approval Evolution
-- Validation Evolution
-
-## Current MVP Limitation
-
-The current MVP shell is strongest as a guided review shell, not as a fully connected self-serve authoring workflow.
-
-Some early-stage actions exist in underlying slices and tests, but are not exposed as a complete end-user action path in the main shipped shell. That means this guide explains the workflow intent and the visible shell behavior, but it does not claim that a consultant can complete the full early-stage flow entirely inside the current UI.
-
-See:
-
-- [report-design-studio-workflow-walkthrough.md](/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/docs/report-design-studio-workflow-walkthrough.md:1)
-- [report-design-studio-uat-gap-analysis.md](/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/docs/report-design-studio-uat-gap-analysis.md:1)
+No current Design Studio workflow screenshots are checked into the repository for these guides. Existing image assets under `docs/` are not current Design Studio workflow captures, so none were added in this alignment pass.

@@ -2,6 +2,91 @@
 
 ## Active Session
 
+- 2026-06-18 Report Discovery Wizard planning is complete:
+  - objective:
+    - create a planning-only design specification and phased implementation plan for Report Discovery Wizard
+    - define the curated recommendation model, Experience Blueprint contract, Design Studio integration path, trust boundaries, and future Microsoft Skills integration posture
+  - delivered:
+    - created `docs/superpowers/specs/2026-06-18-report-discovery-wizard-design.md`
+    - created `docs/superpowers/plans/2026-06-18-report-discovery-wizard-plan.md`
+    - defined a curated output model with:
+      - Top 3 Primary Recommendations
+      - 2 Alternate Recommendations
+      - maximum of 5 recommendations
+    - defined required recommendation fields:
+      - recommendation name
+      - experience type
+      - confidence
+      - business value
+      - implementation complexity
+      - recommendation rationale
+      - audience
+      - expected business outcome
+    - defined Experience Blueprint as the bridge from semantic model discovery into Design Studio
+    - defined recommendation selection seeding for:
+      - Design Brief
+      - Concept Candidates
+      - Initial Draft
+    - defined Design Package as the future provider-neutral handoff object
+    - preserved Design Studio trust boundaries, Analyzer Workspace validation ownership, advisory-only recommendation posture, and optional downstream Microsoft Skills integration
+  - validation:
+    - targeted documentation-presence and heading checks only
+    - no build or test commands were run because this session was planning-only and made no product-code changes
+  - next recommended step:
+    - review and tighten the discovery taxonomy, ranking heuristics, and Experience Blueprint contract before any implementation phase starts
+
+- 2026-06-18 Design Studio Analytical & Comparison Speed Polish is complete:
+  - objective:
+    - reduce reading burden and improve consultant scan speed in Concept Studio, Refinement Studio, Compare Iterations, and Workflow Completion
+  - delivered:
+    - added a summary-first Concept Studio comparison layer with:
+      - Concept Summary
+      - Key Differences
+      - Recommended Baseline
+      - What Is Different?
+    - moved analytical-investigation scan guidance earlier in Concept Studio with explicit:
+      - Question
+      - Investigation
+      - Evidence
+      - Conclusion
+    - added a scan-first Compare Iterations progress layer with:
+      - accepted recommendation count
+      - rejected recommendation count
+      - deferred recommendation count
+      - outstanding recommendation count
+      - newly resolved issues
+      - remaining issues
+      - explicit What Remains Unresolved section
+    - updated Refinement Studio to surface recommendation outcomes more clearly and relabel proposed recommendations as `Outstanding` in the UI
+    - added a recommendation-outcomes summary block in Refinement Studio
+    - added explicit `Why this matters` visibility on refinement proposals
+    - preserved trust boundaries, workflow ownership, analyzer ownership, validation ownership, workflow completion ownership, and recommendation logic
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - notes:
+    - backend tests passed with pre-existing nullable warnings in .NET projects; no new failures were introduced
+  - next recommended step:
+    - if self-serve readiness is revisited, run a fresh consultant-style UAT pass focused on scan speed in analytical investigation and iteration comparison
+
+- 2026-06-18 Design Studio Documentation Alignment is complete:
+  - objective:
+    - align the published Design Studio docs with the executable workflow and current shell behavior
+  - delivered:
+    - updated `docs/report-design-studio-user-guide.md` to match the executable shell and workflow
+    - updated `docs/report-design-studio-workflow-walkthrough.md` to follow the real staged execution path
+    - updated `docs/report-design-studio-uat-guide.md` to validate the live workflow, trust boundaries, analyzer return path, completion, and reopen
+    - updated `docs/report-design-studio-uat-gap-analysis.md` to remove stale early-stage/doc-drift gaps and focus on remaining self-serve usability risks
+    - added self-serve onboarding guidance
+    - documented approvals, trust boundaries, analyzer ownership, analyzer return path, workflow completion, and reopen behavior across the Design Studio guides
+    - recorded that no current Design Studio workflow screenshots were available in-repo for this documentation pass
+  - validation passed:
+    - `rg -n "Design Brief|Approve Brief|Concept Studio|Generate Concepts|Select Baseline|Approve Concept|Draft Studio|Generate Draft|Approve Draft|Prepare For Review|Create Review Candidate|Approve Review Candidate|Review Design|Launch Analyzer Workspace|Return Real Analyzer Result|Attach Analyzer Results|Refinement Studio|Compare Iterations|Workflow Completion|Complete Iteration|Reopen Iteration|trust boundar|Analyzer Workspace owns validation|analyzer return path|Workflow Completion|self-serve onboarding" docs/report-design-studio-user-guide.md docs/report-design-studio-workflow-walkthrough.md docs/report-design-studio-uat-guide.md docs/report-design-studio-uat-gap-analysis.md`
+    - `rg -n "read-only|does not yet expose|not fully exposed|missing controls|cannot reliably complete|cannot be fully completed" docs/report-design-studio-user-guide.md docs/report-design-studio-workflow-walkthrough.md docs/report-design-studio-uat-guide.md docs/report-design-studio-uat-gap-analysis.md`
+  - next recommended step:
+    - rerun a fresh consultant-style UAT pass after this doc alignment to confirm whether the remaining blocker is only self-serve speed in analytical investigation and comparison-heavy scenarios
+
 - 2026-06-17 Design Studio Recommendation State Consistency is complete:
   - objective:
     - make recommendation state authoritative and consistent across Refinement Studio, Compare Iterations, Workflow Completion, and analyzer return attachment

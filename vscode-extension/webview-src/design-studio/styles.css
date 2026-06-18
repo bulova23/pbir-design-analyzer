@@ -181,6 +181,24 @@ body {
   padding: 14px;
 }
 
+.summary-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.summary-metric-card {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.summary-metric-card p,
+.summary-metric-card strong {
+  margin: 0;
+}
+
 @media (max-width: 900px) {
   .studio-layout {
     grid-template-columns: 1fr;

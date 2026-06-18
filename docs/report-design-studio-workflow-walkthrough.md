@@ -2,492 +2,306 @@
 
 ## Purpose
 
-This walkthrough explains the current MVP workflow as a consultant would experience it.
+This walkthrough matches the current executable Report Design Studio workflow.
 
-It also distinguishes between:
-
-- actions the current shell exposes directly
-- workflow states the shell explains
-- workflow steps that are still incomplete in the current MVP
+It is written for the current shell, not for earlier read-only MVP descriptions.
 
 ## Before You Start
 
-1. Open the PBIR project in VS Code.
-2. Open the **PBIR Design Analyzer** explorer.
-3. Launch **PBIR Design Analyzer: Open Report Design Studio**.
-4. Confirm the Design Studio shell opens and the workflow rail is visible.
+1. Open the PBIR workspace in VS Code.
+2. Open the PBIR Design Analyzer explorer.
+3. Launch PBIR Design Analyzer: Open Report Design Studio.
+4. Confirm the workflow rail shows:
+   - Design Brief
+   - Concept Studio
+   - Draft Studio
+   - Prepare For Review
+   - Review Design
+   - Refinement Studio
+   - Compare Iterations
+   - Workflow Completion
 
-## Quick Path
+## End-To-End Path
 
-The intended workflow model is:
+Use this exact sequence:
 
-1. Define the design intent in Design Brief.
-2. Compare concepts in Concept Studio.
-3. Approve a concept baseline.
-4. Review the draft baseline in Draft Studio.
-5. Prepare that approved draft for review.
-6. Open Analyzer Workspace intentionally.
-7. Return to Refinement Studio to review recommendations.
-8. Use Compare Iterations to confirm what improved.
-
-The current shipped shell does not expose that full path as clickable stage-local actions from the beginning.
-
-What the current shell actually provides is:
-
-- visible workflow stages
-- visible stage status
-- visible approval teaching
-- visible concept, draft, readiness, handoff, refinement, and iteration review content when those artifacts exist
-- live buttons only for:
-  - opening Analyzer Workspace from Review Design
-  - approving, rejecting, or deferring refinement proposals
-  - choosing iterations in Compare Iterations
+1. Complete Design Brief.
+2. Approve Brief.
+3. Open Concept Studio.
+4. Generate Concepts.
+5. Select Baseline.
+6. Approve Concept.
+7. Open Draft Studio.
+8. Generate Draft.
+9. Approve Draft.
+10. Open Prepare For Review.
+11. Create Review Candidate.
+12. Approve Review Candidate.
+13. Open Review Design.
+14. Launch Analyzer Workspace.
+15. Complete review in Analyzer Workspace.
+16. Return real analyzer results to Design Studio.
+17. Attach Analyzer Results.
+18. Open Refinement Studio.
+19. Review proposal decisions.
+20. Open Compare Iterations.
+21. Open Workflow Completion.
+22. Complete Iteration.
 
 ## Stage 1: Design Brief
 
-### What It Is
+### What You Do
 
-Design Brief is the intent baseline for the report.
+1. Open Design Brief.
+2. Fill the required brief fields.
+3. Use Save Draft to validate and persist the brief.
+4. Use Submit For Approval.
+5. Use Approve Brief.
 
-It defines who the report is for, what decision it supports, what story it should tell, and how success will be judged.
+### What The Stage Means
 
-### What You Actually See In The Current Shipped Shell
+This is the design intent baseline for the thread.
 
-In the current shipped shell, you do not see a brief form.
+It captures:
 
-You see:
-
-- the `Design Brief` stage in the workflow rail
-- a stage summary card
-- a stage status badge such as `Not started`
-- a Design Approval card
-- Approval stages teaching cards
-
-There is nowhere in the current shipped shell to:
-
-- type an audience
-- type a business objective
-- click save
-- click submit
-- click request approval
-
-### Underlying Brief Model
-
-The underlying Design Brief foundation expects these core fields:
-
-- Audience
-- Business Objective
-- Key Decisions
-- Primary KPIs
-- Intended Story
-- Success Criteria
-- Report Type
-
-The deeper contract also expects:
-
-- Dimensions
-- Navigation Expectations
-
-Advanced optional context can include:
-
-- Consumption Context
-- Decision Cadence
-- Narrative Risks Or Constraints
-- Required Evidence Domains
-- Target Analyzable Surface Family
-
-### What To Do In The Current Shell
-
-In the current shipped shell:
-
-1. click `Design Brief`
-2. read the stage description
-3. read the Design Approval card
-4. use the shell to understand what this stage is supposed to represent
-
-The current shell is explanatory here, not interactive.
-
-### What Happens Next
-
-Once the Design Brief is approved, Concept Studio becomes the next valid stage.
+- who the report is for
+- what business objective it supports
+- what decisions it should enable
+- which KPIs and dimensions matter
+- what story and navigation path the report should follow
 
 ### Done Signal
 
-You are done with Design Brief when:
-
-- the business intent is clear
-- the brief is valid
-- the brief is approved for concept work
-
-Current MVP gap:
-
-- the shell teaches this state, but it does not provide actual start/save/submit/approve controls for this stage
+- the approval status is Approved
+- Concept Studio unlocks
+- the shell guidance changes to continue to Concept Studio
 
 ## Stage 2: Concept Studio
 
-### What It Is
+### What You Do
 
-Concept Studio compares alternate report concepts before any draft baseline is accepted.
+1. Open Concept Studio.
+2. Use Generate Concepts.
+3. Review concept alternatives.
+4. Choose a preferred baseline.
+5. Submit the baseline for approval.
+6. Approve the concept baseline.
 
-A concept is a proposed report design direction. It defines:
+### What The Stage Means
 
-- chapter structure
-- KPI hierarchy
-- navigation structure
-- analytical flow
+Concept Studio creates and compares report-design directions before any draft is accepted.
 
-### What Concepts Mean
-
-A concept is not a built report.
-
-A concept is a design option for how the report should tell the story.
-
-### What You Actually See In The Current Shipped Shell
-
-In the current MVP shell:
-
-1. click `Concept Studio` in the workflow rail
-2. review the selected baseline label
-3. review:
-   - Chapter Structure
-   - KPI Hierarchy
-   - Navigation Structure
-   - Analytical Flow
-4. review the comparison sections between the selected baseline and the alternate concept
-
-What you do not see in the current shipped shell:
-
-- a `Generate Concepts` button
-- a baseline selector
-- an approval button for the concept baseline
-
-### What To Do In The Current Shell
-
-Use the stage as a read-only review surface:
-
-1. inspect the concept baseline shown
-2. inspect the comparison content
-3. decide whether the concept direction makes sense
-
-The shell does not currently let you choose or approve the baseline directly.
-
-### What Happens Next
-
-Once the concept baseline is approved, Draft Studio becomes available.
+It is still design-only. No review candidate exists yet.
 
 ### Done Signal
 
-You are done with Concept Studio when:
-
-- one concept is clearly preferred
-- that concept has been approved as the baseline
-- the draft stage can proceed from that baseline
-
-Current MVP gap:
-
-- concept review is visible
-- concept selection and approval are not exposed as shell-based self-serve actions
+- one concept is selected as the preferred baseline
+- concept approval is complete
+- Draft Studio unlocks
 
 ## Stage 3: Draft Studio
 
-### What It Is
+### What You Do
 
-Draft Studio is where the chosen concept becomes a reviewable draft baseline.
+1. Open Draft Studio.
+2. Use Generate Draft.
+3. Review the generated draft artifacts:
+   - Draft Pages
+   - Draft Layouts
+   - Draft Navigation
+   - KPI Placement
+4. Submit the draft for approval.
+5. Approve the draft.
 
-A draft is still non-production. It is not a real report mutation.
+### What The Stage Means
 
-It is a design baseline the consultant can review before handing anything to Analyzer Workspace.
+Draft Studio turns the approved concept baseline into a reviewable draft baseline.
 
-### What You Actually See In The Current Shipped Shell
-
-When draft review content exists, the shell can show:
-
-- draft pages
-- draft layouts
-- draft navigation
-- KPI placement guidance
-
-What you do not see in the current shipped shell:
-
-- a `Generate Draft Artifacts` button
-- a draft approval button
-
-### What To Do In The Current Shell
-
-If draft review content exists:
-
-1. click `Draft Studio`
-2. review the draft status
-3. review Draft Pages, Draft Layouts, and Draft Navigation
-4. decide whether the draft reads like a coherent report design
-
-If draft review content does not exist:
-
-1. click `Draft Studio`
-2. treat the stage as a read-only workflow summary
-
-The shell does not currently let you generate or approve drafts directly.
-
-### What Happens Next
-
-Once the draft is approved, Prepare For Review becomes meaningful.
+The draft is isolated and non-production. It is still not analyzer validation and still not a report mutation.
 
 ### Done Signal
 
-You are done with Draft Studio when:
-
-- the draft is coherent enough to review
-- the draft has been approved as the design baseline
-- the next step is to prepare it for Analyzer Workspace review
+- the draft is approved
+- Prepare For Review unlocks
 
 ## Stage 4: Prepare For Review
 
-### What This Stage Does
+### What You Do
 
-Prepare For Review tells you whether the approved draft can become a review candidate.
+1. Open Prepare For Review.
+2. Review readiness, lineage, approvals used, and diagnostics.
+3. Use Create Review Candidate.
+4. Submit the candidate for approval.
+5. Approve the review candidate.
 
-This stage is the bridge between a design artifact and a review candidate.
+### What The Stage Means
 
-### What Readiness Means
+This stage prepares an analyzable candidate from the approved draft without changing the report.
 
-Readiness means:
-
-- the draft is approved
-- the system can derive a review candidate from it
-- the candidate is either executable, preview-only, or blocked
-
-### What Materialization Means In User Terms
-
-Materialization is platform language for:
-
-- “turn this approved design into something Analyzer Workspace can review”
-
-In user terms:
-
-- Design Studio is preparing a review candidate
-- it is not editing the report
-- it is not validating the report
-
-### What To Do
-
-In the current MVP shell:
-
-1. click `Prepare For Review`
-2. read:
-   - readiness label
-   - eligibility
-   - analyzer
-   - profile
-   - diagnostics
-3. confirm whether the stage is:
-   - Ready for analysis
-   - Preview only
-   - Needs attention
-
-There is no separate “start review preparation” or “approve materialization” button in the current shell.
-
-This stage is primarily a read-only readiness explanation surface.
-
-### What Happens Next
-
-If the candidate is executable, Review Design becomes ready.
+This is where Design Studio confirms the candidate is ready to be handed to Analyzer Workspace.
 
 ### Done Signal
 
-You are done with Prepare For Review when:
-
-- the candidate is ready
-- the diagnostics are acceptable
-- Review Design can open Analyzer Workspace
+- candidate status is approved
+- Review Design unlocks
 
 ## Stage 5: Review Design
 
-### What Happens Here
+### What You Do
 
-Review Design is where Design Studio hands the candidate to Analyzer Workspace.
+1. Open Review Design.
+2. Review Candidate Summary, Review Readiness, Review Status, and Analyzer Ownership.
+3. Use Open Analyzer Workspace.
+4. Complete the review in Analyzer Workspace.
+5. Return to Review Design.
+6. Confirm the shell shows analyzer results are available.
+7. Use Attach Analyzer Results.
 
-### Who Owns Validation
+### What The Stage Means
 
-Analyzer Workspace owns validation.
+Review Design is the handoff and return loop between Design Studio and Analyzer Workspace.
 
-Design Studio does not validate its own design.
+This stage makes the trust boundary explicit:
 
-### What To Do
+- Design Studio launches review only
+- Analyzer Workspace owns validation
+- analyzer results return from Analyzer Workspace
+- Design Studio must attach the returned result explicitly
 
-In the current MVP shell:
+### Return Path States
 
-1. click `Review Design`
-2. confirm the readiness label
-3. read the diagnostics
-4. click `Open Analyzer Workspace`
+The executable return path moves through:
 
-### What The Button Means
-
-**Open Analyzer Workspace** means:
-
-- Design Studio is explicitly opening the analyzer workflow
-- analysis has not already started automatically
-
-### What Happens Next
-
-Analyzer Workspace opens for the candidate.
-
-That is the validation step.
+1. Review Not Started
+2. Review Launched
+3. Awaiting Analyzer Results
+4. Analyzer Results Available
+5. Results Attached
 
 ### Done Signal
 
-You are done with Review Design when:
-
-- Analyzer Workspace opens successfully
-- the candidate is ready for explicit review there
+- analyzer results are attached to the iteration
+- Refinement Studio unlocks
 
 ## Stage 6: Refinement Studio
 
-### What It Is
+### What You Do
 
-Refinement Studio turns analyzer output into advisory design proposals.
+1. Open Refinement Studio.
+2. Review advisory proposals created from the attached analyzer result.
+3. Approve, Reject, or Defer proposals as needed.
 
-These proposals are not automatic mutations.
+### What The Stage Means
 
-They are consultant review items.
+Refinement Studio is advisory-only.
 
-### How To Review Recommendations
+It helps the consultant decide what design changes should shape the next iteration.
 
-In the current MVP shell:
-
-1. click **Refinement Studio**
-2. review each group:
-   - Story Improvements
-   - Layout Improvements
-   - KPI Improvements
-   - Navigation Improvements
-   - Report Structure Improvements
-3. for each proposal, review:
-   - title
-   - summary
-   - recommendation
-   - rationale
-   - expected impact
-   - source analyzer output
-   - affected design artifacts
-   - proposal comparison
-
-### How To Approve, Reject, Or Defer Recommendations
-
-The current MVP shell exposes live buttons:
-
-- **Approve Proposal**
-- **Reject Proposal**
-- **Defer Proposal**
-
-Use them as follows:
-
-1. approve when the recommendation should influence the next design iteration
-2. reject when the recommendation should not be accepted
-3. defer when the recommendation may be useful later but should not be accepted now
-
-### What Happens Next
-
-Accepted or rejected recommendations become part of the iteration history and refinement approval state.
+It does not grant validation approval and it does not edit the report automatically.
 
 ### Done Signal
 
-You are done with Refinement Studio when:
-
-- each meaningful recommendation has a decision
-- the refinement state reflects the accepted path for the next iteration
+- proposal decisions are recorded clearly enough to compare iterations and close the workflow intentionally
 
 ## Stage 7: Compare Iterations
 
-### What This Stage Does
+### What You Do
 
-Compare Iterations explains how the design evolved over time.
+1. Open Compare Iterations.
+2. Review what changed between iterations.
+3. Confirm attached analyzer-result history and approval evolution are understandable.
 
-### What Improved
+### What The Stage Means
 
-This section summarizes the positive movement between the earlier and later iteration.
+Compare Iterations is the history and comparison surface.
 
-### What Changed
+Use it to confirm:
 
-This section lists change highlights and recommendation evolution that are not simply accepted recommendations.
-
-### What Was Accepted
-
-This section isolates the recommendations that were explicitly accepted.
-
-### What To Do
-
-In the current MVP shell:
-
-1. click **Compare Iterations**
-2. review:
-   - Iteration Timeline
-   - Progress Snapshot
-   - What Improved
-   - What Was Accepted
-   - What Changed
-   - Approval Evolution
-   - Validation Evolution
-3. if two or more iterations exist, choose:
-   - **Before iteration**
-   - **After iteration**
+- what changed
+- what was accepted, rejected, or deferred
+- whether validation status changed
+- which analyzer-backed result belongs to the iteration
 
 ### Done Signal
 
-You are done with Compare Iterations when:
+- the current iteration history is understandable
+- you are ready to close or reopen the workflow intentionally
 
-- you can explain what changed
-- you know which recommendations were accepted
-- you know whether validation improved
+## Stage 8: Workflow Completion
 
-## Approval Guide
+### What You Do
 
-### Ready
+1. Open Workflow Completion.
+2. Review the completion checklist.
+3. Review outstanding items, approvals satisfied, and recommendation summary.
+4. Use Complete Iteration when the workflow is ready to close.
+5. Use Reopen Iteration later if more work is needed.
 
-Use this as:
+### What The Stage Means
 
-- “this stage can now be reviewed or handed forward”
+Workflow Completion is a separate stage because closeout is not the same thing as approval or validation.
 
-Example:
+It records:
 
-- Prepare For Review is `Ready` when the draft can be turned into an executable review candidate.
+- checklist state
+- completion state
+- completion audit history
+- reopen audit history
 
-### Approved
+### Done Signal
 
-Use this as:
+- completion state is Completed
+- audit details are recorded
 
-- “Design Studio accepted this baseline for the next stage”
+## Approval And Ownership Model
 
-Example:
+Design Studio owns:
 
-- Concept Studio is `Approved` when one concept baseline has been accepted for Draft Studio.
+- brief approval
+- concept approval
+- draft approval
+- review-candidate approval
+- refinement decisions
+- workflow completion
+- workflow reopen
 
-### Validated
+Analyzer Workspace owns:
 
-Use this as:
+- analyzer execution
+- findings
+- validation approval
+- validation provenance
 
-- “Analyzer Workspace returned the review outcome and that result now belongs to the iteration history”
+## Trust Boundary Summary
 
-Example:
+Design Studio prepares, launches, records, and compares workflow state.
 
-- Compare Iterations can show `Validated` once Analyzer Workspace returned analyzer-owned evidence.
+Analyzer Workspace evaluates the review candidate and owns the validation result.
 
-## When The Workflow Completes
+Design Studio cannot:
 
-For the current MVP, the workflow is complete when:
+- validate the design itself
+- infer validation approval from completion
+- skip the attach step after analyzer return
 
-1. the design baseline is clear
-2. the draft baseline is clear
-3. Analyzer Workspace reviewed the candidate
-4. refinement decisions are recorded
-5. Compare Iterations explains the result
+## When The Workflow Is Complete
 
-## Reality Check
+The workflow is complete when:
 
-The current shell can explain the workflow well.
+1. the brief, concept, draft, and review candidate are approved
+2. Analyzer Workspace has reviewed the candidate
+3. real analyzer results have returned
+4. those results are attached
+5. refinement decisions are recorded
+6. iteration comparison has been reviewed
+7. Workflow Completion is explicitly marked complete
 
-The current shell cannot yet carry a new consultant through the Design Brief -> Concept -> Draft path using stage-local data-entry, save, submit, or approval controls, because those controls are not exposed in the shipped UI.
+## Reopen Workflow
 
-That is a product gap, not a documentation gap.
+Use Reopen Iteration when a completed iteration needs more refinement or follow-up analysis.
 
-See [report-design-studio-uat-gap-analysis.md](/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/docs/report-design-studio-uat-gap-analysis.md:1).
+Reopen preserves the audit trail. It does not erase prior completion history.
+
+## Screenshots
+
+No current Design Studio workflow screenshots are available in the repository for this walkthrough, so this alignment update does not add screenshots.

@@ -91,12 +91,28 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
             : 'Improve report flow with a clearer executive entry point.',
           expectedImpact: 'Improve report flow.',
           approvalState: 'approved',
+          recommendationState: 'approved',
         },
         {
           proposalId: `proposal:${version}:rejected`,
           suggestedDesignChange: 'Add benchmark recommendation.',
           expectedImpact: 'Strengthen comparison context.',
           approvalState: version === 1 ? 'pendingApproval' : 'rejected',
+          recommendationState: version === 1 ? 'proposed' : 'rejected',
+        },
+        {
+          proposalId: `proposal:${version}:deferred`,
+          suggestedDesignChange: 'Delay the drill-heavy evidence branch.',
+          expectedImpact: 'Keep the story path focused.',
+          approvalState: 'pendingApproval',
+          recommendationState: 'deferred',
+        },
+        {
+          proposalId: `proposal:${version}:outstanding`,
+          suggestedDesignChange: 'Clarify the benchmark evidence sequence.',
+          expectedImpact: 'Make the investigation path easier to follow.',
+          approvalState: 'pendingApproval',
+          recommendationState: 'proposed',
         },
       ],
       validationStatus: version === 1 ? 'needsReview' : 'validated',
@@ -135,7 +151,7 @@ function makeIteration(id: string, version: number, overrides: Partial<DesignIte
 }
 
 describe('ClosedLoopView', () => {
-  it('renders an iteration timeline and leads with what improved, what changed, and what was accepted', () => {
+  it('renders an iteration timeline and leads with scan-first progress, recommendation outcomes, and unresolved work', () => {
     const iterations = [makeIteration('iteration:1', 1), makeIteration('iteration:2', 2)];
 
     render(
@@ -151,6 +167,9 @@ describe('ClosedLoopView', () => {
     expect(screen.getByText('Improvement signals')).toBeInTheDocument();
     expect(screen.getByText('Accepted recommendations')).toBeInTheDocument();
     expect(screen.getByText('Change highlights')).toBeInTheDocument();
+    expect(screen.getByText('Rejected recommendations')).toBeInTheDocument();
+    expect(screen.getByText('Deferred recommendations')).toBeInTheDocument();
+    expect(screen.getByText('Outstanding recommendations')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'What Improved' })).toBeInTheDocument();
     expect(screen.getByText('Changed navigation structure.')).toBeInTheDocument();
     expect(screen.getByText('Added benchmark comparison page.')).toBeInTheDocument();
@@ -158,6 +177,9 @@ describe('ClosedLoopView', () => {
     expect(screen.getByText('Accepted recommendation: Improve report flow with a clearer executive entry point.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'What Changed' })).toBeInTheDocument();
     expect(screen.getByText('Rejected recommendation: Add benchmark recommendation.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What Remains Unresolved' })).toBeInTheDocument();
+    expect(screen.getByText('Deferred recommendation: Delay the drill-heavy evidence branch.')).toBeInTheDocument();
+    expect(screen.getByText('Outstanding recommendation: Clarify the benchmark evidence sequence.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Approval Evolution' })).toBeInTheDocument();
     expect(screen.getByText('Validation Approval changed from Not submitted to Approved.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Validation Evolution' })).toBeInTheDocument();

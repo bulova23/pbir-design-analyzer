@@ -74,7 +74,16 @@ describe('ConceptStudioView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Choose Narrative-first storyline' }));
 
     expect(onSelectBaseline).toHaveBeenCalledWith('concept-narrative');
+    expect(screen.getByRole('heading', { name: 'Concept Summary' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Key Differences' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recommended Baseline' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What Is Different?' })).toBeInTheDocument();
     expect(screen.getByText('Preferred baseline: Narrative-first storyline')).toBeInTheDocument();
+    expect(screen.getByText(/Scenario fit: Executive Reporting, Operational Monitoring, Analytical Investigation/)).toBeInTheDocument();
+    expect(screen.getByText('Additional KPI hierarchy')).toBeInTheDocument();
+    expect(screen.getByText('Additional navigation depth')).toBeInTheDocument();
+    expect(screen.getByText('Additional analytical flow')).toBeInTheDocument();
+    expect(screen.getByText('Why this baseline is preferred')).toBeInTheDocument();
     expect(screen.getByText('Concept comparison')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Chapter Structure Comparison' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'KPI Hierarchy Comparison' })).toBeInTheDocument();
@@ -87,6 +96,7 @@ describe('ConceptStudioView', () => {
     expect(screen.getByText('Investigation')).toBeInTheDocument();
     expect(screen.getByText('Evidence')).toBeInTheDocument();
     expect(screen.getByText('Conclusion')).toBeInTheDocument();
+    expect(screen.getByText('Question').compareDocumentPosition(screen.getByRole('heading', { name: 'Chapter Structure Comparison' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('Selected baseline stays internal to Concept Studio until a future explicit materialization step.')).toBeInTheDocument();
     expect(screen.getByText('Concept approval: Not submitted')).toBeInTheDocument();
     expect(screen.getByText('Submit the selected baseline for approval.')).toBeInTheDocument();

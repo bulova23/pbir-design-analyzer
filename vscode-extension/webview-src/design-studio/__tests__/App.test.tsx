@@ -592,7 +592,7 @@ describe('DesignStudio App shell', () => {
     }));
 
     expect(await screen.findByText('Submit the selected baseline for approval.')).toBeInTheDocument();
-    expect(screen.getByText('Preferred baseline: Narrative-first storyline')).toBeInTheDocument();
+    expect(screen.getByText(/Preferred baseline: Narrative-first storyline/)).toBeInTheDocument();
     expect(screen.getByText('Narrative-first storyline vs Operating-rhythm command deck')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit Baseline For Approval' }));
@@ -1065,7 +1065,7 @@ describe('DesignStudio App shell', () => {
     expect(screen.getByRole('button', { name: /Review Design/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('renders grouped suggested improvements with rationale, impact, comparison, and explicit proposal actions', async () => {
+  it('renders grouped suggested improvements with visible canonical recommendation outcomes and explicit proposal actions', async () => {
     render(<App />);
 
     dispatchHostMessage(withDesignStudioEnvelope({
@@ -1117,6 +1117,7 @@ describe('DesignStudio App shell', () => {
                     rationale: 'The page opens with metrics before the decision context is established.',
                     expectedImpact: 'Stronger story clarity',
                     approvalState: 'pendingApproval',
+                    recommendationState: 'proposed',
                     sourceAnalyzerLabel: 'Story Assessment',
                     affectedArtifacts: ['Page concept: Executive overview', 'Layout: KPI summary row'],
                     supportingEvidence: ['Narrative headline is missing a clear question.', 'Affected area: Page concept: Executive overview'],
@@ -1142,6 +1143,7 @@ describe('DesignStudio App shell', () => {
                     rationale: 'Executives branch too early and lose the main story thread.',
                     expectedImpact: 'Easier navigation',
                     approvalState: 'approved',
+                    recommendationState: 'approved',
                     sourceAnalyzerLabel: 'Issues',
                     affectedArtifacts: ['Navigation draft: tabbed story flow'],
                     supportingEvidence: ['Analyzer signal: Navigation drift'],
@@ -1151,6 +1153,44 @@ describe('DesignStudio App shell', () => {
                       proposedRefinement: 'Reduce the number of branches and clarify the path into detail pages.',
                     },
                     availableActions: ['defer', 'reject'],
+                  },
+                  {
+                    id: 'refinement-proposal:3',
+                    title: 'Delay secondary branch',
+                    summary: 'The secondary investigation branch can wait until the main path is clearer.',
+                    recommendation: 'Defer the secondary drill branch until the main evidence path is established.',
+                    rationale: 'The current branch competes with the primary story path.',
+                    expectedImpact: 'Sharper investigation path',
+                    approvalState: 'pendingApproval',
+                    recommendationState: 'deferred',
+                    sourceAnalyzerLabel: 'Guided Story Improvements',
+                    affectedArtifacts: ['Navigation draft: tabbed story flow'],
+                    supportingEvidence: ['Analyzer signal: Secondary branch competes with the main story.'],
+                    comparison: {
+                      originalDesignIntent: 'Overview first, detail second.',
+                      currentDesignState: 'The current path asks the user to choose too early.',
+                      proposedRefinement: 'Defer the secondary drill branch until the main evidence path is established.',
+                    },
+                    availableActions: ['approve', 'reject', 'defer'],
+                  },
+                  {
+                    id: 'refinement-proposal:4',
+                    title: 'Remove benchmark branch',
+                    summary: 'The benchmark branch distracts from the decision path.',
+                    recommendation: 'Do not add the benchmark branch in this iteration.',
+                    rationale: 'The branch adds reading load without improving the main decision flow.',
+                    expectedImpact: 'Lower reading burden',
+                    approvalState: 'rejected',
+                    recommendationState: 'rejected',
+                    sourceAnalyzerLabel: 'Issues',
+                    affectedArtifacts: ['Navigation draft: tabbed story flow'],
+                    supportingEvidence: ['Analyzer signal: Branching obscures the main flow.'],
+                    comparison: {
+                      originalDesignIntent: 'Overview first, detail second.',
+                      currentDesignState: 'The benchmark branch pulls attention away from the main task.',
+                      proposedRefinement: 'Do not add the benchmark branch in this iteration.',
+                    },
+                    availableActions: ['approve', 'defer'],
                   },
                 ],
               },
@@ -1164,16 +1204,22 @@ describe('DesignStudio App shell', () => {
     expect(screen.getByRole('heading', { name: 'Refinement Approval' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Story Improvements' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Navigation Improvements' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recommendation Outcomes' })).toBeInTheDocument();
+    expect(screen.getAllByText('Outstanding').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Approved').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Deferred').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Rejected').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Why this matters:/).length).toBeGreaterThan(0);
     expect(screen.getByText('The page opens with metrics before the decision context is established.')).toBeInTheDocument();
     expect(screen.getAllByText('Stronger story clarity').length).toBeGreaterThan(0);
-    expect(screen.getByText('Easier navigation')).toBeInTheDocument();
+    expect(screen.getAllByText('Easier navigation').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Original Design Intent:').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Current Design State:').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Proposed Refinement:').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Approve Proposal' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Approve Proposal' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Defer Proposal' }).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve Proposal' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Approve Proposal' })[0]!);
     expect(postMessage).toHaveBeenCalledWith(withDesignStudioEnvelope({
       type: 'setRefinementProposalState',
       proposalId: 'refinement-proposal:1',
@@ -1430,7 +1476,7 @@ describe('DesignStudio App shell', () => {
     expect(screen.getByText('Review Design')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Concept Studio execution' })).toBeInTheDocument();
     expect(screen.getByText('Concept baseline approved. Continue to Draft Studio.')).toBeInTheDocument();
-    expect(screen.getByText('Preferred baseline: Narrative-first storyline')).toBeInTheDocument();
+    expect(screen.getByText(/Preferred baseline: Narrative-first storyline/)).toBeInTheDocument();
     expect(screen.getByText('Narrative-first storyline vs Operating-rhythm command deck')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'KPI Hierarchy Comparison' })).toBeInTheDocument();
     expect(screen.getAllByText('Forecast Accuracy').length).toBeGreaterThan(0);

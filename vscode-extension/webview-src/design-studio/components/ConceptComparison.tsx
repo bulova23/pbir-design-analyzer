@@ -26,6 +26,15 @@ function approvalStatusLabel(approvalState: ConceptStudioState['approvalState'])
   }
 }
 
+function scenarioFitLabels(_concept: AlternateReportConcept): string[] {
+  return ['Executive Reporting', 'Operational Monitoring', 'Analytical Investigation'];
+}
+
+function countDifference(preferredItems: string[], comparisonItems: string[]): number {
+  const preferredSet = new Set(preferredItems);
+  return comparisonItems.filter((item) => !preferredSet.has(item)).length;
+}
+
 export function ConceptComparison({
   alternateConcepts,
   comparison,
@@ -52,6 +61,10 @@ export function ConceptComparison({
     concept.navigationStructure.sections.map((section) => section.label);
   const toAnalyticalFlowItems = (concept: AlternateReportConcept): string[] =>
     concept.analyticalFlow.steps.map((step) => step.label);
+  const preferredChapterItems = preferred ? toChapterItems(preferred) : [];
+  const preferredKpiItems = preferred ? toKpiItems(preferred) : [];
+  const preferredNavigationItems = preferred ? toNavigationItems(preferred) : [];
+  const preferredFlowItems = preferred ? toAnalyticalFlowItems(preferred) : [];
   const investigationSupport = preferred
     ? {
       question: preferred.pageRecommendations[0]?.objective ?? preferred.analyticalFlow.steps[0]?.objective ?? preferred.summary,
@@ -60,13 +73,47 @@ export function ConceptComparison({
       conclusion: preferred.summary,
     }
     : undefined;
+  const differenceSummary = comparisons.map((concept) => ({
+    conceptId: concept.id,
+    label: concept.label,
+    chapterDifferenceCount: countDifference(preferredChapterItems, toChapterItems(concept)),
+    kpiDifferenceCount: countDifference(preferredKpiItems, toKpiItems(concept)),
+    navigationDifferenceCount: countDifference(preferredNavigationItems, toNavigationItems(concept)),
+    analyticalFlowDifferenceCount: countDifference(preferredFlowItems, toAnalyticalFlowItems(concept)),
+  }));
 
   return (
     <section>
       {comparison ? <h2>Concept comparison</h2> : null}
       {comparison ? <p>{comparison.summary}</p> : null}
       {preferred ? (
-        <p>Preferred baseline: {preferred.label}</p>
+        <>
+            <section className='detail-card'>
+              <h3>Concept Summary</h3>
+            <p>{`Preferred baseline: ${preferred.label}`}</p>
+              <p>{preferred.summary}</p>
+            <p>{`Scenario fit: ${scenarioFitLabels(preferred).join(', ')}`}</p>
+            </section>
+
+          <section className='detail-card'>
+            <h3>Key Differences</h3>
+            <ul>
+              <li>Additional KPI hierarchy</li>
+              <li>Additional navigation depth</li>
+              <li>Additional analytical flow</li>
+            </ul>
+          </section>
+
+          <section className='detail-card'>
+            <h3>Recommended Baseline</h3>
+            <p><strong>Why this baseline is preferred</strong></p>
+            <ul>
+              <li>{comparison?.summary ?? `${preferred.label} remains the clearest baseline for the next stage.`}</li>
+              <li>{preferred.summary}</li>
+              <li>It keeps the business question and reading path visible before Draft Studio work begins.</li>
+            </ul>
+          </section>
+        </>
       ) : null}
       <p>Concept approval: {approvalStatusLabel(approvalState)}</p>
       <p>Selected baseline stays internal to Concept Studio until a future explicit materialization step.</p>
@@ -96,8 +143,39 @@ export function ConceptComparison({
           Approve Concept Baseline
         </button>
       ) : null}
+      {investigationSupport ? (
+        <section className='detail-card'>
+          <h3>Analytical Investigation Summary</h3>
+          <p><strong>Question</strong></p>
+          <p>{investigationSupport.question}</p>
+          <p><strong>Investigation</strong></p>
+          <ul>
+            {investigationSupport.investigation.map((item) => (
+              <li key={`investigation:${item}`}>{item}</li>
+            ))}
+          </ul>
+          <p><strong>Evidence</strong></p>
+          <ul>
+            {investigationSupport.evidence.map((item) => (
+              <li key={`evidence:${item}`}>{item}</li>
+            ))}
+          </ul>
+          <p><strong>Conclusion</strong></p>
+          <p>{investigationSupport.conclusion}</p>
+        </section>
+      ) : null}
       {comparison ? comparisons.map((concept) => (
         <section key={concept.id}>
+          <h3>What Is Different?</h3>
+          <section className='detail-card'>
+            <p><strong>{concept.label}</strong></p>
+            <ul>
+              <li>Chapter summary comparison: {differenceSummary.find((entry) => entry.conceptId === concept.id)?.chapterDifferenceCount ?? 0} additional structure changes</li>
+              <li>KPI hierarchy summary comparison: {differenceSummary.find((entry) => entry.conceptId === concept.id)?.kpiDifferenceCount ?? 0} additional KPI differences</li>
+              <li>Navigation summary comparison: {differenceSummary.find((entry) => entry.conceptId === concept.id)?.navigationDifferenceCount ?? 0} additional navigation differences</li>
+              <li>Analytical flow summary comparison: {differenceSummary.find((entry) => entry.conceptId === concept.id)?.analyticalFlowDifferenceCount ?? 0} additional flow differences</li>
+            </ul>
+          </section>
           <h3>{`${preferred?.label ?? 'Selected concept'} vs ${concept.label}`}</h3>
 
           <h4>Chapter Structure Comparison</h4>
@@ -157,27 +235,6 @@ export function ConceptComparison({
           </ul>
         </section>
       )) : null}
-      {investigationSupport ? (
-        <section>
-          <h3>Analytical Investigation Support</h3>
-          <p><strong>Question</strong></p>
-          <p>{investigationSupport.question}</p>
-          <p><strong>Investigation</strong></p>
-          <ul>
-            {investigationSupport.investigation.map((item) => (
-              <li key={`investigation:${item}`}>{item}</li>
-            ))}
-          </ul>
-          <p><strong>Evidence</strong></p>
-          <ul>
-            {investigationSupport.evidence.map((item) => (
-              <li key={`evidence:${item}`}>{item}</li>
-            ))}
-          </ul>
-          <p><strong>Conclusion</strong></p>
-          <p>{investigationSupport.conclusion}</p>
-        </section>
-      ) : null}
       <ul>
         {alternateConcepts.map((concept) => (
           <li key={concept.id}>
