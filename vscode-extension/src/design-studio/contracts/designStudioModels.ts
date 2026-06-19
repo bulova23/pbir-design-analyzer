@@ -118,6 +118,13 @@ export interface DesignArtifactAttribution {
   artifactKind: DesignStudioArtifactKind;
 }
 
+export interface DesignArtifactLineageEntry {
+  stage: string;
+  sourceKind: string;
+  sourceId: string;
+  label?: string;
+}
+
 export interface DesignArtifactProvenance {
   source: string;
   providerId?: string;
@@ -130,6 +137,7 @@ export interface DesignArtifactProvenance {
   modelOrEngineVersion?: string;
   timestamp?: string;
   artifactAttribution?: DesignArtifactAttribution;
+  lineage?: DesignArtifactLineageEntry[];
   notes?: string[];
 }
 

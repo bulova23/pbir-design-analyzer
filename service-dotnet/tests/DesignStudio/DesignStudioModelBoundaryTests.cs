@@ -21,6 +21,7 @@ public sealed class DesignStudioModelBoundaryTests
             "DesignStudioWorkflowCompletionState",
             "DesignArtifactAuthorSource",
             "DesignArtifactProvenance",
+            "DesignArtifactLineageLink",
             "DesignArtifactValidationLink",
             "ValidationResultStatus",
             "DesignArtifactMetadata",

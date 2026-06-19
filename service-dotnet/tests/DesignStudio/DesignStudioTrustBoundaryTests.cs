@@ -99,6 +99,7 @@ public sealed class DesignStudioTrustBoundaryTests
         Assert.Contains("ProviderDisplayName", provenanceProperties);
         Assert.Contains("ProviderCapabilityKind", provenanceProperties);
         Assert.Contains("ProviderCapabilityId", provenanceProperties);
+        Assert.Contains("Lineage", provenanceProperties);
 
         var noMutationGuaranteeProperties = noMutationGuaranteeType
             .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)

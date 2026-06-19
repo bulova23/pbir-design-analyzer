@@ -1,0 +1,731 @@
+using PowerBIModelingService.Services.Discovery.Models;
+
+namespace PowerBIModelingService.Services.Discovery;
+
+internal sealed class ExperienceBlueprintGenerationService
+{
+    private static readonly StringComparer NameComparer = StringComparer.OrdinalIgnoreCase;
+
+    internal RecommendationSet BuildRecommendationBlueprints(
+        DiscoveryProfile profile,
+        OpportunityCatalog catalog,
+        RecommendationSet recommendations)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(recommendations);
+
+        var opportunities = catalog.Opportunities.ToDictionary(opportunity => opportunity.OpportunityId, NameComparer);
+
+        return new RecommendationSet(
+            EnrichRecommendations(profile, opportunities, recommendations.PrimaryRecommendations),
+            EnrichRecommendations(profile, opportunities, recommendations.AlternateRecommendations));
+    }
+
+    private static IReadOnlyList<DiscoveryRecommendation> EnrichRecommendations(
+        DiscoveryProfile profile,
+        IReadOnlyDictionary<string, OpportunityCandidate> opportunities,
+        IReadOnlyList<DiscoveryRecommendation> recommendations)
+    {
+        return recommendations
+            .Select(recommendation =>
+            {
+                opportunities.TryGetValue(recommendation.RecommendationId, out var opportunity);
+                return recommendation with
+                {
+                    ExperienceBlueprint = BuildBlueprint(profile, recommendation, opportunity)
+                };
+            })
+            .ToList();
+    }
+
+    private static ExperienceBlueprint BuildBlueprint(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
+    {
+        var primaryKpis = BuildPrimaryKpis(profile, recommendation, opportunity);
+        var globalFilters = BuildGlobalFilters(profile);
+        var pages = BuildPages(profile, recommendation, opportunity, primaryKpis);
+        var analyticalFlow = BuildAnalyticalFlow(profile, recommendation, opportunity);
+        var navigationIntent = BuildNavigationIntent(profile, recommendation.RecommendedExperienceType, opportunity, pages);
+        var successCriteria = BuildSuccessCriteria(recommendation, pages, primaryKpis);
+        var provenance = BuildProvenance(profile, recommendation, opportunity);
+
+        return new ExperienceBlueprint(
+            BlueprintId: $"{recommendation.RecommendationId}-blueprint",
+            ExperienceType: recommendation.RecommendedExperienceType,
+            RecommendedPages: pages,
+            PrimaryKpis: primaryKpis,
+            SuggestedGlobalFilters: globalFilters,
+            AnalyticalFlow: analyticalFlow,
+            NavigationIntent: navigationIntent,
+            ExpectedAudience: recommendation.ExpectedAudience,
+            ExpectedBusinessOutcome: recommendation.ExpectedBusinessOutcome,
+            SuccessCriteriaSeed: successCriteria,
+            Provenance: provenance);
+    }
+
+    private static IReadOnlyList<string> BuildPrimaryKpis(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
+    {
+        var collected = new List<string>();
+
+        foreach (var cluster in profile.KpiClusters.OrderByDescending(cluster => cluster.Confidence))
+        {
+            collected.AddRange(cluster.MeasureNames);
+        }
+
+        collected.AddRange(profile.Measures.Select(measure => measure.Name));
+
+        var fallback = GetFallbackKpis(recommendation, opportunity);
+        collected.AddRange(fallback);
+
+        return collected
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(NameComparer)
+            .OrderBy(name => GetKpiPriority(name))
+            .ThenBy(name => name, NameComparer)
+            .Take(5)
+            .ToList();
+    }
+
+    private static int GetKpiPriority(string name)
+    {
+        if (name.Contains("revenue", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (name.Contains("gross margin", StringComparison.OrdinalIgnoreCase) || name.Contains("margin", StringComparison.OrdinalIgnoreCase))
+        {
+            return 1;
+        }
+
+        if (name.Contains("yoy", StringComparison.OrdinalIgnoreCase) || name.Contains("growth", StringComparison.OrdinalIgnoreCase))
+        {
+            return 2;
+        }
+
+        if (name.Contains("forecast", StringComparison.OrdinalIgnoreCase))
+        {
+            return 3;
+        }
+
+        if (name.Contains("retention", StringComparison.OrdinalIgnoreCase))
+        {
+            return 4;
+        }
+
+        if (name.Contains("variance", StringComparison.OrdinalIgnoreCase))
+        {
+            return 5;
+        }
+
+        return 10;
+    }
+
+    private static IReadOnlyList<string> GetFallbackKpis(
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
+    {
+        var category = opportunity?.Category;
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience ||
+            category is OpportunityCategory.InventoryOptimization or OpportunityCategory.ServiceOperations)
+        {
+            return ["Open Exceptions", "Backlog Trend", "Resolution Rate"];
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience ||
+            category is OpportunityCategory.ProfitabilityAnalysis or OpportunityCategory.RootCauseInvestigation)
+        {
+            return ["Variance", "Revenue", "Gross Margin"];
+        }
+
+        if (category == OpportunityCategory.InventoryOptimization)
+        {
+            return ["Open Exceptions", "Stockout Risk", "Backlog Trend"];
+        }
+
+        if (category == OpportunityCategory.ServiceOperations)
+        {
+            return ["Open Work Orders", "Resolution Time", "SLA Breach Risk"];
+        }
+
+        if (category == OpportunityCategory.ForecastAccuracy)
+        {
+            return ["Forecast Accuracy", "Actuals", "Variance"];
+        }
+
+        if (category == OpportunityCategory.CustomerAnalysis)
+        {
+            return ["Customer Retention", "Revenue", "Gross Margin"];
+        }
+
+        return ["Revenue", "Gross Margin", "YoY Growth"];
+    }
+
+    private static IReadOnlyList<string> BuildGlobalFilters(DiscoveryProfile profile)
+    {
+        var preferred = new[]
+        {
+            "Date",
+            "Region",
+            "Territory",
+            "Product Category",
+            "Customer Segment",
+            "Warehouse",
+            "Forecast Period"
+        };
+
+        var available = profile.Dimensions
+            .Select(dimension => dimension.Name)
+            .Concat(profile.DateIntelligence.DateDimensions)
+            .Distinct(NameComparer)
+            .ToList();
+
+        var selected = preferred
+            .Where(filter => available.Any(value => string.Equals(value, filter, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (selected.Count == 0 && available.Count > 0)
+        {
+            selected.AddRange(available.Take(3));
+        }
+
+        if (selected.Count == 0)
+        {
+            selected.Add("Date");
+        }
+
+        return selected
+            .Distinct(NameComparer)
+            .ToList();
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildPages(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
+        IReadOnlyList<string> primaryKpis)
+    {
+        return recommendation.RecommendedExperienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard => BuildExecutivePages(profile, opportunity),
+            OpportunityExperienceType.OperationalMonitoringExperience => BuildOperationalPages(profile, opportunity),
+            OpportunityExperienceType.AnalyticalInvestigationExperience => BuildAnalyticalPages(profile),
+            OpportunityExperienceType.FabricApp => BuildFabricAppPages(profile, opportunity),
+            OpportunityExperienceType.FabricDataApp => BuildFabricDataAppPages(profile),
+            _ => BuildPbirReportPages(profile, opportunity, primaryKpis),
+        };
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildExecutivePages(DiscoveryProfile profile, OpportunityCandidate? opportunity)
+    {
+        var pages = new List<ExperienceBlueprintPage>
+        {
+            CreatePage("Executive Summary", "Fast KPI-first summary for leadership review.", ["Date", "Region"], ["KPI Cards", "Trend Charts", "Scorecards"])
+        };
+
+        pages.Add(CreatePage("Revenue Performance", "Revenue trend and driver analysis.", PickFilters(profile, "Product Category", "Customer Segment", "Date"), ["Bar Charts", "Line Charts", "Decomposition Trees"]));
+
+        if (HasDimension(profile, "Territory") || HasDimension(profile, "Region"))
+        {
+            pages.Add(CreatePage("Territory Performance", "Regional and territory comparison.", PickFilters(profile, "Region", "Territory"), ["Bar Charts", "Maps", "Trend Charts"]));
+        }
+
+        if (HasDimension(profile, "Customer Segment") || HasDomain(opportunity, "Customer"))
+        {
+            pages.Add(CreatePage("Customer Analysis", "Customer segment performance and behavior.", PickFilters(profile, "Customer Segment", "Product Category"), ["Bar Charts", "Scatter Charts", "Detail Tables"]));
+        }
+
+        if (HasDomain(opportunity, "Forecasting") || HasMeasure(profile, "forecast"))
+        {
+            pages.Add(CreatePage("Forecast Accuracy", "Forecast versus actual performance.", PickFilters(profile, "Forecast Period", "Territory", "Date"), ["Line Charts", "Variance Charts", "Scorecards"]));
+        }
+
+        return pages;
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildOperationalPages(DiscoveryProfile profile, OpportunityCandidate? opportunity)
+    {
+        if (HasDomain(opportunity, "Service") || HasDimension(profile, "Technician") || HasDimension(profile, "Work Order"))
+        {
+            return
+            [
+                CreatePage("Service Command Center", "Monitor backlog pressure, SLA exposure, and regional service health.", PickFilters(profile, "Date", "Region", "Technician"), ["KPI Cards", "Trend Visuals", "Status Grids"]),
+                CreatePage("Backlog and SLA Risk", "Prioritize service queues, escalations, and breach risk.", PickFilters(profile, "Region", "Work Order", "Technician"), ["Exception Tables", "Variance Charts", "Bar Charts"]),
+                CreatePage("Technician and Work Order Detail", "Inspect work-order throughput, technician performance, and follow-up actions.", PickFilters(profile, "Technician", "Work Order", "Date"), ["Detail Tables", "Timeline Charts", "Bar Charts"])
+            ];
+        }
+
+        if (HasDomain(opportunity, "Inventory") || HasDimension(profile, "Warehouse"))
+        {
+            return
+            [
+                CreatePage("Overview", "Monitor stock position, warehouse pressure, and inventory health.", PickFilters(profile, "Date", "Region", "Warehouse"), ["KPI Cards", "Trend Visuals", "Status Grids"]),
+                CreatePage("Exceptions", "Prioritize stockouts, aging inventory, and exception queues.", PickFilters(profile, "Warehouse", "Product Category", "Region"), ["Exception Tables", "Bar Charts", "Heatmaps"]),
+                CreatePage("Detail", "Inspect warehouse and SKU-level recovery actions.", PickFilters(profile, "Warehouse", "Product Category", "Date"), ["Detail Tables", "Trend Visuals", "Bar Charts"])
+            ];
+        }
+
+        return
+        [
+            CreatePage("Overview", "Operational status review and alert scanning.", PickFilters(profile, "Date", "Region"), ["Status Grids", "Trend Visuals", "KPI Cards"]),
+            CreatePage("Exceptions", "Prioritized exceptions and action queues.", PickFilters(profile, "Product Category", "Warehouse", "Territory"), ["Exception Tables", "Status Grids", "Bar Charts"]),
+            CreatePage("Detail", "Record-level detail for operational follow-up.", PickFilters(profile, "Product Category", "Customer Segment"), ["Detail Tables", "Trend Visuals", "Bar Charts"])
+        ];
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildAnalyticalPages(DiscoveryProfile profile)
+    {
+        return
+        [
+            CreatePage("Question", "Define the core question and frame the hypothesis.", PickFilters(profile, "Date", "Region"), ["Question Summary", "KPI Cards", "Trend Charts"]),
+            CreatePage("Investigation", "Branch through potential drivers and segments.", PickFilters(profile, "Product Category", "Customer Segment", "Territory"), ["Decomposition Trees", "Bar Charts", "Matrix"]),
+            CreatePage("Evidence", "Review the strongest evidence and comparative signals.", PickFilters(profile, "Product Category", "Customer Segment"), ["Trend Charts", "Detail Tables", "Waterfall Charts"]),
+            CreatePage("Conclusion", "Summarize the conclusion and next action.", PickFilters(profile, "Date", "Region"), ["Scorecards", "Narrative Summaries", "Action Tables"])
+        ];
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildPbirReportPages(
+        DiscoveryProfile profile,
+        OpportunityCandidate? opportunity,
+        IReadOnlyList<string> primaryKpis)
+    {
+        if (opportunity?.Category == OpportunityCategory.RootCauseInvestigation)
+        {
+            return
+            [
+                CreatePage("Question Framing", "Frame the investigation question and align the decision stakes.", PickFilters(profile, "Date", "Region"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Driver Walkthrough", "Guide the reader through the most credible drivers and comparison paths.", PickFilters(profile, "Product Category", "Customer Segment", "Territory"), ["Decomposition Trees", "Bar Charts", "Matrix"]),
+                CreatePage("Evidence Review", "Show the evidence that confirms or rejects the leading hypotheses.", PickFilters(profile, "Product Category", "Customer Segment"), ["Waterfall Charts", "Trend Charts", "Detail Tables"]),
+                CreatePage("Decision Brief", "Close the narrative with the implication, confidence, and next action.", PickFilters(profile, "Date", "Region"), ["Scorecards", "Narrative Summaries", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.ProfitabilityAnalysis ||
+            HasDomain(opportunity, "Profitability"))
+        {
+            return
+            [
+                CreatePage("Leadership Narrative", $"Establish the report story around {string.Join(", ", primaryKpis.Take(2))}.", PickFilters(profile, "Date", "Region"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Margin Driver Story", "Progress from headline margin movement into the most credible business drivers.", PickFilters(profile, "Customer Segment", "Product Category", "Region"), ["Waterfall Charts", "Bar Charts", "Decomposition Trees"]),
+                CreatePage("Segment Drill Path", "Support controlled drill paths across customers, products, and territories.", PickFilters(profile, "Customer Segment", "Product Category", "Territory"), ["Matrix", "Detail Tables", "Trend Charts"]),
+                CreatePage("Decision Brief", "Land the narrative on the recommended commercial or finance decision.", PickFilters(profile, "Date", "Region"), ["Scorecards", "Narrative Summaries", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.InventoryOptimization ||
+            HasDomain(opportunity, "Inventory"))
+        {
+            return
+            [
+                CreatePage("Inventory Control Narrative", "Frame the inventory control story around stock health, service risk, and the operating question.", PickFilters(profile, "Date", "Warehouse", "Region"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Stock Pressure Review", "Walk through stockouts, aging exposure, and warehouse pressure in priority order.", PickFilters(profile, "Warehouse", "Product Category", "Region"), ["Bar Charts", "Heatmaps", "Exception Tables"]),
+                CreatePage("Recovery Drill Path", "Guide the reader from warehouse pressure into SKU and exception detail.", PickFilters(profile, "Warehouse", "Product Category", "Date"), ["Matrix", "Detail Tables", "Trend Charts"]),
+                CreatePage("Recovery Decision Brief", "Close with the replenishment or recovery action the report supports.", PickFilters(profile, "Date", "Warehouse", "Region"), ["Narrative Summaries", "Scorecards", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.ServiceOperations ||
+            HasDomain(opportunity, "Service"))
+        {
+            return
+            [
+                CreatePage("Service Leadership Narrative", "Open with backlog pressure, SLA exposure, and the service operating question.", PickFilters(profile, "Date", "Region", "Technician"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Queue and SLA Story", "Progress through queue pressure, breach risk, and escalation hotspots in a guided order.", PickFilters(profile, "Region", "Work Order", "Technician"), ["Bar Charts", "Exception Tables", "Timeline Charts"]),
+                CreatePage("Technician Follow-Up Detail", "Support deliberate drill into technician workload, work-order context, and follow-up detail.", PickFilters(profile, "Technician", "Work Order", "Date"), ["Matrix", "Detail Tables", "Timeline Charts"]),
+                CreatePage("Service Action Brief", "Land the narrative on the next service action, owner, and timing.", PickFilters(profile, "Date", "Region", "Technician"), ["Narrative Summaries", "Scorecards", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.ForecastAccuracy ||
+            HasDomain(opportunity, "Forecasting"))
+        {
+            return
+            [
+                CreatePage("Forecast Narrative", $"Establish the forecast story around {string.Join(", ", primaryKpis.Take(2))}.", PickFilters(profile, "Forecast Period", "Date", "Region"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Miss Pattern Review", "Explain where misses concentrate across periods, territories, and segments.", PickFilters(profile, "Forecast Period", "Territory", "Region"), ["Variance Charts", "Bar Charts", "Line Charts"]),
+                CreatePage("Driver Drill Path", "Guide the reader from miss patterns into the drivers that need correction.", PickFilters(profile, "Forecast Period", "Product Category", "Territory"), ["Matrix", "Detail Tables", "Decomposition Trees"]),
+                CreatePage("Course-Correction Brief", "Close with the forecast adjustment, owner, and next review checkpoint.", PickFilters(profile, "Forecast Period", "Date", "Region"), ["Narrative Summaries", "Scorecards", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.ExecutiveReporting ||
+            opportunity?.Category == OpportunityCategory.SalesPerformance ||
+            HasDomain(opportunity, "Revenue"))
+        {
+            return
+            [
+                CreatePage("Revenue Leadership Narrative", $"Open with the strategic revenue story around {string.Join(", ", primaryKpis.Take(2))}.", PickFilters(profile, "Date", "Region", "Territory"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Growth and Mix Story", "Walk through growth, mix, and territory comparisons in a leadership-ready sequence.", PickFilters(profile, "Region", "Territory", "Product Category"), ["Bar Charts", "Line Charts", "Waterfall Charts"]),
+                CreatePage("Commercial Drill Path", "Support controlled drill into customers, products, and territories before action is set.", PickFilters(profile, "Customer Segment", "Product Category", "Territory"), ["Matrix", "Detail Tables", "Trend Charts"]),
+                CreatePage("Leadership Action Brief", "Close with the commercial decision, owner, and next review action.", PickFilters(profile, "Date", "Region", "Territory"), ["Narrative Summaries", "Scorecards", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.CustomerAnalysis ||
+            HasDomain(opportunity, "Customer"))
+        {
+            return
+            [
+                CreatePage("Audience Narrative", "Explain the customer story, the key segments, and the review objective.", PickFilters(profile, "Date", "Customer Segment"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+                CreatePage("Segment Progression", "Walk through the major customer segments in a deliberate report sequence.", PickFilters(profile, "Customer Segment", "Region", "Product Category"), ["Bar Charts", "Scatter Charts", "Trend Charts"]),
+                CreatePage("Drill Detail", "Provide the supporting detail path needed to validate the segment narrative.", PickFilters(profile, "Customer Segment", "Product Category"), ["Matrix", "Detail Tables", "Bar Charts"]),
+                CreatePage("Decision Brief", "Summarize the segment implication and the next business move.", PickFilters(profile, "Date", "Region"), ["Narrative Summaries", "Scorecards", "Action Tables"])
+            ];
+        }
+
+        return
+        [
+            CreatePage("Leadership Narrative", "Open with the report story, KPI hierarchy, and decision context.", PickFilters(profile, "Date", "Region"), ["Narrative Summaries", "KPI Cards", "Trend Charts"]),
+            CreatePage("Performance Story", "Move from the headline KPIs into the most important performance comparisons.", PickFilters(profile, "Product Category", "Customer Segment", "Territory"), ["Bar Charts", "Line Charts", "Scorecards"]),
+            CreatePage("Drill Path", "Support intentional drill strategy across the highest-value dimensions.", PickFilters(profile, "Product Category", "Customer Segment", "Territory"), ["Matrix", "Detail Tables", "Trend Charts"]),
+            CreatePage("Decision Brief", "Close with the audience-specific implication, recommendation, and next step.", PickFilters(profile, "Date", "Region"), ["Narrative Summaries", "Scorecards", "Action Tables"])
+        ];
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildFabricAppPages(DiscoveryProfile profile, OpportunityCandidate? opportunity)
+    {
+        if (HasDomain(opportunity, "Service") || HasDimension(profile, "Technician") || HasDimension(profile, "Work Order"))
+        {
+            return
+            [
+                CreatePage("Service Command Center", "Landing view for service leaders coordinating backlog and handoffs.", PickFilters(profile, "Date", "Region"), ["KPI Cards", "Navigation Tiles", "Trend Charts"]),
+                CreatePage("Regional Queue Routing", "Route service queues by region and operational pressure.", PickFilters(profile, "Region", "Work Order"), ["Queue Boards", "Bar Charts", "Maps"]),
+                CreatePage("Technician Follow-Up", "Guide technician-level follow-up and escalation review.", PickFilters(profile, "Technician", "Date"), ["Detail Tables", "Timeline Charts", "KPI Cards"])
+            ];
+        }
+
+        return
+        [
+            CreatePage("App Overview", "Landing experience for high-level guidance and entry points.", PickFilters(profile, "Date", "Region"), ["KPI Cards", "Navigation Tiles", "Trend Charts"]),
+            CreatePage("Regional View", "Audience pathway into regional performance.", PickFilters(profile, "Region", "Territory"), ["Bar Charts", "Maps", "Trend Charts"]),
+            CreatePage("Customer View", "Customer-oriented path for deeper analysis.", PickFilters(profile, "Customer Segment", "Product Category"), ["Detail Tables", "Bar Charts", "Scatter Charts"])
+        ];
+    }
+
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildFabricDataAppPages(DiscoveryProfile profile)
+    {
+        return
+        [
+            CreatePage("Data Explorer", "Open exploration entry point over the semantic model.", PickFilters(profile, "Date", "Customer Segment"), ["Matrix", "Detail Tables", "Bar Charts"]),
+            CreatePage("Segment Analysis", "Explore grouped segments and cohorts.", PickFilters(profile, "Customer Segment", "Product Category"), ["Bar Charts", "Scatter Charts", "Trend Charts"]),
+            CreatePage("Record Detail", "Inspect detailed data slices and follow-up records.", PickFilters(profile, "Region", "Customer Segment"), ["Detail Tables", "Matrix", "KPI Cards"])
+        ];
+    }
+
+    private static ExperienceBlueprintPage CreatePage(
+        string name,
+        string intent,
+        IReadOnlyList<string> filters,
+        IReadOnlyList<string> visuals)
+    {
+        return new ExperienceBlueprintPage(
+            PageName: name,
+            PageIntent: intent,
+            SuggestedFilters: filters.Distinct(NameComparer).ToList(),
+            SuggestedVisualTypes: visuals.Distinct(NameComparer).ToList());
+    }
+
+    private static IReadOnlyList<string> PickFilters(DiscoveryProfile profile, params string[] candidates)
+    {
+        var available = profile.Dimensions
+            .Select(dimension => dimension.Name)
+            .Concat(profile.DateIntelligence.DateDimensions)
+            .Distinct(NameComparer)
+            .ToList();
+
+        var selected = candidates
+            .Where(candidate => available.Any(value => string.Equals(value, candidate, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (selected.Count == 0)
+        {
+            selected.AddRange(available.Take(2));
+        }
+
+        if (selected.Count == 0)
+        {
+            selected.Add("Date");
+        }
+
+        return selected;
+    }
+
+    private static ExperienceBlueprintAnalyticalFlow BuildAnalyticalFlow(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
+    {
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience &&
+            (HasDomain(opportunity, "Service") || HasDimension(profile, "Technician") || HasDimension(profile, "Work Order")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Which service queues and SLA risks need action first?",
+                Investigation: "Investigation follows backlog pressure, technician load, and regional queue movement.",
+                Evidence: "Evidence comes from work-order detail, SLA trends, and escalation hotspots.",
+                Decision: "Decision should route the next service action to the right owner.");
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience &&
+            (HasDomain(opportunity, "Inventory") || HasDimension(profile, "Warehouse")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Where is inventory pressure building and which stock risks need action first?",
+                Investigation: "Investigation follows warehouse pressure, stockout exposure, and SKU-level exception patterns.",
+                Evidence: "Evidence comes from inventory trend movement, exception queues, and warehouse detail.",
+                Decision: "Decision should identify the next replenishment or operational recovery action.");
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.PbirReport &&
+            (opportunity?.Category == OpportunityCategory.ProfitabilityAnalysis || HasDomain(opportunity, "Profitability")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "What is the profitability story the report needs to tell first?",
+                Investigation: "Investigation should progress from headline margin movement into the driver hierarchy and controlled segment drill paths.",
+                Evidence: "Evidence should accumulate through KPI hierarchy, segment comparison, and supporting detail pages instead of isolated visuals.",
+                Decision: "Decision should conclude with the finance or commercial action implied by the report narrative.");
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.PbirReport &&
+            (opportunity?.Category == OpportunityCategory.InventoryOptimization || HasDomain(opportunity, "Inventory")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Where is inventory control pressure building and which recovery decision matters first?",
+                Investigation: "Investigation should move from stock health into warehouse pressure, exception concentration, and SKU-level recovery paths.",
+                Evidence: "Evidence should build through inventory risk, warehouse comparisons, and supporting exception detail rather than isolated KPI tiles.",
+                Decision: "Decision should identify the replenishment or recovery action the report is meant to defend.");
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.PbirReport &&
+            (opportunity?.Category == OpportunityCategory.ServiceOperations || HasDomain(opportunity, "Service")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Which service pressure points need leadership attention and why?",
+                Investigation: "Investigation should progress from backlog and SLA exposure into queue routing, technician load, and follow-up detail.",
+                Evidence: "Evidence should connect service risk, regional queue movement, and technician context before the action brief.",
+                Decision: "Decision should clarify the next service action, owner, and timing implied by the report.");
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.PbirReport &&
+            (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Where are forecast misses building and what correction should happen next?",
+                Investigation: "Investigation should move from the headline miss into period, territory, and segment drivers before a correction path is chosen.",
+                Evidence: "Evidence should accumulate through miss patterns, variance analysis, and targeted drill pages that explain the correction logic.",
+                Decision: "Decision should end with the forecast adjustment and the next checkpoint the audience should use.");
+        }
+
+        return recommendation.RecommendedExperienceType switch
+        {
+            OpportunityExperienceType.OperationalMonitoringExperience => new ExperienceBlueprintAnalyticalFlow(
+                Question: "Which operational exceptions require attention now?",
+                Investigation: "Investigation focuses on exception clusters, backlog movement, and impacted segments.",
+                Evidence: "Evidence comes from status trends, exception records, and segment-level breakdowns.",
+                Decision: "Decision should identify the next operational action and owner."),
+            OpportunityExperienceType.AnalyticalInvestigationExperience => new ExperienceBlueprintAnalyticalFlow(
+                Question: "What is driving the performance variance or business question?",
+                Investigation: "Investigation branches through hierarchy paths, segments, and comparative drivers.",
+                Evidence: "Evidence should isolate the strongest patterns, comparisons, and anomalies.",
+                Decision: "Decision should explain the conclusion and the next analytical action."),
+            OpportunityExperienceType.FabricDataApp => new ExperienceBlueprintAnalyticalFlow(
+                Question: "Which data slices and segments are worth exploring first?",
+                Investigation: "Investigation moves from broad segmentation into targeted record exploration.",
+                Evidence: "Evidence comes from comparative segment views and detailed records.",
+                Decision: "Decision should identify which segments deserve follow-up analysis or workflow action."),
+            OpportunityExperienceType.PbirReport => new ExperienceBlueprintAnalyticalFlow(
+                Question: "What is the report narrative and which audience decision should it support?",
+                Investigation: "Investigation should progress page by page from the headline KPI hierarchy into the most important drill paths.",
+                Evidence: "Evidence should be staged so each page adds clarity before the reader reaches detailed drill content.",
+                Decision: "Decision should end with an explicit audience takeaway and the next action the report supports."),
+            _ => new ExperienceBlueprintAnalyticalFlow(
+                Question: "What changed in performance and where should attention focus?",
+                Investigation: "Investigation reviews KPI movement, segment comparisons, and the main drivers.",
+                Evidence: "Evidence comes from trends, segment views, and supporting detail pages.",
+                Decision: "Decision should identify the leadership priority and next action.")
+        };
+    }
+
+    private static ExperienceBlueprintNavigationIntent BuildNavigationIntent(
+        DiscoveryProfile profile,
+        OpportunityExperienceType experienceType,
+        OpportunityCandidate? opportunity,
+        IReadOnlyList<ExperienceBlueprintPage> pages)
+    {
+        if (experienceType == OpportunityExperienceType.OperationalMonitoringExperience &&
+            (HasDomain(opportunity, "Service") || HasDimension(profile, "Technician") || HasDimension(profile, "Work Order")))
+        {
+            return new ExperienceBlueprintNavigationIntent(
+                Flow: "service command → queue risk → technician follow-up",
+                Sequence: pages.Select(page => page.PageName).ToList());
+        }
+
+        if (experienceType == OpportunityExperienceType.OperationalMonitoringExperience &&
+            (HasDomain(opportunity, "Inventory") || HasDimension(profile, "Warehouse")))
+        {
+            return new ExperienceBlueprintNavigationIntent(
+                Flow: "monitor → exception → detail with inventory control emphasis",
+                Sequence: pages.Select(page => page.PageName).ToList());
+        }
+
+        if (experienceType == OpportunityExperienceType.FabricApp &&
+            (HasDomain(opportunity, "Service") || HasDimension(profile, "Technician") || HasDimension(profile, "Work Order")))
+        {
+            return new ExperienceBlueprintNavigationIntent(
+                Flow: "service command → regional routing → technician follow-up",
+                Sequence: pages.Select(page => page.PageName).ToList());
+        }
+
+        if (experienceType == OpportunityExperienceType.PbirReport)
+        {
+            if (opportunity?.Category == OpportunityCategory.InventoryOptimization || HasDomain(opportunity, "Inventory"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "inventory narrative → stock pressure → recovery drill → recovery brief",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+
+            if (opportunity?.Category == OpportunityCategory.ServiceOperations || HasDomain(opportunity, "Service"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "service narrative → queue and SLA story → technician detail → service action brief",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+
+            if (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "forecast narrative → miss pattern review → driver drill → course-correction brief",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+
+            if (opportunity?.Category == OpportunityCategory.ExecutiveReporting ||
+                opportunity?.Category == OpportunityCategory.SalesPerformance ||
+                HasDomain(opportunity, "Revenue"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "revenue narrative → growth and mix story → commercial drill → leadership action brief",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+
+            return new ExperienceBlueprintNavigationIntent(
+                Flow: "narrative opener → KPI progression → guided drill → decision brief",
+                Sequence: pages.Select(page => page.PageName).ToList());
+        }
+
+        var flow = experienceType switch
+        {
+            OpportunityExperienceType.OperationalMonitoringExperience => "monitor → exception → detail",
+            OpportunityExperienceType.AnalyticalInvestigationExperience => "question → investigation → evidence → conclusion",
+            OpportunityExperienceType.FabricApp => "executive → regional → customer",
+            OpportunityExperienceType.FabricDataApp => "explore → segment → detail",
+            _ => "summary → drill"
+        };
+
+        return new ExperienceBlueprintNavigationIntent(
+            Flow: flow,
+            Sequence: pages.Select(page => page.PageName).ToList());
+    }
+
+    private static IReadOnlyList<string> BuildSuccessCriteria(
+        DiscoveryRecommendation recommendation,
+        IReadOnlyList<ExperienceBlueprintPage> pages,
+        IReadOnlyList<string> primaryKpis)
+    {
+        return
+        [
+            $"{recommendation.ExpectedAudience} can move through the suggested {pages.Count}-page experience without redesigning the baseline information architecture.",
+            $"The experience highlights the primary KPI set: {string.Join(", ", primaryKpis.Take(3))}.",
+            recommendation.ExpectedBusinessOutcome
+        ];
+    }
+
+    private static ExperienceBlueprintProvenance BuildProvenance(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
+    {
+        var semanticEvidenceReferences = opportunity?.SupportingSemanticSignals
+            .Select(signal => $"{signal.SignalType}:{signal.Value}")
+            .Distinct(NameComparer)
+            .OrderBy(signal => signal, NameComparer)
+            .ToList() ?? [];
+        var influencingModelStructures = BuildInfluencingModelStructures(profile, opportunity);
+
+        return new ExperienceBlueprintProvenance(
+            RecommendationId: recommendation.RecommendationId,
+            OpportunityId: opportunity?.OpportunityId ?? recommendation.RecommendationId,
+            OpportunityCategory: opportunity?.Category ?? InferFallbackCategory(recommendation.RecommendedExperienceType),
+            ExperienceType: recommendation.RecommendedExperienceType,
+            DiscoveryConfidence: profile.Confidence,
+            SupportingSignals: recommendation.SupportingSignals.ToList(),
+            SemanticEvidenceReferences: semanticEvidenceReferences,
+            InfluencingModelStructures: influencingModelStructures,
+            AmbiguityNotes: profile.AmbiguityNotes.ToList(),
+            SemanticModelReferenceId: profile.SemanticModelReferenceId,
+            DiscoveryProfileReferenceId: profile.DiscoveryProfileReferenceId);
+    }
+
+    private static IReadOnlyList<string> BuildInfluencingModelStructures(
+        DiscoveryProfile profile,
+        OpportunityCandidate? opportunity)
+    {
+        var structures = new List<string>();
+
+        foreach (var signal in opportunity?.SupportingSemanticSignals ?? [])
+        {
+            if (string.Equals(signal.SignalType, "Measure", StringComparison.OrdinalIgnoreCase))
+            {
+                structures.Add($"measure:{signal.Value}");
+            }
+            else if (string.Equals(signal.SignalType, "Dimension", StringComparison.OrdinalIgnoreCase))
+            {
+                structures.Add($"dimension:{signal.Value}");
+            }
+        }
+
+        structures.AddRange(profile.Measures.Select(measure => $"measure:{measure.Name}").Take(3));
+        structures.AddRange(profile.Dimensions.Select(dimension => $"dimension:{dimension.Name}").Take(3));
+        structures.AddRange(profile.Hierarchies.Select(hierarchy => $"hierarchy:{hierarchy.Name}").Take(2));
+        structures.AddRange(profile.Relationships.Select(relationship => $"relationship:{relationship.FromTable}->{relationship.ToTable}").Take(2));
+
+        return structures
+            .Distinct(NameComparer)
+            .OrderBy(value => value, NameComparer)
+            .ToList();
+    }
+
+    private static OpportunityCategory InferFallbackCategory(OpportunityExperienceType experienceType)
+    {
+        return experienceType switch
+        {
+            OpportunityExperienceType.OperationalMonitoringExperience => OpportunityCategory.InventoryOptimization,
+            OpportunityExperienceType.AnalyticalInvestigationExperience => OpportunityCategory.RootCauseInvestigation,
+            OpportunityExperienceType.FabricDataApp => OpportunityCategory.CustomerAnalysis,
+            _ => OpportunityCategory.ExecutiveReporting
+        };
+    }
+
+    private static bool HasMeasure(DiscoveryProfile profile, string value)
+    {
+        return profile.Measures.Any(measure => measure.Name.Contains(value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasDimension(DiscoveryProfile profile, string value)
+    {
+        return profile.Dimensions.Any(dimension => string.Equals(dimension.Name, value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasDomain(OpportunityCandidate? opportunity, string value)
+    {
+        return opportunity?.SupportingSemanticSignals.Any(signal =>
+            string.Equals(signal.SignalType, "Domain", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(signal.Value, value, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+}

@@ -2,6 +2,629 @@
 
 ## Active Session
 
+- 2026-06-19 Consultant Decision Framework implementation is in progress:
+  - objective:
+    - implement only the Discovery Wizard Consultant Decision Framework from Validation Review Round 4
+    - introduce an explicit consultant-style decision layer between Opportunity Catalog and Recommendation Engine
+    - improve consultant-defensible ranking and rationale for revenue, customer profitability, forecasting, and service workflow scenarios
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - started:
+    - read `AGENTS.md`, repo memory files, Round 4 validation review, discovery design docs, and the current discovery services/tests
+    - identified the current gap as heuristic-first ranking with rationale generated after selection rather than from an explicit consultant decision model
+  - current focus:
+    - add test-first coverage for consultant decision judgment and tradeoff explanations
+    - implement consultant decision models and integrate them into recommendation ranking and rationale generation
+
+- 2026-06-19 Consultant Decision Framework implementation is complete:
+  - objective:
+    - implement only the Discovery Wizard Consultant Decision Framework from Validation Review Round 4
+    - introduce an explicit consultant-style decision layer between Opportunity Catalog and Recommendation Engine
+    - improve consultant-defensible ranking and rationale for revenue, customer profitability, forecasting, and service workflow scenarios
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - added backend-internal consultant decision models and a domain-aware consultant assessment inside the recommendation engine
+    - changed recommendation ranking to blend technical fit, business fit, and consultant judgment
+    - added explicit domain-framework boosts and dilution penalties so generic revenue reporting stops outranking richer forecasting and customer-profitability recommendations when those signals lead
+    - upgraded recommendation rationale to include:
+      - Why This Experience Wins
+      - Why Competing Experiences Lose
+      - Risks
+      - Assumptions
+      - Adoption Considerations
+      - Future Evolution Path
+    - added targeted xUnit coverage for revenue workflow, forecasting, customer profitability, service workflow, consultant rationale sections, and internal consultant model boundaries
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, provider-backed generation, or another downstream discovery consumer
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 4 is complete:
+  - objective:
+    - validate whether the Round 3 Discovery Wizard refinement resolved the remaining consultant-quality concerns
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint, Design Studio seeding, and Design Package
+    - assess MVP completion and downstream readiness without product-code changes, feature additions, architecture changes, or Microsoft Skills / CLI integration work
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and prior Round 3 review
+    - exercised the current backend discovery services against:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round4.md`
+    - compared the five Round 3 findings and classified them as:
+      - recommendation quality still too template-driven: improved
+      - PBIR more credible but still under-differentiated: improved
+      - customer profitability and service workflow selection more context-aware: worse
+      - revenue / sales clustering still too tight: resolved
+      - Design Studio seeding and Design Package rationale too coarse: unchanged
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - recommendation prose is more structured, but recommendation judgment is still not consultant-grade
+    - revenue / sales diversity is materially better, but ranking now over-corrects toward the wrong lead recommendation
+    - customer profitability and forecasting still produce weakly consultant-defensible primary selections
+    - PBIR blueprint differentiation is materially better, but PBIR still does not surface often enough in end-to-end recommendations to feel first-class
+    - Design Studio seeding and Design Package rationale remain structurally useful and too coarse for provider-planning quality
+  - next recommended step:
+    - keep discovery work focused on ranking realism, scenario-intent preservation, PBIR surfacing quality, and downstream seed/package language quality before Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Report Discovery Wizard Refinement Round 3 Findings is complete:
+  - objective:
+    - implement only the approved Consultant Reasoning Quality refinement from Validation Review Round 3
+    - improve recommendation tradeoff reasoning, PBIR domain differentiation, explanation fidelity, recommendation diversity, and Design Package rationale quality
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - reworked recommendation rationale into consultant-style sections that defend the selected path against alternatives using audience, workflow, cadence, operational, and analytical signals
+    - aligned explanation content more directly to ranking inputs, including signal-specific evidence such as technician and work-order workflow context
+    - expanded PBIR report blueprint differentiation across:
+      - revenue and sales
+      - customer profitability
+      - inventory
+      - service operations
+      - forecasting
+      - analytical investigation
+    - strengthened Design Package rationale so KPI, page, navigation, business-outcome, and analytical-flow explanations answer why the selected structure exists
+    - added targeted xUnit coverage for:
+      - consultant tradeoff reasoning sections
+      - explanation fidelity
+      - revenue and sales recommendation de-clustering
+      - PBIR domain differentiation
+      - provider-grade design-package rationale
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RationaleUsesSignalDrivenConsultantSections|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_ExplanationFidelity_MatchesWinningSignals|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RevenueAndSalesRecommendations_AvoidSingleClusterWhenAlternativesAreCredible|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests.BuildRecommendationBlueprints_PbirReport_DiffersAcrossDomains|FullyQualifiedName~DesignPackageGenerationServiceTests.CreatePackage_RationaleIsProviderGradeAndDecisionDefensible"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, provider-backed generation, or downstream Design Studio workflow changes
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 3 is complete:
+  - objective:
+    - validate whether the Round 2 Discovery Wizard refinement resolved the remaining Round 2 recommendation-quality concerns
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint, Design Studio seeding, and Design Package
+    - avoid product-code changes, feature additions, architecture changes, and downstream Microsoft Skills / CLI planning
+  - delivered:
+    - reviewed the current discovery implementation, tests, spec, roadmap notes, and prior validation artifacts
+    - exercised the current backend discovery services against the required scenarios:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round3.md`
+    - compared the four Round 2 findings and classified them as:
+      - recommendation rationale too template-driven: improved
+      - PBIR report blueprints under-differentiated: improved
+      - experience-type selection not fully consultant-defensible: improved
+      - Top 3 recommendations clustered too tightly: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - recommendation quality is materially better than Round 2 but still too template-driven for consultant-grade output
+    - PBIR now behaves more like a first-class option, but its blueprint differentiation remains too shallow
+    - customer profitability and service workflow selection are more context-aware than Round 2
+    - revenue / sales recommendation diversity is still too tightly clustered
+    - Design Studio seeding and Design Package rationale remain too coarse for provider-backed execution planning
+  - notes:
+    - an earlier parallel start of `cd vscode-extension && npm test` and `cd vscode-extension && npm run compile` was discarded as non-authoritative because repo memory already records that these commands can race; final extension validation was rerun sequentially
+  - next recommended step:
+    - improve recommendation de-templating, PBIR differentiation depth, alternate-path curation, and rationale-to-selection alignment before Microsoft Skills / CLI integration planning or any provider-backed handoff work
+
+- 2026-06-19 Report Discovery Wizard Refinement Round 2 Findings is complete:
+  - objective:
+    - implement only the approved Discovery Wizard Refinement Round 2 follow-up
+    - improve recommendation reasoning quality, PBIR report differentiation, context-aware experience selection, and Top 3 recommendation diversity
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - rewrote recommendation rationale so it now explains:
+      - why the selected experience is the best fit
+      - why leading alternatives are weaker
+      - business tradeoffs
+      - expected adoption pattern
+      - decision cadence
+    - refined experience-type scoring with explicit audience, workflow, analytical-depth, cadence, interaction-frequency, operational-actionability, and PBIR narrative-fit signals
+    - removed the pre-diversity Top 5 truncation and strengthened diversity adjustment so materially different recommendations can still surface
+    - replaced PBIR generic fallback blueprints with narrative-first report flows plus PBIR-specific analytical flow and navigation intent
+    - added targeted xUnit coverage for rationale quality, PBIR differentiation, and clustering reduction
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RationaleIncludesTradeoffsAndAlternativeRejection|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_TopThreeAvoidTightClustering|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests.BuildRecommendationBlueprints_PbirReport_DiffersMateriallyFromOtherExperienceTypes|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_ContextAwareExperienceSelection_ChangesOutcomeForTheSameOpportunity|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_WorkflowSignalsCanFavorFabricApp"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, or another downstream discovery consumer
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 2 is complete:
+  - objective:
+    - validate whether the Discovery Wizard refinement pass resolved the Round 1 findings
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint, Design Studio seeding, and Design Package
+    - avoid product-code changes, feature additions, architecture changes, and downstream Microsoft Skills / CLI planning
+  - delivered:
+    - reviewed the current discovery implementation, tests, roadmap, and implementation plan
+    - exercised the current backend discovery services against the required scenarios:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round2.md`
+    - compared the four Round 1 findings and classified them as:
+      - provenance fidelity: resolved
+      - category-default experience selection: improved
+      - generic blueprint outputs: improved
+      - generic Design Package rationale: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - provenance fidelity is now credible end to end
+    - experience-type selection is materially more context-aware
+    - service and inventory operational blueprints now diverge credibly
+    - recommendation and Design Package rationale remain too formulaic for consultant-grade output
+    - PBIR Report remains under-differentiated and alternates remain weaker than the workflow promises
+  - next recommended step:
+    - improve recommendation rationale quality, PBIR differentiation, and alternate-path curation before Microsoft Skills / CLI integration planning or any provider-backed handoff work
+
+- 2026-06-19 Report Discovery Wizard Refinement Round 1 is complete:
+  - objective:
+    - implement the approved Discovery Wizard Refinement follow-up from validation review round 1
+    - improve provenance fidelity, context-aware experience selection, blueprint specificity, and design-package rationale
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - added stable internal semantic-model and discovery-profile reference ids to the Discovery Profile seam
+    - preserved upstream lineage ids through:
+      - Experience Blueprint provenance
+      - Design Studio seeding lineage
+      - Design Package generation
+    - replaced category-default experience selection with context-aware competition across candidate experience types using:
+      - audience signals
+      - workflow language
+      - analytical-depth signals
+      - domain/category priors as secondary guidance
+    - differentiated operational blueprint output so service workflows no longer collapse onto the same shape as inventory workflows
+    - strengthened Design Package rationale with:
+      - audience rationale
+      - business outcome rationale
+      - KPI rationale
+      - page rationale
+      - navigation rationale
+      - analytical-flow rationale
+      - provenance notes
+    - added targeted xUnit coverage for:
+      - provenance fidelity
+      - context-aware experience selection
+      - operational blueprint differentiation
+      - design-package rationale quality
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - a parallel `npm test` plus `npm run compile` run can race because compile cleans `dist` while `pdfkitAssetPackaging.test.ts` inspects bundled assets; sequential validation is required for a trustworthy extension result
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, or another downstream discovery consumer
+
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 1 is complete:
+  - objective:
+    - validate the completed Discovery Wizard workflow before Microsoft Power BI Skills / CLI integration planning
+    - assess output quality, trust boundaries, and readiness only
+    - avoid product-code changes and architecture changes
+  - delivered:
+    - reviewed the implemented Discovery Wizard pipeline across:
+      - Discovery Profile
+      - Opportunity Catalog
+      - Recommendation Engine
+      - Experience Blueprint generation
+      - Design Studio seeding
+      - Design Package generation
+    - wrote `docs/report-discovery-wizard-validation-review-round1.md`
+    - evaluated the required scenarios:
+      - revenue / sales
+      - customer profitability
+      - inventory / operations
+      - service operations
+      - analytical investigation
+    - confirmed the current workflow is:
+      - architecturally well separated
+      - advisory-only
+      - provider-neutral
+      - not yet consistently consultant-quality
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - key findings:
+    - recommendation and blueprint quality are useful but still too heuristic- and template-driven
+    - experience-type selection is credible for core scenarios but too category-defaulted for mixed models
+    - backend provenance is weaker than intended because Design Studio seeding and Design Package generation synthesize lineage identifiers instead of preserving true upstream ids
+    - Design Package is sufficient as a planning handoff seam, not yet strong enough for downstream provider execution planning
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - next recommended step:
+    - improve provenance fidelity, confidence realism, blueprint specificity, and experience-type differentiation before starting Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Report Discovery Wizard Phase 6 validation review is complete:
+  - objective:
+    - verify the existing Phase 6 Design Package implementation in the current working tree
+    - confirm required validation passes without widening scope beyond Phase 6
+    - avoid duplicating or replacing already-present implementation
+  - delivered:
+    - reviewed the existing Phase 6 backend-internal Design Package implementation:
+      - Design Package substrate models
+      - `DesignPackageGenerationService`
+      - boundary tests
+      - generation tests
+    - confirmed the implementation remains:
+      - provider-neutral
+      - advisory-only
+      - deterministic
+      - lineage-preserving
+      - internal-only with no public contract widening
+    - recorded validation outcome instead of introducing a parallel implementation path
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~DesignPackage"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - a narrowed `cd vscode-extension && npm test -- --runInBand discoveryDesignStudioSeed.test.ts` attempt is not a valid repo-local validation shortcut because the webview Jest leg receives the same pattern and exits with `No tests found`; prefer the required `npm test` command instead
+    - no product-code changes were required in this session because Phase 6 was already implemented in the working tree
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 7 or requests consumption of the internal Design Package seam
+
+- 2026-06-19 Report Discovery Wizard Phase 6 Design Package Generation is complete:
+  - objective:
+    - implement Phase 6 only for Report Discovery Wizard
+    - add a provider-neutral internal Design Package contract and generation seam
+    - preserve lineage from semantic model through Experience Blueprint into the Design Package
+    - keep the package advisory-only and separate from Design Studio approvals, provider execution, deployable assets, and validation authority
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, PBIR generation, Fabric App generation, deployment, and validation ownership changes
+  - delivered:
+    - added backend-internal Design Package substrate models for:
+      - discovery context references
+      - audience and personas
+      - experience definition
+      - pages
+      - KPIs
+      - filters
+      - visual recommendations
+      - navigation
+      - analytical flow
+      - success criteria
+      - recommendation rationale
+      - provenance and lineage references
+    - added backend-internal `DesignPackageGenerationService`
+    - generated Design Packages deterministically from the selected recommendation and attached Experience Blueprint
+    - preserved full lineage across:
+      - semantic model
+      - Discovery Profile
+      - Opportunity
+      - Recommendation
+      - Experience Blueprint
+      - Design Package
+    - kept the Design Package provider-neutral and advisory-only:
+      - no Microsoft-specific payloads
+      - no CLI command surfaces
+      - no PBIR or Fabric execution contracts
+      - no generated assets
+      - no validation approval creation
+    - added xUnit coverage for:
+      - package creation
+      - package completeness
+      - lineage preservation
+      - determinism
+      - provider neutrality
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~DesignPackage"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - the Design Package remains a distinct internal handoff object and does not reuse Design Studio artifact models
+    - package creation currently derives stable references from existing discovery, recommendation, and blueprint data without widening public contracts
+    - no discovery UI, RPC, or provider execution integration was added in this phase
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 7 or a separate scoped integration point that consumes Design Packages
+
+- 2026-06-19 Report Discovery Wizard Phase 5 Design Studio Integration is complete:
+  - objective:
+    - implement Phase 5 only for Report Discovery Wizard
+    - convert a selected recommendation into Design Studio starting artifacts
+    - preserve provenance from semantic model through blueprint into Design Studio artifacts
+    - preserve Design Studio ownership, approvals, and workflow boundaries
+    - stop before Design Package generation, Microsoft Skills integration, provider-backed generation, PBIR generation, and Fabric App generation
+  - delivered:
+    - added backend-internal structured Design Studio provenance lineage support:
+      - `DesignArtifactLineageLink`
+      - lineage on `DesignArtifactProvenance`
+    - added backend-internal discovery-to-Design-Studio seed contract:
+      - `DiscoveryDesignStudioStartingPoint`
+    - added backend-internal `DiscoveryDesignStudioAdapterService`
+    - implemented backend recommendation selection and Design Studio starting-point creation for:
+      - discovery-backed Design Brief
+      - discovery-backed Concept Candidates
+      - discovery-backed Draft seed artifacts
+    - mapped discovery blueprint inputs into Design Studio starting artifacts for:
+      - audience
+      - business objective
+      - analytical flow
+      - success criteria seed
+      - experience/report type
+      - navigation expectations
+      - KPI emphasis
+      - dimension emphasis
+      - page concepts
+      - navigation hierarchy
+      - draft page/layout/navigation artifacts
+    - added extension-side discovery seeding adapter:
+      - `selectDiscoveryRecommendationForDesignStudio`
+    - persisted seeded Design Studio artifacts into the existing Design Studio storage and workflow format without auto-approval
+    - preserved advisory-only, non-production trust boundaries:
+      - no approval bypass
+      - no validation approval creation
+      - no deployable asset creation
+      - no PBIR generation
+      - no Fabric App generation
+    - added coverage for:
+      - recommendation selection
+      - Design Brief creation
+      - Concept Candidate creation
+      - Draft seed creation
+      - provenance chain preservation
+      - Design Studio trust-boundary preservation
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - seeded Design Studio artifacts are intentionally created as `draft` / `notSubmitted` so Design Studio remains the owner of approvals and workflow progression
+    - the existing Design Studio workspace can load seeded Concept and Draft artifacts while still keeping Brief as the active approval gate
+    - Phase 5 stopped at Design Studio starting-point creation only
+    - no Design Package generation, Microsoft Skills integration, provider-backed generation, PBIR generation, or Fabric App generation was implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts downstream Design Package generation or discovery UI/rpc handoff work
+
+- 2026-06-19 Report Discovery Wizard Phase 4 Experience Blueprint Generation is complete:
+  - objective:
+    - implement Phase 4 only for Report Discovery Wizard
+    - add the internal Experience Blueprint layer on top of Discovery Profile, Opportunity Catalog, and Recommendation Engine
+    - generate structured blueprints for every recommendation
+    - preserve advisory-only, provider-neutral, internal-only boundaries without widening public contracts
+    - stop before Design Studio seeding, Design Package generation, Microsoft Skills integration, and provider-backed generation
+  - delivered:
+    - added backend-internal Experience Blueprint substrate models:
+      - `ExperienceBlueprint`
+      - `ExperienceBlueprintPage`
+      - `ExperienceBlueprintAnalyticalFlow`
+      - `ExperienceBlueprintNavigationIntent`
+      - `ExperienceBlueprintProvenance`
+    - extended backend-internal recommendations with attached internal blueprint output
+    - added backend-internal `ExperienceBlueprintGenerationService`
+    - implemented provider-neutral blueprint derivation for:
+      - PBIR reports
+      - Fabric apps
+      - Fabric data apps
+      - executive dashboards
+      - operational monitoring experiences
+      - analytical investigation experiences
+    - implemented blueprint output for:
+      - recommended pages
+      - primary KPIs
+      - suggested global filters
+      - page-scoped filters
+      - page-scoped visual recommendations
+      - navigation intent
+      - analytical flow
+      - expected audience
+      - expected business outcome
+      - success-criteria seed
+      - provenance back to discovery and opportunity inputs
+    - added xUnit coverage for:
+      - executive blueprint generation
+      - operational blueprint generation
+      - analytical blueprint generation
+      - PBIR report blueprint generation
+      - Fabric app blueprint generation
+      - Fabric data app blueprint generation
+      - KPI generation
+      - filter generation
+      - visual recommendation generation
+      - navigation intent generation
+      - analytical flow generation
+      - provenance preservation
+      - sparse-model graceful degradation
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - blueprint generation remains a separate internal layer after recommendation ranking
+    - blueprints remain advisory-only, provider-neutral, and non-deployable
+    - no Design Studio seeding, Design Package generation, Microsoft Skills integration, provider-backed generation, findings generation, or validation-status generation was implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts downstream Design Studio seeding
+
+- 2026-06-19 Report Discovery Wizard Phase 3 Recommendation Engine is complete:
+  - objective:
+    - implement Phase 3 only for Report Discovery Wizard
+    - add the internal Recommendation Engine layer on top of Discovery Profile and Opportunity Catalog
+    - return Top 3 Primary Recommendations plus 2 Alternate Recommendations with ranking, deduplication, diversity, confidence, business value, complexity, and explanation content
+    - preserve advisory-only, provider-neutral, internal-only boundaries without widening public contracts
+  - delivered:
+    - added backend-internal recommendation substrate models:
+      - business value levels
+      - complexity levels
+      - primary versus alternate placement
+      - consultant-style recommendation records
+      - primary and alternate recommendation set container
+    - added backend-internal `RecommendationEngineService`
+    - implemented weighted ranking across:
+      - semantic coverage
+      - business actionability
+      - analytical fit
+      - audience clarity
+      - opportunity completeness
+      - implementation complexity
+      - model confidence
+    - added recommendation-level:
+      - preferred experience type selection
+      - near-duplicate collapse
+      - diversity-aware primary and alternate selection
+      - confidence, business value, and complexity scoring
+      - consultant-style explanation, confidence note, and complexity note generation
+    - preserved ambiguity by carrying discovery ambiguity notes into recommendation limiting factors
+    - documented the weighting and selection strategy in:
+      - `docs/superpowers/implementation-notes/2026-06-19-report-discovery-wizard-phase3-recommendation-engine.md`
+    - added xUnit coverage for:
+      - ranking
+      - deduplication
+      - diversity
+      - recommendation limits
+      - confidence behavior
+      - sparse-model graceful degradation
+      - explanation completeness
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - backend validation still emits pre-existing nullable warnings in existing PBIR scoring and cross-page narrative files
+    - Phase 3 stopped at the internal Recommendation Engine layer as requested
+    - no Experience Blueprint generation, Design Studio seeding, Design Package generation, provider-backed generation, or Microsoft Skills integration were implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 4 Experience Blueprint generation
+
+- 2026-06-18 Report Discovery Wizard Phase 2 Opportunity Identification is complete:
+  - objective:
+    - implement Phase 2 only for Report Discovery Wizard
+    - create the internal Opportunity Catalog layer
+    - infer candidate business opportunities from Discovery Profile signals
+    - preserve advisory-only, provider-neutral, internal-only boundaries without widening public contracts
+  - delivered:
+    - added backend-internal Opportunity Catalog substrate models:
+      - opportunity categories
+      - candidate experience types
+      - supporting semantic signals
+      - opportunity candidates
+      - opportunity catalog
+    - added backend-internal `OpportunityIdentificationService`
+    - translated Discovery Profile signals into candidate opportunities for:
+      - executive reporting
+      - sales performance
+      - profitability analysis
+      - customer analysis
+      - inventory optimization
+      - service operations
+      - forecast accuracy
+      - root cause investigation
+      - comparative performance management
+    - preserved ambiguity notes and limiting factors on inferred opportunities
+    - added near-duplicate opportunity deduplication before any future ranking layer
+    - kept the entire layer advisory-only, provider-neutral, and separate from findings, Design Studio artifacts, and public scoring contracts
+    - added xUnit coverage for:
+      - revenue and territory opportunity inference
+      - customer profitability opportunity inference
+      - inventory opportunity inference
+      - service opportunity inference
+      - forecast opportunity inference
+      - analytical investigation opportunity inference
+      - sparse-model low-confidence handling
+      - deduplication
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - backend validation still emits pre-existing nullable warnings in existing PBIR scoring and cross-page narrative files
+    - Phase 2 stopped at the internal Opportunity Catalog layer as requested
+    - no recommendation engine, ranking, blueprint generation, Design Studio seeding, provider integration, or Microsoft Skills integration were implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 3 Recommendation Engine
+
+- 2026-06-18 Report Discovery Wizard Phase 1 Semantic Model Discovery is complete:
+  - objective:
+    - implement Phase 1 only for Report Discovery Wizard
+    - create the internal Discovery Profile layer
+    - inspect semantic-model metadata and normalize it into reusable internal structures
+    - capture ambiguity notes and confidence without widening public contracts
+  - delivered:
+    - added backend-internal discovery substrate models for Discovery Profile outputs
+    - added backend-internal `SemanticModelDiscoveryService`
+    - implemented semantic model loading from project-local `.SemanticModel` folders using common JSON model locations
+    - reused current PBIR report snapshot loading for inferred hierarchy and audience signals
+    - normalized:
+      - measures
+      - dimensions
+      - hierarchies
+      - date intelligence
+      - relationships
+      - business domains
+      - KPI clusters
+      - audience signals
+      - ambiguity notes
+      - confidence
+    - added xUnit coverage for:
+      - rich model
+      - sparse model
+      - ambiguous model
+      - revenue/customer/inventory/forecasting/service domain detection
+      - high/medium/low confidence
+      - explicit ambiguity notes
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - backend validation still emits pre-existing nullable warnings in existing PBIR scoring and cross-page narrative files
+    - Phase 1 stopped at the internal Discovery Profile layer as requested
+    - no Opportunity Catalog, recommendation engine, Experience Blueprint generation, Design Studio seeding, findings, or provider integration were implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 2 Opportunity Identification
+
 - 2026-06-18 Report Discovery Wizard planning is complete:
   - objective:
     - create a planning-only design specification and phased implementation plan for Report Discovery Wizard
@@ -807,7 +1430,6 @@
 
 ## Current Objective
 
-- Report Design Studio Round 4 review is complete.
+- Report Discovery Wizard Phase 6 Design Package Generation is complete.
 - Next action for this area:
-  - fix the live `Attach Analyzer Results` boundary first
-  - then re-run Round 4 before any self-serve or pilot readiness claim
+  - stop here unless a new goal explicitly starts Phase 7 or a separate scoped integration point that consumes Design Packages

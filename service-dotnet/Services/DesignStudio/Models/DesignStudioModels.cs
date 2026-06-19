@@ -77,6 +77,12 @@ internal sealed record DesignArtifactAttribution(
     string ArtifactId,
     string ArtifactKind);
 
+internal sealed record DesignArtifactLineageLink(
+    string Stage,
+    string SourceKind,
+    string SourceId,
+    string? Label = null);
+
 internal sealed record DesignArtifactProvenance(
     string Source,
     string? ProviderId = null,
@@ -89,6 +95,7 @@ internal sealed record DesignArtifactProvenance(
     string? ModelOrEngineVersion = null,
     DateTimeOffset? Timestamp = null,
     DesignArtifactAttribution? ArtifactAttribution = null,
+    IReadOnlyList<DesignArtifactLineageLink>? Lineage = null,
     IReadOnlyList<string>? Notes = null);
 
 internal sealed record DesignArtifactValidationLink(
