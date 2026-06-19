@@ -1,5 +1,52 @@
 # Session Summaries
 
+- 2026-06-19: Completed Report Discovery Wizard Validation Review Round 6, wrote `docs/report-discovery-wizard-validation-review-round6.md`, and kept the decision gate at `B. Requires Additional Discovery Work`; revenue and forecasting investigation bias are resolved, but downstream blueprint, seeding, and Design Package specificity still block MVP completion and Microsoft Skills / CLI integration planning.
+
+## 2026-06-19 Discovery Wizard Refinement Round 5 Experience Strategy and Provider Readiness
+
+- Implemented only the approved Round 5 Discovery Wizard refinement for experience strategy and provider readiness.
+- Refined recommendation scoring so revenue and forecasting scenarios compete more credibly across executive consumption, operational management, and investigative analysis.
+- Added stronger Top 3 portfolio diversity using workflow-shape and decision-pattern differentiation.
+- Made recommendation explainability explicit for Executive-oriented, Operational-oriented, Investigative-oriented, App-oriented, and Dashboard-oriented posture.
+- Extended the backend-internal Design Package contract with experience-type rationale and provider-neutral provider guidance.
+- Strengthened Design Package KPI rationale so forecasting, workflow, pipeline, profitability, and revenue packages use scenario-specific decision language instead of generic fallback wording.
+- Validation:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+
+## 2026-06-19 Report Discovery Wizard Validation Review Round 5
+
+- Completed the Round 5 Discovery Wizard validation review without changing product code.
+- Created:
+  - `docs/report-discovery-wizard-validation-review-round5.md`
+- Re-ran the required scenarios:
+  - revenue / sales
+  - customer profitability
+  - inventory operations
+  - service operations
+  - forecasting
+  - analytical investigation
+- Round 4 comparison:
+  - recommendation rationale still not consultant-quality: improved
+  - customer profitability recommendations weak: resolved
+  - forecasting recommendations weak: improved
+  - service workflow recommendations weak: resolved
+  - recommendation clustering: improved
+  - package rationale not provider-grade: improved
+- Decision gate:
+  - `B. Requires Additional Discovery Work`
+- Validation:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Remaining risks:
+  - revenue and forecasting still over-bias toward investigation framing
+  - recommendation diversity still under-delivers in narrower and analytical scenarios
+  - PBIR remains under-surfaced in end-to-end recommendations
+  - Design Studio seed language and Design Package rationale remain too templated for provider-grade downstream use
+
 ## 2026-06-19 Report Discovery Wizard Validation Review Round 4
 
 - Completed the Round 4 Discovery Wizard validation review without changing product code.

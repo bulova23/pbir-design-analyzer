@@ -2,6 +2,120 @@
 
 ## Active Session
 
+- 2026-06-19 Report Discovery Wizard Validation Review Round 6 is complete:
+  - objective:
+    - validate whether the Experience Strategy and Provider Readiness refinement resolved the remaining Round 5 Discovery Wizard concerns
+    - assess recommendation quality, blueprint quality, Design Studio seeding quality, and Design Package readiness across the six required scenarios
+    - determine whether Discovery Wizard MVP is now complete and ready for downstream Design Package consumption and Microsoft Skills / CLI integration planning
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no Microsoft Skills / CLI integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 5 validation review, and current discovery tests and design references
+    - identified the Round 5 comparison targets as revenue investigation bias, forecasting investigation bias, recommendation diversity, and provider-grade package quality
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and Round 5 review
+    - exercised the current backend discovery workflow against:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round6.md`
+    - compared the four Round 5 findings and classified them as:
+      - revenue recommendations over-biased toward investigation: resolved
+      - forecasting recommendations over-biased toward investigation: resolved
+      - recommendation diversity inconsistent: improved
+      - Design Package not provider-grade: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - revenue and forecasting recommendation posture are now materially more consultant-defensible
+    - inventory and analytical-investigation recommendation diversity are materially improved
+    - Design Studio seeding is useful and still too templated
+    - Design Package guidance is clearer and still not provider-grade
+    - downstream artifact shaping is now the main remaining risk, not primary recommendation ranking
+  - next recommended step:
+    - keep Discovery Wizard work focused on executive and planning blueprint differentiation, Design Studio seeding specificity, provider-grade Design Package language quality, and recommendation-set completeness before Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Discovery Wizard Refinement Round 5 Experience Strategy and Provider Readiness is complete:
+  - objective:
+    - implement only the approved Round 5 Discovery Wizard refinement for:
+      - experience strategy
+      - provider readiness
+    - improve revenue and forecasting recommendation posture
+    - improve Top 3 portfolio diversity and experience-type explainability
+    - strengthen Design Package rationale and add provider-neutral handoff guidance
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 5 validation review, and the current discovery recommendation and design-package implementation
+    - identified the main gaps as investigation-heavy revenue and forecasting selections, weak portfolio-level curation, and planning-grade package language
+  - delivered:
+    - refined recommendation scoring so revenue and forecasting scenarios compete more credibly across executive consumption, operational management, and investigative analysis
+    - added portfolio-level diversity pressure using workflow-shape and decision-pattern differentiation
+    - made recommendation explainability explicit for:
+      - Executive-oriented
+      - Operational-oriented
+      - Investigative-oriented
+      - App-oriented
+      - Dashboard-oriented
+    - extended the backend-internal Design Package contract with:
+      - experience-type rationale
+      - provider-neutral provider guidance
+    - strengthened Design Package KPI rationale so forecasting, workflow, pipeline, profitability, and revenue KPIs explain scenario-specific decision value instead of generic fallback language
+    - added targeted xUnit coverage for:
+      - revenue executive-operational-investigative competition
+      - forecasting planning-first posture
+      - explicit experience-type explainability
+      - provider-neutral provider guidance
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, Analyzer Workspace changes, or another downstream discovery consumer
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 5 is complete:
+  - objective:
+    - validate whether the Consultant Decision Framework resolved the remaining Round 4 recommendation-quality concerns
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint generation, Design Studio seeding, and Design Package generation
+    - assess MVP completion and downstream readiness without product-code changes, feature additions, architecture changes, or Microsoft Skills / CLI integration planning
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and Round 4 review
+    - exercised the current backend discovery workflow against:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round5.md`
+    - compared the six Round 4 findings and classified them as:
+      - recommendation rationale still not consultant-quality: improved
+      - customer profitability recommendations weak: resolved
+      - forecasting recommendations weak: improved
+      - service workflow recommendations weak: resolved
+      - recommendation clustering: improved
+      - package rationale not provider-grade: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - customer profitability and service workflow recommendations are now materially more consultant-defensible
+    - revenue / sales still over-selects investigation framing for the lead recommendation
+    - forecasting is improved and still too investigation-shaped for a planning-first workflow
+    - recommendation diversity remains inconsistent, especially in inventory and analytical-investigation scenarios
+    - Design Studio seeding and Design Package rationale are still too templated for downstream high-trust consumption
+  - next recommended step:
+    - keep discovery work focused on revenue and forecasting intent preservation, recommendation-set diversity, PBIR surfacing quality, seed-language quality, and provider-grade package rationale before Microsoft Skills / CLI integration planning
+
 - 2026-06-19 Consultant Decision Framework implementation is in progress:
   - objective:
     - implement only the Discovery Wizard Consultant Decision Framework from Validation Review Round 4

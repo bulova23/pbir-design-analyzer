@@ -72,11 +72,17 @@ internal sealed record DesignPackageRecommendationRationale(
     IReadOnlyList<string> LimitingFactors,
     string AudienceRationale,
     string BusinessOutcomeRationale,
+    string ExperienceTypeRationale,
     IReadOnlyList<string> KpiRationale,
     IReadOnlyList<string> PageRationale,
     string NavigationRationale,
     string AnalyticalFlowRationale,
     IReadOnlyList<string> ProvenanceNotes);
+
+internal sealed record DesignPackageProviderGuidance(
+    string WhyThisPackageExists,
+    string ExperienceToGenerate,
+    string SuccessLooksLike);
 
 internal sealed record DesignPackageProvenance(
     string PackageReference,
@@ -95,4 +101,5 @@ internal sealed record DesignPackage(
     DesignPackageAnalyticalFlow AnalyticalFlow,
     DesignPackageSuccessCriteria SuccessCriteria,
     DesignPackageRecommendationRationale RecommendationRationale,
+    DesignPackageProviderGuidance ProviderGuidance,
     DesignPackageProvenance Provenance);

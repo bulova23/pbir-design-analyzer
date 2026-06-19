@@ -69,11 +69,13 @@ internal sealed class DesignPackageGenerationService
                 LimitingFactors: recommendation.LimitingFactors.ToList(),
                 AudienceRationale: BuildAudienceRationale(recommendation, profile, opportunity),
                 BusinessOutcomeRationale: BuildBusinessOutcomeRationale(recommendation),
+                ExperienceTypeRationale: BuildExperienceTypeRationale(recommendation, blueprint),
                 KpiRationale: BuildKpiRationale(recommendation, blueprint),
                 PageRationale: BuildPageRationale(blueprint),
                 NavigationRationale: BuildNavigationRationale(blueprint),
                 AnalyticalFlowRationale: BuildAnalyticalFlowRationale(blueprint),
                 ProvenanceNotes: BuildProvenanceNotes(blueprint)),
+            ProviderGuidance: BuildProviderGuidance(recommendation, blueprint),
             Provenance: new DesignPackageProvenance(
                 PackageReference: packageId,
                 Lineage: lineage.Concat(
@@ -159,7 +161,7 @@ internal sealed class DesignPackageGenerationService
         return blueprint.PrimaryKpis
             .Select(kpi => new DesignPackageKpi(
                 Name: kpi,
-                Purpose: $"Supports {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} decisions.",
+                Purpose: BuildKpiPurpose(recommendation, kpi),
                 Grouping: ResolveKpiGrouping(profile, kpi)))
             .ToArray();
     }
@@ -259,12 +261,27 @@ internal sealed class DesignPackageGenerationService
         return $"The experience is recommended because {recommendation.ExpectedAudience} needs a delivery shape that can {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without changing the underlying semantic-model story.";
     }
 
+    private static string BuildExperienceTypeRationale(
+        DiscoveryRecommendation recommendation,
+        ExperienceBlueprint blueprint)
+    {
+        return recommendation.RecommendedExperienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard => $"The package stays dashboard-oriented because {recommendation.ExpectedAudience} needs a fast scan of KPI movement, variance, and leadership actions before any deeper follow-up path branches off.",
+            OpportunityExperienceType.OperationalMonitoringExperience => $"The package stays operational-monitoring-oriented because the primary value is repeated queue, exception, and next-action visibility across {blueprint.RecommendedPages.Count} focused pages.",
+            OpportunityExperienceType.AnalyticalInvestigationExperience => $"The package stays investigation-oriented because the business question requires a slower question-to-evidence-to-decision path instead of a compressed dashboard readout.",
+            OpportunityExperienceType.FabricApp => $"The package stays app-oriented because the workflow needs owners to move between coordination, follow-up, and confirmation inside one guided experience rather than across disconnected pages.",
+            OpportunityExperienceType.FabricDataApp => $"The package stays data-app-oriented because users need to pivot across segments and records before the final decision pattern should be fixed.",
+            _ => $"The package stays report-oriented because a staged narrative path is the clearest way to walk users from context to evidence to the final decision."
+        };
+    }
+
     private static IReadOnlyList<string> BuildKpiRationale(
         DiscoveryRecommendation recommendation,
         ExperienceBlueprint blueprint)
     {
         return blueprint.PrimaryKpis
-            .Select(kpi => $"{kpi} stays in the primary set because it helps {recommendation.ExpectedAudience.ToLowerInvariant()} make the decision implied by {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}.")
+            .Select(kpi => $"{kpi} stays in the primary set because {BuildKpiDecisionReason(recommendation, kpi)}")
             .ToArray();
     }
 
@@ -288,6 +305,20 @@ internal sealed class DesignPackageGenerationService
     private static string BuildAnalyticalFlowRationale(ExperienceBlueprint blueprint)
     {
         return $"The analytical flow is arranged this way because it starts with the question '{blueprint.AnalyticalFlow.Question}', moves through investigation and evidence, and ends with the decision '{blueprint.AnalyticalFlow.Decision}' so the final recommendation is defensible instead of impressionistic.";
+    }
+
+    private static DesignPackageProviderGuidance BuildProviderGuidance(
+        DiscoveryRecommendation recommendation,
+        ExperienceBlueprint blueprint)
+    {
+        var why = $"Why this package exists: so a future provider can generate a provider-neutral {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} that serves {recommendation.ExpectedAudience} for {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without reinterpreting the business intent from scratch.";
+        var experience = $"Generate a {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} with pages shaped around {string.Join(", ", blueprint.RecommendedPages.Select(page => page.PageName))}, keep the audience centered on {recommendation.ExpectedAudience}, and preserve the recommendation posture rather than expanding into a different experience family.";
+        var success = $"Success looks like an experience where {recommendation.ExpectedAudience} can follow the path from {blueprint.AnalyticalFlow.Question.ToLowerInvariant()} to {blueprint.AnalyticalFlow.Decision.ToLowerInvariant()}, supported by the primary KPIs {string.Join(", ", blueprint.PrimaryKpis.Take(3))}, with navigation that matches the intended workflow instead of a generic scaffold.";
+
+        return new DesignPackageProviderGuidance(
+            WhyThisPackageExists: why,
+            ExperienceToGenerate: experience,
+            SuccessLooksLike: success);
     }
 
     private static IReadOnlyList<string> BuildProvenanceNotes(ExperienceBlueprint blueprint)
@@ -314,5 +345,63 @@ internal sealed class DesignPackageGenerationService
         }
 
         return $"the middle transition that keeps the story moving toward {pageName}";
+    }
+
+    private static string BuildKpiPurpose(DiscoveryRecommendation recommendation, string kpi)
+    {
+        return $"{BuildKpiDecisionReason(recommendation, kpi)}";
+    }
+
+    private static string BuildKpiDecisionReason(DiscoveryRecommendation recommendation, string kpi)
+    {
+        if (ContainsAny(kpi, "forecast accuracy", "forecast variance", "plan attainment"))
+        {
+            return $"{kpi} helps {recommendation.ExpectedAudience.ToLowerInvariant()} manage forecast quality and variance before the next planning decision.";
+        }
+
+        if (ContainsAny(kpi, "open work orders", "resolution", "sla", "backlog"))
+        {
+            return $"{kpi} helps {recommendation.ExpectedAudience.ToLowerInvariant()} see workflow pressure and next-owner follow-through clearly.";
+        }
+
+        if (ContainsAny(kpi, "open pipeline", "at risk pipeline", "win rate"))
+        {
+            return $"{kpi} helps {recommendation.ExpectedAudience.ToLowerInvariant()} manage pipeline follow-through rather than just scan topline performance.";
+        }
+
+        if (ContainsAny(kpi, "margin", "profit"))
+        {
+            return $"{kpi} helps {recommendation.ExpectedAudience.ToLowerInvariant()} compare profitable growth drivers instead of relying on generic revenue volume alone.";
+        }
+
+        if (ContainsAny(kpi, "revenue", "growth"))
+        {
+            return $"{kpi} helps {recommendation.ExpectedAudience.ToLowerInvariant()} keep the primary business outcome visible while moving through {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}.";
+        }
+
+        return $"{kpi} helps {recommendation.ExpectedAudience.ToLowerInvariant()} make the decision implied by {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}.";
+    }
+
+    private static string GetExperienceTypeLabel(OpportunityExperienceType experienceType)
+    {
+        return experienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard => "Executive Dashboard",
+            OpportunityExperienceType.OperationalMonitoringExperience => "Operational Monitoring Experience",
+            OpportunityExperienceType.AnalyticalInvestigationExperience => "Analytical Investigation Experience",
+            OpportunityExperienceType.FabricApp => "Fabric App",
+            OpportunityExperienceType.FabricDataApp => "Fabric Data App",
+            _ => "PBIR Report"
+        };
+    }
+
+    private static bool ContainsAny(string value, params string[] terms)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 }

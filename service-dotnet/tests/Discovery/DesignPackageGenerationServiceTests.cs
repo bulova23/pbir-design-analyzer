@@ -304,6 +304,66 @@ public sealed class DesignPackageGenerationServiceTests
             item.Contains("because", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact(DisplayName = "Design Package generation includes provider-neutral handoff guidance that explains intent and success")]
+    public void CreatePackage_IncludesProviderGuidanceWithoutProviderSpecificExecution()
+    {
+        var package = CreatePackage(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "forecast-accuracy-dashboard",
+                    "Forecast Accuracy Dashboard",
+                    "ForecastAccuracy",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                    ["ExecutiveDashboard", "PbirReport", "AnalyticalInvestigationExperience"],
+                    [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("Measure", "Forecast Variance"), ("Dimension", "Scenario")],
+                    ["Scenario granularity is still uneven by region."],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "forecast-accuracy-dashboard",
+                        "Forecast Accuracy Dashboard",
+                        "ExecutiveDashboard",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Why This Wins: Executive Dashboard fits the planning rhythm because forecast accuracy and variance management need a planning-first leadership readout before deeper diagnosis. Why Alternatives Lose: Analytical Investigation adds more drill depth than the weekly planning cycle should carry, and PBIR Report slows fast variance review. Business Tradeoffs: strong planning visibility at the cost of less open-ended analysis. Audience Tradeoffs: planning leadership gets a focused variance readout while analysts remain a secondary path. Operational Tradeoffs: owners can follow variance without turning the primary experience into a workflow shell. Analytical Tradeoffs: the experience keeps diagnostic evidence visible without becoming investigation-first.",
+                        "Planning Leadership",
+                        "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                        ["Forecasting domain", "Scenario planning support", "Forecast variance support"],
+                        ["Scenario granularity is still uneven by region."],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because the experience spans planning review and variance management without requiring full workflow orchestration.",
+                        "Primary",
+                        88.4,
+                        CreateBlueprint(
+                            "forecast-accuracy-dashboard",
+                            "forecast-accuracy-dashboard",
+                            "ForecastAccuracy",
+                            "ExecutiveDashboard",
+                            "Planning Leadership",
+                            "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                            ["Planning Summary", "Variance Review", "Regional Follow-Up"],
+                            ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+                            ["Date", "Region", "Scenario"]))]
+                ,
+                alternates: []),
+            "forecast-accuracy-dashboard");
+
+        var providerGuidance = ReadObject(package, "ProviderGuidance");
+
+        Assert.Contains("why", ReadString(providerGuidance, "WhyThisPackageExists"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("forecast", ReadString(providerGuidance, "WhyThisPackageExists"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Executive Dashboard", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Planning Leadership", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("success", ReadString(providerGuidance, "SuccessLooksLike"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CLI", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("provider payload", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact(DisplayName = "Design Package generation is deterministic for the same blueprint input")]
     public void CreatePackage_SameInput_IsDeterministic()
     {

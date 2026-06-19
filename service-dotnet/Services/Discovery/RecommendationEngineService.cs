@@ -102,6 +102,12 @@ internal sealed class RecommendationEngineService
         var themeBonus = existing.All(current => !ThemesLookSimilar(current, candidate))
             ? placement == RecommendationPlacement.Primary ? 3d : 4d
             : 0d;
+        var workflowBonus = existing.All(current => !WorkflowLooksSimilar(current, candidate))
+            ? placement == RecommendationPlacement.Primary ? 4d : 5d
+            : 0d;
+        var decisionPatternBonus = existing.All(current => !DecisionPatternsLookSimilar(current, candidate))
+            ? placement == RecommendationPlacement.Primary ? 4d : 5d
+            : 0d;
         var duplicatePenalty = existing.Any(current =>
             current.RecommendedExperienceType == candidate.RecommendedExperienceType &&
             string.Equals(current.ExpectedAudience, candidate.ExpectedAudience, StringComparison.OrdinalIgnoreCase))
@@ -110,8 +116,14 @@ internal sealed class RecommendationEngineService
         var familyPenalty = existing.Any(current => BelongsToSameExperienceFamily(current, candidate))
             ? placement == RecommendationPlacement.Primary ? -2d : -3d
             : 0d;
+        var workflowPenalty = existing.Any(current => WorkflowLooksSimilar(current, candidate))
+            ? placement == RecommendationPlacement.Primary ? -2d : -3d
+            : 0d;
+        var decisionPatternPenalty = existing.Any(current => DecisionPatternsLookSimilar(current, candidate))
+            ? placement == RecommendationPlacement.Primary ? -2d : -3d
+            : 0d;
 
-        return typeBonus + audienceBonus + outcomeBonus + themeBonus + duplicatePenalty + familyPenalty;
+        return typeBonus + audienceBonus + outcomeBonus + themeBonus + workflowBonus + decisionPatternBonus + duplicatePenalty + familyPenalty + workflowPenalty + decisionPatternPenalty;
     }
 
     private static List<DiscoveryRecommendation> Deduplicate(IReadOnlyList<DiscoveryRecommendation> candidates)
@@ -218,6 +230,86 @@ internal sealed class RecommendationEngineService
             (businessFit * BusinessFitWeight) +
             (consultantDecision.ConsultantJudgmentScore * ConsultantJudgmentWeight);
 
+        var scenarioPostureAdjustment = 0d;
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.RevenueSales &&
+            recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience &&
+            HasAudience(profile, "Executive") &&
+            HasAudience(profile, "Operational"))
+        {
+            scenarioPostureAdjustment -= 0.18d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.RevenueSales &&
+            recommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard &&
+            candidate.Category == OpportunityCategory.ExecutiveReporting &&
+            HasAudience(profile, "Analytical") &&
+            !HasInvestigativeIntent(candidate))
+        {
+            scenarioPostureAdjustment += 0.14d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.Forecasting &&
+            recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience &&
+            !HasInvestigativeIntent(candidate))
+        {
+            scenarioPostureAdjustment -= 0.12d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.Forecasting &&
+            recommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard &&
+            HasPlanningIntent(candidate))
+        {
+            scenarioPostureAdjustment += 0.1d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.Forecasting &&
+            candidate.Category == OpportunityCategory.ForecastAccuracy)
+        {
+            scenarioPostureAdjustment += recommendedExperienceType switch
+            {
+                OpportunityExperienceType.ExecutiveDashboard when HasPlanningIntent(candidate) => 0.16d,
+                OpportunityExperienceType.FabricApp when HasManagementIntent(candidate) => 0.14d,
+                OpportunityExperienceType.AnalyticalInvestigationExperience when HasInvestigativeIntent(candidate) => 0.08d,
+                _ => 0d,
+            };
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.CustomerProfitability &&
+            recommendedExperienceType is OpportunityExperienceType.FabricDataApp or OpportunityExperienceType.AnalyticalInvestigationExperience)
+        {
+            scenarioPostureAdjustment += 0.18d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.RevenueSales &&
+            recommendedExperienceType == OpportunityExperienceType.FabricApp &&
+            HasAudience(profile, "Operational") &&
+            HasManagementIntent(candidate))
+        {
+            scenarioPostureAdjustment += 0.22d;
+        }
+
+        if (candidate.Category == OpportunityCategory.ExecutiveReporting &&
+            recommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard)
+        {
+            if (ProfileHasHighDomain(profile, "Forecasting") && !HasDomain(candidate, "Forecasting"))
+            {
+                scenarioPostureAdjustment -= 0.18d;
+            }
+
+            if (ProfileHasHighDomain(profile, "Profitability") && !HasDomain(candidate, "Profitability"))
+            {
+                scenarioPostureAdjustment -= 0.2d;
+            }
+
+            if (ProfileHasHighDomain(profile, "Customer") && !HasDomain(candidate, "Customer"))
+            {
+                scenarioPostureAdjustment -= 0.16d;
+            }
+        }
+
+        weightedScore = Clamp01(weightedScore + scenarioPostureAdjustment);
+
         var rankingScore = Math.Round(weightedScore * 100d, 2);
         var recommendationConfidence = ClassifyRecommendationConfidence(weightedScore, profile, candidate);
         var businessValue = ClassifyBusinessValue(businessActionability, analyticalFit, semanticCoverage);
@@ -302,6 +394,9 @@ internal sealed class RecommendationEngineService
             ? 0.18d
             : 0d;
         var customerExploration = HasDomain(candidate, "Customer") ? 0.14d : 0d;
+        var planningStrength = HasPlanningIntent(candidate) ? 0.22d : 0d;
+        var managementStrength = HasManagementIntent(candidate) ? 0.2d : 0d;
+        var investigativeStrength = HasInvestigativeIntent(candidate) ? 0.2d : 0d;
         var categoryPrior = GetCategoryPrior(candidate.Category, experienceType);
         var strategicValue = ContainsAny(workflowText, "leadership", "executive", "strategy", "strategic", "board", "priority")
             ? 0.12d
@@ -315,10 +410,10 @@ internal sealed class RecommendationEngineService
 
         var score = experienceType switch
         {
-            OpportunityExperienceType.ExecutiveDashboard => 0.3d + categoryPrior + executiveStrength + executiveCadence + strategicValue + (decisionCadence == "Weekly" || decisionCadence == "Monthly" ? 0.1d : 0d) + (interactionFrequency == "Low" ? 0.08d : 0d) + (1d - analyticalDepth) * 0.1d,
-            OpportunityExperienceType.OperationalMonitoringExperience => 0.3d + categoryPrior + operationalStrength + operationalDomain + serviceWorkflow + operationalActionability + (decisionCadence == "Daily" ? 0.12d : 0d) + (interactionFrequency == "High" ? 0.08d : 0d) + (ContainsAny(workflowText, "monitor", "exception", "backlog", "sla", "queue") ? 0.16d : 0d),
-            OpportunityExperienceType.AnalyticalInvestigationExperience => 0.28d + categoryPrior + analyticalStrength + (analyticalDepth * 0.34d) + (decisionCadence == "Episodic" ? 0.08d : 0d) + (ContainsAny(workflowText, "investigate", "variance", "driver", "root cause", "why") ? 0.18d : 0d),
-            OpportunityExperienceType.FabricApp => 0.22d + categoryPrior + operationalStrength + multiRoleStrength + workflowOrchestration + serviceWorkflow + operationalActionability + (decisionCadence == "Daily" ? 0.08d : 0d) + (interactionFrequency == "High" ? 0.1d : 0d) + (NormalizeCount(profile.Dimensions.Count, 5) * 0.12d),
+            OpportunityExperienceType.ExecutiveDashboard => 0.3d + categoryPrior + executiveStrength + executiveCadence + strategicValue + planningStrength + (decisionCadence == "Weekly" || decisionCadence == "Monthly" ? 0.1d : 0d) + (interactionFrequency == "Low" ? 0.08d : 0d) + (1d - analyticalDepth) * 0.1d,
+            OpportunityExperienceType.OperationalMonitoringExperience => 0.3d + categoryPrior + operationalStrength + operationalDomain + serviceWorkflow + managementStrength + operationalActionability + (decisionCadence == "Daily" ? 0.12d : 0d) + (interactionFrequency == "High" ? 0.08d : 0d) + (ContainsAny(workflowText, "monitor", "exception", "backlog", "sla", "queue") ? 0.16d : 0d),
+            OpportunityExperienceType.AnalyticalInvestigationExperience => 0.28d + categoryPrior + analyticalStrength + (analyticalDepth * 0.34d) + (decisionCadence == "Episodic" ? 0.08d : 0d) + investigativeStrength,
+            OpportunityExperienceType.FabricApp => 0.22d + categoryPrior + operationalStrength + multiRoleStrength + workflowOrchestration + serviceWorkflow + managementStrength + operationalActionability + (decisionCadence == "Daily" ? 0.08d : 0d) + (interactionFrequency == "High" ? 0.1d : 0d) + (NormalizeCount(profile.Dimensions.Count, 5) * 0.12d),
             OpportunityExperienceType.FabricDataApp => 0.22d + categoryPrior + analyticalStrength + explorationStrength + customerExploration + (interactionFrequency != "Low" ? 0.08d : 0d) + (NormalizeCount(profile.Dimensions.Count, 5) * 0.1d),
             _ => 0.22d + categoryPrior + narrativeStrength + executiveAnalyticalBlend + (NormalizeCount(candidate.SupportingSemanticSignals.Count, 5) * 0.12d) + (decisionCadence == "Weekly" || decisionCadence == "Monthly" ? 0.08d : 0d) + (interactionFrequency == "Medium" || interactionFrequency == "Low" ? 0.06d : 0d) + (profile.DateIntelligence.Readiness != DiscoveryDateIntelligenceReadiness.Low ? 0.06d : 0d),
         };
@@ -331,6 +426,11 @@ internal sealed class RecommendationEngineService
         if (experienceType == OpportunityExperienceType.AnalyticalInvestigationExperience && executiveStrength >= 0.2d && analyticalDepth < 0.55d)
         {
             score -= 0.18d;
+        }
+
+        if (experienceType == OpportunityExperienceType.AnalyticalInvestigationExperience && !HasInvestigativeIntent(candidate))
+        {
+            score -= 0.16d;
         }
 
         if (experienceType == OpportunityExperienceType.FabricApp && workflowOrchestration == 0d)
@@ -386,7 +486,7 @@ internal sealed class RecommendationEngineService
 
         if (domainFramework == ConsultantDomainFramework.Forecasting && experienceType == OpportunityExperienceType.AnalyticalInvestigationExperience && HasMeasureSignal(candidate, "Forecast"))
         {
-            adjustment += 0.22d;
+            adjustment += HasInvestigativeIntent(candidate) ? 0.1d : -0.18d;
         }
 
         if (domainFramework == ConsultantDomainFramework.CustomerProfitability && experienceType == OpportunityExperienceType.FabricDataApp)
@@ -416,7 +516,17 @@ internal sealed class RecommendationEngineService
 
         if (domainFramework == ConsultantDomainFramework.Forecasting && experienceType == OpportunityExperienceType.ExecutiveDashboard && analyticalDepth >= 0.55d)
         {
-            adjustment -= 0.12d;
+            adjustment += HasPlanningIntent(candidate) ? 0.16d : -0.08d;
+        }
+
+        if (domainFramework == ConsultantDomainFramework.Forecasting && experienceType == OpportunityExperienceType.FabricApp && HasManagementIntent(candidate))
+        {
+            adjustment += 0.18d;
+        }
+
+        if (domainFramework == ConsultantDomainFramework.RevenueSales && experienceType == OpportunityExperienceType.AnalyticalInvestigationExperience && !HasInvestigativeIntent(candidate))
+        {
+            adjustment -= 0.18d;
         }
 
         if (domainFramework == ConsultantDomainFramework.CustomerProfitability && experienceType == OpportunityExperienceType.ExecutiveDashboard)
@@ -488,6 +598,11 @@ internal sealed class RecommendationEngineService
         }
 
         if (candidate.LimitingFactors.Count >= 2)
+        {
+            confidenceScore -= 0.1d;
+        }
+
+        if (profile.Confidence == DiscoveryConfidenceLevel.Low || candidate.Confidence == DiscoveryConfidenceLevel.Low)
         {
             confidenceScore -= 0.1d;
         }
@@ -722,6 +837,7 @@ internal sealed class RecommendationEngineService
 
         return $"Why This Experience Wins (Why This Wins): {consultantDecision.WhyThisExperienceWins} " +
                $"Why Competing Experiences Lose (Why Alternatives Lose): This path is better because {string.Join(" ", consultantDecision.WhyCompetingExperiencesLose)} " +
+               $"Experience Posture: {BuildExperiencePostureSummary(candidate, selectedType)} " +
                $"Risks: {string.Join(" ", consultantDecision.Risks)} " +
                $"Assumptions: {string.Join(" ", consultantDecision.Assumptions)} " +
                $"Adoption Considerations: {consultantDecision.AdoptionConsiderations} " +
@@ -1001,6 +1117,32 @@ internal sealed class RecommendationEngineService
         score += GetDomainFrameworkAdjustment(candidate, selectedType, domainFramework, workflowOrientation, signalProfile);
         score -= CalculateDomainDilutionPenalty(profile, candidate, domainFramework);
 
+        if (domainFramework == ConsultantDomainFramework.RevenueSales &&
+            selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience &&
+            HasAudience(profile, "Executive") &&
+            HasAudience(profile, "Operational"))
+        {
+            score -= 0.34d;
+        }
+
+        if (domainFramework == ConsultantDomainFramework.RevenueSales &&
+            selectedType == OpportunityExperienceType.ExecutiveDashboard &&
+            candidate.Category == OpportunityCategory.ExecutiveReporting &&
+            HasAudience(profile, "Operational") &&
+            HasAudience(profile, "Analytical") &&
+            !HasInvestigativeIntent(candidate))
+        {
+            score += 0.16d;
+        }
+
+        if (domainFramework == ConsultantDomainFramework.RevenueSales &&
+            selectedType == OpportunityExperienceType.FabricApp &&
+            HasAudience(profile, "Operational") &&
+            HasManagementIntent(candidate))
+        {
+            score += 0.18d;
+        }
+
         if (alternatives.Count > 0)
         {
             score += Clamp01(NormalizeExperienceFit(ScoreGap(selectedType, alternatives)) / 2d) * 0.08d;
@@ -1067,8 +1209,12 @@ internal sealed class RecommendationEngineService
             ConsultantDomainFramework.RevenueSales when workflowOrientation != ConsultantWorkflowOrientation.Act && selectedType == OpportunityExperienceType.ExecutiveDashboard && candidate.Category == OpportunityCategory.ExecutiveReporting => 0.24d,
             ConsultantDomainFramework.RevenueSales when workflowOrientation != ConsultantWorkflowOrientation.Act && selectedType == OpportunityExperienceType.ExecutiveDashboard => 0.14d,
             ConsultantDomainFramework.RevenueSales when workflowOrientation == ConsultantWorkflowOrientation.Act && selectedType == OpportunityExperienceType.ExecutiveDashboard => -0.18d,
-            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience && HasMeasureSignal(candidate, "Forecast") => 0.26d,
-            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.ExecutiveDashboard && HasMeasureSignal(candidate, "Forecast") => -0.12d,
+            ConsultantDomainFramework.RevenueSales when selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience && !HasInvestigativeIntent(candidate) => -0.24d,
+            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience && HasMeasureSignal(candidate, "Forecast") && HasInvestigativeIntent(candidate) => 0.14d,
+            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience && HasMeasureSignal(candidate, "Forecast") && !HasInvestigativeIntent(candidate) => -0.22d,
+            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.ExecutiveDashboard && HasPlanningIntent(candidate) => 0.24d,
+            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.ExecutiveDashboard && HasMeasureSignal(candidate, "Forecast") => 0.08d,
+            ConsultantDomainFramework.Forecasting when selectedType == OpportunityExperienceType.FabricApp && workflowOrientation == ConsultantWorkflowOrientation.Act => 0.22d,
             ConsultantDomainFramework.CustomerProfitability when selectedType is OpportunityExperienceType.FabricDataApp or OpportunityExperienceType.AnalyticalInvestigationExperience => 0.3d,
             ConsultantDomainFramework.CustomerProfitability when selectedType == OpportunityExperienceType.ExecutiveDashboard => -0.18d,
             ConsultantDomainFramework.Inventory when selectedType == OpportunityExperienceType.OperationalMonitoringExperience => 0.14d,
@@ -1277,6 +1423,42 @@ internal sealed class RecommendationEngineService
         return HasAudience(profile, "Executive") || HasAudience(profile, "Analytical")
             ? "the audience mix supports a staged narrative rather than a single landing page"
             : "the recommendation needs a controlled readout instead of an open canvas";
+    }
+
+    private static string BuildExperiencePostureSummary(
+        OpportunityCandidate candidate,
+        OpportunityExperienceType selectedType)
+    {
+        var labels = new List<string>();
+
+        if (selectedType == OpportunityExperienceType.ExecutiveDashboard ||
+            candidate.InferredAudience.Contains("executive", StringComparison.OrdinalIgnoreCase) ||
+            candidate.InferredAudience.Contains("leadership", StringComparison.OrdinalIgnoreCase))
+        {
+            labels.Add("Executive-oriented because the recommendation optimizes for leadership review cadence and concise KPI consumption.");
+        }
+
+        if (selectedType is OpportunityExperienceType.FabricApp or OpportunityExperienceType.OperationalMonitoringExperience || HasManagementIntent(candidate))
+        {
+            labels.Add("Operational-oriented because the recommendation keeps owner follow-through, queue pressure, or next-action management visible.");
+        }
+
+        if (selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience || HasInvestigativeIntent(candidate))
+        {
+            labels.Add("Investigative-oriented because the recommendation expects users to test drivers and explain variance before acting.");
+        }
+
+        if (selectedType is OpportunityExperienceType.FabricApp or OpportunityExperienceType.FabricDataApp)
+        {
+            labels.Add("App-oriented because the recommendation needs a guided multi-step surface rather than a static scan-first page set.");
+        }
+
+        if (selectedType is OpportunityExperienceType.ExecutiveDashboard or OpportunityExperienceType.OperationalMonitoringExperience)
+        {
+            labels.Add("Dashboard-oriented because the recommendation is strongest when users can scan status, variance, and priorities quickly.");
+        }
+
+        return string.Join(" ", labels.Distinct(NameComparer));
     }
 
     private static string BuildSignalEvidence(
@@ -1489,6 +1671,95 @@ internal sealed class RecommendationEngineService
         }
 
         return Clamp01(actionability);
+    }
+
+    private static bool HasPlanningIntent(OpportunityCandidate candidate)
+    {
+        return ContainsAny(
+            $"{candidate.Name} {candidate.BusinessOutcome}",
+            "plan",
+            "planning",
+            "forecast",
+            "variance management",
+            "forecast accuracy",
+            "performance management",
+            "planning cycle");
+    }
+
+    private static bool HasManagementIntent(OpportunityCandidate candidate)
+    {
+        return ContainsAny(
+            $"{candidate.Name} {candidate.BusinessOutcome}",
+            "manage",
+            "management",
+            "assign",
+            "route",
+            "owner",
+            "follow-up",
+            "triage",
+            "pipeline review",
+            "coordinate");
+    }
+
+    private static bool HasInvestigativeIntent(OpportunityCandidate candidate)
+    {
+        return ContainsAny(
+            $"{candidate.Name} {candidate.BusinessOutcome}",
+            "investigate",
+            "investigation",
+            "root cause",
+            "why",
+            "driver",
+            "diagnostic",
+            "miss patterns");
+    }
+
+    private static bool WorkflowLooksSimilar(DiscoveryRecommendation left, DiscoveryRecommendation right)
+    {
+        return string.Equals(ResolveWorkflowShape(left), ResolveWorkflowShape(right), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool DecisionPatternsLookSimilar(DiscoveryRecommendation left, DiscoveryRecommendation right)
+    {
+        return string.Equals(ResolveDecisionPattern(left), ResolveDecisionPattern(right), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveWorkflowShape(DiscoveryRecommendation recommendation)
+    {
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.FabricApp)
+        {
+            return "workflow-app";
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience)
+        {
+            return "investigation";
+        }
+
+        if (ContainsAny(recommendation.ExpectedBusinessOutcome, "plan", "planning", "forecast", "variance"))
+        {
+            return "planning";
+        }
+
+        if (ContainsAny(recommendation.ExpectedBusinessOutcome, "monitor", "queue", "backlog", "exception"))
+        {
+            return "monitoring";
+        }
+
+        return "summary";
+    }
+
+    private static string ResolveDecisionPattern(DiscoveryRecommendation recommendation)
+    {
+        return recommendation.RecommendedExperienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard => "executive-consumption",
+            OpportunityExperienceType.OperationalMonitoringExperience => "operational-management",
+            OpportunityExperienceType.AnalyticalInvestigationExperience => "investigative-analysis",
+            OpportunityExperienceType.FabricApp => "workflow-execution",
+            OpportunityExperienceType.FabricDataApp => "exploratory-analysis",
+            _ => "narrative-review"
+        };
     }
 
     private static string GetExperienceTypeLabel(OpportunityExperienceType experienceType)

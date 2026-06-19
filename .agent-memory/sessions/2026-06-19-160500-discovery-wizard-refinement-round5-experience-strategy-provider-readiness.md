@@ -1,0 +1,42 @@
+# 2026-06-19 Discovery Wizard Refinement Round 5 Experience Strategy and Provider Readiness
+
+- objective:
+  - implement only the approved Round 5 Discovery Wizard refinement for:
+    - experience strategy
+    - provider readiness
+  - improve revenue and forecasting recommendation posture
+  - improve Top 3 portfolio diversity and experience-type explainability
+  - strengthen Design Package rationale and add provider-neutral handoff guidance
+  - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+- started:
+  - read `AGENTS.md` and repo memory files
+  - reviewed `docs/report-discovery-wizard-validation-review-round5.md`
+  - inspected the current discovery recommendation, blueprint, and design-package services plus existing xUnit coverage
+- current focus:
+  - add failing tests first for:
+    - revenue / sales executive-operational-investigative competition
+    - forecasting planning-first posture
+    - Top 3 portfolio differentiation
+    - explicit experience-type reasoning
+    - provider-grade Design Package guidance
+- delivered:
+  - refined recommendation scoring so revenue and forecasting scenarios compete more credibly across executive consumption, operational management, and investigative analysis
+  - added portfolio-level diversity pressure using workflow-shape and decision-pattern differentiation
+  - made recommendation explainability explicit for:
+    - Executive-oriented
+    - Operational-oriented
+    - Investigative-oriented
+    - App-oriented
+    - Dashboard-oriented
+  - extended the backend-internal Design Package contract with:
+    - experience-type rationale
+    - provider-neutral provider guidance
+  - strengthened Design Package KPI rationale so forecasting, workflow, pipeline, profitability, and revenue KPIs explain scenario-specific decision value instead of generic fallback language
+- validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- notes:
+  - kept scope limited to Round 5 experience strategy and provider readiness only
+  - did not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes
