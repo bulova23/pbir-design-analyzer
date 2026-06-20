@@ -541,6 +541,75 @@ public sealed class DesignPackageGenerationServiceTests
         Assert.Contains("success looks like", ReadString(providerGuidance, "SuccessLooksLike"), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact(DisplayName = "Design Package generation uses consultant-facing names while preserving technical lineage and rationale quality")]
+    public void CreatePackage_UsesConsultantFacingNames_PreservesTechnicalLineage_AndAvoidsMalformedRationale()
+    {
+        var package = CreatePackage(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "inventory-operations-monitoring",
+                    "Inventory Operations Monitoring",
+                    "InventoryOptimization",
+                    "Operational",
+                    "Monitor inventory risk across customers, products, and warehouses.",
+                    ["OperationalMonitoringExperience"],
+                    [("Domain", "Inventory"), ("Dimension", "Warehouse")],
+                    ["KPI support is intentionally limited to supported inventory measures."],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "inventory-operations-monitoring",
+                        "Inventory Operations Monitoring",
+                        "OperationalMonitoringExperience",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Why This Wins: Operational monitoring fits the inventory cadence because exception review and next actions must stay close together. Why Alternatives Lose: Executive Dashboard would compress action detail too early, and PBIR Report would slow day-to-day follow-through. Business Tradeoffs: actionability wins over generic summary. Audience Tradeoffs: operators get a clearer exception path while executives remain secondary consumers. Operational Tradeoffs: warehouse-level action stays close to backlog signals. Analytical Tradeoffs: the package preserves drill support without turning the design into analyst-first investigation.",
+                        "Operational",
+                        "Monitor inventory risk across customers, products, and warehouses.",
+                        ["Inventory semantic support", "Warehouse dimension support"],
+                        ["KPI support is intentionally limited to supported inventory measures."],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because an operational monitoring flow spans several semantic signals and design choices.",
+                        "Primary",
+                        88.2,
+                        CreateBlueprint(
+                            "inventory-operations-monitoring",
+                            "inventory-operations-monitoring",
+                            "InventoryOptimization",
+                            "OperationalMonitoringExperience",
+                            "Operational",
+                            "Monitor inventory risk across customers, products, and warehouses.",
+                            ["Overview", "Exceptions", "Detail"],
+                            ["Inventory Quantity", "Inventory Value", "Stock Variance"],
+                            ["Date", "Customer", "Product", "Warehouse"],
+                            influencingStructures: ["dimension:DimDate", "dimension:DimCustomer", "dimension:DimProduct", "dimension:DimWarehouse"],
+                            ambiguityNotes: ["KPI support is intentionally limited to supported inventory measures."]))]
+                ,
+                alternates: []),
+            "inventory-operations-monitoring");
+
+        var filters = ReadObject(package, "Filters");
+        var rationale = ReadObject(package, "RecommendationRationale");
+        var providerGuidance = ReadObject(package, "ProviderGuidance");
+
+        Assert.Contains("Date", ReadStringList(filters, "GlobalFilters"));
+        Assert.Contains("Customer", ReadStringList(filters, "GlobalFilters"));
+        Assert.Contains("Product", ReadStringList(filters, "GlobalFilters"));
+        Assert.Contains("Warehouse", ReadStringList(filters, "GlobalFilters"));
+        Assert.DoesNotContain(ReadStringList(filters, "GlobalFilters"), filter => filter.StartsWith("Dim", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(ReadStringList(rationale, "ProvenanceNotes"), note => note.Contains("dimension:DimCustomer", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(ReadStringList(rationale, "KpiRationale"), item => item.Contains("because", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(ReadStringList(rationale, "PageRationale"), item => item.Contains("because", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("System.String[]", ReadString(rationale, "NavigationRationale"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("System.String[]", ReadString(rationale, "AnalyticalFlowRationale"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("System.String[]", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("provider payload", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact(DisplayName = "Design Package generation preserves downstream diversity between executive and operational recommendations")]
     public void CreatePackage_DiversityPropagation_DiffersAcrossRecommendationTypes()
     {
@@ -821,7 +890,11 @@ public sealed class DesignPackageGenerationServiceTests
         string businessOutcome,
         IReadOnlyList<string> pageNames,
         IReadOnlyList<string> kpis,
-        IReadOnlyList<string> filters)
+        IReadOnlyList<string> filters,
+        IReadOnlyList<string>? supportingSignals = null,
+        IReadOnlyList<string>? semanticEvidenceReferences = null,
+        IReadOnlyList<string>? influencingStructures = null,
+        IReadOnlyList<string>? ambiguityNotes = null)
     {
         var pageType = GetType("ExperienceBlueprintPage");
         var analyticalFlowType = GetType("ExperienceBlueprintAnalyticalFlow");
@@ -863,10 +936,10 @@ public sealed class DesignPackageGenerationServiceTests
                 ParseEnum(GetType("OpportunityCategory"), opportunityCategory),
                 ParseEnum(GetType("OpportunityExperienceType"), experienceType),
                 ParseEnum(GetType("DiscoveryConfidenceLevel"), "High"),
-                CreateTypedList(typeof(string), "Revenue domain", "Regional coverage"),
-                CreateTypedList(typeof(string), "measure:Revenue", "dimension:Region"),
-                CreateTypedList(typeof(string), "measure:Revenue", "dimension:Region", "hierarchy:Geography"),
-                CreateTypedList(typeof(string), "Forecast detail is limited."),
+                CreateTypedList(typeof(string), (supportingSignals ?? ["Revenue domain", "Regional coverage"]).Cast<object>().ToArray()),
+                CreateTypedList(typeof(string), (semanticEvidenceReferences ?? ["measure:Revenue", "dimension:Region"]).Cast<object>().ToArray()),
+                CreateTypedList(typeof(string), (influencingStructures ?? ["measure:Revenue", "dimension:Region", "hierarchy:Geography"]).Cast<object>().ToArray()),
+                CreateTypedList(typeof(string), (ambiguityNotes ?? ["Forecast detail is limited."]).Cast<object>().ToArray()),
                 "semantic-model:test",
                 "discovery-profile:test"));
     }

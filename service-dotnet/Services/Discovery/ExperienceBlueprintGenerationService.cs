@@ -50,7 +50,7 @@ internal sealed class ExperienceBlueprintGenerationService
         var analyticalFlow = BuildAnalyticalFlow(profile, recommendation, opportunity);
         var navigationIntent = BuildNavigationIntent(profile, recommendation.RecommendedExperienceType, opportunity, pages);
         var successCriteria = BuildSuccessCriteria(recommendation, pages, primaryKpis);
-        var provenance = BuildProvenance(profile, recommendation, opportunity);
+        var provenance = BuildProvenance(profile, recommendation, opportunity, primaryKpis);
 
         return new ExperienceBlueprint(
             BlueprintId: $"{recommendation.RecommendationId}-blueprint",
@@ -79,9 +79,6 @@ internal sealed class ExperienceBlueprintGenerationService
         }
 
         collected.AddRange(profile.Measures.Select(measure => measure.Name));
-
-        var fallback = GetFallbackKpis(recommendation, opportunity);
-        collected.AddRange(fallback);
 
         return collected
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -127,47 +124,6 @@ internal sealed class ExperienceBlueprintGenerationService
         return 10;
     }
 
-    private static IReadOnlyList<string> GetFallbackKpis(
-        DiscoveryRecommendation recommendation,
-        OpportunityCandidate? opportunity)
-    {
-        var category = opportunity?.Category;
-
-        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience ||
-            category is OpportunityCategory.InventoryOptimization or OpportunityCategory.ServiceOperations)
-        {
-            return ["Open Exceptions", "Backlog Trend", "Resolution Rate"];
-        }
-
-        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience ||
-            category is OpportunityCategory.ProfitabilityAnalysis or OpportunityCategory.RootCauseInvestigation)
-        {
-            return ["Variance", "Revenue", "Gross Margin"];
-        }
-
-        if (category == OpportunityCategory.InventoryOptimization)
-        {
-            return ["Open Exceptions", "Stockout Risk", "Backlog Trend"];
-        }
-
-        if (category == OpportunityCategory.ServiceOperations)
-        {
-            return ["Open Work Orders", "Resolution Time", "SLA Breach Risk"];
-        }
-
-        if (category == OpportunityCategory.ForecastAccuracy)
-        {
-            return ["Forecast Accuracy", "Actuals", "Variance"];
-        }
-
-        if (category == OpportunityCategory.CustomerAnalysis)
-        {
-            return ["Customer Retention", "Revenue", "Gross Margin"];
-        }
-
-        return ["Revenue", "Gross Margin", "YoY Growth"];
-    }
-
     private static IReadOnlyList<string> BuildGlobalFilters(DiscoveryProfile profile)
     {
         var preferred = new[]
@@ -176,19 +132,19 @@ internal sealed class ExperienceBlueprintGenerationService
             "Region",
             "Territory",
             "Product Category",
+            "Product",
             "Customer Segment",
+            "Customer",
             "Warehouse",
+            "Technician",
+            "Work Order",
             "Forecast Period"
         };
 
-        var available = profile.Dimensions
-            .Select(dimension => dimension.Name)
-            .Concat(profile.DateIntelligence.DateDimensions)
-            .Distinct(NameComparer)
-            .ToList();
+        var available = BuildAvailableFilterLabels(profile);
 
         var selected = preferred
-            .Where(filter => available.Any(value => string.Equals(value, filter, StringComparison.OrdinalIgnoreCase)))
+            .Where(filter => available.Any(value => LabelsMatch(value, filter)))
             .ToList();
 
         if (selected.Count == 0 && available.Count > 0)
@@ -468,14 +424,11 @@ internal sealed class ExperienceBlueprintGenerationService
 
     private static IReadOnlyList<string> PickFilters(DiscoveryProfile profile, params string[] candidates)
     {
-        var available = profile.Dimensions
-            .Select(dimension => dimension.Name)
-            .Concat(profile.DateIntelligence.DateDimensions)
-            .Distinct(NameComparer)
-            .ToList();
+        var available = BuildAvailableFilterLabels(profile);
 
         var selected = candidates
-            .Where(candidate => available.Any(value => string.Equals(value, candidate, StringComparison.OrdinalIgnoreCase)))
+            .Where(candidate => available.Any(value => LabelsMatch(value, candidate)))
+            .Select(candidate => available.First(value => LabelsMatch(value, candidate)))
             .ToList();
 
         if (selected.Count == 0)
@@ -733,7 +686,8 @@ internal sealed class ExperienceBlueprintGenerationService
     private static ExperienceBlueprintProvenance BuildProvenance(
         DiscoveryProfile profile,
         DiscoveryRecommendation recommendation,
-        OpportunityCandidate? opportunity)
+        OpportunityCandidate? opportunity,
+        IReadOnlyList<string> primaryKpis)
     {
         var semanticEvidenceReferences = opportunity?.SupportingSemanticSignals
             .Select(signal => $"{signal.SignalType}:{signal.Value}")
@@ -741,6 +695,7 @@ internal sealed class ExperienceBlueprintGenerationService
             .OrderBy(signal => signal, NameComparer)
             .ToList() ?? [];
         var influencingModelStructures = BuildInfluencingModelStructures(profile, opportunity);
+        var ambiguityNotes = BuildAmbiguityNotes(profile, opportunity, primaryKpis);
 
         return new ExperienceBlueprintProvenance(
             RecommendationId: recommendation.RecommendationId,
@@ -751,9 +706,137 @@ internal sealed class ExperienceBlueprintGenerationService
             SupportingSignals: recommendation.SupportingSignals.ToList(),
             SemanticEvidenceReferences: semanticEvidenceReferences,
             InfluencingModelStructures: influencingModelStructures,
-            AmbiguityNotes: profile.AmbiguityNotes.ToList(),
+            AmbiguityNotes: ambiguityNotes,
             SemanticModelReferenceId: profile.SemanticModelReferenceId,
             DiscoveryProfileReferenceId: profile.DiscoveryProfileReferenceId);
+    }
+
+    private static IReadOnlyList<string> BuildAmbiguityNotes(
+        DiscoveryProfile profile,
+        OpportunityCandidate? opportunity,
+        IReadOnlyList<string> primaryKpis)
+    {
+        var notes = profile.AmbiguityNotes
+            .Concat(opportunity?.LimitingFactors ?? [])
+            .Distinct(NameComparer)
+            .ToList();
+
+        if (primaryKpis.Count == 0)
+        {
+            notes.Add("No supported KPI measures were found in the current semantic model, so the blueprint leaves KPI guidance intentionally ambiguous.");
+        }
+        else if (primaryKpis.Count < 3)
+        {
+            notes.Add($"KPI support is limited to {string.Join(", ", primaryKpis)}; the blueprint intentionally avoids unsupported fallback KPIs.");
+        }
+
+        return notes
+            .Distinct(NameComparer)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> BuildAvailableFilterLabels(DiscoveryProfile profile)
+    {
+        return profile.Dimensions
+            .Select(GetConsultantFacingDimensionLabel)
+            .Concat(profile.DateIntelligence.DateDimensions.Select(NormalizeFilterLabel))
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .Distinct(NameComparer)
+            .ToList();
+    }
+
+    private static string GetConsultantFacingDimensionLabel(DiscoveryDimensionProfile dimension)
+    {
+        if (string.Equals(dimension.BusinessRole, "Date", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Date";
+        }
+
+        var normalizedName = NormalizeFilterLabel(dimension.Name);
+
+        if (!normalizedName.StartsWith("Dim ", StringComparison.OrdinalIgnoreCase) &&
+            !normalizedName.StartsWith("Fact ", StringComparison.OrdinalIgnoreCase) &&
+            !normalizedName.StartsWith("Tbl ", StringComparison.OrdinalIgnoreCase) &&
+            !normalizedName.StartsWith("Table ", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalizedName;
+        }
+
+        var stripped = StripTechnicalPrefix(dimension.Name);
+        var normalizedStripped = NormalizeFilterLabel(stripped);
+
+        if (!string.IsNullOrWhiteSpace(normalizedStripped))
+        {
+            return normalizedStripped;
+        }
+
+        return NormalizeFilterLabel(dimension.BusinessRole);
+    }
+
+    private static bool LabelsMatch(string availableLabel, string candidate)
+    {
+        return string.Equals(NormalizeFilterLabel(availableLabel), NormalizeFilterLabel(candidate), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeFilterLabel(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = StripTechnicalPrefix(value)
+            .Replace("_", " ", StringComparison.Ordinal)
+            .Replace("-", " ", StringComparison.Ordinal);
+
+        normalized = string.Concat(normalized.Select((character, index) =>
+            index > 0 && char.IsUpper(character) && char.IsLetterOrDigit(normalized[index - 1]) && !char.IsUpper(normalized[index - 1])
+                ? $" {character}"
+                : character.ToString()));
+
+        normalized = string.Join(" ", normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(ExpandLabelToken));
+
+        return normalized switch
+        {
+            "Cust" => "Customer",
+            "Prod" => "Product",
+            "Whse" => "Warehouse",
+            "Wrk Order" => "Work Order",
+            _ => normalized
+        };
+    }
+
+    private static string StripTechnicalPrefix(string value)
+    {
+        foreach (var prefix in new[] { "Dim", "Fact", "Tbl", "Table" })
+        {
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                value.Length > prefix.Length &&
+                char.IsUpper(value[prefix.Length]))
+            {
+                return value[prefix.Length..];
+            }
+        }
+
+        return value;
+    }
+
+    private static string ExpandLabelToken(string token)
+    {
+        return token.ToLowerInvariant() switch
+        {
+            "cust" => "Customer",
+            "customer" => "Customer",
+            "prod" => "Product",
+            "product" => "Product",
+            "wrk" => "Work",
+            "wo" => "Work Order",
+            "order" => "Order",
+            "whse" => "Warehouse",
+            _ => char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant()
+        };
     }
 
     private static IReadOnlyList<string> BuildInfluencingModelStructures(

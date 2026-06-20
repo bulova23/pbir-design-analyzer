@@ -363,6 +363,122 @@ public sealed class ExperienceBlueprintGenerationServiceTests
             note.Contains("not well-defined", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact(DisplayName = "Experience Blueprint generation never fabricates unsupported KPIs and preserves ambiguity when support is insufficient")]
+    public void BuildRecommendationBlueprints_StrictKpiFidelity_PreservesAmbiguityInsteadOfFallbackKpis()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "Medium",
+            dateReadiness: "High",
+            measures: ["Open Work Orders", "Resolution Time"],
+            dimensions: [("DimDate", "Date"), ("DimTechnician", "Service"), ("DimWorkOrder", "Service")],
+            audienceSignals: [("Operational", "High")],
+            domainSignals: [("Service", "High")]);
+        var catalog = CreateOpportunityCatalog(
+            CreateOpportunityCandidate(
+                "service-operations-dashboard",
+                "Service Operations Dashboard",
+                "ServiceOperations",
+                "Operations Leadership",
+                "Monitor service backlog pressure and technician throughput without inferring unsupported financial KPIs.",
+                ["OperationalMonitoringExperience", "PbirReport"],
+                [("Domain", "Service"), ("Measure", "Open Work Orders"), ("Measure", "Resolution Time"), ("Dimension", "Technician")],
+                ["KPI support is limited to operational service measures."],
+                "Medium"));
+        var recommendations = CreateRecommendationSet(
+            primary:
+            [
+                CreateRecommendation(
+                    "service-operations-dashboard",
+                    "Service Operations Dashboard",
+                    "OperationalMonitoringExperience",
+                    "Medium",
+                    "High",
+                    "Medium",
+                    "Strong service semantic coverage with intentionally narrow KPI support.",
+                    "Operations Leadership",
+                    "Monitor service backlog pressure and technician throughput without inferring unsupported financial KPIs.",
+                    ["Service semantic support", "Operational KPI support"],
+                    ["KPI support is limited to operational service measures."],
+                    "Medium confidence because the model supports the service workflow but not a wider KPI layer.",
+                    "Medium complexity because an operational monitoring flow still needs deliberate queue design.",
+                    "Primary",
+                    78.6)
+            ],
+            alternates: []);
+
+        var enriched = BuildRecommendationBlueprints(profile, catalog, recommendations);
+        var blueprint = ReadBlueprint(ReadObjectList(enriched, "PrimaryRecommendations").Single());
+        var primaryKpis = ReadStringList(blueprint, "PrimaryKpis");
+        var ambiguityNotes = ReadStringList(ReadObject(blueprint, "Provenance"), "AmbiguityNotes");
+
+        Assert.Equal(new[] { "Open Work Orders", "Resolution Time" }, primaryKpis);
+        Assert.DoesNotContain(primaryKpis, kpi => kpi.Contains("Revenue", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(primaryKpis, kpi => kpi.Contains("Gross Margin", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(primaryKpis, kpi => kpi.Contains("Backlog Trend", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(ambiguityNotes, note =>
+            note.Contains("limited", StringComparison.OrdinalIgnoreCase) ||
+            note.Contains("unsupported", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact(DisplayName = "Experience Blueprint generation converts technical dimension names into consultant-facing filter labels")]
+    public void BuildRecommendationBlueprints_FilterNaming_UsesConsultantFacingLabels()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Inventory Quantity", "Inventory Value", "Stock Variance"],
+            dimensions:
+            [
+                ("DimDate", "Date"),
+                ("DimCustomer", "Customer"),
+                ("DimProduct", "Product"),
+                ("DimWarehouse", "Inventory")
+            ],
+            audienceSignals: [("Operational", "High")],
+            domainSignals: [("Inventory", "High")]);
+        var catalog = CreateOpportunityCatalog(
+            CreateOpportunityCandidate(
+                "inventory-operations-monitoring",
+                "Inventory Operations Monitoring",
+                "InventoryOptimization",
+                "Operational",
+                "Monitor inventory risk across customers, products, and warehouses.",
+                ["OperationalMonitoringExperience"],
+                [("Domain", "Inventory"), ("Measure", "Inventory Quantity"), ("Dimension", "Warehouse")],
+                [],
+                "High"));
+        var recommendations = CreateRecommendationSet(
+            primary:
+            [
+                CreateRecommendation(
+                    "inventory-operations-monitoring",
+                    "Inventory Operations Monitoring",
+                    "OperationalMonitoringExperience",
+                    "High",
+                    "High",
+                    "Medium",
+                    "Strong inventory semantic coverage.",
+                    "Operational",
+                    "Monitor inventory risk across customers, products, and warehouses.",
+                    ["Inventory semantic support"],
+                    [],
+                    "High confidence because the semantic model strongly supports this use case.",
+                    "Medium complexity because an operational monitoring flow spans several semantic signals and design choices.",
+                    "Primary",
+                    88.2)
+            ],
+            alternates: []);
+
+        var enriched = BuildRecommendationBlueprints(profile, catalog, recommendations);
+        var blueprint = ReadBlueprint(ReadObjectList(enriched, "PrimaryRecommendations").Single());
+
+        Assert.Contains("Date", ReadStringList(blueprint, "SuggestedGlobalFilters"));
+        Assert.Contains("Customer", ReadStringList(blueprint, "SuggestedGlobalFilters"));
+        Assert.Contains("Product", ReadStringList(blueprint, "SuggestedGlobalFilters"));
+        Assert.Contains("Warehouse", ReadStringList(blueprint, "SuggestedGlobalFilters"));
+        Assert.DoesNotContain(ReadStringList(blueprint, "SuggestedGlobalFilters"), filter => filter.StartsWith("Dim", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact(DisplayName = "Experience Blueprint generation differentiates inventory and service operational scenarios")]
     public void BuildRecommendationBlueprints_OperationalScenarios_DifferMateriallyByWorkflow()
     {

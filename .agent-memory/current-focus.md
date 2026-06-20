@@ -2,6 +2,112 @@
 
 ## Active Session
 
+- 2026-06-20 Discovery Wizard Final Targeted Refinement is complete:
+  - objective:
+    - implement only:
+      - recommendation trust
+      - design package fidelity
+    - fix the remaining consultant-review gaps in:
+      - `docs/report-discovery-wizard-validation-review-round8.md`
+      - `docs/report-discovery-wizard-consultant-benchmark-review.md`
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, and architecture work
+  - delivered:
+    - refined `RecommendationEngineService` so service command-center, service workflow-routing, and investigation-first forecast-mix scenarios get more trustworthy lead-selection behavior
+    - removed unsupported KPI fallback generation from `ExperienceBlueprintGenerationService`
+    - made blueprint/package filter naming consultant-facing while preserving technical lineage in provenance
+    - surfaced KPI insufficiency through ambiguity notes instead of fabricated package content
+    - added focused backend regression coverage for service trust, investigation trust, strict KPI fidelity, consultant-facing naming, and package rationale/provider-guidance trust
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - run `Discovery Wizard Validation Review – Round 9`
+    - use Round 9 to decide whether the Discovery Wizard MVP is complete and whether Design Package quality is sufficient for Microsoft Skills / CLI integration design planning
+
+- 2026-06-20 Discovery Wizard Consultant Benchmark Review is complete:
+  - objective:
+    - compare live Discovery Wizard outputs against human consultant reasoning across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+    - determine whether remaining weaknesses are genuine product gaps or style differences
+    - answer readiness questions for Design Package consumption and Microsoft Skills integration planning
+    - stop after review with no product-code changes, no feature additions, and no architecture changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Discovery Wizard design spec, and the Round 8 validation review
+    - inspected current discovery services and built a temporary out-of-repo reflection harness to exercise the live backend workflow end to end without modifying product code
+  - delivered:
+    - exercised the live backend workflow across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+    - wrote `docs/report-discovery-wizard-consultant-benchmark-review.md`
+    - compared Discovery Wizard outputs against human consultant outputs for opportunities, ranking, experience selection, blueprints, and Design Package quality
+  - decision gate:
+    - `B. One Final Targeted Refinement`
+  - key findings:
+    - remaining weaknesses are genuine product gaps, not only style differences
+    - opportunity breadth is now mostly consultant-credible and no longer the main blocker
+    - lead recommendation trust remains weak in Service Operations and Analytical Investigation
+    - Design Package quality is still below provider-trust quality because fallback KPIs, internal semantic-model naming, and malformed rationale fields still leak into the artifact
+    - the architecture is already sufficient; the remaining work should stay inside ranking, blueprint differentiation, and package fidelity rather than reopening architecture
+  - next recommended step:
+    - make one final targeted refinement for recommendation trust, same-family blueprint de-clustering, and strict Design Package KPI / naming fidelity
+    - do not begin Design Package downstream consumption planning or Microsoft Skills integration planning yet
+
+- 2026-06-20 Report Discovery Wizard Validation Review Round 8 is complete:
+  - objective:
+    - validate whether the Opportunity Depth and Recommendation Diversity refinements resolved the remaining Round 7 Discovery Wizard weaknesses
+    - assess consultant-quality output across:
+      - Semantic Model
+      - Discovery Profile
+      - Opportunity Catalog
+      - Recommendation Engine
+      - Experience Blueprint generation
+      - Design Studio seeding
+      - Design Package generation
+    - compare findings directly against Round 7 and determine MVP completion and downstream readiness
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no Microsoft Skills / CLI integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 7 validation review, the Discovery Wizard design spec, and current discovery services/tests
+    - identified the validation focus as live workflow breadth and diversity rather than unit-test intent alone because Round 7 found a gap between downstream tests and end-to-end behavior
+  - delivered:
+    - exercised the live backend discovery workflow end to end across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round8.md`
+    - compared the five Round 7 findings and classified them as:
+      - inventory opportunity depth too shallow: resolved
+      - service opportunity depth too shallow: resolved
+      - investigation opportunities dominate recommendations: improved
+      - recommendation diversity constrained by opportunity variety: improved
+      - downstream artifacts limited by upstream opportunity depth: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - live opportunity depth is now materially stronger and mostly consultant-grade across the six scenarios
+    - recommendation ranking is still inconsistent, especially where service-style models over-select investigation-first directions
+    - blueprint and seed diversity improved materially across experience types, but same-family clustering still persists in planning and investigation variants
+    - Design Package fidelity is still below downstream-trust quality because unsupported fallback KPIs and internal semantic-model naming still leak into the handoff artifact
+  - next recommended step:
+    - keep Discovery Wizard work focused on consultant-quality lead recommendation judgment, family-specific blueprint differentiation, and strict Design Package KPI and naming fidelity before any Design Package consumption planning or Microsoft Skills / CLI integration planning
+
 - 2026-06-20 Discovery Wizard Refinement Round 7 opportunity depth is complete:
   - objective:
     - implement only the approved Round 7 Discovery Wizard refinement for:
@@ -1642,7 +1748,8 @@
 
 ## Current Objective
 
-- Report Discovery Wizard Refinement Round 6 downstream artifact quality is complete.
+- Discovery Wizard Final Targeted Refinement is complete.
 - Next action for this area:
-  - stop here unless a new goal explicitly starts the next scoped discovery refinement or a downstream consumer
-  - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes
+  - run `Discovery Wizard Validation Review – Round 9`
+  - if Round 9 passes the trust threshold, only then start Microsoft Skills / CLI integration design planning
+  - until Round 9 is complete, do not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes

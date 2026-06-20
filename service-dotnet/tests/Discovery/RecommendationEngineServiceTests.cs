@@ -652,6 +652,192 @@ public sealed class RecommendationEngineServiceTests
         Assert.Equal("FabricApp", ReadString(recommendation, "RecommendedExperienceType"));
     }
 
+    [Fact(DisplayName = "Recommendation Engine prefers service operations monitoring over generic investigation when operational signals dominate")]
+    public void BuildRecommendations_ServiceOperations_PrefersOperationalLeadWhenOperationalSignalsDominate()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Open Work Orders", "Resolution Time", "SLA Breach Risk", "Technician Utilization"],
+            dimensions:
+            [
+                ("DimDate", "Date"),
+                ("DimRegion", "Geography"),
+                ("DimTechnician", "Service"),
+                ("DimWorkOrder", "Service"),
+                ("DimPriority", "Service")
+            ],
+            relationships: [("Service", "DimDate"), ("Service", "DimTechnician"), ("Service", "DimWorkOrder")],
+            audienceSignals: [("Operational", "High"), ("Executive", "Medium"), ("Analytical", "Medium")],
+            domainSignals: [("Service", "High")]);
+
+        var recommendations = BuildRecommendations(
+            profile,
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    opportunityId: "service-operations-dashboard",
+                    name: "Service Operations Dashboard",
+                    category: "ServiceOperations",
+                    audience: "Operations Leadership",
+                    businessOutcome: "Monitor daily backlog pressure, SLA exposure, and technician throughput so service leaders can act on queue risk quickly.",
+                    candidateExperienceTypes: ["OperationalMonitoringExperience", "FabricApp", "PbirReport"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Service"),
+                        ("Measure", "Open Work Orders"),
+                        ("Measure", "Resolution Time"),
+                        ("Dimension", "Technician"),
+                        ("Dimension", "Work Order"),
+                        ("Dimension", "Priority"),
+                        ("Audience", "Operational")
+                    ],
+                    limitingFactors: [],
+                    confidence: "High",
+                    family: "Monitoring",
+                    workflowOrientation: "Monitor",
+                    decisionPattern: "Threshold"),
+                CreateOpportunityCandidate(
+                    opportunityId: "service-workflow-coordination",
+                    name: "Service Workflow Coordination",
+                    category: "ServiceOperations",
+                    audience: "Operations Leadership",
+                    businessOutcome: "Coordinate backlog triage, assign follow-up, and route service handoffs across regions and technicians.",
+                    candidateExperienceTypes: ["FabricApp", "OperationalMonitoringExperience", "PbirReport"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Service"),
+                        ("Measure", "Open Work Orders"),
+                        ("Dimension", "Technician"),
+                        ("Dimension", "Work Order"),
+                        ("Dimension", "Priority"),
+                        ("Audience", "Operational")
+                    ],
+                    limitingFactors: [],
+                    confidence: "High",
+                    family: "Workflow",
+                    workflowOrientation: "Act",
+                    decisionPattern: "Workflow"),
+                CreateOpportunityCandidate(
+                    opportunityId: "root-cause-analysis-experience",
+                    name: "Root Cause Analysis Experience",
+                    category: "RootCauseInvestigation",
+                    audience: "Analytical",
+                    businessOutcome: "Investigate episodic service variance drivers after issues escalate beyond normal operating thresholds.",
+                    candidateExperienceTypes: ["AnalyticalInvestigationExperience", "PbirReport"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Service"),
+                        ("Measure", "Variance"),
+                        ("Drill", "HierarchyRich"),
+                        ("Audience", "Analytical")
+                    ],
+                    limitingFactors: [],
+                    confidence: "High",
+                    family: "Investigation",
+                    workflowOrientation: "Investigate",
+                    decisionPattern: "Diagnostic")));
+
+        var primary = ReadObjectList(recommendations, "PrimaryRecommendations");
+
+        Assert.Equal("Service Operations Dashboard", ReadString(primary[0], "RecommendationName"));
+        Assert.Equal("OperationalMonitoringExperience", ReadString(primary[0], "RecommendedExperienceType"));
+        Assert.DoesNotContain(primary.Take(1), recommendation =>
+            string.Equals(ReadString(recommendation, "RecommendationName"), "Root Cause Analysis Experience", StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "Recommendation Engine preserves investigation-first posture when analytical investigation signals dominate mixed forecasting models")]
+    public void BuildRecommendations_AnalyticalInvestigation_PreservesInvestigationLeadWhenForecastSignalsMixIn()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Forecast Accuracy", "Forecast Variance", "Revenue", "Gross Margin", "Driver Score"],
+            dimensions:
+            [
+                ("DimDate", "Date"),
+                ("DimCustomer", "Customer"),
+                ("DimProduct", "Product"),
+                ("DimRegion", "Geography"),
+                ("DimScenario", "Planning")
+            ],
+            hierarchies: [("Geography", ["DimRegion", "Territory"])],
+            relationships: [("FactForecast", "DimDate"), ("FactForecast", "DimCustomer"), ("FactForecast", "DimProduct")],
+            audienceSignals: [("Analytical", "High")],
+            domainSignals: [("Forecasting", "High"), ("Revenue", "Medium"), ("Profitability", "Medium")]);
+
+        var recommendations = BuildRecommendations(
+            profile,
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    opportunityId: "root-cause-analysis-experience",
+                    name: "Root Cause Analysis Experience",
+                    category: "RootCauseInvestigation",
+                    audience: "Analytical",
+                    businessOutcome: "Investigate question-driven forecast and variance drivers, review evidence, and confirm the root cause before the next planning decision.",
+                    candidateExperienceTypes: ["AnalyticalInvestigationExperience", "PbirReport", "FabricDataApp"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Forecasting"),
+                        ("Measure", "Forecast Variance"),
+                        ("Measure", "Driver Score"),
+                        ("Drill", "HierarchyRich"),
+                        ("Dimension", "Customer"),
+                        ("Dimension", "Product"),
+                        ("Audience", "Analytical")
+                    ],
+                    limitingFactors: [],
+                    confidence: "High",
+                    family: "Investigation",
+                    workflowOrientation: "Investigate",
+                    decisionPattern: "Diagnostic"),
+                CreateOpportunityCandidate(
+                    opportunityId: "forecast-accuracy-dashboard",
+                    name: "Forecast Accuracy Dashboard",
+                    category: "ForecastAccuracy",
+                    audience: "Planning Leadership",
+                    businessOutcome: "Review weekly forecast accuracy and summarize miss patterns before the next planning cycle.",
+                    candidateExperienceTypes: ["ExecutiveDashboard", "PbirReport", "AnalyticalInvestigationExperience"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Forecasting"),
+                        ("Measure", "Forecast Accuracy"),
+                        ("Measure", "Forecast Variance"),
+                        ("Dimension", "Scenario")
+                    ],
+                    limitingFactors: ["Executive planning summary is not the primary workflow for this scenario."],
+                    confidence: "Medium",
+                    family: "Planning",
+                    workflowOrientation: "Act",
+                    decisionPattern: "Planning"),
+                CreateOpportunityCandidate(
+                    opportunityId: "customer-profitability-analysis",
+                    name: "Customer Profitability Analysis",
+                    category: "ProfitabilityAnalysis",
+                    audience: "Analytical",
+                    businessOutcome: "Explore customer and product segments to understand which variance patterns deserve deeper follow-up.",
+                    candidateExperienceTypes: ["FabricDataApp", "AnalyticalInvestigationExperience", "PbirReport"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Profitability"),
+                        ("Measure", "Gross Margin"),
+                        ("Dimension", "Customer"),
+                        ("Dimension", "Product"),
+                        ("Audience", "Analytical")
+                    ],
+                    limitingFactors: [],
+                    confidence: "High",
+                    family: "Analytical",
+                    workflowOrientation: "Analyze",
+                    decisionPattern: "Comparative")));
+
+        var primary = ReadObjectList(recommendations, "PrimaryRecommendations");
+
+        Assert.Equal("Root Cause Analysis Experience", ReadString(primary[0], "RecommendationName"));
+        Assert.Equal("AnalyticalInvestigationExperience", ReadString(primary[0], "RecommendedExperienceType"));
+        Assert.DoesNotContain(primary.Take(1), recommendation =>
+            string.Equals(ReadString(recommendation, "RecommendationName"), "Forecast Accuracy Dashboard", StringComparison.Ordinal));
+    }
+
     [Fact(DisplayName = "Recommendation Engine keeps the Top 3 materially diverse when high-scoring opportunities cluster")]
     public void BuildRecommendations_TopThreeAvoidTightClustering()
     {

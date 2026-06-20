@@ -39,6 +39,11 @@ internal sealed class RecommendationEngineService
 
         var scored = catalog.Opportunities
             .Select(candidate => ScoreCandidate(profile, candidate))
+            .ToList();
+
+        ApplyPortfolioTrustAdjustments(profile, catalog, scored);
+
+        scored = scored
             .OrderByDescending(candidate => candidate.RankingScore)
             .ThenBy(candidate => candidate.RecommendationName, NameComparer)
             .ToList();
@@ -52,6 +57,98 @@ internal sealed class RecommendationEngineService
             primary);
 
         return new RecommendationSet(primary, alternates);
+    }
+
+    private static void ApplyPortfolioTrustAdjustments(
+        DiscoveryProfile profile,
+        OpportunityCatalog catalog,
+        List<DiscoveryRecommendation> scored)
+    {
+        if (scored.Count == 0)
+        {
+            return;
+        }
+
+        var opportunitiesById = catalog.Opportunities.ToDictionary(opportunity => opportunity.OpportunityId, NameComparer);
+
+        PromoteServiceWorkflowOrMonitoringLead(opportunitiesById, scored);
+        PromoteInvestigationLeadWhenForecastMixRequiresIt(profile, opportunitiesById, scored);
+    }
+
+    private static void PromoteServiceWorkflowOrMonitoringLead(
+        IReadOnlyDictionary<string, OpportunityCandidate> opportunitiesById,
+        List<DiscoveryRecommendation> scored)
+    {
+        var serviceDashboard = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience &&
+            IsServiceCommandCenterCandidate(candidate));
+        var serviceWorkflow = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            recommendation.RecommendedExperienceType == OpportunityExperienceType.FabricApp &&
+            IsServiceWorkflowCoordinationCandidate(candidate));
+
+        if (serviceDashboard is null || serviceWorkflow is null)
+        {
+            return;
+        }
+
+        opportunitiesById.TryGetValue(serviceWorkflow.RecommendationId, out var workflowCandidate);
+
+        if (workflowCandidate is not null && HasSignal(workflowCandidate, "Dimension", "Service Queue"))
+        {
+            PromoteAbove(scored, serviceWorkflow.RecommendationId, serviceDashboard.RankingScore + 0.5d);
+            return;
+        }
+
+        PromoteAbove(scored, serviceDashboard.RecommendationId, serviceWorkflow.RankingScore + 0.5d);
+    }
+
+    private static void PromoteInvestigationLeadWhenForecastMixRequiresIt(
+        DiscoveryProfile profile,
+        IReadOnlyDictionary<string, OpportunityCandidate> opportunitiesById,
+        List<DiscoveryRecommendation> scored)
+    {
+        if (!HasAudience(profile, "Analytical") || HasAudience(profile, "Operational"))
+        {
+            return;
+        }
+
+        var investigationLead = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            candidate.Category == OpportunityCategory.RootCauseInvestigation &&
+            HasMeasureSignal(candidate, "Forecast") &&
+            HasInvestigativeIntent(candidate));
+        var executiveForecast = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            recommendation.RecommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard &&
+            candidate.Category == OpportunityCategory.ForecastAccuracy &&
+            !HasInvestigativeIntent(candidate));
+
+        if (investigationLead is null || executiveForecast is null)
+        {
+            return;
+        }
+
+        PromoteAbove(scored, investigationLead.RecommendationId, executiveForecast.RankingScore + 0.5d);
+    }
+
+    private static void PromoteAbove(
+        List<DiscoveryRecommendation> scored,
+        string recommendationId,
+        double targetRankingScore)
+    {
+        var index = scored.FindIndex(candidate => string.Equals(candidate.RecommendationId, recommendationId, StringComparison.Ordinal));
+
+        if (index < 0)
+        {
+            return;
+        }
+
+        scored[index] = scored[index] with
+        {
+            RankingScore = Math.Round(Math.Max(scored[index].RankingScore, targetRankingScore), 2)
+        };
     }
 
     private static List<DiscoveryRecommendation> SelectRecommendations(
@@ -281,6 +378,53 @@ internal sealed class RecommendationEngineService
             scenarioPostureAdjustment += 0.18d;
         }
 
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.ServiceOperations)
+        {
+            if (recommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience &&
+                IsServiceCommandCenterCandidate(candidate))
+            {
+                scenarioPostureAdjustment += 0.24d;
+            }
+
+            if (recommendedExperienceType == OpportunityExperienceType.FabricApp &&
+                IsServiceWorkflowCoordinationCandidate(candidate))
+            {
+                scenarioPostureAdjustment += HasSignal(candidate, "Dimension", "Service Queue") ? 0.7d : 0.18d;
+            }
+
+            if (recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience &&
+                !IsServiceInvestigationClearlyDominant(candidate))
+            {
+                scenarioPostureAdjustment -= 0.28d;
+            }
+        }
+
+        if (ShouldPreserveInvestigationLead(profile, candidate))
+        {
+            if (recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience)
+            {
+                scenarioPostureAdjustment += 0.28d;
+
+                if (candidate.Category == OpportunityCategory.RootCauseInvestigation)
+                {
+                    scenarioPostureAdjustment += 0.12d;
+                }
+            }
+
+            if (recommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard)
+            {
+                scenarioPostureAdjustment -= 0.26d;
+            }
+        }
+
+        if (candidate.Category == OpportunityCategory.RootCauseInvestigation &&
+            HasMeasureSignal(candidate, "Forecast") &&
+            !HasAudience(profile, "Operational") &&
+            recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience)
+        {
+            scenarioPostureAdjustment += 0.6d;
+        }
+
         if (consultantDecision.DomainFramework == ConsultantDomainFramework.RevenueSales &&
             recommendedExperienceType == OpportunityExperienceType.FabricApp &&
             HasAudience(profile, "Operational") &&
@@ -502,6 +646,18 @@ internal sealed class RecommendationEngineService
         if (domainFramework == ConsultantDomainFramework.ServiceOperations && workflowOrientation == ConsultantWorkflowOrientation.Act && experienceType == OpportunityExperienceType.FabricApp)
         {
             adjustment += 0.22d;
+
+            if (HasSignal(candidate, "Dimension", "Service Queue"))
+            {
+                adjustment += 0.32d;
+            }
+        }
+
+        if (domainFramework == ConsultantDomainFramework.ServiceOperations &&
+            HasSignal(candidate, "Dimension", "Service Queue") &&
+            experienceType == OpportunityExperienceType.OperationalMonitoringExperience)
+        {
+            adjustment -= 0.16d;
         }
 
         if (domainFramework == ConsultantDomainFramework.RevenueSales && workflowOrientation == ConsultantWorkflowOrientation.Act && experienceType == OpportunityExperienceType.FabricApp)
@@ -522,6 +678,13 @@ internal sealed class RecommendationEngineService
         if (domainFramework == ConsultantDomainFramework.Forecasting && experienceType == OpportunityExperienceType.FabricApp && HasManagementIntent(candidate))
         {
             adjustment += 0.18d;
+        }
+
+        if (candidate.Category == OpportunityCategory.RootCauseInvestigation &&
+            HasMeasureSignal(candidate, "Forecast") &&
+            experienceType == OpportunityExperienceType.AnalyticalInvestigationExperience)
+        {
+            adjustment += 0.4d;
         }
 
         if (domainFramework == ConsultantDomainFramework.RevenueSales && experienceType == OpportunityExperienceType.AnalyticalInvestigationExperience && !HasInvestigativeIntent(candidate))
@@ -877,6 +1040,11 @@ internal sealed class RecommendationEngineService
 
     private static ConsultantDomainFramework ResolveConsultantDomainFramework(OpportunityCandidate candidate)
     {
+        if (ShouldTreatAsAnalyticalInvestigationFramework(candidate))
+        {
+            return ConsultantDomainFramework.AnalyticalInvestigation;
+        }
+
         if (HasDomain(candidate, "Forecasting") || candidate.Category == OpportunityCategory.ForecastAccuracy)
         {
             return ConsultantDomainFramework.Forecasting;
@@ -1773,6 +1941,95 @@ internal sealed class RecommendationEngineService
             "driver",
             "diagnostic",
             "miss patterns");
+    }
+
+    private static bool IsServiceCommandCenterCandidate(OpportunityCandidate candidate)
+    {
+        if (!HasDomain(candidate, "Service"))
+        {
+            return false;
+        }
+
+        return candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Monitor ||
+               candidate.Family == OpportunityFamily.Monitoring ||
+               ContainsAny(
+                   $"{candidate.Name} {candidate.BusinessOutcome}",
+                   "monitor",
+                   "command center",
+                   "backlog",
+                   "sla",
+                   "queue",
+                   "throughput");
+    }
+
+    private static bool IsServiceWorkflowCoordinationCandidate(OpportunityCandidate candidate)
+    {
+        return HasDomain(candidate, "Service") &&
+               (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Act ||
+                candidate.Family == OpportunityFamily.Workflow ||
+                ContainsAny(
+                    $"{candidate.Name} {candidate.BusinessOutcome}",
+                    "coordinate",
+                    "route",
+                    "handoff",
+                    "triage",
+                    "assign",
+                    "follow-up"));
+    }
+
+    private static bool IsServiceInvestigationClearlyDominant(OpportunityCandidate candidate)
+    {
+        if (!HasDomain(candidate, "Service") || !HasInvestigativeIntent(candidate))
+        {
+            return false;
+        }
+
+        var serviceSignalCount = 0;
+
+        if (HasSignal(candidate, "Dimension", "Technician"))
+        {
+            serviceSignalCount++;
+        }
+
+        if (HasSignal(candidate, "Dimension", "Work Order"))
+        {
+            serviceSignalCount++;
+        }
+
+        if (HasMeasureSignal(candidate, "Open Work Orders") || HasMeasureSignal(candidate, "Resolution") || HasMeasureSignal(candidate, "SLA"))
+        {
+            serviceSignalCount++;
+        }
+
+        return serviceSignalCount >= 2;
+    }
+
+    private static bool ShouldPreserveInvestigationLead(DiscoveryProfile profile, OpportunityCandidate candidate)
+    {
+        if (!ShouldTreatAsAnalyticalInvestigationFramework(candidate))
+        {
+            return false;
+        }
+
+        return HasAudience(profile, "Analytical") &&
+               !HasAudience(profile, "Operational") &&
+               HasSignal(candidate, "Drill") &&
+               (HasMeasureSignal(candidate, "Variance") ||
+                HasMeasureSignal(candidate, "Forecast") ||
+                ContainsAny($"{candidate.Name} {candidate.BusinessOutcome}", "evidence", "hypothesis", "question-driven"));
+    }
+
+    private static bool ShouldTreatAsAnalyticalInvestigationFramework(OpportunityCandidate candidate)
+    {
+        if (HasDomain(candidate, "Service") || HasDomain(candidate, "Inventory"))
+        {
+            return false;
+        }
+
+        return candidate.Category == OpportunityCategory.RootCauseInvestigation ||
+               (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Investigate &&
+                candidate.DecisionPattern == OpportunityDecisionPattern.Diagnostic) ||
+               (candidate.Family == OpportunityFamily.Investigation && HasInvestigativeIntent(candidate));
     }
 
     private static bool WorkflowLooksSimilar(DiscoveryRecommendation left, DiscoveryRecommendation right)
