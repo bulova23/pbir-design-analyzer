@@ -52,7 +52,7 @@ internal sealed class DesignPackageGenerationService
                 Confidence: recommendation.Confidence,
                 BusinessValue: recommendation.BusinessValue,
                 Complexity: recommendation.ImplementationComplexity),
-            Pages: BuildPages(blueprint),
+            Pages: BuildPages(recommendation, blueprint),
             Kpis: BuildKpis(profile, recommendation, blueprint),
             Filters: BuildFilters(blueprint),
             VisualRecommendations: BuildVisualRecommendations(blueprint),
@@ -62,20 +62,20 @@ internal sealed class DesignPackageGenerationService
                 Investigation: blueprint.AnalyticalFlow.Investigation,
                 Evidence: blueprint.AnalyticalFlow.Evidence,
                 Decision: blueprint.AnalyticalFlow.Decision),
-            SuccessCriteria: BuildSuccessCriteria(recommendation, blueprint),
+            SuccessCriteria: BuildSuccessCriteria(recommendation, opportunity, blueprint),
             RecommendationRationale: new DesignPackageRecommendationRationale(
                 RecommendationExplanation: recommendation.WhyWeRecommendIt,
                 SupportingSemanticSignals: recommendation.SupportingSignals.ToList(),
                 LimitingFactors: recommendation.LimitingFactors.ToList(),
                 AudienceRationale: BuildAudienceRationale(recommendation, profile, opportunity),
                 BusinessOutcomeRationale: BuildBusinessOutcomeRationale(recommendation),
-                ExperienceTypeRationale: BuildExperienceTypeRationale(recommendation, blueprint),
+                ExperienceTypeRationale: BuildExperienceTypeRationale(recommendation, opportunity, blueprint),
                 KpiRationale: BuildKpiRationale(recommendation, blueprint),
                 PageRationale: BuildPageRationale(blueprint),
-                NavigationRationale: BuildNavigationRationale(blueprint),
+                NavigationRationale: BuildNavigationRationale(recommendation, blueprint),
                 AnalyticalFlowRationale: BuildAnalyticalFlowRationale(blueprint),
                 ProvenanceNotes: BuildProvenanceNotes(blueprint)),
-            ProviderGuidance: BuildProviderGuidance(recommendation, blueprint),
+            ProviderGuidance: BuildProviderGuidance(recommendation, opportunity, blueprint),
             Provenance: new DesignPackageProvenance(
                 PackageReference: packageId,
                 Lineage: lineage.Concat(
@@ -143,12 +143,14 @@ internal sealed class DesignPackageGenerationService
             Personas: personas);
     }
 
-    private static IReadOnlyList<DesignPackagePage> BuildPages(ExperienceBlueprint blueprint)
+    private static IReadOnlyList<DesignPackagePage> BuildPages(
+        DiscoveryRecommendation recommendation,
+        ExperienceBlueprint blueprint)
     {
         return blueprint.RecommendedPages
             .Select((page, index) => new DesignPackagePage(
                 PageName: page.PageName,
-                PagePurpose: page.PageIntent,
+                PagePurpose: $"Exists to {page.PageIntent.ToLowerInvariant()} so {recommendation.ExpectedAudience.ToLowerInvariant()} can keep the intended decision path intact.",
                 NavigationIntent: DescribePageNavigationIntent(index, blueprint.RecommendedPages.Count, page.PageName)))
             .ToArray();
     }
@@ -196,17 +198,21 @@ internal sealed class DesignPackageGenerationService
 
     private static DesignPackageSuccessCriteria BuildSuccessCriteria(
         DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint)
     {
+        var cadence = InferDecisionCadence(recommendation, opportunity);
         var businessCriteria = blueprint.SuccessCriteriaSeed
             .Concat([recommendation.ExpectedBusinessOutcome])
+            .Concat([$"{recommendation.ExpectedAudience} can use the experience confidently within the expected {cadence.ToLowerInvariant()} review rhythm."])
             .Distinct(NameComparer)
             .ToArray();
         var analyticalCriteria = new[]
         {
             $"Follow the workflow path: {string.Join(" -> ", blueprint.NavigationIntent.Sequence)}.",
             $"Support the analytical chain from question to decision across {blueprint.RecommendedPages.Count} pages.",
-            $"Keep the primary KPI emphasis on {string.Join(", ", blueprint.PrimaryKpis.Take(3))}."
+            $"Keep the primary KPI emphasis on {string.Join(", ", blueprint.PrimaryKpis.Take(3))}.",
+            $"Preserve the filter context of {string.Join(", ", blueprint.SuggestedGlobalFilters.Take(3))} so the provider does not have to reconstruct the intended decision scope."
         };
 
         return new DesignPackageSuccessCriteria(
@@ -252,23 +258,25 @@ internal sealed class DesignPackageGenerationService
                 : string.Empty;
 
         return secondaryAudiences.Count > 0
-            ? $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {recommendation.RecommendedExperienceType} experience for this decision cadence{supportingAudience}. Supporting audiences include {string.Join(", ", secondaryAudiences.Take(2))}."
-            : $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {recommendation.RecommendedExperienceType} experience for this decision cadence{supportingAudience}.";
+            ? $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {recommendation.RecommendedExperienceType} experience for a {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision cadence{supportingAudience}. Supporting audiences include {string.Join(", ", secondaryAudiences.Take(2))}, but the package still optimizes for the primary decision-maker first."
+            : $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {recommendation.RecommendedExperienceType} experience for a {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision cadence{supportingAudience}.";
     }
 
     private static string BuildBusinessOutcomeRationale(DiscoveryRecommendation recommendation)
     {
-        return $"The experience is recommended because {recommendation.ExpectedAudience} needs a delivery shape that can {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without changing the underlying semantic-model story.";
+        return $"The experience is recommended because {recommendation.ExpectedAudience} needs a delivery shape that can {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without changing the underlying semantic-model story, and because the package must preserve why the decision exists rather than only what content appears on pages.";
     }
 
     private static string BuildExperienceTypeRationale(
         DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint)
     {
+        var cadence = InferDecisionCadence(recommendation, opportunity).ToLowerInvariant();
         return recommendation.RecommendedExperienceType switch
         {
-            OpportunityExperienceType.ExecutiveDashboard => $"The package stays dashboard-oriented because {recommendation.ExpectedAudience} needs a fast scan of KPI movement, variance, and leadership actions before any deeper follow-up path branches off.",
-            OpportunityExperienceType.OperationalMonitoringExperience => $"The package stays operational-monitoring-oriented because the primary value is repeated queue, exception, and next-action visibility across {blueprint.RecommendedPages.Count} focused pages.",
+            OpportunityExperienceType.ExecutiveDashboard => $"The package stays dashboard-oriented because {recommendation.ExpectedAudience} needs a fast {cadence} scan of KPI movement, variance, and leadership actions before any deeper follow-up path branches off.",
+            OpportunityExperienceType.OperationalMonitoringExperience => $"The package stays operational-monitoring-oriented because the primary value is repeated queue, exception, and next-action visibility across {blueprint.RecommendedPages.Count} focused pages, not a slower leadership narrative.",
             OpportunityExperienceType.AnalyticalInvestigationExperience => $"The package stays investigation-oriented because the business question requires a slower question-to-evidence-to-decision path instead of a compressed dashboard readout.",
             OpportunityExperienceType.FabricApp => $"The package stays app-oriented because the workflow needs owners to move between coordination, follow-up, and confirmation inside one guided experience rather than across disconnected pages.",
             OpportunityExperienceType.FabricDataApp => $"The package stays data-app-oriented because users need to pivot across segments and records before the final decision pattern should be fixed.",
@@ -288,18 +296,25 @@ internal sealed class DesignPackageGenerationService
     private static IReadOnlyList<string> BuildPageRationale(ExperienceBlueprint blueprint)
     {
         return blueprint.RecommendedPages
-            .Select((page, index) => $"{page.PageName} belongs in the experience because it {page.PageIntent.ToLowerInvariant()} and it serves as {DescribePageContribution(index, blueprint.RecommendedPages.Count, page.PageName)}.")
+            .Select((page, index) => $"{page.PageName} belongs in the experience because it {page.PageIntent.ToLowerInvariant()}, it uses filters like {string.Join(", ", page.SuggestedFilters.Take(2))}, and it serves as {DescribePageContribution(index, blueprint.RecommendedPages.Count, page.PageName)}.")
             .ToArray();
     }
 
-    private static string BuildNavigationRationale(ExperienceBlueprint blueprint)
+    private static string BuildNavigationRationale(
+        DiscoveryRecommendation recommendation,
+        ExperienceBlueprint blueprint)
     {
         var pageNames = blueprint.RecommendedPages.Select(page => page.PageName).ToList();
         var routeHint = pageNames.Any(name => name.Contains("Routing", StringComparison.OrdinalIgnoreCase))
             ? " The page sequence also preserves route and handoff context that would be lost in a flatter dashboard."
             : string.Empty;
+        var paceHint = recommendation.RecommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard
+            ? " It stays compressed enough for leadership review while still preserving the planned follow-up step."
+            : recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience
+                ? " It keeps action selection close to exceptions so operators do not have to reconstruct the next step."
+                : string.Empty;
 
-        return $"The navigation is organized this way because the workflow {blueprint.NavigationIntent.Flow} lets users move through the recommended {blueprint.RecommendedPages.Count}-page analytical path without reworking the baseline information architecture.{routeHint}";
+        return $"The navigation is organized this way because the workflow {blueprint.NavigationIntent.Flow} lets users move through the recommended {blueprint.RecommendedPages.Count}-page analytical path without reworking the baseline information architecture.{routeHint}{paceHint}";
     }
 
     private static string BuildAnalyticalFlowRationale(ExperienceBlueprint blueprint)
@@ -309,11 +324,12 @@ internal sealed class DesignPackageGenerationService
 
     private static DesignPackageProviderGuidance BuildProviderGuidance(
         DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint)
     {
         var why = $"Why this package exists: so a future provider can generate a provider-neutral {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} that serves {recommendation.ExpectedAudience} for {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without reinterpreting the business intent from scratch.";
-        var experience = $"Generate a {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} with pages shaped around {string.Join(", ", blueprint.RecommendedPages.Select(page => page.PageName))}, keep the audience centered on {recommendation.ExpectedAudience}, and preserve the recommendation posture rather than expanding into a different experience family.";
-        var success = $"Success looks like an experience where {recommendation.ExpectedAudience} can follow the path from {blueprint.AnalyticalFlow.Question.ToLowerInvariant()} to {blueprint.AnalyticalFlow.Decision.ToLowerInvariant()}, supported by the primary KPIs {string.Join(", ", blueprint.PrimaryKpis.Take(3))}, with navigation that matches the intended workflow instead of a generic scaffold.";
+        var experience = $"Generate a {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} with pages shaped around {string.Join(", ", blueprint.RecommendedPages.Select(page => page.PageName))}, preserve the primary filter scope of {string.Join(", ", blueprint.SuggestedGlobalFilters.Take(3))}, keep the audience centered on {recommendation.ExpectedAudience}, and preserve the {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision posture rather than expanding into a different experience family.";
+        var success = $"Success looks like an experience where {recommendation.ExpectedAudience} can follow the path from {blueprint.AnalyticalFlow.Question.ToLowerInvariant()} to {blueprint.AnalyticalFlow.Decision.ToLowerInvariant()}, supported by the primary KPIs {string.Join(", ", blueprint.PrimaryKpis.Take(3))}, with navigation that matches the intended workflow instead of a generic scaffold. Success looks like a provider being able to build the experience without needing external discovery context.";
 
         return new DesignPackageProviderGuidance(
             WhyThisPackageExists: why,
@@ -403,5 +419,32 @@ internal sealed class DesignPackageGenerationService
         }
 
         return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string InferDecisionCadence(DiscoveryRecommendation recommendation, OpportunityCandidate? opportunity)
+    {
+        var text = $"{recommendation.RecommendationName} {recommendation.ExpectedBusinessOutcome} {opportunity?.BusinessOutcome}";
+
+        if (ContainsAny(text, "daily", "queue", "backlog", "sla", "exception", "monitor"))
+        {
+            return "Daily";
+        }
+
+        if (ContainsAny(text, "weekly", "forecast", "planning cycle", "plan"))
+        {
+            return "Weekly";
+        }
+
+        if (ContainsAny(text, "monthly", "quarterly", "board"))
+        {
+            return "Monthly";
+        }
+
+        if (ContainsAny(text, "investigate", "root cause", "deep dive", "hypothesis"))
+        {
+            return "Episodic";
+        }
+
+        return recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience ? "Daily" : "Weekly";
     }
 }

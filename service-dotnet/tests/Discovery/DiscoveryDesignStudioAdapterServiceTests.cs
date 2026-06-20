@@ -163,7 +163,7 @@ public sealed class DiscoveryDesignStudioAdapterServiceTests
         Assert.Contains("Region", ReadStringList(brief, "Dimensions"));
         Assert.Contains("Track revenue trends", ReadString(brief, "IntendedStory"), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("summary", ReadString(brief, "NavigationExpectations"), StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("Dashboard", ReadString(brief, "ReportType"));
+        Assert.Equal("ExecutiveDashboard", ReadString(brief, "ReportType"));
         Assert.Equal("NotSubmitted", ReadString(metadata, "ApprovalState"));
         Assert.Equal("Draft", ReadString(metadata, "LifecycleState"));
         Assert.Equal("System", ReadString(metadata, "AuthorSource"));
@@ -362,6 +362,281 @@ public sealed class DiscoveryDesignStudioAdapterServiceTests
 
         Assert.Equal("semantic-model:test", ReadString(lineage[0], "SourceId"));
         Assert.Equal("discovery-profile:test", ReadString(lineage[1], "SourceId"));
+    }
+
+    [Fact(DisplayName = "Discovery Design Studio adapter preserves richer experience-specific brief language instead of flattening to generic dashboard framing")]
+    public void CreateStartingPoint_BriefPreservesExperienceSpecificity()
+    {
+        var executiveResult = CreateStartingPoint(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "forecast-accuracy-dashboard",
+                    "Forecast Accuracy Dashboard",
+                    "ForecastAccuracy",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                    ["ExecutiveDashboard"],
+                    [("Domain", "Forecasting"), ("Dimension", "Scenario")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "forecast-accuracy-dashboard",
+                        "Forecast Accuracy Dashboard",
+                        "ExecutiveDashboard",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Strong forecasting semantic coverage.",
+                        "Planning Leadership",
+                        "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                        ["Forecasting semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because the experience spans planning review and variance management without requiring full workflow orchestration.",
+                        "Primary",
+                        88.4,
+                        CreateBlueprint(
+                            "forecast-accuracy-dashboard",
+                            "forecast-accuracy-dashboard",
+                            "ForecastAccuracy",
+                            "ExecutiveDashboard",
+                            "Planning Leadership",
+                            "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                            ["Planning Summary", "Variance Review", "Regional Follow-Up"],
+                            ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+                            ["Date", "Region", "Scenario"]))
+                ],
+                alternates: []),
+            "forecast-accuracy-dashboard",
+            "design-studio:executive");
+        var appResult = CreateStartingPoint(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "service-workflow-orchestration",
+                    "Service Workflow Orchestration",
+                    "ServiceOperations",
+                    "Operations Leadership",
+                    "Coordinate backlog triage, technician follow-up, and regional handoffs across the service workflow.",
+                    ["FabricApp"],
+                    [("Domain", "Service"), ("Dimension", "Technician"), ("Dimension", "Work Order")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "service-workflow-orchestration",
+                        "Service Workflow Orchestration",
+                        "FabricApp",
+                        "High",
+                        "High",
+                        "High",
+                        "Strong service semantic coverage.",
+                        "Operations Leadership",
+                        "Coordinate backlog triage, technician follow-up, and regional handoffs across the service workflow.",
+                        ["Service semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "High complexity because a multi-path app experience requires stronger orchestration.",
+                        "Primary",
+                        90.4,
+                        CreateBlueprint(
+                            "service-workflow-orchestration",
+                            "service-workflow-orchestration",
+                            "ServiceOperations",
+                            "FabricApp",
+                            "Operations Leadership",
+                            "Coordinate backlog triage, technician follow-up, and regional handoffs across the service workflow.",
+                            ["Service Command Center", "Regional Queue Routing", "Technician Follow-Up"],
+                            ["Open Work Orders", "Resolution Time", "Escalation Count"],
+                            ["Date", "Region", "Technician"]))
+                ],
+                alternates: []),
+            "service-workflow-orchestration",
+            "design-studio:app");
+
+        var executiveBrief = ReadObject(executiveResult, "DesignBrief");
+        var appBrief = ReadObject(appResult, "DesignBrief");
+
+        Assert.Contains("planning", ReadString(executiveBrief, "IntendedStory"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("weekly", ReadString(executiveBrief, "DecisionCadence"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Application", ReadString(appBrief, "ReportType"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("workflow", ReadString(appBrief, "NavigationExpectations"), StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual(ReadString(executiveBrief, "IntendedStory"), ReadString(appBrief, "IntendedStory"));
+    }
+
+    [Fact(DisplayName = "Discovery Design Studio adapter creates materially different concept candidates instead of only templated variants")]
+    public void CreateStartingPoint_ConceptCandidates_DifferMaterially()
+    {
+        var result = CreateStartingPoint(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "forecast-accuracy-dashboard",
+                    "Forecast Accuracy Dashboard",
+                    "ForecastAccuracy",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                    ["ExecutiveDashboard"],
+                    [("Domain", "Forecasting"), ("Dimension", "Scenario")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "forecast-accuracy-dashboard",
+                        "Forecast Accuracy Dashboard",
+                        "ExecutiveDashboard",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Strong forecasting semantic coverage.",
+                        "Planning Leadership",
+                        "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                        ["Forecasting semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because the experience spans planning review and variance management without requiring full workflow orchestration.",
+                        "Primary",
+                        88.4,
+                        CreateBlueprint(
+                            "forecast-accuracy-dashboard",
+                            "forecast-accuracy-dashboard",
+                            "ForecastAccuracy",
+                            "ExecutiveDashboard",
+                            "Planning Leadership",
+                            "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                            ["Planning Summary", "Variance Review", "Regional Follow-Up"],
+                            ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+                            ["Date", "Region", "Scenario"]))
+                ],
+                alternates: []),
+            "forecast-accuracy-dashboard",
+            "design-studio:concept-diversity");
+
+        var concept = ReadObject(result, "Concept");
+        var alternates = ReadObjectList(concept, "AlternateConcepts");
+        var labels = alternates.Select(item => ReadString(item, "Label")).ToArray();
+        var patterns = alternates.Select(item => ReadString(item, "NavigationPattern")).Distinct(StringComparer.Ordinal).ToArray();
+        var summaries = alternates.Select(item => ReadString(item, "Summary")).Distinct(StringComparer.Ordinal).ToArray();
+
+        Assert.True(alternates.Count >= 3);
+        Assert.True(patterns.Length >= 3);
+        Assert.Equal(alternates.Count, labels.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(alternates.Count, summaries.Length);
+    }
+
+    [Fact(DisplayName = "Discovery Design Studio adapter draft seeds differ by recommendation type")]
+    public void CreateStartingPoint_DraftSeed_DiffersByRecommendationType()
+    {
+        var executiveResult = CreateStartingPoint(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "executive-sales-reporting",
+                    "Executive Sales Reporting",
+                    "ExecutiveReporting",
+                    "Executive",
+                    "Track revenue trends and leadership-level performance over time.",
+                    ["ExecutiveDashboard"],
+                    [("Domain", "Revenue"), ("Dimension", "Territory")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "executive-sales-reporting",
+                        "Executive Sales Reporting",
+                        "ExecutiveDashboard",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Strong revenue semantic coverage.",
+                        "Executive",
+                        "Track revenue trends and leadership-level performance over time.",
+                        ["Revenue semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because a concise executive KPI experience spans several semantic signals and design choices.",
+                        "Primary",
+                        91.2,
+                        CreateBlueprint(
+                            "executive-sales-reporting",
+                            "executive-sales-reporting",
+                            "ExecutiveReporting",
+                            "ExecutiveDashboard",
+                            "Executive",
+                            "Track revenue trends and leadership-level performance over time.",
+                            ["Executive Summary", "Regional Performance", "Territory Detail"],
+                            ["Revenue", "Gross Margin", "YoY Growth"],
+                            ["Date", "Region", "Territory"]))
+                ],
+                alternates: []),
+            "executive-sales-reporting",
+            "design-studio:draft-executive");
+        var operationalResult = CreateStartingPoint(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "inventory-operations-monitoring",
+                    "Inventory Operations Monitoring",
+                    "InventoryOptimization",
+                    "Operational",
+                    "Monitor stock position, warehouse health, and item-level inventory risk.",
+                    ["OperationalMonitoringExperience"],
+                    [("Domain", "Inventory"), ("Dimension", "Warehouse")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "inventory-operations-monitoring",
+                        "Inventory Operations Monitoring",
+                        "OperationalMonitoringExperience",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Strong inventory semantic coverage.",
+                        "Operational",
+                        "Monitor stock position, warehouse health, and item-level inventory risk.",
+                        ["Inventory semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because an operational monitoring flow spans several semantic signals and design choices.",
+                        "Primary",
+                        88.5,
+                        CreateBlueprint(
+                            "inventory-operations-monitoring",
+                            "inventory-operations-monitoring",
+                            "InventoryOptimization",
+                            "OperationalMonitoringExperience",
+                            "Operational",
+                            "Monitor stock position, warehouse health, and item-level inventory risk.",
+                            ["Overview", "Exceptions", "Detail"],
+                            ["Open Exceptions", "Backlog Trend", "Stockout Risk"],
+                            ["Date", "Warehouse", "Region"]))
+                ],
+                alternates: []),
+            "inventory-operations-monitoring",
+            "design-studio:draft-operational");
+
+        var executiveDraftPage = ReadObjectList(executiveResult, "DraftPages").First();
+        var operationalDraftPage = ReadObjectList(operationalResult, "DraftPages").First();
+        var executiveLayout = ReadObjectList(executiveResult, "DraftLayouts").First();
+        var operationalLayout = ReadObjectList(operationalResult, "DraftLayouts").First();
+
+        Assert.Contains("leadership", ReadString(executiveDraftPage, "StructureSummary"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("action", ReadString(operationalDraftPage, "StructureSummary"), StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual(ReadString(executiveLayout, "LayoutType"), ReadString(operationalLayout, "LayoutType"));
+        Assert.NotEqual(ReadString(executiveLayout, "Title"), ReadString(operationalLayout, "Title"));
     }
 
     private static object CreateStartingPoint(object profile, object catalog, object recommendations, string recommendationId, string threadId)

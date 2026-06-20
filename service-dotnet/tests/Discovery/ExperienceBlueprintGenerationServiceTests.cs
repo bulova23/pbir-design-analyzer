@@ -59,10 +59,10 @@ public sealed class ExperienceBlueprintGenerationServiceTests
         var blueprint = ReadBlueprint(ReadObjectList(enriched, "PrimaryRecommendations").Single());
 
         Assert.Equal("Executive", ReadString(blueprint, "ExpectedAudience"));
-        Assert.Contains("Executive Summary", ReadPageNames(blueprint));
-        Assert.Contains("Revenue Performance", ReadPageNames(blueprint));
-        Assert.Contains("Territory Performance", ReadPageNames(blueprint));
-        Assert.Contains("summary", ReadString(ReadObject(blueprint, "NavigationIntent"), "Flow"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Revenue Leadership Summary", ReadPageNames(blueprint));
+        Assert.Contains("Growth and Mix Review", ReadPageNames(blueprint));
+        Assert.Contains("Commercial Follow-Up", ReadPageNames(blueprint));
+        Assert.Contains("leadership summary", ReadString(ReadObject(blueprint, "NavigationIntent"), "Flow"), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact(DisplayName = "Experience Blueprint generation creates an operational monitoring blueprint")]
@@ -455,6 +455,98 @@ public sealed class ExperienceBlueprintGenerationServiceTests
         Assert.NotEqual(
             string.Join("|", ReadStringList(inventoryFirstPage, "SuggestedFilters")),
             string.Join("|", ReadStringList(serviceFirstPage, "SuggestedFilters")));
+    }
+
+    [Fact(DisplayName = "Experience Blueprint generation differentiates executive planning and executive revenue scenarios")]
+    public void BuildRecommendationBlueprints_ExecutiveScenarios_DifferMateriallyByDecisionIntent()
+    {
+        var revenueProfile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Revenue", "Gross Margin", "YoY Growth"],
+            dimensions: [("Date", "Date"), ("Region", "Geography"), ("Territory", "Geography"), ("Customer Segment", "Customer")],
+            audienceSignals: [("Executive", "High")],
+            domainSignals: [("Revenue", "High")]);
+        var forecastProfile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+            dimensions: [("Date", "Date"), ("Region", "Geography"), ("Territory", "Geography"), ("Scenario", "Planning")],
+            audienceSignals: [("Planning Leadership", "High")],
+            domainSignals: [("Forecasting", "High")]);
+        var revenueCatalog = CreateOpportunityCatalog(
+            CreateOpportunityCandidate(
+                "executive-sales-reporting",
+                "Executive Sales Reporting",
+                "ExecutiveReporting",
+                "Executive",
+                "Track revenue trends and leadership-level performance over time.",
+                ["ExecutiveDashboard", "PbirReport"],
+                [("Domain", "Revenue"), ("Dimension", "Territory"), ("Dimension", "Customer Segment")],
+                [],
+                "High"));
+        var forecastCatalog = CreateOpportunityCatalog(
+            CreateOpportunityCandidate(
+                "forecast-accuracy-dashboard",
+                "Forecast Accuracy Dashboard",
+                "ForecastAccuracy",
+                "Planning Leadership",
+                "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                ["ExecutiveDashboard", "PbirReport"],
+                [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("Dimension", "Scenario")],
+                [],
+                "High"));
+        var revenueRecommendations = CreateRecommendationSet(
+            primary:
+            [
+                CreateRecommendation(
+                    "executive-sales-reporting",
+                    "Executive Sales Reporting",
+                    "ExecutiveDashboard",
+                    "High",
+                    "High",
+                    "Medium",
+                    "Strong revenue semantic coverage.",
+                    "Executive",
+                    "Track revenue trends and leadership-level performance over time.",
+                    ["Revenue semantic support"],
+                    [],
+                    "High confidence because the semantic model strongly supports this use case.",
+                    "Medium complexity because a concise executive KPI experience spans several semantic signals and design choices.",
+                    "Primary",
+                    91.2)
+            ],
+            alternates: []);
+        var forecastRecommendations = CreateRecommendationSet(
+            primary:
+            [
+                CreateRecommendation(
+                    "forecast-accuracy-dashboard",
+                    "Forecast Accuracy Dashboard",
+                    "ExecutiveDashboard",
+                    "High",
+                    "High",
+                    "Medium",
+                    "Strong forecasting semantic coverage.",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                    ["Forecasting semantic support"],
+                    [],
+                    "High confidence because the semantic model strongly supports this use case.",
+                    "Medium complexity because the experience spans planning review and variance management without requiring full workflow orchestration.",
+                    "Primary",
+                    88.4)
+            ],
+            alternates: []);
+
+        var revenueBlueprint = ReadBlueprint(ReadObjectList(BuildRecommendationBlueprints(revenueProfile, revenueCatalog, revenueRecommendations), "PrimaryRecommendations").Single());
+        var forecastBlueprint = ReadBlueprint(ReadObjectList(BuildRecommendationBlueprints(forecastProfile, forecastCatalog, forecastRecommendations), "PrimaryRecommendations").Single());
+
+        Assert.NotEqual(ReadPageNames(revenueBlueprint), ReadPageNames(forecastBlueprint));
+        Assert.NotEqual(ReadString(ReadObject(revenueBlueprint, "AnalyticalFlow"), "Question"), ReadString(ReadObject(forecastBlueprint, "AnalyticalFlow"), "Question"));
+        Assert.NotEqual(
+            string.Join("|", ReadStringList(revenueBlueprint, "SuggestedGlobalFilters")),
+            string.Join("|", ReadStringList(forecastBlueprint, "SuggestedGlobalFilters")));
     }
 
     [Fact(DisplayName = "Experience Blueprint generation differentiates PBIR report recommendations from Fabric App and Executive Dashboard")]

@@ -2,6 +2,104 @@
 
 ## Active Session
 
+- 2026-06-20 Discovery Wizard Refinement Round 7 opportunity depth is complete:
+  - objective:
+    - implement only the approved Round 7 Discovery Wizard refinement for:
+      - opportunity depth
+      - recommendation diversity
+    - increase candidate opportunity breadth across executive, operational, investigative, planning, and governance-style opportunities when the semantic model supports them
+    - improve recommendation diversity by strengthening upstream catalog variety instead of changing downstream contracts or starting integration work
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, and Design Package contract changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 7 validation review, and the current discovery services/tests
+    - identified the root issue as shallow Opportunity Catalog depth in inventory, service, forecasting, and analytical-investigation scenarios, with recommendation diversity limited by thin candidate sets
+  - delivered:
+    - added backend-internal opportunity family, workflow orientation, decision pattern, why-this-exists, and evidence-narrative modeling without widening public contracts
+    - expanded revenue, inventory, service, forecasting, and investigation-capable discovery paths so the catalog emits materially different candidate families instead of a single dominant option
+    - propagated opportunity metadata into recommendation-engine supporting signals so richer candidate context survives into ranking explanations and diversity logic
+    - added targeted xUnit coverage for breadth, investigative/non-investigative coexistence, materially different catalogs, and recommendation metadata propagation
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Round 7 opportunity-depth and recommendation-diversity refinement as requested
+    - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, or Design Package contract changes unless a new goal starts them
+
+- 2026-06-20 Report Discovery Wizard Validation Review Round 7 is complete:
+  - objective:
+    - validate whether the Round 6 downstream refinement resolved the remaining Discovery Wizard quality concerns
+    - assess recommendation diversity, Design Brief quality, concept candidate quality, draft seed quality, Design Package quality, and diversity propagation across the six required scenarios
+    - determine whether Discovery Wizard MVP is complete and whether it is ready for Design Package consumption or Microsoft Skills / CLI integration planning
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no integration work
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and Round 6 review
+    - exercised the live downstream discovery workflow through the actual discovery services across:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round7.md`
+    - compared the three Round 6 findings and classified them as:
+      - recommendation diversity inconsistent: worse
+      - Design Studio seeding too templated: unchanged
+      - Design Package output not provider-grade: unchanged
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - the actual live Opportunity Catalog is still too thin for consultant-grade portfolio curation in inventory, service, and analytical-investigation scenarios
+    - forecasting-specific blueprint shaping is improved, but executive-family downstream artifacts still collapse too often
+    - Design Package quality is still below provider-grade because rationale remains template-driven and KPI fidelity is not strict enough
+  - next recommended step:
+    - keep Discovery Wizard work focused on opportunity-catalog breadth, executive-family downstream differentiation, and strict KPI/provider-trust package fidelity before any Design Package consumption planning or Microsoft Skills / CLI integration planning
+
+- 2026-06-20 Discovery Wizard Refinement Round 6 downstream artifact quality is in progress:
+  - objective:
+    - implement only the approved Round 6 Discovery Wizard refinement for:
+      - Design Studio seeding quality
+      - Design Package provider readiness
+      - recommendation diversity propagation
+    - improve Design Brief rationale quality, concept candidate diversity, draft seed specificity, and provider-grade package language
+    - preserve advisory-only boundaries and stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 6 validation review, and the current discovery blueprint, Design Studio adapter, and design package services/tests
+    - identified the current gap as downstream artifact flattening, especially generic executive blueprint reuse, templated Design Studio seeding, and formulaic provider guidance
+  - current focus:
+    - add test-first coverage for richer brief/package rationale and downstream artifact divergence by recommendation intent
+    - refine blueprint shaping and downstream artifact language without changing advisory-only boundaries or starting any out-of-scope integrations
+
+- 2026-06-20 Discovery Wizard Refinement Round 6 downstream artifact quality is complete:
+  - objective:
+    - implement only the approved Round 6 Discovery Wizard refinement for:
+      - Design Studio seeding quality
+      - Design Package provider readiness
+      - recommendation diversity propagation
+    - improve Design Brief rationale quality, concept candidate diversity, draft seed specificity, and provider-grade package language
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - differentiated executive blueprint shaping so forecasting, revenue, and customer-oriented executive recommendations no longer collapse into one generic page stack
+    - upgraded Design Studio briefs with richer intent/cadence/navigation language and preserved experience-specific report typing for executive, app, investigative, and report-oriented seeds
+    - replaced the generic two-concept seed pattern with experience-specific alternate concept portfolios that vary navigation posture and consultant framing
+    - differentiated draft seed structure summaries, layout types, titles, and zones across executive, operational, investigative, and app-oriented recommendations
+    - strengthened Design Package page purpose, success criteria, rationale sections, and provider guidance so downstream handoff language explains why the experience exists, what should be generated, and what success looks like
+    - added targeted xUnit coverage for executive blueprint divergence, brief specificity, concept diversity, draft-seed divergence, provider-readiness language, and downstream diversity propagation
+    - updated pre-existing discovery tests that intentionally moved from the old generic executive/dashboard expectations to the new differentiated behavior
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - an early parallel attempt to run multiple filtered `dotnet test` commands caused a transient build-output file lock; authoritative validation was rerun sequentially and passed
+  - next recommended step:
+    - stop after Round 6 refinement as requested
+    - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes
+
 - 2026-06-19 Report Discovery Wizard Validation Review Round 6 is complete:
   - objective:
     - validate whether the Experience Strategy and Provider Readiness refinement resolved the remaining Round 5 Discovery Wizard concerns
@@ -1544,6 +1642,7 @@
 
 ## Current Objective
 
-- Report Discovery Wizard Phase 6 Design Package Generation is complete.
+- Report Discovery Wizard Refinement Round 6 downstream artifact quality is complete.
 - Next action for this area:
-  - stop here unless a new goal explicitly starts Phase 7 or a separate scoped integration point that consumes Design Packages
+  - stop here unless a new goal explicitly starts the next scoped discovery refinement or a downstream consumer
+  - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes

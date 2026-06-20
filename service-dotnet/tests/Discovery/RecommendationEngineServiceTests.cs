@@ -379,6 +379,46 @@ public sealed class RecommendationEngineServiceTests
         Assert.False(string.IsNullOrWhiteSpace(ReadString(primary, "ComplexityNote")));
     }
 
+    [Fact(DisplayName = "Recommendation Engine receives opportunity family workflow and decision metadata from the catalog")]
+    public void BuildRecommendations_SupportingSignalsIncludeOpportunityMetadata()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            audienceSignals: [("Executive", "High"), ("Operational", "Medium")],
+            domainSignals: [("Forecasting", "High"), ("Revenue", "High")]);
+
+        var recommendations = BuildRecommendations(
+            profile,
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    opportunityId: "forecast-planning-review",
+                    name: "Forecast Planning Review",
+                    category: "ForecastAccuracy",
+                    audience: "Planning Leadership",
+                    businessOutcome: "Review forecast posture, re-plan assumptions, and improve the next planning cycle.",
+                    candidateExperienceTypes: ["ExecutiveDashboard", "PbirReport"],
+                    supportingSignals:
+                    [
+                        ("Domain", "Forecasting"),
+                        ("DateIntelligence", "High"),
+                        ("Measure", "Variance")
+                    ],
+                    limitingFactors: [],
+                    confidence: "High",
+                    family: "Planning",
+                    workflowOrientation: "Act",
+                    decisionPattern: "Planning",
+                    whyThisOpportunityExists: "Forecasting and date readiness support a planning-grade review.")));
+
+        var primary = ReadObjectList(recommendations, "PrimaryRecommendations").Single();
+        var supportingSignals = ReadStringList(primary, "SupportingSignals");
+
+        Assert.Contains(supportingSignals, signal => signal.Contains("Opportunity family: Planning", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(supportingSignals, signal => signal.Contains("Workflow orientation: Act", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(supportingSignals, signal => signal.Contains("Decision pattern: Planning", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact(DisplayName = "Recommendation Engine rationale explains why this experience wins over the alternatives")]
     public void BuildRecommendations_RationaleIncludesTradeoffsAndAlternativeRejection()
     {
@@ -1471,7 +1511,12 @@ public sealed class RecommendationEngineServiceTests
         IReadOnlyList<string> candidateExperienceTypes,
         IReadOnlyList<(string SignalType, string Value)> supportingSignals,
         IReadOnlyList<string> limitingFactors,
-        string confidence)
+        string confidence,
+        string? family = null,
+        string? workflowOrientation = null,
+        string? decisionPattern = null,
+        string? whyThisOpportunityExists = null,
+        IReadOnlyList<string>? evidenceNarrative = null)
     {
         var signalType = GetType("OpportunitySemanticSignal");
         var signals = supportingSignals
@@ -1479,7 +1524,7 @@ public sealed class RecommendationEngineServiceTests
             .ToArray();
         var experienceType = GetType("OpportunityExperienceType");
 
-        return CreateInstance(
+        var candidate = CreateInstance(
             GetType("OpportunityCandidate"),
             opportunityId,
             name,
@@ -1490,6 +1535,18 @@ public sealed class RecommendationEngineServiceTests
             CreateTypedList(signalType, signals),
             CreateTypedList(typeof(string), limitingFactors.Cast<object>().ToArray()),
             ParseEnum(GetType("DiscoveryConfidenceLevel"), confidence));
+
+        SetOptionalProperty(candidate, "Family", family is null ? null : ParseEnum(GetType("OpportunityFamily"), family));
+        SetOptionalProperty(candidate, "WorkflowOrientation", workflowOrientation is null ? null : ParseEnum(GetType("OpportunityWorkflowOrientation"), workflowOrientation));
+        SetOptionalProperty(candidate, "DecisionPattern", decisionPattern is null ? null : ParseEnum(GetType("OpportunityDecisionPattern"), decisionPattern));
+        SetOptionalProperty(candidate, "WhyThisOpportunityExists", whyThisOpportunityExists);
+
+        if (evidenceNarrative is not null)
+        {
+            SetOptionalProperty(candidate, "EvidenceNarrative", CreateTypedList(typeof(string), evidenceNarrative.Cast<object>().ToArray()));
+        }
+
+        return candidate;
     }
 
     private static Type GetType(string typeName)
@@ -1526,6 +1583,17 @@ public sealed class RecommendationEngineServiceTests
         }
 
         return list;
+    }
+
+    private static void SetOptionalProperty(object target, string propertyName, object? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        var property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        property?.SetValue(target, value);
     }
 
     private static List<object> ReadAllRecommendations(object result)

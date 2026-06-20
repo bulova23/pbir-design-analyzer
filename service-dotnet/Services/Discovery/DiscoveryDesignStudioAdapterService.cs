@@ -48,9 +48,9 @@ internal sealed class DiscoveryDesignStudioAdapterService
             string.Equals(candidate.OpportunityId, blueprint.Provenance.OpportunityId, StringComparison.Ordinal));
 
         var lineage = BuildLineage(profile, opportunity, selectedRecommendation, blueprint);
-        var brief = BuildDesignBrief(threadId, selectedRecommendation, blueprint, lineage);
-        var concept = BuildConcept(threadId, brief, selectedRecommendation, blueprint, lineage);
-        var draftArtifacts = BuildDraft(threadId, brief, concept, selectedRecommendation, blueprint, lineage);
+        var brief = BuildDesignBrief(threadId, selectedRecommendation, opportunity, blueprint, lineage);
+        var concept = BuildConcept(threadId, brief, selectedRecommendation, opportunity, blueprint, lineage);
+        var draftArtifacts = BuildDraft(threadId, brief, concept, selectedRecommendation, opportunity, blueprint, lineage);
 
         return new DiscoveryDesignStudioStartingPoint(
             SelectedRecommendationId: selectedRecommendation.RecommendationId,
@@ -81,6 +81,7 @@ internal sealed class DiscoveryDesignStudioAdapterService
     private static DesignBrief BuildDesignBrief(
         string threadId,
         DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint,
         IReadOnlyList<DesignArtifactLineageLink> lineage)
     {
@@ -104,12 +105,12 @@ internal sealed class DiscoveryDesignStudioAdapterService
             KeyDecisions: keyDecisions,
             PrimaryKpis: blueprint.PrimaryKpis,
             Dimensions: dimensions,
-            IntendedStory: BuildIntendedStory(recommendation, blueprint),
+            IntendedStory: BuildIntendedStory(recommendation, opportunity, blueprint),
             SuccessCriteria: blueprint.SuccessCriteriaSeed,
             ReportType: MapReportType(recommendation.RecommendedExperienceType),
-            NavigationExpectations: BuildNavigationExpectations(blueprint),
-            ConsumptionContext: $"Discovery-backed starting point for {recommendation.RecommendationName}.",
-            DecisionCadence: InferDecisionCadence(recommendation.RecommendedExperienceType),
+            NavigationExpectations: BuildNavigationExpectations(recommendation, opportunity, blueprint),
+            ConsumptionContext: BuildConsumptionContext(recommendation, opportunity),
+            DecisionCadence: InferDecisionCadence(recommendation, opportunity),
             NarrativeRisksOrConstraints: recommendation.LimitingFactors,
             RequiredEvidenceDomains: ["semanticModel", "experienceBlueprint"],
             TargetAnalyzableSurfaceFamily: MapSurfaceFamily(recommendation.RecommendedExperienceType));
@@ -127,6 +128,7 @@ internal sealed class DiscoveryDesignStudioAdapterService
         string threadId,
         DesignBrief brief,
         DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint,
         IReadOnlyList<DesignArtifactLineageLink> lineage)
     {
@@ -197,33 +199,16 @@ internal sealed class DiscoveryDesignStudioAdapterService
                 PageRecommendationIds: [PageRecommendationId(Math.Min(index, pageRecommendations.Length - 1))]))
             .ToArray();
 
-        var alternateConcepts = new[]
-        {
-            new AlternateReportConcept(
-                Id: "concept-blueprint-aligned",
-                Label: "Blueprint-aligned flow",
-                Summary: $"Follows the {recommendation.RecommendationName} blueprint sequence directly.",
-                ChapterMap: chapterMap,
-                PageRecommendations: pageRecommendations,
-                KpiHierarchyNodes: kpiNodes,
-                SupportingDimensions: brief.Dimensions,
-                NavigationPattern: NormalizePattern(blueprint.NavigationIntent.Flow),
-                NavigationRationale: "Preserves the recommended blueprint sequence as the initial baseline.",
-                NavigationSections: navigationSections,
-                AnalyticalFlow: analyticalFlow),
-            new AlternateReportConcept(
-                Id: "concept-scan-first",
-                Label: "Scan-first KPI flow",
-                Summary: $"Starts with KPI emphasis and then expands into {recommendation.RecommendationName.ToLowerInvariant()}.",
-                ChapterMap: chapterMap,
-                PageRecommendations: pageRecommendations,
-                KpiHierarchyNodes: kpiNodes,
-                SupportingDimensions: brief.Dimensions,
-                NavigationPattern: "hubAndSpoke",
-                NavigationRationale: "Creates a scan-first baseline while staying within the same blueprint evidence model.",
-                NavigationSections: navigationSections,
-                AnalyticalFlow: analyticalFlow),
-        };
+        var alternateConcepts = BuildAlternateConcepts(
+            brief,
+            recommendation,
+            opportunity,
+            blueprint,
+            chapterMap,
+            pageRecommendations,
+            kpiNodes,
+            navigationSections,
+            analyticalFlow);
 
         return new ReportConcept(
             Metadata: CreateMetadata(
@@ -278,6 +263,7 @@ internal sealed class DiscoveryDesignStudioAdapterService
         DesignBrief brief,
         ReportConcept concept,
         DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint,
         IReadOnlyList<DesignArtifactLineageLink> lineage)
     {
@@ -287,40 +273,48 @@ internal sealed class DiscoveryDesignStudioAdapterService
         var sourceConceptVersionId = $"{concept.Metadata.Id}@v{concept.Metadata.Version}";
         var sourceNavigationVersionId = $"{concept.NavigationStructure.Metadata.Id}@v{concept.NavigationStructure.Metadata.Version}";
 
-        var pageArtifacts = concept.PageConcepts.Select((pageConcept, index) => new DraftPageArtifact(
-            Metadata: CreateMetadata(
-                id: $"draft-page:{threadId}:{index}",
-                threadId: threadId,
-                kind: "draftPageArtifact",
-                timestamp: timestamp,
-                lineage: lineage),
-            DraftReportArtifactId: draftId,
-            PageConceptId: pageConcept.Metadata.Id,
-            SourceBriefVersionId: sourceBriefVersionId,
-            SourceConceptVersionId: sourceConceptVersionId,
-            SourcePageConceptVersionId: $"{pageConcept.Metadata.Id}@v{pageConcept.Metadata.Version}",
-            StructureSummary: $"{pageConcept.Title} draft seed frames {pageConcept.IntendedPurpose.ToLowerInvariant()}",
-            RecommendedVisualRoles: blueprint.RecommendedPages[Math.Min(index, blueprint.RecommendedPages.Count - 1)].SuggestedVisualTypes,
-            DraftStatus: DefaultDraftStatus))
+        var pageArtifacts = concept.PageConcepts.Select((pageConcept, index) =>
+        {
+            var seed = BuildDraftSeed(recommendation, opportunity, blueprint, pageConcept, index);
+            return new DraftPageArtifact(
+                Metadata: CreateMetadata(
+                    id: $"draft-page:{threadId}:{index}",
+                    threadId: threadId,
+                    kind: "draftPageArtifact",
+                    timestamp: timestamp,
+                    lineage: lineage),
+                DraftReportArtifactId: draftId,
+                PageConceptId: pageConcept.Metadata.Id,
+                SourceBriefVersionId: sourceBriefVersionId,
+                SourceConceptVersionId: sourceConceptVersionId,
+                SourcePageConceptVersionId: $"{pageConcept.Metadata.Id}@v{pageConcept.Metadata.Version}",
+                StructureSummary: seed.StructureSummary,
+                RecommendedVisualRoles: blueprint.RecommendedPages[Math.Min(index, blueprint.RecommendedPages.Count - 1)].SuggestedVisualTypes,
+                DraftStatus: DefaultDraftStatus);
+        })
             .ToArray();
 
-        var layoutArtifacts = pageArtifacts.Select((pageArtifact, index) => new DraftLayoutArtifact(
-            Metadata: CreateMetadata(
-                id: $"draft-layout:{threadId}:{index}",
-                threadId: threadId,
-                kind: "draftLayoutArtifact",
-                timestamp: timestamp,
-                lineage: lineage),
-            DraftPageArtifactId: pageArtifact.Metadata.Id,
-            PageConceptId: pageArtifact.PageConceptId,
-            SourceBriefVersionId: sourceBriefVersionId,
-            SourceConceptVersionId: sourceConceptVersionId,
-            SourcePageConceptVersionId: pageArtifact.SourcePageConceptVersionId,
-            LayoutType: index == 0 ? "heroKpiGrid" : "detailAnalysisGrid",
-            Title: $"{concept.PageConcepts[index].Title} layout",
-            KpiBindings: concept.PageConcepts[index].PrimaryKpis,
-            Zones: ["header", "primaryCanvas", "supportingCanvas"],
-            DraftStatus: DefaultDraftStatus))
+        var layoutArtifacts = pageArtifacts.Select((pageArtifact, index) =>
+        {
+            var seed = BuildDraftSeed(recommendation, opportunity, blueprint, concept.PageConcepts[index], index);
+            return new DraftLayoutArtifact(
+                Metadata: CreateMetadata(
+                    id: $"draft-layout:{threadId}:{index}",
+                    threadId: threadId,
+                    kind: "draftLayoutArtifact",
+                    timestamp: timestamp,
+                    lineage: lineage),
+                DraftPageArtifactId: pageArtifact.Metadata.Id,
+                PageConceptId: pageArtifact.PageConceptId,
+                SourceBriefVersionId: sourceBriefVersionId,
+                SourceConceptVersionId: sourceConceptVersionId,
+                SourcePageConceptVersionId: pageArtifact.SourcePageConceptVersionId,
+                LayoutType: seed.LayoutType,
+                Title: seed.LayoutTitle,
+                KpiBindings: concept.PageConcepts[index].PrimaryKpis,
+                Zones: seed.Zones,
+                DraftStatus: DefaultDraftStatus);
+        })
             .ToArray();
 
         var navigationArtifact = new DraftNavigationArtifact(
@@ -405,22 +399,59 @@ internal sealed class DiscoveryDesignStudioAdapterService
         ];
     }
 
-    private static string BuildIntendedStory(DiscoveryRecommendation recommendation, ExperienceBlueprint blueprint)
+    private static string BuildIntendedStory(
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
+        ExperienceBlueprint blueprint)
     {
-        return $"Track {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} by starting with {blueprint.AnalyticalFlow.Question.ToLowerInvariant()} and ending with {blueprint.AnalyticalFlow.Decision.ToLowerInvariant()}";
+        var cadence = InferDecisionCadence(recommendation, opportunity).ToLowerInvariant();
+        var posture = GetExperiencePosture(recommendation.RecommendedExperienceType).ToLowerInvariant();
+        return $"{recommendation.ExpectedAudience} uses this {posture} because it exists to {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} during a {cadence} review rhythm, starting with {blueprint.AnalyticalFlow.Question.ToLowerInvariant()} and ending with {blueprint.AnalyticalFlow.Decision.ToLowerInvariant()}";
     }
 
-    private static string BuildNavigationExpectations(ExperienceBlueprint blueprint)
+    private static string BuildNavigationExpectations(
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
+        ExperienceBlueprint blueprint)
     {
         var sequence = blueprint.NavigationIntent.Sequence.Count > 0
             ? string.Join(" -> ", blueprint.NavigationIntent.Sequence)
             : blueprint.NavigationIntent.Flow;
-        return $"Use a {blueprint.NavigationIntent.Flow.ToLowerInvariant()} path: {sequence}.";
+        var cadence = InferDecisionCadence(recommendation, opportunity).ToLowerInvariant();
+        return $"Use a {blueprint.NavigationIntent.Flow.ToLowerInvariant()} workflow path so {recommendation.ExpectedAudience.ToLowerInvariant()} can move through {sequence} at a {cadence} cadence without losing the intended decision sequence.";
     }
 
-    private static string InferDecisionCadence(OpportunityExperienceType experienceType)
+    private static string BuildConsumptionContext(DiscoveryRecommendation recommendation, OpportunityCandidate? opportunity)
     {
-        return experienceType == OpportunityExperienceType.OperationalMonitoringExperience ? "Daily" : "Weekly";
+        var scope = opportunity?.Category.ToString() ?? recommendation.RecommendedExperienceType.ToString();
+        return $"Discovery-backed starting point for {recommendation.RecommendationName} that preserves {scope} intent as advisory-only design framing.";
+    }
+
+    private static string InferDecisionCadence(DiscoveryRecommendation recommendation, OpportunityCandidate? opportunity)
+    {
+        var text = $"{recommendation.RecommendationName} {recommendation.ExpectedBusinessOutcome} {opportunity?.BusinessOutcome}";
+
+        if (ContainsAny(text, "daily", "queue", "backlog", "sla", "exception", "monitor"))
+        {
+            return "Daily";
+        }
+
+        if (ContainsAny(text, "weekly", "forecast", "planning cycle", "plan"))
+        {
+            return "Weekly";
+        }
+
+        if (ContainsAny(text, "monthly", "quarterly", "board"))
+        {
+            return "Monthly";
+        }
+
+        if (ContainsAny(text, "investigate", "root cause", "deep dive", "hypothesis"))
+        {
+            return "Episodic";
+        }
+
+        return recommendation.RecommendedExperienceType == OpportunityExperienceType.OperationalMonitoringExperience ? "Daily" : "Weekly";
     }
 
     private static string MapSurfaceFamily(OpportunityExperienceType experienceType)
@@ -434,9 +465,13 @@ internal sealed class DiscoveryDesignStudioAdapterService
     {
         return experienceType switch
         {
+            OpportunityExperienceType.ExecutiveDashboard => "ExecutiveDashboard",
             OpportunityExperienceType.OperationalMonitoringExperience => "OperationalMonitoring",
-            OpportunityExperienceType.AnalyticalInvestigationExperience => "NarrativeBriefing",
-            _ => "Dashboard",
+            OpportunityExperienceType.AnalyticalInvestigationExperience => "InvestigativeWorkspace",
+            OpportunityExperienceType.FabricApp => "Application",
+            OpportunityExperienceType.FabricDataApp => "ExplorationApplication",
+            OpportunityExperienceType.PbirReport => "NarrativeReport",
+            _ => "AdvisoryDesign",
         };
     }
 
@@ -456,9 +491,159 @@ internal sealed class DiscoveryDesignStudioAdapterService
         return "guidedFlow";
     }
 
+    private static IReadOnlyList<AlternateReportConcept> BuildAlternateConcepts(
+        DesignBrief brief,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
+        ExperienceBlueprint blueprint,
+        ReportChapterMapConcept chapterMap,
+        IReadOnlyList<PageRecommendationConcept> pageRecommendations,
+        IReadOnlyList<KpiHierarchyNodeConcept> kpiNodes,
+        IReadOnlyList<NavigationSectionConcept> navigationSections,
+        AnalyticalFlowConcept analyticalFlow)
+    {
+        return recommendation.RecommendedExperienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard =>
+            [
+                CreateAlternateConcept("concept-briefing-path", "Leadership briefing path", $"Leads with planning or leadership framing before branching into {recommendation.RecommendationName.ToLowerInvariant()}.", "hubAndSpoke", "Keeps the experience optimized for fast leadership alignment before deeper follow-up.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-variance-path", "Variance review path", $"Organizes the experience around the variance checkpoints that shape {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}.", "guidedReview", "Prioritizes KPI review, variance interpretation, and explicit follow-up checkpoints.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-follow-up-path", "Follow-up checkpoint path", $"Shifts the emphasis toward the owners and checkpoints needed after the initial executive scan.", "guidedEscalation", "Preserves executive posture while making downstream follow-up more explicit.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+            ],
+            OpportunityExperienceType.OperationalMonitoringExperience =>
+            [
+                CreateAlternateConcept("concept-command-center", "Command center flow", $"Starts with queue health and then moves into the operational follow-up path for {recommendation.RecommendationName.ToLowerInvariant()}.", "operationsBoard", "Optimizes for repeated in-day monitoring and action selection.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-exception-path", "Exception-first path", $"Brings exceptions forward so operators can triage before opening supporting detail.", "exceptionLoop", "Improves action sequencing when the first need is triage rather than broad summary.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-follow-through", "Follow-through path", $"Emphasizes the owner handoff and recovery loop after the initial operational scan.", "actionJourney", "Preserves monitoring posture while strengthening ownership and next-action clarity.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+            ],
+            OpportunityExperienceType.AnalyticalInvestigationExperience =>
+            [
+                CreateAlternateConcept("concept-hypothesis", "Hypothesis-led investigation", $"Frames the experience around the leading question before opening the supporting evidence path.", "guidedInvestigation", "Preserves hypothesis discipline and avoids collapsing into a dashboard shell.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-driver-compare", "Driver comparison path", $"Organizes the investigation around competing driver branches and comparative evidence.", "driverMatrix", "Gives analysts real comparison choices instead of one linear readout.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-evidence-dossier", "Evidence dossier path", $"Stages the strongest evidence before the final conclusion to improve investigative confidence.", "evidenceDossier", "Pushes supporting detail forward so the recommendation feels earned.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+            ],
+            OpportunityExperienceType.FabricApp =>
+            [
+                CreateAlternateConcept("concept-workflow-command", "Workflow command path", $"Centers the experience on coordination, routing, and follow-up for {recommendation.RecommendationName.ToLowerInvariant()}.", "workflowCommand", "Keeps the app oriented around handoffs rather than passive scanning.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-role-handoff", "Role handoff path", $"Highlights the role transitions that keep the workflow moving across the app.", "roleJourney", "Makes owner transitions explicit so the app seed feels operational rather than report-like.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-confirmation-loop", "Confirmation loop path", $"Adds a confirmation-oriented closing path after routing and follow-up steps are complete.", "confirmationLoop", "Preserves the app posture while clarifying what completion looks like.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+            ],
+            _ =>
+            [
+                CreateAlternateConcept("concept-blueprint-aligned", "Blueprint-aligned flow", $"Follows the {recommendation.RecommendationName} blueprint sequence directly.", NormalizePattern(blueprint.NavigationIntent.Flow), "Preserves the recommended blueprint sequence as the initial baseline.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-scan-first", "Scan-first KPI flow", $"Starts with KPI emphasis and then expands into {recommendation.RecommendationName.ToLowerInvariant()}.", "hubAndSpoke", "Creates a scan-first baseline while staying within the same blueprint evidence model.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+                CreateAlternateConcept("concept-guided-narrative", "Guided narrative flow", $"Turns the recommendation into a more deliberate staged path before the closing decision.", "guidedNarrative", "Provides a narrative-first alternative without changing the advisory-only boundary.", chapterMap, pageRecommendations, kpiNodes, brief.Dimensions, navigationSections, analyticalFlow),
+            ],
+        };
+    }
+
+    private static AlternateReportConcept CreateAlternateConcept(
+        string id,
+        string label,
+        string summary,
+        string navigationPattern,
+        string navigationRationale,
+        ReportChapterMapConcept chapterMap,
+        IReadOnlyList<PageRecommendationConcept> pageRecommendations,
+        IReadOnlyList<KpiHierarchyNodeConcept> kpiNodes,
+        IReadOnlyList<string> dimensions,
+        IReadOnlyList<NavigationSectionConcept> navigationSections,
+        AnalyticalFlowConcept analyticalFlow)
+    {
+        return new AlternateReportConcept(
+            Id: id,
+            Label: label,
+            Summary: summary,
+            ChapterMap: chapterMap,
+            PageRecommendations: pageRecommendations,
+            KpiHierarchyNodes: kpiNodes,
+            SupportingDimensions: dimensions,
+            NavigationPattern: navigationPattern,
+            NavigationRationale: navigationRationale,
+            NavigationSections: navigationSections,
+            AnalyticalFlow: analyticalFlow);
+    }
+
+    private static DraftSeedDescriptor BuildDraftSeed(
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity,
+        ExperienceBlueprint blueprint,
+        PageConcept pageConcept,
+        int index)
+    {
+        var isEntry = index == 0;
+        var isDecision = index == blueprint.RecommendedPages.Count - 1;
+
+        return recommendation.RecommendedExperienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard => new DraftSeedDescriptor(
+                StructureSummary: isEntry
+                    ? $"{pageConcept.Title} draft seed frames the leadership review, KPI posture, and follow-up checkpoint for {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}."
+                    : $"{pageConcept.Title} draft seed supports the executive follow-up path for {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}.",
+                LayoutType: isEntry ? "executiveKpiRunway" : "executiveDecisionCanvas",
+                LayoutTitle: isDecision ? $"{pageConcept.Title} executive action layout" : $"{pageConcept.Title} leadership layout",
+                Zones: isEntry ? ["header", "headlineKpis", "trendCanvas", "decisionPanel"] : ["header", "comparisonCanvas", "detailCanvas", "decisionPanel"]),
+            OpportunityExperienceType.OperationalMonitoringExperience => new DraftSeedDescriptor(
+                StructureSummary: isEntry
+                    ? $"{pageConcept.Title} draft seed frames the action-oriented command view for {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()}."
+                    : $"{pageConcept.Title} draft seed keeps the operator action loop moving through supporting detail.",
+                LayoutType: isEntry ? "operationsCommandBoard" : "operationsFollowThroughGrid",
+                LayoutTitle: isDecision ? $"{pageConcept.Title} action follow-through layout" : $"{pageConcept.Title} operations command layout",
+                Zones: isEntry ? ["header", "alertRibbon", "primaryQueue", "ownerPanel"] : ["header", "exceptionCanvas", "detailCanvas", "ownerPanel"]),
+            OpportunityExperienceType.FabricApp => new DraftSeedDescriptor(
+                StructureSummary: isEntry
+                    ? $"{pageConcept.Title} draft seed frames the workflow command shell for coordination and handoff."
+                    : $"{pageConcept.Title} draft seed preserves workflow routing, follow-up, and confirmation inside the app path.",
+                LayoutType: isEntry ? "workflowCommandShell" : "workflowRoleCanvas",
+                LayoutTitle: isDecision ? $"{pageConcept.Title} workflow confirmation layout" : $"{pageConcept.Title} workflow handoff layout",
+                Zones: isEntry ? ["header", "commandRail", "primaryWorkspace", "followUpPanel"] : ["header", "routingCanvas", "detailCanvas", "followUpPanel"]),
+            OpportunityExperienceType.AnalyticalInvestigationExperience => new DraftSeedDescriptor(
+                StructureSummary: isEntry
+                    ? $"{pageConcept.Title} draft seed frames the investigative question and the evidence path it must open."
+                    : $"{pageConcept.Title} draft seed preserves the analytical evidence chain before the final conclusion.",
+                LayoutType: isEntry ? "investigationQuestionFrame" : "investigationEvidenceCanvas",
+                LayoutTitle: isDecision ? $"{pageConcept.Title} conclusion layout" : $"{pageConcept.Title} evidence review layout",
+                Zones: isEntry ? ["header", "questionPanel", "hypothesisCanvas", "evidenceRail"] : ["header", "comparisonCanvas", "detailCanvas", "conclusionPanel"]),
+            _ => new DraftSeedDescriptor(
+                StructureSummary: $"{pageConcept.Title} draft seed frames {pageConcept.IntendedPurpose.ToLowerInvariant()} while preserving the advisory-only discovery posture.",
+                LayoutType: isEntry ? "heroKpiGrid" : "detailAnalysisGrid",
+                LayoutTitle: $"{pageConcept.Title} layout",
+                Zones: ["header", "primaryCanvas", "supportingCanvas"]),
+        };
+    }
+
+    private static string GetExperiencePosture(OpportunityExperienceType experienceType)
+    {
+        return experienceType switch
+        {
+            OpportunityExperienceType.ExecutiveDashboard => "leadership dashboard",
+            OpportunityExperienceType.OperationalMonitoringExperience => "operational monitoring experience",
+            OpportunityExperienceType.AnalyticalInvestigationExperience => "investigative workspace",
+            OpportunityExperienceType.FabricApp => "workflow application",
+            OpportunityExperienceType.FabricDataApp => "exploration application",
+            _ => "narrative report"
+        };
+    }
+
+    private static bool ContainsAny(string value, params string[] terms)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
     private sealed record DraftBuildResult(
         DraftReportArtifact Draft,
         IReadOnlyList<DraftPageArtifact> PageArtifacts,
         IReadOnlyList<DraftLayoutArtifact> LayoutArtifacts,
         IReadOnlyList<DraftNavigationArtifact> NavigationArtifacts);
+
+    private sealed record DraftSeedDescriptor(
+        string StructureSummary,
+        string LayoutType,
+        string LayoutTitle,
+        IReadOnlyList<string> Zones);
 }

@@ -225,6 +225,40 @@ internal sealed class ExperienceBlueprintGenerationService
 
     private static IReadOnlyList<ExperienceBlueprintPage> BuildExecutivePages(DiscoveryProfile profile, OpportunityCandidate? opportunity)
     {
+        if (opportunity?.Category == OpportunityCategory.ForecastAccuracy ||
+            HasDomain(opportunity, "Forecasting"))
+        {
+            return
+            [
+                CreatePage("Planning Summary", "Anchor the weekly planning review around forecast accuracy, variance posture, and leadership focus.", PickFilters(profile, "Forecast Period", "Date", "Scenario"), ["KPI Cards", "Trend Charts", "Scorecards"]),
+                CreatePage("Variance Review", "Explain where misses concentrate across scenarios, regions, and time horizons before corrective action is set.", PickFilters(profile, "Scenario", "Region", "Forecast Period"), ["Variance Charts", "Line Charts", "Bar Charts"]),
+                CreatePage("Regional Follow-Up", "Convert variance patterns into owner-level follow-up and the next planning checkpoint.", PickFilters(profile, "Region", "Territory", "Scenario"), ["Scorecards", "Detail Tables", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.ExecutiveReporting ||
+            opportunity?.Category == OpportunityCategory.SalesPerformance ||
+            HasDomain(opportunity, "Revenue"))
+        {
+            return
+            [
+                CreatePage("Revenue Leadership Summary", "Open with the topline revenue posture, mix movement, and leadership decision frame.", PickFilters(profile, "Date", "Region", "Territory"), ["KPI Cards", "Trend Charts", "Scorecards"]),
+                CreatePage("Growth and Mix Review", "Compare growth, margin, and territory mix to isolate the strongest commercial drivers.", PickFilters(profile, "Region", "Territory", "Product Category"), ["Bar Charts", "Line Charts", "Waterfall Charts"]),
+                CreatePage("Commercial Follow-Up", "Translate the revenue readout into the next commercial checkpoint across customers, products, and territories.", PickFilters(profile, "Customer Segment", "Product Category", "Territory"), ["Detail Tables", "Scatter Charts", "Action Tables"])
+            ];
+        }
+
+        if (opportunity?.Category == OpportunityCategory.CustomerAnalysis ||
+            HasDomain(opportunity, "Customer"))
+        {
+            return
+            [
+                CreatePage("Customer Portfolio Summary", "Frame the portfolio question around segment performance, concentration, and customer posture.", PickFilters(profile, "Date", "Customer Segment", "Region"), ["KPI Cards", "Trend Charts", "Scorecards"]),
+                CreatePage("Segment Driver Review", "Organize segment comparisons around the customer groups that change the decision most.", PickFilters(profile, "Customer Segment", "Product Category", "Region"), ["Bar Charts", "Scatter Charts", "Line Charts"]),
+                CreatePage("Account Follow-Up", "Carry the segment story into the accounts or categories that need the next move.", PickFilters(profile, "Customer Segment", "Product Category", "Territory"), ["Detail Tables", "Scorecards", "Action Tables"])
+            ];
+        }
+
         var pages = new List<ExperienceBlueprintPage>
         {
             CreatePage("Executive Summary", "Fast KPI-first summary for leadership review.", ["Date", "Region"], ["KPI Cards", "Trend Charts", "Scorecards"])
@@ -522,6 +556,28 @@ internal sealed class ExperienceBlueprintGenerationService
                 Decision: "Decision should end with the forecast adjustment and the next checkpoint the audience should use.");
         }
 
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard &&
+            (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Where is planning confidence weakening before the next review cycle?",
+                Investigation: "Investigation should move from headline forecast accuracy into scenario variance, regional miss concentration, and follow-up owners behind the next planning checkpoint.",
+                Evidence: "Evidence should connect forecast accuracy, scenario variance, and regional movement without turning the primary experience into an investigation shell.",
+                Decision: "Decision should clarify the corrective planning action and the next review checkpoint.");
+        }
+
+        if (recommendation.RecommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard &&
+            (opportunity?.Category == OpportunityCategory.ExecutiveReporting ||
+             opportunity?.Category == OpportunityCategory.SalesPerformance ||
+             HasDomain(opportunity, "Revenue")))
+        {
+            return new ExperienceBlueprintAnalyticalFlow(
+                Question: "Which commercial performance shifts need leadership attention first?",
+                Investigation: "Investigation should move from topline revenue posture into growth, margin, mix, and territory comparisons before follow-up is assigned.",
+                Evidence: "Evidence should connect KPI movement, territory context, and commercial drivers so leadership can act without opening a full analyst-first workflow.",
+                Decision: "Decision should identify the commercial action, owner, and next leadership checkpoint.");
+        }
+
         return recommendation.RecommendedExperienceType switch
         {
             OpportunityExperienceType.OperationalMonitoringExperience => new ExperienceBlueprintAnalyticalFlow(
@@ -619,6 +675,32 @@ internal sealed class ExperienceBlueprintGenerationService
                 Sequence: pages.Select(page => page.PageName).ToList());
         }
 
+        if (experienceType == OpportunityExperienceType.ExecutiveDashboard)
+        {
+            if (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "planning summary → variance review → follow-up",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+
+            if (opportunity?.Category == OpportunityCategory.ExecutiveReporting ||
+                opportunity?.Category == OpportunityCategory.SalesPerformance ||
+                HasDomain(opportunity, "Revenue"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "leadership summary → growth and mix → commercial follow-up",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+
+            if (opportunity?.Category == OpportunityCategory.CustomerAnalysis || HasDomain(opportunity, "Customer"))
+            {
+                return new ExperienceBlueprintNavigationIntent(
+                    Flow: "portfolio summary → segment drivers → account follow-up",
+                    Sequence: pages.Select(page => page.PageName).ToList());
+            }
+        }
+
         var flow = experienceType switch
         {
             OpportunityExperienceType.OperationalMonitoringExperience => "monitor → exception → detail",
@@ -638,11 +720,13 @@ internal sealed class ExperienceBlueprintGenerationService
         IReadOnlyList<ExperienceBlueprintPage> pages,
         IReadOnlyList<string> primaryKpis)
     {
+        var cadence = InferDecisionCadence($"{recommendation.RecommendationName} {recommendation.ExpectedBusinessOutcome}");
+
         return
         [
             $"{recommendation.ExpectedAudience} can move through the suggested {pages.Count}-page experience without redesigning the baseline information architecture.",
             $"The experience highlights the primary KPI set: {string.Join(", ", primaryKpis.Take(3))}.",
-            recommendation.ExpectedBusinessOutcome
+            $"{recommendation.ExpectedBusinessOutcome} within a {cadence.ToLowerInvariant()} decision rhythm."
         ];
     }
 
@@ -727,5 +811,40 @@ internal sealed class ExperienceBlueprintGenerationService
         return opportunity?.SupportingSemanticSignals.Any(signal =>
             string.Equals(signal.SignalType, "Domain", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(signal.Value, value, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    private static string InferDecisionCadence(string text)
+    {
+        if (ContainsAny(text, "daily", "queue", "backlog", "sla", "exception", "monitor"))
+        {
+            return "Daily";
+        }
+
+        if (ContainsAny(text, "weekly", "forecast", "planning cycle", "plan"))
+        {
+            return "Weekly";
+        }
+
+        if (ContainsAny(text, "monthly", "quarterly", "board"))
+        {
+            return "Monthly";
+        }
+
+        if (ContainsAny(text, "investigate", "root cause", "deep dive", "hypothesis"))
+        {
+            return "Episodic";
+        }
+
+        return "Weekly";
+    }
+
+    private static bool ContainsAny(string value, params string[] terms)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 }

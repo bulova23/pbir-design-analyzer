@@ -480,6 +480,173 @@ public sealed class DesignPackageGenerationServiceTests
         Assert.DoesNotContain("DeploymentPlan", propertyNames);
     }
 
+    [Fact(DisplayName = "Design Package generation gives provider-ready why-language across rationale guidance and success criteria")]
+    public void CreatePackage_ProviderReadiness_ExplainsWhyAndSuccessWithoutExternalDiscoveryContext()
+    {
+        var package = CreatePackage(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "forecast-accuracy-dashboard",
+                    "Forecast Accuracy Dashboard",
+                    "ForecastAccuracy",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                    ["ExecutiveDashboard", "PbirReport"],
+                    [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("Dimension", "Scenario")],
+                    ["Scenario granularity is still uneven by region."],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "forecast-accuracy-dashboard",
+                        "Forecast Accuracy Dashboard",
+                        "ExecutiveDashboard",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Planning-first leadership readout with forecast variance context.",
+                        "Planning Leadership",
+                        "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                        ["Forecasting semantic support", "Scenario planning support"],
+                        ["Scenario granularity is still uneven by region."],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because the experience spans planning review and variance management without requiring full workflow orchestration.",
+                        "Primary",
+                        88.4,
+                        CreateBlueprint(
+                            "forecast-accuracy-dashboard",
+                            "forecast-accuracy-dashboard",
+                            "ForecastAccuracy",
+                            "ExecutiveDashboard",
+                            "Planning Leadership",
+                            "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                            ["Planning Summary", "Variance Review", "Regional Follow-Up"],
+                            ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+                            ["Date", "Region", "Scenario"]))]
+                ,
+                alternates: []),
+            "forecast-accuracy-dashboard");
+
+        var successCriteria = ReadObject(package, "SuccessCriteria");
+        var rationale = ReadObject(package, "RecommendationRationale");
+        var providerGuidance = ReadObject(package, "ProviderGuidance");
+
+        Assert.Contains("planning", ReadString(rationale, "AudienceRationale"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("weekly", string.Join(" ", ReadStringList(successCriteria, "BusinessSuccessCriteria")), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("because", ReadString(rationale, "ExperienceTypeRationale"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("generate", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Scenario", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("success looks like", ReadString(providerGuidance, "SuccessLooksLike"), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "Design Package generation preserves downstream diversity between executive and operational recommendations")]
+    public void CreatePackage_DiversityPropagation_DiffersAcrossRecommendationTypes()
+    {
+        var executivePackage = CreatePackage(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "forecast-accuracy-dashboard",
+                    "Forecast Accuracy Dashboard",
+                    "ForecastAccuracy",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                    ["ExecutiveDashboard"],
+                    [("Domain", "Forecasting"), ("Dimension", "Scenario")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "forecast-accuracy-dashboard",
+                        "Forecast Accuracy Dashboard",
+                        "ExecutiveDashboard",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Planning-first leadership readout with forecast variance context.",
+                        "Planning Leadership",
+                        "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                        ["Forecasting semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because the experience spans planning review and variance management without requiring full workflow orchestration.",
+                        "Primary",
+                        88.4,
+                        CreateBlueprint(
+                            "forecast-accuracy-dashboard",
+                            "forecast-accuracy-dashboard",
+                            "ForecastAccuracy",
+                            "ExecutiveDashboard",
+                            "Planning Leadership",
+                            "Review weekly forecast accuracy, manage variance, and improve the next planning cycle.",
+                            ["Planning Summary", "Variance Review", "Regional Follow-Up"],
+                            ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+                            ["Date", "Region", "Scenario"]))]
+                ,
+                alternates: []),
+            "forecast-accuracy-dashboard");
+        var operationalPackage = CreatePackage(
+            CreateDiscoveryProfile(),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "inventory-operations-monitoring",
+                    "Inventory Operations Monitoring",
+                    "InventoryOptimization",
+                    "Operational",
+                    "Monitor stock position, warehouse health, and item-level inventory risk.",
+                    ["OperationalMonitoringExperience"],
+                    [("Domain", "Inventory"), ("Dimension", "Warehouse")],
+                    [],
+                    "High")),
+            CreateRecommendationSet(
+                primary:
+                [
+                    CreateRecommendation(
+                        "inventory-operations-monitoring",
+                        "Inventory Operations Monitoring",
+                        "OperationalMonitoringExperience",
+                        "High",
+                        "High",
+                        "Medium",
+                        "Action-first operational monitoring path.",
+                        "Operational",
+                        "Monitor stock position, warehouse health, and item-level inventory risk.",
+                        ["Inventory semantic support"],
+                        [],
+                        "High confidence because the semantic model strongly supports this use case.",
+                        "Medium complexity because an operational monitoring flow spans several semantic signals and design choices.",
+                        "Primary",
+                        88.5,
+                        CreateBlueprint(
+                            "inventory-operations-monitoring",
+                            "inventory-operations-monitoring",
+                            "InventoryOptimization",
+                            "OperationalMonitoringExperience",
+                            "Operational",
+                            "Monitor stock position, warehouse health, and item-level inventory risk.",
+                            ["Overview", "Exceptions", "Detail"],
+                            ["Open Exceptions", "Backlog Trend", "Stockout Risk"],
+                            ["Date", "Warehouse", "Region"]))]
+                ,
+                alternates: []),
+            "inventory-operations-monitoring");
+
+        var executiveRationale = ReadObject(executivePackage, "RecommendationRationale");
+        var operationalRationale = ReadObject(operationalPackage, "RecommendationRationale");
+        var executiveGuidance = ReadObject(executivePackage, "ProviderGuidance");
+        var operationalGuidance = ReadObject(operationalPackage, "ProviderGuidance");
+
+        Assert.NotEqual(ReadString(executiveRationale, "ExperienceTypeRationale"), ReadString(operationalRationale, "ExperienceTypeRationale"));
+        Assert.NotEqual(ReadString(executiveRationale, "NavigationRationale"), ReadString(operationalRationale, "NavigationRationale"));
+        Assert.NotEqual(ReadString(executiveGuidance, "ExperienceToGenerate"), ReadString(operationalGuidance, "ExperienceToGenerate"));
+        Assert.Contains("planning", ReadString(executiveGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("action", ReadString(operationalGuidance, "SuccessLooksLike"), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static object CreatePackage(object profile, object catalog, object recommendations, string recommendationId)
     {
         var serviceType = CoreAssembly.GetType($"{DiscoveryServicesNamespace}.DesignPackageGenerationService", throwOnError: false);

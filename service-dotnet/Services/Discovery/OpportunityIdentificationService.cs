@@ -54,10 +54,42 @@ internal sealed class OpportunityIdentificationService
             ],
             optionalSignals:
             [
-                CreateOptionalSignal(profile, HasGeography(profile), "Dimension", "Geography"),
-                CreateOptionalSignal(profile, HasKpiCluster(profile, "Revenue KPIs"), "KpiCluster", "Revenue KPIs")
+                CreateOptionalSignal(HasGeography(profile), "Dimension", "Geography"),
+                CreateOptionalSignal(HasKpiCluster(profile, "Revenue KPIs"), "KpiCluster", "Revenue KPIs")
             ],
-            isTimeDependent: true));
+            isTimeDependent: true,
+            family: OpportunityFamily.Executive,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Summary,
+            whyThisOpportunityExists: "Revenue signals and leadership-oriented time intelligence support a top-level revenue review experience."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "executive-revenue-dashboard",
+            name: "Executive Revenue Dashboard",
+            category: OpportunityCategory.ExecutiveReporting,
+            audience: ChooseAudience(profile, "Executive", "Revenue Leadership"),
+            businessOutcome: "Summarize revenue posture, KPI movement, and leadership follow-up areas.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.ExecutiveDashboard,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Revenue"),
+                ("DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasKpiCluster(profile, "Revenue KPIs"), "KpiCluster", "Revenue KPIs"),
+                CreateOptionalSignal(HasGeography(profile), "Dimension", "Geography")
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Executive,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Summary,
+            whyThisOpportunityExists: "The model contains revenue and date intelligence signals strong enough to support a concise executive revenue dashboard."));
 
         if (HasGeography(profile))
         {
@@ -80,10 +112,14 @@ internal sealed class OpportunityIdentificationService
                 ],
                 optionalSignals:
                 [
-                    CreateOptionalSignal(profile, HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString()),
-                    CreateOptionalSignal(profile, HasDimension(profile, "Customer"), "Dimension", "Customer")
+                    CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString()),
+                    CreateOptionalSignal(HasDimension(profile, "Customer"), "Dimension", "Customer")
                 ],
-                isTimeDependent: true));
+                isTimeDependent: true,
+                family: OpportunityFamily.Performance,
+                workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+                decisionPattern: OpportunityDecisionPattern.Comparative,
+                whyThisOpportunityExists: "Geography and revenue signals indicate a defensible cross-region sales performance management use case."));
 
             if (HasDimensionName(profile, "territory"))
             {
@@ -106,10 +142,74 @@ internal sealed class OpportunityIdentificationService
                     ],
                     optionalSignals:
                     [
-                        CreateOptionalSignal(profile, HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+                        CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
                     ],
-                    isTimeDependent: true));
+                    isTimeDependent: true,
+                    family: OpportunityFamily.Performance,
+                    workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+                    decisionPattern: OpportunityDecisionPattern.Comparative,
+                    whyThisOpportunityExists: "Territory structure creates a specific performance-management path rather than only a generic executive rollup."));
             }
+
+            candidates.Add(CreateCandidate(
+                profile,
+                opportunityId: "revenue-performance-management",
+                name: "Revenue Performance Management",
+                category: OpportunityCategory.SalesPerformance,
+                audience: ChooseAudience(profile, "Operational", "Sales Manager"),
+                businessOutcome: "Manage revenue performance by region, territory, and accountable commercial owners.",
+                experienceTypes:
+                [
+                    OpportunityExperienceType.OperationalMonitoringExperience,
+                    OpportunityExperienceType.FabricApp,
+                    OpportunityExperienceType.PbirReport
+                ],
+                requiredSignals:
+                [
+                    ("Domain", "Revenue"),
+                    ("Dimension", "Geography")
+                ],
+                optionalSignals:
+                [
+                    CreateOptionalSignal(HasDimensionName(profile, "territory"), "Dimension", "Territory"),
+                    CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+                ],
+                isTimeDependent: true,
+                family: OpportunityFamily.Operational,
+                workflowOrientation: OpportunityWorkflowOrientation.Act,
+                decisionPattern: OpportunityDecisionPattern.Threshold,
+                whyThisOpportunityExists: "Revenue trends broken out by geography support a performance-management workflow that is more action-oriented than a pure executive dashboard."));
+        }
+
+        if (HasMeasureName(profile, "variance") || HasDimension(profile, "Customer"))
+        {
+            candidates.Add(CreateCandidate(
+                profile,
+                opportunityId: "sales-investigation-experience",
+                name: "Sales Investigation Experience",
+                category: OpportunityCategory.RootCauseInvestigation,
+                audience: ChooseAudience(profile, "Analytical", "Sales Strategy"),
+                businessOutcome: "Investigate why revenue, mix, or segment performance shifts before deciding follow-up actions.",
+                experienceTypes:
+                [
+                    OpportunityExperienceType.AnalyticalInvestigationExperience,
+                    OpportunityExperienceType.PbirReport
+                ],
+                requiredSignals:
+                [
+                    ("Domain", "Revenue")
+                ],
+                optionalSignals:
+                [
+                    CreateOptionalSignal(HasMeasureName(profile, "variance"), "Measure", "Variance"),
+                    CreateOptionalSignal(HasDimension(profile, "Customer"), "Dimension", "Customer"),
+                    CreateOptionalSignal(profile.Hierarchies.Count > 0, "Drill", "HierarchyRich")
+                ],
+                isTimeDependent: false,
+                family: OpportunityFamily.Investigation,
+                workflowOrientation: OpportunityWorkflowOrientation.Investigate,
+                decisionPattern: OpportunityDecisionPattern.Diagnostic,
+                whyThisOpportunityExists: "Revenue models with variance and drill-supporting structures can justify a diagnostic sales investigation path."));
         }
     }
 
@@ -137,10 +237,14 @@ internal sealed class OpportunityIdentificationService
                 ],
                 optionalSignals:
                 [
-                    CreateOptionalSignal(profile, HasDimension(profile, "Customer"), "Dimension", "Customer"),
-                    CreateOptionalSignal(profile, HasDimensionName(profile, "segment"), "Dimension", "Customer Segment")
+                    CreateOptionalSignal(HasDimension(profile, "Customer"), "Dimension", "Customer"),
+                    CreateOptionalSignal(HasDimensionName(profile, "segment"), "Dimension", "Customer Segment")
                 ],
-                isTimeDependent: false));
+                isTimeDependent: false,
+                family: OpportunityFamily.Analytical,
+                workflowOrientation: OpportunityWorkflowOrientation.Analyze,
+                decisionPattern: OpportunityDecisionPattern.Comparative,
+                whyThisOpportunityExists: "Customer and profitability signals support a customer-level margin analysis path with clear business outcome relevance."));
         }
         else if (HasDomain(profile, "Customer"))
         {
@@ -163,10 +267,14 @@ internal sealed class OpportunityIdentificationService
                 ],
                 optionalSignals:
                 [
-                    CreateOptionalSignal(profile, HasDimensionName(profile, "segment"), "Dimension", "Customer Segment"),
-                    CreateOptionalSignal(profile, HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+                    CreateOptionalSignal(HasDimensionName(profile, "segment"), "Dimension", "Customer Segment"),
+                    CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
                 ],
-                isTimeDependent: false));
+                isTimeDependent: false,
+                family: OpportunityFamily.Analytical,
+                workflowOrientation: OpportunityWorkflowOrientation.Analyze,
+                decisionPattern: OpportunityDecisionPattern.Comparative,
+                whyThisOpportunityExists: "Customer entities and segmentation hints support an exploratory customer analysis opportunity."));
         }
     }
 
@@ -196,11 +304,99 @@ internal sealed class OpportunityIdentificationService
             ],
             optionalSignals:
             [
-                CreateOptionalSignal(profile, HasDimension(profile, "Inventory"), "Dimension", "Inventory"),
-                CreateOptionalSignal(profile, HasDimension(profile, "Product"), "Dimension", "Product"),
-                CreateOptionalSignal(profile, HasMeasureName(profile, "quantity"), "Measure", "Quantity")
+                CreateOptionalSignal(HasDimension(profile, "Inventory"), "Dimension", "Inventory"),
+                CreateOptionalSignal(HasDimension(profile, "Product"), "Dimension", "Product"),
+                CreateOptionalSignal(HasMeasureName(profile, "quantity"), "Measure", "Quantity")
             ],
-            isTimeDependent: true));
+            isTimeDependent: true,
+            family: OpportunityFamily.Monitoring,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Threshold,
+            whyThisOpportunityExists: "Inventory, product, and quantity signals justify an operations monitoring experience for stock health."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "inventory-planning",
+            name: "Inventory Planning",
+            category: OpportunityCategory.InventoryOptimization,
+            audience: "Supply Planning",
+            businessOutcome: "Plan inventory posture across warehouses and product groups before shortages emerge.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.ExecutiveDashboard,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Inventory"),
+                ("DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasDimensionName(profile, "warehouse"), "Dimension", "Warehouse"),
+                CreateOptionalSignal(HasDimension(profile, "Product"), "Dimension", "Product")
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Planning,
+            workflowOrientation: OpportunityWorkflowOrientation.Act,
+            decisionPattern: OpportunityDecisionPattern.Planning,
+            whyThisOpportunityExists: "Inventory models with warehouse and date coverage can support forward-looking planning decisions, not only current-state monitoring."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "inventory-investigation",
+            name: "Inventory Investigation",
+            category: OpportunityCategory.RootCauseInvestigation,
+            audience: ChooseAudience(profile, "Analytical", "Supply Analyst"),
+            businessOutcome: "Investigate inventory exceptions, stock variance, and item-level drivers before operational correction.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.AnalyticalInvestigationExperience,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Inventory")
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasMeasureName(profile, "variance"), "Measure", "Variance"),
+                CreateOptionalSignal(HasMeasureName(profile, "quantity"), "Measure", "Quantity"),
+                CreateOptionalSignal(profile.Relationships.Count >= 3, "Drill", "RelationshipRich")
+            ],
+            isTimeDependent: false,
+            family: OpportunityFamily.Investigation,
+            workflowOrientation: OpportunityWorkflowOrientation.Investigate,
+            decisionPattern: OpportunityDecisionPattern.Diagnostic,
+            whyThisOpportunityExists: "Inventory variance and relationship depth support a root-cause path for stock exceptions."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "warehouse-performance",
+            name: "Warehouse Performance",
+            category: OpportunityCategory.InventoryOptimization,
+            audience: "Warehouse Leadership",
+            businessOutcome: "Compare warehouse performance, stock position, and operational pressure across locations.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.ExecutiveDashboard,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Inventory"),
+                ("Dimension", "Warehouse")
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasGeography(profile), "Dimension", "Geography"),
+                CreateOptionalSignal(HasMeasureName(profile, "value"), "Measure", "Value")
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Performance,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Comparative,
+            whyThisOpportunityExists: "Warehouse dimensions create a defensible performance comparison opportunity beyond generic stock monitoring."));
     }
 
     private static void AddServiceCandidates(DiscoveryProfile profile, ICollection<OpportunityCandidate> candidates)
@@ -229,11 +425,100 @@ internal sealed class OpportunityIdentificationService
             ],
             optionalSignals:
             [
-                CreateOptionalSignal(profile, HasDimensionName(profile, "technician"), "Dimension", "Technician"),
-                CreateOptionalSignal(profile, HasDimensionName(profile, "work order") || HasDimensionName(profile, "ticket"), "Dimension", "Work Order"),
-                CreateOptionalSignal(profile, HasMeasureName(profile, "resolution"), "Measure", "Resolution")
+                CreateOptionalSignal(HasDimensionName(profile, "technician"), "Dimension", "Technician"),
+                CreateOptionalSignal(HasDimensionName(profile, "work order") || HasDimensionName(profile, "ticket"), "Dimension", "Work Order"),
+                CreateOptionalSignal(HasMeasureName(profile, "resolution"), "Measure", "Resolution")
             ],
-            isTimeDependent: true));
+            isTimeDependent: true,
+            family: OpportunityFamily.Monitoring,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Threshold,
+            whyThisOpportunityExists: "Service workload, technician, and work-order signals support a command-center monitoring opportunity."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "service-workflow-coordination",
+            name: "Service Workflow Coordination",
+            category: OpportunityCategory.ServiceOperations,
+            audience: "Service Operations",
+            businessOutcome: "Coordinate backlog triage, technician follow-up, and work-order handoffs across the service workflow.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.FabricApp,
+                OpportunityExperienceType.OperationalMonitoringExperience,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Service")
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasDimensionName(profile, "technician"), "Dimension", "Technician"),
+                CreateOptionalSignal(HasDimensionName(profile, "work order") || HasDimensionName(profile, "ticket"), "Dimension", "Work Order"),
+                CreateOptionalSignal(HasMeasureName(profile, "resolution"), "Measure", "Resolution")
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Workflow,
+            workflowOrientation: OpportunityWorkflowOrientation.Act,
+            decisionPattern: OpportunityDecisionPattern.Workflow,
+            whyThisOpportunityExists: "Service models with technician and work-order entities can support workflow coordination rather than only passive monitoring."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "service-performance-management",
+            name: "Service Performance Management",
+            category: OpportunityCategory.ServiceOperations,
+            audience: "Service Leadership",
+            businessOutcome: "Compare service throughput, SLA risk, and team performance across regions and queues.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.ExecutiveDashboard,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Service")
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasGeography(profile), "Dimension", "Geography"),
+                CreateOptionalSignal(HasMeasureName(profile, "resolution"), "Measure", "Resolution"),
+                CreateOptionalSignal(HasDimensionName(profile, "queue"), "Dimension", "Queue")
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Performance,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Comparative,
+            whyThisOpportunityExists: "Service performance can be compared across teams and queues when the model exposes the right operating dimensions."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "service-investigation",
+            name: "Service Investigation",
+            category: OpportunityCategory.RootCauseInvestigation,
+            audience: ChooseAudience(profile, "Analytical", "Service Analyst"),
+            businessOutcome: "Investigate service misses, SLA variance, and root causes before operational changes are assigned.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.AnalyticalInvestigationExperience,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Service")
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasMeasureName(profile, "variance"), "Measure", "Variance"),
+                CreateOptionalSignal(HasMeasureName(profile, "resolution"), "Measure", "Resolution"),
+                CreateOptionalSignal(profile.Relationships.Count >= 3, "Drill", "RelationshipRich")
+            ],
+            isTimeDependent: false,
+            family: OpportunityFamily.Investigation,
+            workflowOrientation: OpportunityWorkflowOrientation.Investigate,
+            decisionPattern: OpportunityDecisionPattern.Diagnostic,
+            whyThisOpportunityExists: "Service variance and operational drill paths support an investigative service opportunity."));
     }
 
     private static void AddForecastCandidates(DiscoveryProfile profile, ICollection<OpportunityCandidate> candidates)
@@ -262,11 +547,72 @@ internal sealed class OpportunityIdentificationService
             ],
             optionalSignals:
             [
-                CreateOptionalSignal(profile, HasMeasureName(profile, "actual"), "Measure", "Actual"),
-                CreateOptionalSignal(profile, HasMeasureName(profile, "variance"), "Measure", "Variance"),
-                CreateOptionalSignal(profile, HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+                CreateOptionalSignal(HasMeasureName(profile, "actual"), "Measure", "Actual"),
+                CreateOptionalSignal(HasMeasureName(profile, "variance"), "Measure", "Variance"),
+                CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
             ],
-            isTimeDependent: true));
+            isTimeDependent: true,
+            family: OpportunityFamily.Executive,
+            workflowOrientation: OpportunityWorkflowOrientation.Monitor,
+            decisionPattern: OpportunityDecisionPattern.Summary,
+            whyThisOpportunityExists: "Forecasting models support a leadership-facing accuracy review when forecast, actual, and variance signals are present."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "forecast-planning-review",
+            name: "Forecast Planning Review",
+            category: OpportunityCategory.ForecastAccuracy,
+            audience: "Planning Leadership",
+            businessOutcome: "Review forecast posture, re-plan assumptions, and improve the next planning cycle.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.ExecutiveDashboard,
+                OpportunityExperienceType.PbirReport,
+                OpportunityExperienceType.AnalyticalInvestigationExperience
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Forecasting"),
+                ("DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasMeasureName(profile, "actual"), "Measure", "Actual"),
+                CreateOptionalSignal(HasMeasureName(profile, "variance"), "Measure", "Variance")
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Planning,
+            workflowOrientation: OpportunityWorkflowOrientation.Act,
+            decisionPattern: OpportunityDecisionPattern.Planning,
+            whyThisOpportunityExists: "Forecasting plus time intelligence supports a planning-grade review instead of only a generic KPI summary."));
+
+        candidates.Add(CreateCandidate(
+            profile,
+            opportunityId: "forecast-operations-follow-through",
+            name: "Forecast Operations Follow-Through",
+            category: OpportunityCategory.ForecastAccuracy,
+            audience: "Operations Leadership",
+            businessOutcome: "Monitor forecast miss thresholds and trigger follow-through where actuals drift from plan.",
+            experienceTypes:
+            [
+                OpportunityExperienceType.OperationalMonitoringExperience,
+                OpportunityExperienceType.PbirReport
+            ],
+            requiredSignals:
+            [
+                ("Domain", "Forecasting")
+            ],
+            optionalSignals:
+            [
+                CreateOptionalSignal(HasMeasureName(profile, "variance"), "Measure", "Variance"),
+                CreateOptionalSignal(HasGeography(profile), "Dimension", "Geography"),
+                CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+            ],
+            isTimeDependent: true,
+            family: OpportunityFamily.Operational,
+            workflowOrientation: OpportunityWorkflowOrientation.Act,
+            decisionPattern: OpportunityDecisionPattern.Threshold,
+            whyThisOpportunityExists: "Forecast miss signals can support an operational follow-through path when threshold-based action is needed."));
     }
 
     private static void AddAnalyticalInvestigationCandidates(DiscoveryProfile profile, ICollection<OpportunityCandidate> candidates)
@@ -300,10 +646,14 @@ internal sealed class OpportunityIdentificationService
             ],
             optionalSignals:
             [
-                CreateOptionalSignal(profile, profile.Relationships.Count >= 3, "RelationshipCount", profile.Relationships.Count.ToString()),
-                CreateOptionalSignal(profile, profile.Hierarchies.Count > 0, "HierarchyCount", profile.Hierarchies.Count.ToString())
+                CreateOptionalSignal(profile.Relationships.Count >= 3, "RelationshipCount", profile.Relationships.Count.ToString()),
+                CreateOptionalSignal(profile.Hierarchies.Count > 0, "HierarchyCount", profile.Hierarchies.Count.ToString())
             ],
-            isTimeDependent: false));
+            isTimeDependent: false,
+            family: OpportunityFamily.Investigation,
+            workflowOrientation: OpportunityWorkflowOrientation.Investigate,
+            decisionPattern: OpportunityDecisionPattern.Diagnostic,
+            whyThisOpportunityExists: "Analytical audience signals, drill depth, and variance evidence justify a dedicated root-cause investigation experience."));
     }
 
     private static void AddComparativePerformanceCandidates(DiscoveryProfile profile, ICollection<OpportunityCandidate> candidates)
@@ -332,11 +682,15 @@ internal sealed class OpportunityIdentificationService
             ],
             optionalSignals:
             [
-                CreateOptionalSignal(profile, HasDomain(profile, "Revenue"), "Domain", "Revenue"),
-                CreateOptionalSignal(profile, HasDomain(profile, "Profitability"), "Domain", "Profitability"),
-                CreateOptionalSignal(profile, HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
+                CreateOptionalSignal(HasDomain(profile, "Revenue"), "Domain", "Revenue"),
+                CreateOptionalSignal(HasDomain(profile, "Profitability"), "Domain", "Profitability"),
+                CreateOptionalSignal(HasDateReadiness(profile), "DateIntelligence", profile.DateIntelligence.Readiness.ToString())
             ],
-            isTimeDependent: true));
+            isTimeDependent: true,
+            family: OpportunityFamily.Performance,
+            workflowOrientation: OpportunityWorkflowOrientation.Analyze,
+            decisionPattern: OpportunityDecisionPattern.Comparative,
+            whyThisOpportunityExists: "Geography-backed performance comparisons create a defensible management path separate from pure investigation or KPI rollups."));
     }
 
     private static OpportunityCandidate CreateCandidate(
@@ -349,7 +703,11 @@ internal sealed class OpportunityIdentificationService
         IReadOnlyList<OpportunityExperienceType> experienceTypes,
         IReadOnlyList<(string SignalType, string Value)> requiredSignals,
         IReadOnlyList<(bool Include, string SignalType, string Value)> optionalSignals,
-        bool isTimeDependent)
+        bool isTimeDependent,
+        OpportunityFamily family,
+        OpportunityWorkflowOrientation workflowOrientation,
+        OpportunityDecisionPattern decisionPattern,
+        string whyThisOpportunityExists)
     {
         var signals = requiredSignals
             .Select(signal => new OpportunitySemanticSignal(signal.SignalType, signal.Value))
@@ -372,7 +730,14 @@ internal sealed class OpportunityIdentificationService
                 .ToList(),
             SupportingSemanticSignals: signals,
             LimitingFactors: BuildLimitingFactors(profile, signals.Count, isTimeDependent),
-            Confidence: confidence);
+            Confidence: confidence)
+        {
+            Family = family,
+            WorkflowOrientation = workflowOrientation,
+            DecisionPattern = decisionPattern,
+            WhyThisOpportunityExists = whyThisOpportunityExists,
+            EvidenceNarrative = BuildEvidenceNarrative(profile, signals, audience, businessOutcome)
+        };
     }
 
     private static IReadOnlyList<OpportunityCandidate> Deduplicate(IReadOnlyList<OpportunityCandidate> candidates)
@@ -416,13 +781,22 @@ internal sealed class OpportunityIdentificationService
             .Distinct()
             .OrderBy(type => type.ToString(), NameComparer)
             .ToList();
+        var mergedEvidenceNarrative = existing.EvidenceNarrative
+            .Concat(candidate.EvidenceNarrative)
+            .Distinct(NameComparer)
+            .OrderBy(note => note, NameComparer)
+            .ToList();
 
         return existing with
         {
             CandidateExperienceTypes = mergedExperienceTypes,
             SupportingSemanticSignals = mergedSignals,
             LimitingFactors = mergedLimitingFactors,
-            Confidence = mergedConfidence
+            Confidence = mergedConfidence,
+            EvidenceNarrative = mergedEvidenceNarrative,
+            WhyThisOpportunityExists = existing.WhyThisOpportunityExists.Length >= candidate.WhyThisOpportunityExists.Length
+                ? existing.WhyThisOpportunityExists
+                : candidate.WhyThisOpportunityExists
         };
     }
 
@@ -492,7 +866,6 @@ internal sealed class OpportunityIdentificationService
     }
 
     private static (bool Include, string SignalType, string Value) CreateOptionalSignal(
-        DiscoveryProfile profile,
         bool include,
         string signalType,
         string value)
@@ -550,5 +923,42 @@ internal sealed class OpportunityIdentificationService
         return HasAudience(profile, preferredAudience)
             ? preferredAudience
             : fallback;
+    }
+
+    private static IReadOnlyList<string> BuildEvidenceNarrative(
+        DiscoveryProfile profile,
+        IReadOnlyList<OpportunitySemanticSignal> signals,
+        string audience,
+        string businessOutcome)
+    {
+        var evidence = new List<string>
+        {
+            $"Audience support points to {audience}.",
+            $"Business outcome focus is to {businessOutcome.ToLowerInvariant()}."
+        };
+
+        foreach (var signal in signals)
+        {
+            evidence.Add(signal.SignalType switch
+            {
+                "Domain" => $"{signal.Value} domain evidence is present in the semantic model.",
+                "Dimension" => $"{signal.Value} dimensions support the opportunity shape.",
+                "Measure" => $"{signal.Value} measures support the decision path.",
+                "KpiCluster" => $"{signal.Value} KPIs reinforce the scenario focus.",
+                "DateIntelligence" => $"{signal.Value} date readiness supports time-based analysis.",
+                "Drill" => $"{signal.Value} drill signals support deeper exploration.",
+                _ => $"{signal.SignalType} signal '{signal.Value}' contributes supporting semantic evidence."
+            });
+        }
+
+        if (profile.AmbiguityNotes.Count > 0)
+        {
+            evidence.Add("Ambiguity notes remain and should be considered during recommendation ranking.");
+        }
+
+        return evidence
+            .Distinct(NameComparer)
+            .OrderBy(note => note, NameComparer)
+            .ToList();
     }
 }

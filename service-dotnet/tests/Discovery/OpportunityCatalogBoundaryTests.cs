@@ -16,6 +16,9 @@ public sealed class OpportunityCatalogBoundaryTests
         [
             "OpportunityCategory",
             "OpportunityExperienceType",
+            "OpportunityFamily",
+            "OpportunityWorkflowOrientation",
+            "OpportunityDecisionPattern",
             "OpportunitySemanticSignal",
             "OpportunityCandidate",
             "OpportunityCatalog",

@@ -740,6 +740,12 @@ internal sealed class RecommendationEngineService
     {
         return candidate.SupportingSemanticSignals
             .Select(BuildSupportingSignalExplanation)
+            .Concat(
+            [
+                $"Opportunity family: {candidate.Family}",
+                $"Workflow orientation: {candidate.WorkflowOrientation}",
+                $"Decision pattern: {candidate.DecisionPattern}"
+            ])
             .Distinct(NameComparer)
             .OrderBy(signal => signal, NameComparer)
             .ToList();
@@ -950,6 +956,21 @@ internal sealed class RecommendationEngineService
 
     private static ConsultantWorkflowOrientation ResolveWorkflowOrientation(OpportunityCandidate candidate)
     {
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Act)
+        {
+            return ConsultantWorkflowOrientation.Act;
+        }
+
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Investigate)
+        {
+            return ConsultantWorkflowOrientation.Investigate;
+        }
+
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Govern)
+        {
+            return ConsultantWorkflowOrientation.Govern;
+        }
+
         var text = $"{candidate.Name} {candidate.BusinessOutcome}";
 
         if (ContainsAny(text, "assign", "route", "handoff", "follow-up", "triage", "act"))
@@ -1613,6 +1634,22 @@ internal sealed class RecommendationEngineService
 
     private static string InferDecisionCadence(OpportunityCandidate candidate)
     {
+        if (candidate.DecisionPattern == OpportunityDecisionPattern.Planning)
+        {
+            return "Monthly";
+        }
+
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Investigate)
+        {
+            return "Episodic";
+        }
+
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Act &&
+            candidate.Family is OpportunityFamily.Operational or OpportunityFamily.Workflow or OpportunityFamily.Monitoring)
+        {
+            return "Daily";
+        }
+
         var text = $"{candidate.Name} {candidate.BusinessOutcome}";
 
         if (ContainsAny(text, "daily", "queue", "backlog", "sla", "exception", "monitor"))
@@ -1652,6 +1689,11 @@ internal sealed class RecommendationEngineService
 
     private static double CalculateOperationalActionability(OpportunityCandidate candidate)
     {
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Act)
+        {
+            return Clamp01(0.18d + (candidate.Family == OpportunityFamily.Workflow ? 0.08d : 0.04d));
+        }
+
         var text = $"{candidate.Name} {candidate.BusinessOutcome}";
         var actionability = 0d;
 
@@ -1675,6 +1717,12 @@ internal sealed class RecommendationEngineService
 
     private static bool HasPlanningIntent(OpportunityCandidate candidate)
     {
+        if (candidate.DecisionPattern == OpportunityDecisionPattern.Planning ||
+            candidate.Family == OpportunityFamily.Planning)
+        {
+            return true;
+        }
+
         return ContainsAny(
             $"{candidate.Name} {candidate.BusinessOutcome}",
             "plan",
@@ -1688,6 +1736,12 @@ internal sealed class RecommendationEngineService
 
     private static bool HasManagementIntent(OpportunityCandidate candidate)
     {
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Act ||
+            candidate.Family is OpportunityFamily.Operational or OpportunityFamily.Workflow)
+        {
+            return true;
+        }
+
         return ContainsAny(
             $"{candidate.Name} {candidate.BusinessOutcome}",
             "manage",
@@ -1703,6 +1757,13 @@ internal sealed class RecommendationEngineService
 
     private static bool HasInvestigativeIntent(OpportunityCandidate candidate)
     {
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Investigate ||
+            candidate.Family == OpportunityFamily.Investigation ||
+            candidate.DecisionPattern == OpportunityDecisionPattern.Diagnostic)
+        {
+            return true;
+        }
+
         return ContainsAny(
             $"{candidate.Name} {candidate.BusinessOutcome}",
             "investigate",
@@ -1726,6 +1787,26 @@ internal sealed class RecommendationEngineService
 
     private static string ResolveWorkflowShape(DiscoveryRecommendation recommendation)
     {
+        if (recommendation.SupportingSignals.Any(signal => signal.Contains("Workflow orientation: Act", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "action";
+        }
+
+        if (recommendation.SupportingSignals.Any(signal => signal.Contains("Workflow orientation: Investigate", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "investigation";
+        }
+
+        if (recommendation.SupportingSignals.Any(signal => signal.Contains("Opportunity family: Planning", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "planning";
+        }
+
+        if (recommendation.SupportingSignals.Any(signal => signal.Contains("Opportunity family: Monitoring", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "monitoring";
+        }
+
         if (recommendation.RecommendedExperienceType == OpportunityExperienceType.FabricApp)
         {
             return "workflow-app";
@@ -1751,6 +1832,14 @@ internal sealed class RecommendationEngineService
 
     private static string ResolveDecisionPattern(DiscoveryRecommendation recommendation)
     {
+        var decisionPatternSignal = recommendation.SupportingSignals
+            .FirstOrDefault(signal => signal.StartsWith("Decision pattern:", StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(decisionPatternSignal))
+        {
+            return decisionPatternSignal.ToLowerInvariant();
+        }
+
         return recommendation.RecommendedExperienceType switch
         {
             OpportunityExperienceType.ExecutiveDashboard => "executive-consumption",
