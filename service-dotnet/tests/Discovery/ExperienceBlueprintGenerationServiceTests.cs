@@ -897,6 +897,85 @@ public sealed class ExperienceBlueprintGenerationServiceTests
         Assert.Contains("Question", string.Join(" ", ReadPageNames(investigationBlueprint)), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact(DisplayName = "Experience Blueprint generation separates executive planning follow-through and investigation forecast narratives")]
+    public void BuildRecommendationBlueprints_ForecastNarratives_DivergeAcrossStoryTypes()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Forecast Accuracy", "Forecast Variance", "Plan Attainment", "Actual Revenue"],
+            dimensions:
+            [
+                ("Date", "Date"),
+                ("Forecast Period", "Date"),
+                ("Region", "Geography"),
+                ("Territory", "Geography"),
+                ("Scenario", "Planning"),
+                ("Customer Segment", "Customer"),
+                ("Product Category", "Product")
+            ],
+            hierarchies: [("Geography", ["Region", "Territory"])],
+            relationships: [("Forecast", "Date"), ("Forecast", "Region"), ("Forecast", "Scenario"), ("Forecast", "Customer")],
+            audienceSignals:
+            [
+                ("Executive", "High"),
+                ("Operational", "High"),
+                ("Analytical", "High")
+            ],
+            domainSignals:
+            [
+                ("Forecasting", "High"),
+                ("Revenue", "Medium")
+            ]);
+
+        var catalog = CreateOpportunityCatalog(
+            CreateOpportunityCandidate("executive-forecast-review", "Executive Forecast Review", "ForecastAccuracy", "Executive", "Review forecast confidence and executive forecast posture before the next leadership checkpoint.", ["ExecutiveDashboard", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("DateIntelligence", "High")], [], "High"),
+            CreateOpportunityCandidate("forecast-planning-review", "Forecast Planning Review", "ForecastAccuracy", "Planning Leadership", "Review forecast posture, re-plan assumptions, and improve the next planning cycle.", ["ExecutiveDashboard", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Variance"), ("Dimension", "Scenario"), ("DateIntelligence", "High")], [], "High"),
+            CreateOpportunityCandidate("forecast-follow-through", "Forecast Follow-Through", "ForecastAccuracy", "Operations Leadership", "Monitor forecast miss thresholds and route follow-through actions across regions.", ["OperationalMonitoringExperience", "FabricApp", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Variance"), ("Dimension", "Region")], [], "High"),
+            CreateOpportunityCandidate("forecast-investigation", "Forecast Investigation", "RootCauseInvestigation", "Analytical", "Investigate why forecast misses cluster by segment and product before the next cycle.", ["AnalyticalInvestigationExperience", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Variance"), ("Drill", "HierarchyRich"), ("Audience", "Analytical")], [], "High"));
+
+        var executiveBlueprint = ReadBlueprint(ReadObjectList(BuildRecommendationBlueprints(
+            profile,
+            catalog,
+            CreateRecommendationSet(
+                [
+                    CreateRecommendation("executive-forecast-review", "Executive Forecast Review", "ExecutiveDashboard", "High", "High", "Medium", "Executive forecast posture fit.", "Executive", "Review forecast confidence and executive forecast posture before the next leadership checkpoint.", ["Forecasting support"], [], "High confidence because the semantic model strongly supports this use case.", "Medium complexity because the experience spans planning review and variance management.", "Primary", 88.0)
+                ],
+                [])), "PrimaryRecommendations").Single());
+        var planningBlueprint = ReadBlueprint(ReadObjectList(BuildRecommendationBlueprints(
+            profile,
+            catalog,
+            CreateRecommendationSet(
+                [
+                    CreateRecommendation("forecast-planning-review", "Forecast Planning Review", "ExecutiveDashboard", "High", "High", "Medium", "Planning review fit.", "Planning Leadership", "Review forecast posture, re-plan assumptions, and improve the next planning cycle.", ["Forecasting support"], [], "High confidence because the semantic model strongly supports this use case.", "Medium complexity because the experience spans planning review and variance management.", "Primary", 87.8)
+                ],
+                [])), "PrimaryRecommendations").Single());
+        var followThroughBlueprint = ReadBlueprint(ReadObjectList(BuildRecommendationBlueprints(
+            profile,
+            catalog,
+            CreateRecommendationSet(
+                [
+                    CreateRecommendation("forecast-follow-through", "Forecast Follow-Through", "OperationalMonitoringExperience", "High", "High", "Medium", "Operational follow-through fit.", "Operations Leadership", "Monitor forecast miss thresholds and route follow-through actions across regions.", ["Forecasting support"], [], "High confidence because the semantic model strongly supports this use case.", "Medium complexity because the experience spans threshold monitoring and owner follow-through.", "Primary", 87.5)
+                ],
+                [])), "PrimaryRecommendations").Single());
+        var investigationBlueprint = ReadBlueprint(ReadObjectList(BuildRecommendationBlueprints(
+            profile,
+            catalog,
+            CreateRecommendationSet(
+                [
+                    CreateRecommendation("forecast-investigation", "Forecast Investigation", "AnalyticalInvestigationExperience", "High", "High", "High", "Investigation fit.", "Analytical", "Investigate why forecast misses cluster by segment and product before the next cycle.", ["Forecasting support"], [], "High confidence because the semantic model strongly supports this use case.", "High complexity because an investigation path needs broader drill coordination.", "Primary", 86.9)
+                ],
+                [])), "PrimaryRecommendations").Single());
+
+        Assert.NotEqual(ReadPageNames(executiveBlueprint), ReadPageNames(planningBlueprint));
+        Assert.NotEqual(ReadPageNames(planningBlueprint), ReadPageNames(followThroughBlueprint));
+        Assert.NotEqual(ReadPageNames(followThroughBlueprint), ReadPageNames(investigationBlueprint));
+        Assert.Contains("Executive", string.Join(" ", ReadPageNames(executiveBlueprint)), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Planning", string.Join(" ", ReadPageNames(planningBlueprint)), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Overview", ReadPageNames(followThroughBlueprint));
+        Assert.Contains("Question", ReadPageNames(investigationBlueprint));
+    }
+
     private static object BuildRecommendationBlueprints(object profile, object catalog, object recommendations)
     {
         var serviceType = CoreAssembly.GetType($"{DiscoveryServicesNamespace}.ExperienceBlueprintGenerationService", throwOnError: false);

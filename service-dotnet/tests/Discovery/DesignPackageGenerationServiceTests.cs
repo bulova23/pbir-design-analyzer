@@ -541,8 +541,8 @@ public sealed class DesignPackageGenerationServiceTests
         Assert.Contains("success looks like", ReadString(providerGuidance, "SuccessLooksLike"), StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact(DisplayName = "Design Package generation uses consultant-facing names while preserving technical lineage and rationale quality")]
-    public void CreatePackage_UsesConsultantFacingNames_PreservesTechnicalLineage_AndAvoidsMalformedRationale()
+    [Fact(DisplayName = "Design Package generation removes internal naming from provider-facing rationale and avoids malformed trust language")]
+    public void CreatePackage_RemovesInternalNamingFromProviderFacingRationale_AndAvoidsMalformedTrustLanguage()
     {
         var package = CreatePackage(
             CreateDiscoveryProfile(),
@@ -601,13 +601,20 @@ public sealed class DesignPackageGenerationServiceTests
         Assert.Contains("Product", ReadStringList(filters, "GlobalFilters"));
         Assert.Contains("Warehouse", ReadStringList(filters, "GlobalFilters"));
         Assert.DoesNotContain(ReadStringList(filters, "GlobalFilters"), filter => filter.StartsWith("Dim", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(ReadStringList(rationale, "ProvenanceNotes"), note => note.Contains("dimension:DimCustomer", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ReadStringList(rationale, "ProvenanceNotes"), note =>
+            note.Contains("DimCustomer", StringComparison.OrdinalIgnoreCase) ||
+            note.Contains("DimDate", StringComparison.OrdinalIgnoreCase) ||
+            note.Contains("DimProduct", StringComparison.OrdinalIgnoreCase) ||
+            note.Contains("DimWarehouse", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(ReadStringList(rationale, "KpiRationale"), item => item.Contains("because", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(ReadStringList(rationale, "PageRationale"), item => item.Contains("because", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain("System.String[]", ReadString(rationale, "NavigationRationale"), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("System.String[]", ReadString(rationale, "AnalyticalFlowRationale"), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("System.String[]", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("provider payload", ReadString(providerGuidance, "ExperienceToGenerate"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("semantic-model", ReadString(rationale, "AudienceRationale"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("semantic-model", ReadString(rationale, "BusinessOutcomeRationale"), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("provider-neutral", ReadString(providerGuidance, "WhyThisPackageExists"), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact(DisplayName = "Design Package generation preserves downstream diversity between executive and operational recommendations")]

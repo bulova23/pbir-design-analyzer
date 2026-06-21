@@ -258,13 +258,13 @@ internal sealed class DesignPackageGenerationService
                 : string.Empty;
 
         return secondaryAudiences.Count > 0
-            ? $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {recommendation.RecommendedExperienceType} experience for a {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision cadence{supportingAudience}. Supporting audiences include {string.Join(", ", secondaryAudiences.Take(2))}, but the package still optimizes for the primary decision-maker first."
-            : $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {recommendation.RecommendedExperienceType} experience for a {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision cadence{supportingAudience}.";
+            ? $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} for a {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision cadence{supportingAudience}. Supporting audiences include {string.Join(", ", secondaryAudiences.Take(2))}, but the package still optimizes for the primary decision-maker first."
+            : $"{recommendation.ExpectedAudience} is the primary audience because the discovery signals point to a {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} for a {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision cadence{supportingAudience}.";
     }
 
     private static string BuildBusinessOutcomeRationale(DiscoveryRecommendation recommendation)
     {
-        return $"The experience is recommended because {recommendation.ExpectedAudience} needs a delivery shape that can {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without changing the underlying semantic-model story, and because the package must preserve why the decision exists rather than only what content appears on pages.";
+        return $"The experience is recommended because {recommendation.ExpectedAudience} needs a delivery shape that can {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without losing the business story that led to the recommendation, and because the package must preserve why the decision exists rather than only what content appears on pages.";
     }
 
     private static string BuildExperienceTypeRationale(
@@ -327,7 +327,7 @@ internal sealed class DesignPackageGenerationService
         OpportunityCandidate? opportunity,
         ExperienceBlueprint blueprint)
     {
-        var why = $"Why this package exists: so a future provider can generate a provider-neutral {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} that serves {recommendation.ExpectedAudience} for {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without reinterpreting the business intent from scratch.";
+        var why = $"Why this package exists: so a future provider can create the right {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} for {recommendation.ExpectedAudience} and {recommendation.ExpectedBusinessOutcome.ToLowerInvariant()} without having to rediscover the business story from scratch.";
         var experience = $"Generate a {GetExperienceTypeLabel(recommendation.RecommendedExperienceType)} with pages shaped around {string.Join(", ", blueprint.RecommendedPages.Select(page => page.PageName))}, preserve the primary filter scope of {string.Join(", ", blueprint.SuggestedGlobalFilters.Take(3))}, keep the audience centered on {recommendation.ExpectedAudience}, and preserve the {InferDecisionCadence(recommendation, opportunity).ToLowerInvariant()} decision posture rather than expanding into a different experience family.";
         var success = $"Success looks like an experience where {recommendation.ExpectedAudience} can follow the path from {blueprint.AnalyticalFlow.Question.ToLowerInvariant()} to {blueprint.AnalyticalFlow.Decision.ToLowerInvariant()}, supported by the primary KPIs {string.Join(", ", blueprint.PrimaryKpis.Take(3))}, with navigation that matches the intended workflow instead of a generic scaffold. Success looks like a provider being able to build the experience without needing external discovery context.";
 
@@ -339,12 +339,25 @@ internal sealed class DesignPackageGenerationService
 
     private static IReadOnlyList<string> BuildProvenanceNotes(ExperienceBlueprint blueprint)
     {
+        var evidence = blueprint.Provenance.SemanticEvidenceReferences
+            .Select(DescribeBusinessFriendlyEvidence)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(NameComparer)
+            .Take(3)
+            .ToList();
+        var structures = blueprint.Provenance.InfluencingModelStructures
+            .Select(DescribeBusinessFriendlyStructure)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(NameComparer)
+            .Take(4)
+            .ToList();
+
         return
         [
-            $"Semantic model reference: {blueprint.Provenance.SemanticModelReferenceId}",
-            $"Discovery profile reference: {blueprint.Provenance.DiscoveryProfileReferenceId}",
-            $"Semantic evidence: {string.Join(", ", blueprint.Provenance.SemanticEvidenceReferences.Take(4))}",
-            $"Influencing structures: {string.Join(", ", blueprint.Provenance.InfluencingModelStructures.Take(4))}"
+            $"Discovery evidence consistently supports a {GetExperienceTypeLabel(blueprint.ExperienceType)} for {blueprint.ExpectedAudience}.",
+            $"The recommended story is grounded in business evidence such as {string.Join(", ", evidence.DefaultIfEmpty("the priority measures and filters in the discovery signals"))}.",
+            $"The package keeps the business structure visible through {string.Join(", ", structures.DefaultIfEmpty("the model structures that support the recommendation"))}.",
+            $"Any remaining ambiguity is already reflected in the selected pages, KPI emphasis, and navigation sequence."
         ];
     }
 
@@ -409,6 +422,74 @@ internal sealed class DesignPackageGenerationService
             OpportunityExperienceType.FabricDataApp => "Fabric Data App",
             _ => "PBIR Report"
         };
+    }
+
+    private static string DescribeBusinessFriendlyEvidence(string reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return string.Empty;
+        }
+
+        var parts = reference.Split(':', 2, StringSplitOptions.TrimEntries);
+        var label = parts.Length == 2 ? parts[1] : parts[0];
+        return NormalizeBusinessLabel(label);
+    }
+
+    private static string DescribeBusinessFriendlyStructure(string reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return string.Empty;
+        }
+
+        var parts = reference.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2)
+        {
+            return NormalizeBusinessLabel(reference);
+        }
+
+        return parts[0].ToLowerInvariant() switch
+        {
+            "dimension" => $"{NormalizeBusinessLabel(parts[1])} dimension",
+            "measure" => $"{NormalizeBusinessLabel(parts[1])} measure",
+            "hierarchy" => $"{NormalizeBusinessLabel(parts[1])} hierarchy",
+            "relationship" => NormalizeBusinessLabel(parts[1].Replace("->", " to ", StringComparison.Ordinal)),
+            _ => NormalizeBusinessLabel(parts[1])
+        };
+    }
+
+    private static string NormalizeBusinessLabel(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim();
+
+        foreach (var prefix in new[] { "Dim", "Fact", "Tbl", "Table" })
+        {
+            if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                normalized.Length > prefix.Length &&
+                char.IsUpper(normalized[prefix.Length]))
+            {
+                normalized = normalized[prefix.Length..];
+                break;
+            }
+        }
+
+        normalized = normalized.Replace("_", " ", StringComparison.Ordinal)
+            .Replace("-", " ", StringComparison.Ordinal);
+
+        normalized = string.Concat(normalized.Select((character, index) =>
+            index > 0 && char.IsUpper(character) && char.IsLetterOrDigit(normalized[index - 1]) && !char.IsUpper(normalized[index - 1])
+                ? $" {character}"
+                : character.ToString()));
+
+        return string.Join(" ", normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(token => char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant()));
     }
 
     private static bool ContainsAny(string value, params string[] terms)

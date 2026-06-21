@@ -48,7 +48,7 @@ internal sealed class ExperienceBlueprintGenerationService
         var globalFilters = BuildGlobalFilters(profile);
         var pages = BuildPages(profile, recommendation, opportunity, primaryKpis);
         var analyticalFlow = BuildAnalyticalFlow(profile, recommendation, opportunity);
-        var navigationIntent = BuildNavigationIntent(profile, recommendation.RecommendedExperienceType, opportunity, pages);
+        var navigationIntent = BuildNavigationIntent(profile, recommendation, recommendation.RecommendedExperienceType, opportunity, pages);
         var successCriteria = BuildSuccessCriteria(recommendation, pages, primaryKpis);
         var provenance = BuildProvenance(profile, recommendation, opportunity, primaryKpis);
 
@@ -170,20 +170,33 @@ internal sealed class ExperienceBlueprintGenerationService
     {
         return recommendation.RecommendedExperienceType switch
         {
-            OpportunityExperienceType.ExecutiveDashboard => BuildExecutivePages(profile, opportunity),
-            OpportunityExperienceType.OperationalMonitoringExperience => BuildOperationalPages(profile, opportunity),
-            OpportunityExperienceType.AnalyticalInvestigationExperience => BuildAnalyticalPages(profile),
+            OpportunityExperienceType.ExecutiveDashboard => BuildExecutivePages(profile, recommendation, opportunity),
+            OpportunityExperienceType.OperationalMonitoringExperience => BuildOperationalPages(profile, recommendation, opportunity),
+            OpportunityExperienceType.AnalyticalInvestigationExperience => BuildAnalyticalPages(profile, recommendation, opportunity),
             OpportunityExperienceType.FabricApp => BuildFabricAppPages(profile, opportunity),
             OpportunityExperienceType.FabricDataApp => BuildFabricDataAppPages(profile),
             _ => BuildPbirReportPages(profile, opportunity, primaryKpis),
         };
     }
 
-    private static IReadOnlyList<ExperienceBlueprintPage> BuildExecutivePages(DiscoveryProfile profile, OpportunityCandidate? opportunity)
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildExecutivePages(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
     {
         if (opportunity?.Category == OpportunityCategory.ForecastAccuracy ||
             HasDomain(opportunity, "Forecasting"))
         {
+            if (IsExecutiveForecastNarrative(recommendation, opportunity))
+            {
+                return
+                [
+                    CreatePage("Executive Forecast Review", "Open with the leadership forecast posture and confidence signal.", PickFilters(profile, "Forecast Period", "Date", "Region"), ["KPI Cards", "Trend Charts", "Scorecards"]),
+                    CreatePage("Confidence and Variance Summary", "Explain where confidence is weakening before leadership follow-up is assigned.", PickFilters(profile, "Region", "Forecast Period", "Scenario"), ["Variance Charts", "Line Charts", "Bar Charts"]),
+                    CreatePage("Leadership Follow-Up", "Close on the leadership checkpoint, owner, and timing for the next review.", PickFilters(profile, "Region", "Territory", "Date"), ["Scorecards", "Action Tables", "Detail Tables"])
+                ];
+            }
+
             return
             [
                 CreatePage("Planning Summary", "Anchor the weekly planning review around forecast accuracy, variance posture, and leadership focus.", PickFilters(profile, "Forecast Period", "Date", "Scenario"), ["KPI Cards", "Trend Charts", "Scorecards"]),
@@ -240,7 +253,10 @@ internal sealed class ExperienceBlueprintGenerationService
         return pages;
     }
 
-    private static IReadOnlyList<ExperienceBlueprintPage> BuildOperationalPages(DiscoveryProfile profile, OpportunityCandidate? opportunity)
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildOperationalPages(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
     {
         if (HasDomain(opportunity, "Service") || HasDimension(profile, "Technician") || HasDimension(profile, "Work Order"))
         {
@@ -262,6 +278,16 @@ internal sealed class ExperienceBlueprintGenerationService
             ];
         }
 
+        if (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting"))
+        {
+            return
+            [
+                CreatePage("Overview", "Monitor forecast posture, threshold movement, and owner attention points.", PickFilters(profile, "Forecast Period", "Date", "Region"), ["Status Grids", "Trend Visuals", "KPI Cards"]),
+                CreatePage("Miss Thresholds", "Prioritize the forecast misses that need operational follow-through first.", PickFilters(profile, "Region", "Territory", "Forecast Period"), ["Exception Tables", "Variance Charts", "Bar Charts"]),
+                CreatePage("Owner Follow-Up", "Translate misses into owner-level actions and next checkpoints.", PickFilters(profile, "Region", "Scenario", "Date"), ["Action Tables", "Detail Tables", "Scorecards"])
+            ];
+        }
+
         return
         [
             CreatePage("Overview", "Operational status review and alert scanning.", PickFilters(profile, "Date", "Region"), ["Status Grids", "Trend Visuals", "KPI Cards"]),
@@ -270,8 +296,22 @@ internal sealed class ExperienceBlueprintGenerationService
         ];
     }
 
-    private static IReadOnlyList<ExperienceBlueprintPage> BuildAnalyticalPages(DiscoveryProfile profile)
+    private static IReadOnlyList<ExperienceBlueprintPage> BuildAnalyticalPages(
+        DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
     {
+        if (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting"))
+        {
+            return
+            [
+                CreatePage("Question", "Define the forecast question and the miss pattern hypothesis to test first.", PickFilters(profile, "Forecast Period", "Date", "Region"), ["Question Summary", "KPI Cards", "Trend Charts"]),
+                CreatePage("Miss Pattern Investigation", "Branch through the forecast drivers, segments, and outlier patterns that explain the miss.", PickFilters(profile, "Product Category", "Customer Segment", "Territory"), ["Decomposition Trees", "Bar Charts", "Matrix"]),
+                CreatePage("Driver Evidence", "Review the strongest evidence behind the forecast hypothesis and competing explanations.", PickFilters(profile, "Product Category", "Customer Segment"), ["Trend Charts", "Detail Tables", "Waterfall Charts"]),
+                CreatePage("Correction Hypothesis", "Close on the analytical conclusion and the correction path to validate next.", PickFilters(profile, "Date", "Region"), ["Scorecards", "Narrative Summaries", "Action Tables"])
+            ];
+        }
+
         return
         [
             CreatePage("Question", "Define the core question and frame the hypothesis.", PickFilters(profile, "Date", "Region"), ["Question Summary", "KPI Cards", "Trend Charts"]),
@@ -563,6 +603,7 @@ internal sealed class ExperienceBlueprintGenerationService
 
     private static ExperienceBlueprintNavigationIntent BuildNavigationIntent(
         DiscoveryProfile profile,
+        DiscoveryRecommendation recommendation,
         OpportunityExperienceType experienceType,
         OpportunityCandidate? opportunity,
         IReadOnlyList<ExperienceBlueprintPage> pages)
@@ -632,6 +673,13 @@ internal sealed class ExperienceBlueprintGenerationService
         {
             if (opportunity?.Category == OpportunityCategory.ForecastAccuracy || HasDomain(opportunity, "Forecasting"))
             {
+                if (IsExecutiveForecastNarrative(recommendation, opportunity))
+                {
+                    return new ExperienceBlueprintNavigationIntent(
+                        Flow: "executive forecast review → confidence and variance summary → leadership follow-up",
+                        Sequence: pages.Select(page => page.PageName).ToList());
+                }
+
                 return new ExperienceBlueprintNavigationIntent(
                     Flow: "planning summary → variance review → follow-up",
                     Sequence: pages.Select(page => page.PageName).ToList());
@@ -666,6 +714,20 @@ internal sealed class ExperienceBlueprintGenerationService
         return new ExperienceBlueprintNavigationIntent(
             Flow: flow,
             Sequence: pages.Select(page => page.PageName).ToList());
+    }
+
+    private static bool IsExecutiveForecastNarrative(
+        DiscoveryRecommendation recommendation,
+        OpportunityCandidate? opportunity)
+    {
+        return (opportunity?.InferredAudience.Contains("executive", StringComparison.OrdinalIgnoreCase) == true ||
+                recommendation.ExpectedAudience.Contains("executive", StringComparison.OrdinalIgnoreCase)) &&
+               !ContainsAny(
+                   $"{recommendation.RecommendationName} {recommendation.ExpectedBusinessOutcome} {opportunity?.BusinessOutcome}",
+                   "planning cycle",
+                   "re-plan",
+                   "planning leadership",
+                   "assumption");
     }
 
     private static IReadOnlyList<string> BuildSuccessCriteria(

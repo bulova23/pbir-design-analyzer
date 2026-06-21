@@ -2,6 +2,145 @@
 
 ## Active Session
 
+- 2026-06-20 Design Package Consumption Layer Phase 1 is complete:
+  - objective:
+    - implement the Design Package consumption boundary only
+    - classify Design Package fields as required, optional, transformed, or ignored
+    - add validation and diagnostics before any Generation Request work begins
+    - stop before Microsoft Skills integration, CLI execution, provider adapters, artifact generation, and analyzer handoff
+  - started:
+    - read `AGENTS.md`, repo memory, the approved Design Package integration spec/plan, and the existing backend Design Package contract
+    - identified the main Phase 1 need as a strict provider-neutral seam between Design Package and any future Generation Request implementation
+    - added failing xUnit coverage first to pin required semantics, transformations, incompatible-state rejection, contract drift protection, and provider-neutral boundaries
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/DesignPackageConsumptionModels.cs`
+    - added `service-dotnet/Services/Discovery/DesignPackageConsumptionService.cs`
+    - added `service-dotnet/tests/Discovery/DesignPackageConsumptionServiceTests.cs`
+    - formalized the consumption inventory and normalized generation-ready input without introducing provider-specific logic
+    - expanded the inventory to exhaustive field-path coverage and added a reflection-based drift gate so Design Package model changes cannot silently alter consumption semantics
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignPackageConsumptionServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 1 as requested
+    - if work resumes, start with `generation-request/v1` contract design/implementation against the new consumption seam rather than exposing raw Design Package types downstream
+
+- 2026-06-20 Design Package Microsoft Skills / CLI integration design is complete:
+  - objective:
+    - create a design specification for converting Discovery Wizard Design Packages into Microsoft Power BI Skills / CLI consumable artifacts
+    - create a phased implementation plan covering contracts, trust boundaries, lifecycle, provenance, analyzer handoff, and failure handling
+    - stop after design and planning with no implementation work
+  - started:
+    - read `AGENTS.md`, repo memory files, Discovery Wizard / Design Studio / Analyzer Workspace architecture docs, and the current Design Package backend contract
+    - reviewed current Microsoft public guidance for Power BI agentic capabilities, report planner / management, report authoring, report design, Desktop Bridge, PBIR, Fabric report definitions, and Fabric Apps / data app templates
+    - identified the main architecture need as a versioned provider-neutral Generation Request boundary instead of exposing the raw Design Package directly
+  - delivered:
+    - wrote `docs/superpowers/specs/2026-06-20-design-package-microsoft-skills-integration.md`
+    - wrote `docs/superpowers/plans/2026-06-20-design-package-microsoft-skills-integration-plan.md`
+    - defined the lifecycle from Design Package to Generation Request to Generated Artifact to Analyzer Workspace to Review to Refinement
+    - defined explicit human approvals, typed failure classes, staged analyzer handoff, and extended provenance requirements
+  - key architecture decisions:
+    - keep the current Design Package backend-internal and authoritative for upstream planning only
+    - introduce `generation-request/v1` as the stable provider-facing boundary
+    - support PBIR Report first, Fabric Data App second, and defer Fabric App until terminology mapping is explicit
+    - require review and analyzer validation for every generated artifact
+  - next recommended step:
+    - lock the internal-to-Microsoft mapping for `Fabric App`, `Fabric Data App`, and Power BI org app terminology
+    - begin implementation at Phase 1 only after that mapping is explicit
+
+- 2026-06-20 Discovery Wizard MVP readiness assessment is complete:
+  - objective:
+    - review `docs/report-discovery-wizard-validation-review-round10.md`
+    - determine whether Discovery Wizard has reached MVP completion or whether additional refinement would still produce meaningful value
+    - assess recommendation quality, blueprint usefulness, Design Studio seeding quality, Design Package trust, diminishing returns, and Microsoft Skills readiness
+    - write `docs/report-discovery-wizard-mvp-readiness-assessment.md`
+    - stop after assessment with no product-code changes, no feature additions, no architecture changes, and no integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 10 review, Round 9 and Round 8 reviews, the consultant benchmark review, the Discovery Wizard design spec, and roadmap context
+    - identified the main decision as whether the remaining value lies in another heuristic refinement cycle or in downstream planning and pilot usage
+  - delivered:
+    - wrote `docs/report-discovery-wizard-mvp-readiness-assessment.md`
+    - concluded that Round 10 clears the last meaningful Discovery Wizard MVP blockers in recommendation trust, forecast-family blueprint divergence, and package-facing provider trust
+    - assessed the remaining gaps as cosmetic or edge-case tuning rather than structural trust defects
+  - decision gate:
+    - `A. Discovery Wizard MVP Complete`
+  - next recommended step:
+    - begin separate downstream design planning for Design Package consumption and Microsoft Skills / CLI integration
+    - use future pilot feedback to inform post-MVP tuning instead of scheduling another Discovery Wizard-only refinement cycle
+
+- 2026-06-20 Discovery Wizard Refinement Round 9 narrative selection and provider trust is complete:
+  - objective:
+    - implement only:
+      - Narrative Selection
+      - Provider Trust
+    - resolve the remaining Round 9 Discovery Wizard findings
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, Analyzer Workspace changes, and architecture work
+    - perform `Discovery Wizard Validation Review – Round 10` after implementation
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 9 validation review, the consultant benchmark review, and the current discovery services/tests
+    - identified the remaining problems as narrative-selection judgment and provider-facing rationale trust rather than architecture gaps
+    - added failing backend tests first for investigation dominance, customer profitability trust, forecast divergence, narrative-led lead selection, and provider-facing rationale cleanup
+  - delivered:
+    - refined `RecommendationEngineService` so lead recommendations now prioritize narrative category, bounded investigation trust, customer profitability actionability, mixed revenue follow-through, and planning-dominant forecast posture
+    - refined `ExperienceBlueprintGenerationService` so forecast executive review, planning review, follow-through, and investigation now produce different blueprint families and navigation flows
+    - refined `DesignPackageGenerationService` so package-facing rationale and provenance notes stay in business language and no longer leak internal names into user-facing rationale
+    - wrote `docs/report-discovery-wizard-validation-review-round10.md`
+  - validation passed:
+    - focused regression gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `A. Discovery Wizard MVP Complete`
+  - next recommended step:
+    - if desired, begin separate downstream design planning for Design Package consumption and Microsoft Skills / CLI integration
+    - do not start that integration work implicitly from this completed Discovery Wizard refinement session
+
+- 2026-06-20 Discovery Wizard Validation Review Round 9 is complete:
+  - objective:
+    - validate whether the Final Targeted Refinement resolved the remaining Round 8 trust, fidelity, and recommendation-quality concerns
+    - determine whether Discovery Wizard MVP is complete
+    - determine whether Discovery Wizard is ready for:
+      - Design Package consumption
+      - Microsoft Skills / CLI integration design planning
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, Round 8 review, consultant benchmark review, and the Discovery Wizard design spec
+    - inspected current discovery services and targeted regression coverage for recommendation trust, KPI fidelity, naming fidelity, Design Studio seeding, and Design Package rationale
+    - prepared a temporary out-of-repo reflection harness to exercise the live backend workflow end to end across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+  - delivered:
+    - exercised the live backend discovery workflow end to end across the six required scenarios
+    - wrote `docs/report-discovery-wizard-validation-review-round9.md`
+    - classified the key Round 8 findings as:
+      - service operations recommendation trust: resolved
+      - analytical investigation recommendation trust: unchanged
+      - unsupported KPI injection: resolved
+      - internal semantic-model naming leakage: improved
+      - Design Package trustworthiness: improved
+    - identified one additional Round 9 regression:
+      - customer profitability recommendation trust regressed back toward investigation-first ranking
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - next recommended step:
+    - keep Discovery Wizard work focused on mixed-signal recommendation trust, same-family blueprint de-clustering, and final Design Package trust hardening
+    - do not begin Design Package downstream consumption or Microsoft Skills / CLI integration design planning yet
+
 - 2026-06-20 Discovery Wizard Final Targeted Refinement is complete:
   - objective:
     - implement only:
@@ -1748,8 +1887,8 @@
 
 ## Current Objective
 
-- Discovery Wizard Final Targeted Refinement is complete.
+- Design Package Consumption Layer Phase 1 is complete.
 - Next action for this area:
-  - run `Discovery Wizard Validation Review – Round 9`
-  - if Round 9 passes the trust threshold, only then start Microsoft Skills / CLI integration design planning
-  - until Round 9 is complete, do not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes
+  - stop after Phase 1 as requested
+  - if desired later, define `generation-request/v1` from the new consumption boundary
+  - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, artifact generation, Design Studio workflow changes, or Analyzer Workspace changes unless a new goal starts them

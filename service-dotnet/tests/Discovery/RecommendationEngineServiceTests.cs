@@ -1458,6 +1458,246 @@ public sealed class RecommendationEngineServiceTests
         Assert.Contains("profit", ReadString(primary[0], "WhyWeRecommendIt"), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact(DisplayName = "Recommendation Engine lets investigation win only when the audience objective and workflow are investigation-dominant")]
+    public void BuildRecommendations_InvestigationWinsOnlyWhenDominant()
+    {
+        var dominantInvestigationProfile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Forecast Variance", "Forecast Accuracy", "Revenue"],
+            dimensions:
+            [
+                ("Date", "Date"),
+                ("Region", "Geography"),
+                ("Customer Segment", "Customer"),
+                ("Product Category", "Product")
+            ],
+            hierarchies: [("Geography", ["Region", "Territory"])],
+            relationships: [("Forecast", "Date"), ("Forecast", "Customer"), ("Forecast", "Product"), ("Forecast", "Region")],
+            audienceSignals:
+            [
+                ("Analytical", "High"),
+                ("Executive", "Medium")
+            ],
+            domainSignals:
+            [
+                ("Forecasting", "High"),
+                ("Revenue", "Medium")
+            ]);
+
+        var mixedProfitabilityProfile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Revenue", "Gross Margin", "Margin Variance", "Profit per Customer"],
+            dimensions:
+            [
+                ("Date", "Date"),
+                ("Customer", "Customer"),
+                ("Customer Segment", "Customer"),
+                ("Region", "Geography"),
+                ("Product Category", "Product")
+            ],
+            hierarchies: [("Customer", ["Customer Segment", "Customer"])],
+            relationships: [("Sales", "Customer"), ("Sales", "Product"), ("Sales", "Date")],
+            audienceSignals:
+            [
+                ("Operational", "High"),
+                ("Analytical", "High"),
+                ("Executive", "Medium")
+            ],
+            domainSignals:
+            [
+                ("Customer", "High"),
+                ("Profitability", "High"),
+                ("Revenue", "High")
+            ]);
+
+        var investigationDominantRecommendations = BuildRecommendations(
+            dominantInvestigationProfile,
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "forecast-investigation",
+                    "Forecast Investigation",
+                    "RootCauseInvestigation",
+                    "Analytical",
+                    "Investigate why forecast misses cluster by customer segment and product before the next review.",
+                    ["AnalyticalInvestigationExperience", "PbirReport"],
+                    [("Domain", "Forecasting"), ("Measure", "Forecast Variance"), ("Drill", "HierarchyRich"), ("Audience", "Analytical")],
+                    [],
+                    "High"),
+                CreateOpportunityCandidate(
+                    "forecast-executive-review",
+                    "Forecast Executive Review",
+                    "ForecastAccuracy",
+                    "Planning Leadership",
+                    "Review weekly forecast accuracy and summarize the next planning checkpoint.",
+                    ["ExecutiveDashboard", "PbirReport"],
+                    [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("DateIntelligence", "High")],
+                    [],
+                    "High")));
+
+        var mixedProfitabilityRecommendations = BuildRecommendations(
+            mixedProfitabilityProfile,
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "customer-profitability-analysis",
+                    "Customer Profitability Analysis",
+                    "ProfitabilityAnalysis",
+                    "Commercial Strategy",
+                    "Manage profitable growth across segments and accounts before pricing and account actions are assigned.",
+                    ["FabricDataApp", "FabricApp", "PbirReport"],
+                    [("Domain", "Customer"), ("Domain", "Profitability"), ("Measure", "Margin Variance"), ("Dimension", "Customer Segment"), ("Dimension", "Customer")],
+                    [],
+                    "High",
+                    family: "Analytical",
+                    workflowOrientation: "Act",
+                    decisionPattern: "Prioritization"),
+                CreateOpportunityCandidate(
+                    "margin-driver-investigation",
+                    "Margin Driver Investigation",
+                    "RootCauseInvestigation",
+                    "Analytical",
+                    "Investigate margin variance drivers before the next pricing review.",
+                    ["AnalyticalInvestigationExperience", "PbirReport"],
+                    [("Domain", "Profitability"), ("Measure", "Variance"), ("Drill", "HierarchyRich"), ("Audience", "Analytical")],
+                    [],
+                    "High")));
+
+        var dominantPrimary = ReadObjectList(investigationDominantRecommendations, "PrimaryRecommendations");
+        var mixedPrimary = ReadObjectList(mixedProfitabilityRecommendations, "PrimaryRecommendations");
+
+        Assert.Equal("Forecast Investigation", ReadString(dominantPrimary[0], "RecommendationName"));
+        Assert.Equal("AnalyticalInvestigationExperience", ReadString(dominantPrimary[0], "RecommendedExperienceType"));
+        Assert.Equal("Customer Profitability Analysis", ReadString(mixedPrimary[0], "RecommendationName"));
+        Assert.NotEqual("Margin Driver Investigation", ReadString(mixedPrimary[0], "RecommendationName"));
+    }
+
+    [Fact(DisplayName = "Recommendation Engine keeps customer profitability management ahead of investigation when actionability is the main story")]
+    public void BuildRecommendations_CustomerProfitabilityManagementBeatsInvestigationWhenAppropriate()
+    {
+        var profile = CreateDiscoveryProfile(
+            confidence: "High",
+            dateReadiness: "High",
+            measures: ["Revenue", "Gross Margin", "Margin Variance", "Profit per Customer", "Account Risk"],
+            dimensions:
+            [
+                ("Date", "Date"),
+                ("Customer", "Customer"),
+                ("Customer Segment", "Customer"),
+                ("Account Manager", "Sales"),
+                ("Region", "Geography")
+            ],
+            hierarchies: [("Customer", ["Customer Segment", "Customer"])],
+            relationships: [("Sales", "Customer"), ("Sales", "AccountManager"), ("Sales", "Date")],
+            audienceSignals:
+            [
+                ("Operational", "High"),
+                ("Analytical", "High")
+            ],
+            domainSignals:
+            [
+                ("Customer", "High"),
+                ("Profitability", "High"),
+                ("Revenue", "Medium")
+            ]);
+
+        var recommendations = BuildRecommendations(
+            profile,
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate(
+                    "customer-profitability-analysis",
+                    "Customer Profitability Analysis",
+                    "ProfitabilityAnalysis",
+                    "Commercial Strategy",
+                    "Prioritize customer segments, margin interventions, and account actions that improve profitable growth.",
+                    ["FabricDataApp", "FabricApp", "PbirReport"],
+                    [("Domain", "Customer"), ("Domain", "Profitability"), ("Measure", "Margin Variance"), ("Dimension", "Customer Segment"), ("Dimension", "Customer"), ("Dimension", "Account Manager")],
+                    [],
+                    "High",
+                    family: "Operational",
+                    workflowOrientation: "Act",
+                    decisionPattern: "Prioritization"),
+                CreateOpportunityCandidate(
+                    "customer-margin-investigation",
+                    "Customer Margin Investigation",
+                    "RootCauseInvestigation",
+                    "Analytical",
+                    "Investigate margin variance drivers by account and segment before the next pricing review.",
+                    ["AnalyticalInvestigationExperience", "PbirReport"],
+                    [("Domain", "Profitability"), ("Measure", "Variance"), ("Drill", "HierarchyRich"), ("Audience", "Analytical")],
+                    [],
+                    "High")));
+
+        var primary = ReadObjectList(recommendations, "PrimaryRecommendations");
+        var primaryNames = primary.Select(recommendation => ReadString(recommendation, "RecommendationName")).ToList();
+
+        Assert.Equal("Customer Profitability Analysis", ReadString(primary[0], "RecommendationName"));
+        Assert.Contains(primary, recommendation => string.Equals(ReadString(recommendation, "RecommendedExperienceType"), "FabricDataApp", StringComparison.OrdinalIgnoreCase) ||
+                                                  string.Equals(ReadString(recommendation, "RecommendedExperienceType"), "FabricApp", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Customer Margin Investigation", primaryNames);
+    }
+
+    [Fact(DisplayName = "Recommendation Engine selects different lead recommendations for executive operational planning and investigative narratives")]
+    public void BuildRecommendations_NarrativeSelection_ProducesDifferentLeadRecommendations()
+    {
+        var executiveRecommendations = BuildRecommendations(
+            CreateDiscoveryProfile(
+                confidence: "High",
+                dateReadiness: "High",
+                measures: ["Revenue", "Forecast Accuracy", "Gross Margin"],
+                dimensions: [("Date", "Date"), ("Region", "Geography"), ("Territory", "Geography")],
+                audienceSignals: [("Executive", "High")],
+                domainSignals: [("Revenue", "High"), ("Forecasting", "High")]),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate("executive-review", "Executive Forecast Review", "ForecastAccuracy", "Executive", "Summarize forecast confidence and topline business movement for leadership review.", ["ExecutiveDashboard", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("DateIntelligence", "High")], [], "High"),
+                CreateOpportunityCandidate("ops-follow-through", "Forecast Follow-Through", "ForecastAccuracy", "Operations Leadership", "Monitor miss thresholds and route follow-up actions across owners.", ["OperationalMonitoringExperience", "FabricApp"], [("Domain", "Forecasting"), ("Measure", "Forecast Variance"), ("Dimension", "Region")], [], "High"),
+                CreateOpportunityCandidate("forecast-investigation", "Forecast Investigation", "RootCauseInvestigation", "Analytical", "Investigate why forecast misses cluster before the next cycle.", ["AnalyticalInvestigationExperience", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Variance"), ("Drill", "HierarchyRich")], [], "High")));
+        var operationalRecommendations = BuildRecommendations(
+            CreateDiscoveryProfile(
+                confidence: "High",
+                dateReadiness: "High",
+                measures: ["Open Work Orders", "SLA Variance", "Escalation Count"],
+                dimensions: [("Date", "Date"), ("Region", "Geography"), ("Technician", "Service"), ("Work Order", "Service")],
+                audienceSignals: [("Operational", "High")],
+                domainSignals: [("Service", "High")]),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate("service-dashboard", "Service Command Center", "ServiceOperations", "Operations Leadership", "Monitor service backlog, SLA exposure, and next actions.", ["OperationalMonitoringExperience", "PbirReport"], [("Domain", "Service"), ("Dimension", "Technician"), ("Measure", "SLA Variance")], [], "High"),
+                CreateOpportunityCandidate("planning-review", "Forecast Planning Review", "ForecastAccuracy", "Planning Leadership", "Review forecast posture and reset the next cycle.", ["ExecutiveDashboard", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("DateIntelligence", "High")], [], "Medium"),
+                CreateOpportunityCandidate("investigation", "Root Cause Analysis Experience", "RootCauseInvestigation", "Analytical", "Investigate variance drivers through drill paths.", ["AnalyticalInvestigationExperience", "PbirReport"], [("Measure", "Variance"), ("Drill", "HierarchyRich")], [], "Medium")));
+        var planningRecommendations = BuildRecommendations(
+            CreateDiscoveryProfile(
+                confidence: "High",
+                dateReadiness: "High",
+                measures: ["Forecast Accuracy", "Forecast Variance", "Plan Attainment"],
+                dimensions: [("Date", "Date"), ("Region", "Geography"), ("Scenario", "Planning"), ("Territory", "Geography")],
+                relationships: [("Forecast", "Date"), ("Forecast", "Region"), ("Forecast", "Scenario")],
+                audienceSignals: [("Executive", "High"), ("Operational", "Medium")],
+                domainSignals: [("Forecasting", "High")]),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate("planning-review", "Forecast Planning Review", "ForecastAccuracy", "Planning Leadership", "Review forecast posture, re-plan assumptions, and improve the next planning cycle.", ["ExecutiveDashboard", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("Dimension", "Scenario"), ("DateIntelligence", "High")], [], "High", family: "Planning", workflowOrientation: "Act", decisionPattern: "Planning"),
+                CreateOpportunityCandidate("follow-through", "Forecast Follow-Through", "ForecastAccuracy", "Operations Leadership", "Monitor forecast miss thresholds and route follow-through actions.", ["OperationalMonitoringExperience", "FabricApp"], [("Domain", "Forecasting"), ("Measure", "Forecast Variance"), ("Dimension", "Region")], [], "High"),
+                CreateOpportunityCandidate("forecast-investigation", "Forecast Investigation", "RootCauseInvestigation", "Analytical", "Investigate why misses cluster by territory and segment.", ["AnalyticalInvestigationExperience", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Variance"), ("Drill", "HierarchyRich")], [], "High")));
+        var investigativeRecommendations = BuildRecommendations(
+            CreateDiscoveryProfile(
+                confidence: "High",
+                dateReadiness: "High",
+                measures: ["Forecast Variance", "Driver Score", "Forecast Accuracy"],
+                dimensions: [("Date", "Date"), ("Region", "Geography"), ("Customer Segment", "Customer"), ("Product Category", "Product")],
+                hierarchies: [("Geography", ["Region", "Territory"])],
+                relationships: [("Forecast", "Date"), ("Forecast", "Customer"), ("Forecast", "Product"), ("Forecast", "Region")],
+                audienceSignals: [("Analytical", "High")],
+                domainSignals: [("Forecasting", "High")]),
+            CreateOpportunityCatalog(
+                CreateOpportunityCandidate("executive-review", "Executive Forecast Review", "ForecastAccuracy", "Executive", "Summarize forecast confidence and topline movement for leadership review.", ["ExecutiveDashboard", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Forecast Accuracy"), ("DateIntelligence", "High")], [], "High"),
+                CreateOpportunityCandidate("follow-through", "Forecast Follow-Through", "ForecastAccuracy", "Operations Leadership", "Monitor forecast misses and route follow-through actions.", ["OperationalMonitoringExperience", "FabricApp"], [("Domain", "Forecasting"), ("Measure", "Forecast Variance"), ("Dimension", "Region")], [], "High"),
+                CreateOpportunityCandidate("forecast-investigation", "Forecast Investigation", "RootCauseInvestigation", "Analytical", "Investigate why forecast misses cluster by segment and product before the next cycle.", ["AnalyticalInvestigationExperience", "PbirReport"], [("Domain", "Forecasting"), ("Measure", "Variance"), ("Drill", "HierarchyRich"), ("Audience", "Analytical")], [], "High")));
+
+        Assert.Equal("Executive Forecast Review", ReadString(ReadObjectList(executiveRecommendations, "PrimaryRecommendations")[0], "RecommendationName"));
+        Assert.Equal("Service Command Center", ReadString(ReadObjectList(operationalRecommendations, "PrimaryRecommendations")[0], "RecommendationName"));
+        Assert.Equal("Forecast Planning Review", ReadString(ReadObjectList(planningRecommendations, "PrimaryRecommendations")[0], "RecommendationName"));
+        Assert.Equal("Forecast Investigation", ReadString(ReadObjectList(investigativeRecommendations, "PrimaryRecommendations")[0], "RecommendationName"));
+    }
+
     [Fact(DisplayName = "Recommendation Engine distinguishes service workflow orchestration from monitoring-only service recommendations")]
     public void BuildRecommendations_ServiceWorkflowRecommendationsBeatMonitoringWhenWorkflowSignalsLead()
     {

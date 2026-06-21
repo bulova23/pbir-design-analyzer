@@ -5,6 +5,15 @@ namespace PowerBIModelingService.Services.Discovery;
 internal sealed class RecommendationEngineService
 {
     private static readonly StringComparer NameComparer = StringComparer.OrdinalIgnoreCase;
+    private enum NarrativeCategory
+    {
+        Executive,
+        Operational,
+        Planning,
+        Investigative,
+        Governance,
+    }
+
     private sealed record ExperienceTypeFitEvaluation(
         OpportunityExperienceType ExperienceType,
         double Score);
@@ -72,6 +81,8 @@ internal sealed class RecommendationEngineService
         var opportunitiesById = catalog.Opportunities.ToDictionary(opportunity => opportunity.OpportunityId, NameComparer);
 
         PromoteServiceWorkflowOrMonitoringLead(opportunitiesById, scored);
+        PromoteRevenueWorkflowLeadWhenOperationalFollowThroughDominates(profile, opportunitiesById, scored);
+        PromoteForecastPlanningLeadWhenPlanningNarrativeDominates(profile, opportunitiesById, scored);
         PromoteInvestigationLeadWhenForecastMixRequiresIt(profile, opportunitiesById, scored);
     }
 
@@ -131,6 +142,62 @@ internal sealed class RecommendationEngineService
         }
 
         PromoteAbove(scored, investigationLead.RecommendationId, executiveForecast.RankingScore + 0.5d);
+    }
+
+    private static void PromoteRevenueWorkflowLeadWhenOperationalFollowThroughDominates(
+        DiscoveryProfile profile,
+        IReadOnlyDictionary<string, OpportunityCandidate> opportunitiesById,
+        List<DiscoveryRecommendation> scored)
+    {
+        if (!HasAudience(profile, "Operational") || !HasAudience(profile, "Executive"))
+        {
+            return;
+        }
+
+        var operationalLead = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            HasDomain(candidate, "Revenue") &&
+            recommendation.RecommendedExperienceType == OpportunityExperienceType.FabricApp &&
+            HasManagementIntent(candidate));
+        var executiveLead = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            candidate.Category == OpportunityCategory.ExecutiveReporting &&
+            recommendation.RecommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard);
+
+        if (operationalLead is null || executiveLead is null)
+        {
+            return;
+        }
+
+        PromoteAbove(scored, operationalLead.RecommendationId, executiveLead.RankingScore + 0.5d);
+    }
+
+    private static void PromoteForecastPlanningLeadWhenPlanningNarrativeDominates(
+        DiscoveryProfile profile,
+        IReadOnlyDictionary<string, OpportunityCandidate> opportunitiesById,
+        List<DiscoveryRecommendation> scored)
+    {
+        if (ResolveDominantNarrative(profile) != NarrativeCategory.Planning)
+        {
+            return;
+        }
+
+        var planningLead = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            candidate.Category == OpportunityCategory.ForecastAccuracy &&
+            recommendation.RecommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard &&
+            HasPlanningIntent(candidate));
+        var operationalForecast = scored.FirstOrDefault(recommendation =>
+            opportunitiesById.TryGetValue(recommendation.RecommendationId, out var candidate) &&
+            HasDomain(candidate, "Forecasting") &&
+            recommendation.RecommendedExperienceType is OpportunityExperienceType.FabricApp or OpportunityExperienceType.OperationalMonitoringExperience);
+
+        if (planningLead is null || operationalForecast is null)
+        {
+            return;
+        }
+
+        PromoteAbove(scored, planningLead.RecommendationId, operationalForecast.RankingScore + 0.5d);
     }
 
     private static void PromoteAbove(
@@ -328,6 +395,15 @@ internal sealed class RecommendationEngineService
             (consultantDecision.ConsultantJudgmentScore * ConsultantJudgmentWeight);
 
         var scenarioPostureAdjustment = 0d;
+        var dominantNarrative = ResolveDominantNarrative(profile);
+        var candidateNarrative = ResolveCandidateNarrative(candidate, recommendedExperienceType);
+
+        scenarioPostureAdjustment += GetNarrativeAlignmentAdjustment(
+            profile,
+            candidate,
+            recommendedExperienceType,
+            dominantNarrative,
+            candidateNarrative);
 
         if (consultantDecision.DomainFramework == ConsultantDomainFramework.RevenueSales &&
             recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience &&
@@ -372,10 +448,42 @@ internal sealed class RecommendationEngineService
             };
         }
 
-        if (consultantDecision.DomainFramework == ConsultantDomainFramework.CustomerProfitability &&
-            recommendedExperienceType is OpportunityExperienceType.FabricDataApp or OpportunityExperienceType.AnalyticalInvestigationExperience)
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.Forecasting &&
+            dominantNarrative == NarrativeCategory.Executive &&
+            candidateNarrative == NarrativeCategory.Executive &&
+            recommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard)
+        {
+            scenarioPostureAdjustment += 0.16d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.Forecasting &&
+            dominantNarrative == NarrativeCategory.Planning &&
+            candidateNarrative == NarrativeCategory.Planning &&
+            recommendedExperienceType == OpportunityExperienceType.ExecutiveDashboard)
         {
             scenarioPostureAdjustment += 0.18d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.Forecasting &&
+            dominantNarrative == NarrativeCategory.Planning &&
+            candidateNarrative == NarrativeCategory.Operational &&
+            recommendedExperienceType is OpportunityExperienceType.FabricApp or OpportunityExperienceType.OperationalMonitoringExperience)
+        {
+            scenarioPostureAdjustment -= 0.45d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.CustomerProfitability &&
+            HasProfitabilityManagementNarrative(candidate) &&
+            recommendedExperienceType is OpportunityExperienceType.FabricDataApp or OpportunityExperienceType.FabricApp or OpportunityExperienceType.PbirReport)
+        {
+            scenarioPostureAdjustment += 0.24d;
+        }
+
+        if (consultantDecision.DomainFramework == ConsultantDomainFramework.CustomerProfitability &&
+            recommendedExperienceType == OpportunityExperienceType.AnalyticalInvestigationExperience &&
+            !IsInvestigationDominantNarrative(profile, candidate))
+        {
+            scenarioPostureAdjustment -= 0.28d;
         }
 
         if (consultantDecision.DomainFramework == ConsultantDomainFramework.ServiceOperations)
@@ -430,7 +538,7 @@ internal sealed class RecommendationEngineService
             HasAudience(profile, "Operational") &&
             HasManagementIntent(candidate))
         {
-            scenarioPostureAdjustment += 0.22d;
+            scenarioPostureAdjustment += 0.6d;
         }
 
         if (candidate.Category == OpportunityCategory.ExecutiveReporting &&
@@ -438,7 +546,7 @@ internal sealed class RecommendationEngineService
         {
             if (ProfileHasHighDomain(profile, "Forecasting") && !HasDomain(candidate, "Forecasting"))
             {
-                scenarioPostureAdjustment -= 0.18d;
+                scenarioPostureAdjustment -= 0.38d;
             }
 
             if (ProfileHasHighDomain(profile, "Profitability") && !HasDomain(candidate, "Profitability"))
@@ -2011,12 +2119,7 @@ internal sealed class RecommendationEngineService
             return false;
         }
 
-        return HasAudience(profile, "Analytical") &&
-               !HasAudience(profile, "Operational") &&
-               HasSignal(candidate, "Drill") &&
-               (HasMeasureSignal(candidate, "Variance") ||
-                HasMeasureSignal(candidate, "Forecast") ||
-                ContainsAny($"{candidate.Name} {candidate.BusinessOutcome}", "evidence", "hypothesis", "question-driven"));
+        return IsInvestigationDominantNarrative(profile, candidate);
     }
 
     private static bool ShouldTreatAsAnalyticalInvestigationFramework(OpportunityCandidate candidate)
@@ -2030,6 +2133,174 @@ internal sealed class RecommendationEngineService
                (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Investigate &&
                 candidate.DecisionPattern == OpportunityDecisionPattern.Diagnostic) ||
                (candidate.Family == OpportunityFamily.Investigation && HasInvestigativeIntent(candidate));
+    }
+
+    private static NarrativeCategory ResolveDominantNarrative(DiscoveryProfile profile)
+    {
+        if (HasAudience(profile, "Analytical") &&
+            !HasAudience(profile, "Operational") &&
+            !HasAudience(profile, "Executive"))
+        {
+            return NarrativeCategory.Investigative;
+        }
+
+        if (ProfileHasHighDomain(profile, "Forecasting") &&
+            (profile.Dimensions.Any(dimension => dimension.Name.Contains("scenario", StringComparison.OrdinalIgnoreCase)) ||
+             profile.Measures.Any(measure => measure.Name.Contains("plan", StringComparison.OrdinalIgnoreCase)) ||
+             profile.Measures.Any(measure => measure.Name.Contains("forecast", StringComparison.OrdinalIgnoreCase))))
+        {
+            return HasAudience(profile, "Operational")
+                ? NarrativeCategory.Planning
+                : NarrativeCategory.Executive;
+        }
+
+        if (HasAudience(profile, "Operational") &&
+            (ProfileHasHighDomain(profile, "Service") || ProfileHasHighDomain(profile, "Inventory") || ProfileHasHighDomain(profile, "Customer")))
+        {
+            return NarrativeCategory.Operational;
+        }
+
+        if (HasAudience(profile, "Executive"))
+        {
+            return NarrativeCategory.Executive;
+        }
+
+        if (HasAudience(profile, "Operational"))
+        {
+            return NarrativeCategory.Operational;
+        }
+
+        if (HasAudience(profile, "Analytical"))
+        {
+            return NarrativeCategory.Investigative;
+        }
+
+        return NarrativeCategory.Governance;
+    }
+
+    private static NarrativeCategory ResolveCandidateNarrative(
+        OpportunityCandidate candidate,
+        OpportunityExperienceType selectedType)
+    {
+        if (selectedType == OpportunityExperienceType.AnalyticalInvestigationExperience || HasInvestigativeIntent(candidate))
+        {
+            return NarrativeCategory.Investigative;
+        }
+
+        if (selectedType == OpportunityExperienceType.ExecutiveDashboard &&
+            candidate.InferredAudience.Contains("executive", StringComparison.OrdinalIgnoreCase))
+        {
+            return NarrativeCategory.Executive;
+        }
+
+        if (HasPlanningIntent(candidate))
+        {
+            return NarrativeCategory.Planning;
+        }
+
+        if (selectedType is OpportunityExperienceType.OperationalMonitoringExperience or OpportunityExperienceType.FabricApp ||
+            HasManagementIntent(candidate) ||
+            HasProfitabilityManagementNarrative(candidate) ||
+            IsServiceCommandCenterCandidate(candidate))
+        {
+            return NarrativeCategory.Operational;
+        }
+
+        if (candidate.WorkflowOrientation == OpportunityWorkflowOrientation.Govern)
+        {
+            return NarrativeCategory.Governance;
+        }
+
+        return NarrativeCategory.Executive;
+    }
+
+    private static double GetNarrativeAlignmentAdjustment(
+        DiscoveryProfile profile,
+        OpportunityCandidate candidate,
+        OpportunityExperienceType selectedType,
+        NarrativeCategory dominantNarrative,
+        NarrativeCategory candidateNarrative)
+    {
+        if (dominantNarrative == candidateNarrative)
+        {
+            return candidateNarrative switch
+            {
+                NarrativeCategory.Operational => 0.22d,
+                NarrativeCategory.Planning => 0.3d,
+                NarrativeCategory.Investigative => IsInvestigationDominantNarrative(profile, candidate) ? 0.26d : -0.18d,
+                NarrativeCategory.Executive => 0.18d,
+                _ => 0.08d,
+            };
+        }
+
+        if (candidateNarrative == NarrativeCategory.Investigative && !IsInvestigationDominantNarrative(profile, candidate))
+        {
+            return -0.3d;
+        }
+
+        if (dominantNarrative == NarrativeCategory.Operational &&
+            candidateNarrative == NarrativeCategory.Planning &&
+            selectedType == OpportunityExperienceType.ExecutiveDashboard)
+        {
+            return -0.22d;
+        }
+
+        if (dominantNarrative == NarrativeCategory.Executive &&
+            candidateNarrative == NarrativeCategory.Planning &&
+            candidate.InferredAudience.Contains("planning", StringComparison.OrdinalIgnoreCase))
+        {
+            return -0.06d;
+        }
+
+        if (dominantNarrative == NarrativeCategory.Executive &&
+            HasAudience(profile, "Operational") &&
+            candidateNarrative == NarrativeCategory.Operational &&
+            selectedType is OpportunityExperienceType.FabricApp or OpportunityExperienceType.OperationalMonitoringExperience)
+        {
+            return 0.12d;
+        }
+
+        if (dominantNarrative == NarrativeCategory.Planning && candidateNarrative == NarrativeCategory.Executive)
+        {
+            return -0.14d;
+        }
+
+        if (dominantNarrative == NarrativeCategory.Planning && candidateNarrative == NarrativeCategory.Operational)
+        {
+            return -0.22d;
+        }
+
+        return -0.1d;
+    }
+
+    private static bool IsInvestigationDominantNarrative(DiscoveryProfile profile, OpportunityCandidate candidate)
+    {
+        return HasAudience(profile, "Analytical") &&
+               !HasAudience(profile, "Operational") &&
+               HasSignal(candidate, "Drill") &&
+               HasInvestigativeIntent(candidate) &&
+               (HasMeasureSignal(candidate, "Variance") ||
+                HasMeasureSignal(candidate, "Forecast") ||
+                ContainsAny($"{candidate.Name} {candidate.BusinessOutcome}", "evidence", "hypothesis", "question-driven"));
+    }
+
+    private static bool HasProfitabilityManagementNarrative(OpportunityCandidate candidate)
+    {
+        if (!(HasDomain(candidate, "Profitability") || candidate.Category == OpportunityCategory.ProfitabilityAnalysis))
+        {
+            return false;
+        }
+
+        return ContainsAny(
+            $"{candidate.Name} {candidate.BusinessOutcome}",
+            "profitability",
+            "margin",
+            "segment",
+            "account",
+            "action",
+            "manage",
+            "growth",
+            "prioritize");
     }
 
     private static bool WorkflowLooksSimilar(DiscoveryRecommendation left, DiscoveryRecommendation right)
