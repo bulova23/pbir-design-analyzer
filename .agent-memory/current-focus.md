@@ -2,6 +2,33 @@
 
 ## Active Session
 
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 2 is complete:
+  - objective:
+    - implement only the Phase 2 Skills Prompt Generation scope
+    - introduce `generation-request/v1` as the authoritative provider-facing execution contract
+    - derive deterministic prompt segments from the structured request
+    - stop before Phase 3 request framework work and all execution paths
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, and the existing Design Package consumption seam
+    - treated the approved design docs as the design gate and used test-first implementation on top of `DesignPackageConsumptionService`
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/GenerationRequestModels.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestService.cs`
+    - added `service-dotnet/tests/Discovery/GenerationRequestServiceTests.cs`
+    - formalized `generation-request/v1` with schema metadata, target profile, generation mode, design intent, structural intent, data intent, success contract, provenance, and review policy
+    - added deterministic prompt segment derivation for Target Summary, Audience Summary, Business Outcome, Structural Intent, Data Intent, Navigation Intent, Success Criteria, and Constraints
+    - preserved the Design Package as the upstream provider-neutral artifact and kept Fabric App unsupported in Phase 2 validation
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationRequestServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm run compile`
+      - `cd vscode-extension && npm test`
+  - next recommended step:
+    - stop after Phase 2 as requested
+    - do not begin Phase 3 unless the request lifecycle, provenance extension, and outcome-state scope are explicitly reopened
+
 - 2026-06-20 Design Package Consumption Layer Phase 1 is complete:
   - objective:
     - implement the Design Package consumption boundary only
