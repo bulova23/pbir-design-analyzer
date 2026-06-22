@@ -2,6 +2,287 @@
 
 ## Active Session
 
+- 2026-06-22 Design Package Execution Provider Contract Framework Phase 8 is complete:
+  - objective:
+    - implement only the Phase 8 Execution Provider Contract Framework scope
+    - introduce `execution-provider/v1` as the future-runtime provider contract
+    - add deterministic execution-provider definitions, request and response contracts, approval inheritance, eligibility evaluation, readiness handling, and audit lineage
+    - stop before Microsoft Skills execution, CLI execution, provider invocation, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the referenced spec and plan, and the current-state docs for capability negotiation, provider adapters, and Microsoft adapter specification
+    - confirmed the worktree is already dirty from prior phase implementation and will preserve unrelated changes
+    - treated the existing approved design docs as the design gate and added failing xUnit coverage first for provider contract loading, eligibility evaluation, approval inheritance, audit lineage preservation, deterministic results, and boundary protection
+    - traced the Discovery contract stack downstream from capability negotiation so the new seam stays contract-only and does not imply runtime behavior
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/ExecutionProviderModels.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionProviderValidator.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionEligibilityService.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionProviderContractFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/ExecutionProviderContractFrameworkServiceTests.cs`
+    - added `docs/current-state/execution-provider-framework-state.md`
+    - updated `docs/current-state/capability-negotiation-framework-state.md`
+    - updated `docs/current-state/microsoft-adapter-specification-state.md`
+    - updated `docs/current-state/provider-adapter-framework-state.md`
+    - formalized `execution-provider/v1` with provider definitions, provider requests, provider responses, inherited approval policy, and audit lineage contracts
+    - added deterministic eligibility outcomes:
+      - `eligible`
+      - `conditionallyEligible`
+      - `ineligible`
+      - `blocked`
+    - added explicit execution-provider readiness states:
+      - `notEligible`
+      - `conditionallyEligible`
+      - `eligible`
+      - `approvedForExecutionProvider`
+    - kept the framework contract-only with no execution surface
+  - validation:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ExecutionProviderContractFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 8 as requested
+    - do not begin runtime provider implementation, Microsoft Skills execution, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Capability Negotiation Phase 7 is complete:
+  - objective:
+    - implement only the Phase 7 Capability Negotiation Framework scope
+    - introduce `capability-negotiation/v1` as the deterministic capability-resolution contract
+    - add provider-neutral requirement gathering, substitution handling, validation, and readiness evaluation across `generation-request/v1`, `execution-plan/v1`, `provider-adapter/v1`, and `microsoft-adapter-specification/v1`
+    - stop before Microsoft Skills execution, CLI execution, provider implementations, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the referenced spec and plan, and the current-state docs for provider planning, provider adapters, and Microsoft adapter specification
+    - confirmed the worktree is already dirty from prior phase implementation and will preserve unrelated changes
+    - treated the new goal scope as authoritative because the older plan file still labels a different Phase 7
+    - began tracing the current Discovery service seams to add negotiation downstream from the existing contract stack without introducing execution behavior
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/CapabilityNegotiationModels.cs`
+    - added `service-dotnet/Services/Discovery/CapabilityNegotiationValidator.cs`
+    - added `service-dotnet/Services/Discovery/CapabilityNegotiationService.cs`
+    - added `service-dotnet/tests/Discovery/CapabilityNegotiationServiceTests.cs`
+    - added `docs/current-state/capability-negotiation-framework-state.md`
+    - updated `docs/current-state/provider-adapter-framework-state.md`
+    - updated `docs/current-state/microsoft-adapter-specification-state.md`
+    - formalized `capability-negotiation/v1` with deterministic requirement, resolution, substitution, summary, and readiness models
+    - added explicit capability-negotiation readiness states:
+      - `unresolved`
+      - `partiallyResolved`
+      - `resolved`
+      - `blocked`
+      - `readyForExecutionProvider`
+    - kept the negotiation layer planning-only with no execution surface
+  - validation:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~CapabilityNegotiationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 7 as requested
+    - do not begin execution-provider or artifact-generation work unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 6 is complete:
+  - objective:
+    - implement only the Phase 6 Microsoft Adapter Specification scope
+    - introduce `microsoft-adapter-specification/v1` as the descriptive Microsoft capability-mapping contract
+    - add deterministic Microsoft planning translation, compatibility classification, and readiness handling
+    - stop before Microsoft Skills execution, CLI execution, provider implementations, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, the current-state docs, and the existing Generation Request, Provider Planning, and Provider Adapter framework seams
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for specification loading, validation, capability translation, compatibility categories, readiness transitions, and boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftAdapterSpecificationModels.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftAdapterSpecificationValidator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftProviderPlanningTranslator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftAdapterSpecificationService.cs`
+    - added `service-dotnet/tests/Discovery/MicrosoftAdapterSpecificationServiceTests.cs`
+    - added `docs/current-state/microsoft-adapter-specification-state.md`
+    - updated `docs/current-state/discovery-wizard-state.md`
+    - updated `docs/current-state/design-studio-state.md`
+    - updated `docs/current-state/provider-planning-framework-state.md`
+    - updated `docs/current-state/provider-adapter-framework-state.md`
+    - formalized `microsoft-adapter-specification/v1` with schema metadata, provider identity, supported target profiles, capability mappings, target-profile mappings, compatibility catalog, constraint catalog, and review-requirements catalog
+    - added deterministic Microsoft capability translation through `MicrosoftProviderPlanningTranslator`
+    - added explicit Microsoft planning readiness states:
+      - `unsupported`
+      - `partiallySupported`
+      - `supported`
+      - `readyForMicrosoftAdapter`
+    - kept the Microsoft layer descriptive only, with no execution surface
+  - validation:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftAdapterSpecificationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider implementation
+    - no PBIR or Fabric artifact generation
+    - no deployment
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 6 as requested
+    - do not begin Microsoft provider adapters, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 5 is complete:
+  - objective:
+    - implement only the Phase 5 Provider Adapter Contract Framework scope
+    - introduce `provider-adapter/v1` as the authoritative adapter-compatibility input contract
+    - add provider-neutral adapter definitions, registry lookup, compatibility evaluation, and readiness handling
+    - stop before Microsoft Skills execution, CLI execution, provider implementations, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, the current-state docs, and the existing Generation Request plus Provider Planning framework seams
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for provider-adapter request creation, registry behavior, compatibility classification, readiness progression, and execution-free boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/ProviderAdapterModels.cs`
+    - added `service-dotnet/Services/Discovery/ProviderAdapterRegistry.cs`
+    - added `service-dotnet/Services/Discovery/ProviderAdapterCompatibilityService.cs`
+    - added `service-dotnet/Services/Discovery/ProviderAdapterFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/ProviderAdapterFrameworkServiceTests.cs`
+    - added `docs/current-state/provider-adapter-framework-state.md`
+    - updated `docs/current-state/provider-planning-framework-state.md`
+    - updated `docs/current-state/discovery-wizard-state.md`
+    - updated `docs/current-state/design-studio-state.md`
+    - formalized `provider-adapter/v1` with source contract versions, target artifact profile, capability requirements, constraints, review requirements, and success contract
+    - added provider-neutral adapter definitions with target-profile support, capability declarations, and source-version compatibility declarations
+    - added explicit Provider Adapter readiness states:
+      - `discovered`
+      - `compatible`
+      - `incompatible`
+      - `unsupported`
+      - `readyForExecutionProvider`
+    - kept compatibility evaluation provider-neutral and planning-only, with no execution surface
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ProviderAdapterFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider implementation
+    - no PBIR or Fabric artifact generation
+    - no deployment
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 5 as requested
+    - do not begin Microsoft provider adapters, CLI execution, artifact generation, or deployment work unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 4 is complete:
+  - objective:
+    - implement only the Phase 4 Provider Planning Framework scope
+    - introduce `execution-plan/v1` as the authoritative provider-planning artifact
+    - add deterministic execution-plan creation, validation, capability declarations, and readiness handling
+    - stop before Microsoft Skills execution, CLI execution, provider adapters, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, the current-state docs, and the existing Design Package consumption plus Generation Request framework seam
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for execution-plan creation, determinism, validation failures, readiness blocking, and execution-free boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/ExecutionPlanModels.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionPlanBuilder.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionPlanValidator.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionPlanFrameworkService.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestTargetProfileCatalog.cs`
+    - added `service-dotnet/tests/Discovery/ExecutionPlanFrameworkServiceTests.cs`
+    - updated `service-dotnet/Services/Discovery/Models/GenerationRequestModels.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestBuilder.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestValidator.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestFrameworkService.cs`
+    - updated `service-dotnet/tests/Discovery/GenerationRequestFrameworkServiceTests.cs`
+    - added `docs/current-state/provider-planning-framework-state.md`
+    - updated `docs/current-state/discovery-wizard-state.md`
+    - updated `docs/current-state/design-studio-state.md`
+    - formalized `execution-plan/v1` with schema metadata, source references, target definition, provider planning metadata, planned work units, dependency graph, planning constraints, review requirements, and inherited success contract
+    - added a provider-neutral capability model with declared layout, semantic, artifact, and validation capability flags
+    - kept prompt segments derived from Generation Request only and removed the older provider-planning package stopgap from Generation Request framework state
+    - added explicit Execution Plan readiness states:
+      - `draft`
+      - `valid`
+      - `blocked`
+      - `readyForProviderAdapter`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~ExecutionPlanFrameworkServiceTests|FullyQualifiedName~GenerationRequestFrameworkServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider adapters
+    - no PBIR or Fabric artifact generation
+    - no deployment
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 4 as requested
+    - do not begin Microsoft provider adapter or execution work unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 3 is complete:
+  - objective:
+    - implement only the Phase 3 Generation Request Framework scope
+    - add explicit framework services for request creation, validation, readiness, and provider-planning preparation
+    - stop before Microsoft Skills execution, CLI execution, provider adapters, artifact generation, analyzer handoff automation, and all later phases
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, the current-state docs, and the existing Design Package consumption plus Generation Request seam
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for readiness transitions, framework blocking, deterministic orchestration, and provider-neutral boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/GenerationRequestBuilder.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestValidator.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestPromptSegmentOrchestrator.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/GenerationRequestFrameworkServiceTests.cs`
+    - updated `service-dotnet/Services/Discovery/Models/GenerationRequestModels.cs`
+    - updated `service-dotnet/Services/Discovery/Models/DesignPackageConsumptionModels.cs`
+    - updated `service-dotnet/Services/Discovery/DesignPackageConsumptionService.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestService.cs` into a thin compatibility facade over the new framework services
+    - formalized `draft`, `valid`, `blocked`, and `readyForProviderPlanning` request readiness states without implying approval, execution, or validation
+    - extended target-profile metadata with explicit profile identity and source experience-type compatibility validation
+    - preserved provider-neutral provenance and review-policy constraints while keeping prompt segments derived-only and deterministic
+    - updated `docs/current-state/discovery-wizard-state.md` to reflect the new downstream planning seam
+  - validation passed:
+    - focused gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationRequestFrameworkServiceTests`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationRequestServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider adapters
+    - no PBIR or Fabric artifact generation
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 3 as requested
+    - do not begin Microsoft adapter or artifact-generation work unless a new goal explicitly opens Phase 4
+
+- 2026-06-21 current-state documentation for Discovery Wizard and Design Studio is complete:
+  - objective:
+    - create `docs/current-state/discovery-wizard-state.md`
+    - create `docs/current-state/design-studio-state.md`
+  - started:
+    - read the current Discovery Wizard and Design Studio specs, readiness docs, trust-boundary docs, backend discovery services, and Design Studio webview shell
+    - identified the key distinction to preserve as backend-first Discovery Wizard versus shipped Design Studio workflow
+  - delivered:
+    - added `docs/current-state/discovery-wizard-state.md`
+    - added `docs/current-state/design-studio-state.md`
+    - documented implemented ownership, outputs, trust boundaries, and current limitations for both workflows
+  - validation:
+    - documentation-only direct review of both created files
+    - `git status --short` confirms the expected new docs path
+  - next recommended step:
+    - if desired, continue the current-state set with Analyzer Workspace, Design Package, and Generation Request
+
 - 2026-06-21 Design Package Microsoft Skills Integration Phase 2 is complete:
   - objective:
     - implement only the Phase 2 Skills Prompt Generation scope
@@ -1914,8 +2195,8 @@
 
 ## Current Objective
 
-- Design Package Consumption Layer Phase 1 is complete.
+- Design Package Microsoft Skills Integration Phase 6 is complete.
 - Next action for this area:
-  - stop after Phase 1 as requested
-  - if desired later, define `generation-request/v1` from the new consumption boundary
-  - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, artifact generation, Design Studio workflow changes, or Analyzer Workspace changes unless a new goal starts them
+  - stop after Phase 6 as requested
+  - keep `microsoft-adapter-specification/v1` as the descriptive Microsoft capability-mapping seam downstream from `provider-adapter/v1`
+  - do not begin Microsoft Skills execution, CLI execution, provider adapters, artifact generation, deployment, or Analyzer Workspace automation unless a new goal starts the next phase

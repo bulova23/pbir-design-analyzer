@@ -84,6 +84,7 @@ internal sealed record NormalizedSuccessContract(
 internal sealed record NormalizedGenerationInput(
     string SourceDesignPackageRef,
     GenerationArtifactType TargetArtifactType,
+    OpportunityExperienceType SourceExperienceType,
     string PrimaryAudience,
     IReadOnlyList<string> SecondaryAudiences,
     string BusinessOutcome,

@@ -6,6 +6,11 @@ internal static class GenerationRequestContract
 {
     internal const string SchemaVersionV1 = "generation-request/v1";
     internal const string AdvisoryConstructionOnlyAuthority = "advisoryConstructionOnly";
+    internal const string ProviderNeutralAdapterFamily = "providerNeutral";
+    internal const string PromptSegmentsOnlyExecutionMode = "promptSegmentsOnly";
+    internal const string PbirReportDefaultProfile = "pbirReport/default";
+    internal const string FabricDataAppDefaultProfile = "fabricDataApp/default";
+    internal const string FabricAppDefaultProfile = "fabricApp/default";
 
     internal static IReadOnlyList<string> RequiredFieldInventory { get; } =
     [
@@ -14,6 +19,8 @@ internal static class GenerationRequestContract
         "SourceDesignPackageRef",
         "TargetArtifactProfile",
         "TargetArtifactProfile.ArtifactType",
+        "TargetArtifactProfile.ProfileId",
+        "TargetArtifactProfile.SourceExperienceType",
         "GenerationMode",
         "GenerationMode.Authority",
         "GenerationMode.ReviewRequired",
@@ -94,7 +101,9 @@ internal sealed record GenerationRequest(
     [property: JsonPropertyName("reviewPolicy")] GenerationRequestReviewPolicy ReviewPolicy);
 
 internal sealed record GenerationRequestTargetArtifactProfile(
-    [property: JsonPropertyName("artifactType")] GenerationRequestArtifactType ArtifactType);
+    [property: JsonPropertyName("artifactType")] GenerationRequestArtifactType ArtifactType,
+    [property: JsonPropertyName("profileId")] string ProfileId = "",
+    [property: JsonPropertyName("sourceExperienceType")] OpportunityExperienceType SourceExperienceType = OpportunityExperienceType.PbirReport);
 
 internal sealed record GenerationRequestMode(
     [property: JsonPropertyName("authority")] string Authority,
@@ -179,6 +188,14 @@ internal sealed record GenerationRequestPromptSegment(
     string Title,
     string Content);
 
+internal enum GenerationRequestReadinessState
+{
+    Draft,
+    Valid,
+    Blocked,
+    ReadyForProviderPlanning,
+}
+
 internal sealed record GenerationRequestValidationDiagnostics(
     IReadOnlyList<string> MissingRequiredSections,
     IReadOnlyList<string> MissingRequiredFields,
@@ -187,6 +204,9 @@ internal sealed record GenerationRequestValidationDiagnostics(
     IReadOnlyList<string> UnsupportedSchemaVersions,
     IReadOnlyList<string> CompatibilityFailures)
 {
+    internal static GenerationRequestValidationDiagnostics Empty { get; } =
+        new([], [], [], [], [], []);
+
     internal bool HasFailures =>
         MissingRequiredSections.Count > 0 ||
         MissingRequiredFields.Count > 0 ||
@@ -208,3 +228,9 @@ internal sealed record GenerationRequestCreationResult(
 {
     internal bool IsValid => !Diagnostics.HasFailures;
 }
+
+internal sealed record GenerationRequestFrameworkState(
+    GenerationRequest? Request,
+    GenerationRequestReadinessState Readiness,
+    GenerationRequestValidationDiagnostics Diagnostics,
+    IReadOnlyList<GenerationRequestPromptSegment> PromptSegments);

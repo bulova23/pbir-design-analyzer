@@ -153,6 +153,7 @@ internal sealed class DesignPackageConsumptionService
         var normalizedInput = new NormalizedGenerationInput(
             SourceDesignPackageRef: package.PackageId,
             TargetArtifactType: targetArtifactType.Value,
+            SourceExperienceType: package.ExperienceDefinition.ExperienceType,
             PrimaryAudience: package.Audience.PrimaryAudience,
             SecondaryAudiences: package.Audience.SecondaryAudiences ?? [],
             BusinessOutcome: package.ExperienceDefinition.BusinessOutcome,
