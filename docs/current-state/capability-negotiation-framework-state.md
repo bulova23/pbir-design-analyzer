@@ -16,7 +16,7 @@ It is not an execution provider, not a Microsoft Skills invocation path, and not
 
 ## Current Product Position
 
-Capability Negotiation Framework currently sits between descriptive Microsoft capability mapping and the contract-only Execution Provider Framework.
+Capability Negotiation Framework currently sits between descriptive Microsoft capability mapping and the Microsoft Skills capability catalog plus the Microsoft Skill Provider Adapter and contract-only Execution Provider Framework.
 
 Its ownership is:
 
@@ -27,6 +27,8 @@ Its ownership is:
 - Provider Adapter Framework evaluates provider-neutral adapter compatibility
 - Microsoft Adapter Specification defines Microsoft capability mappings
 - Capability Negotiation Framework resolves capability requirements
+- Microsoft Skills Catalog maps negotiated capability requirements to descriptive Microsoft skill candidates
+- Microsoft Skill Provider Adapter maps descriptive Microsoft skill candidates to descriptive providers
 - Execution Provider Contract Framework defines runtime provider contracts
 - Analyzer Workspace validates generated artifacts
 
@@ -146,6 +148,10 @@ Microsoft Adapter Specification
 ↓  
 Capability Negotiation  
 ↓  
+Microsoft Skills Catalog Resolution  
+↓  
+Microsoft Skill Provider Selection  
+↓  
 readyForExecutionProvider or fail-closed state
 
 Negotiation currently validates:
@@ -200,6 +206,10 @@ The current framework does not:
 ## Downstream Contract Seam
 
 Capability Negotiation Framework now hands off to the implemented Execution Provider Contract Framework downstream.
+
+Microsoft Skills Catalog now also consumes the negotiated result descriptively and determines whether the required Microsoft skills are known and mapped before a future Microsoft skill-provider seam could accept the plan.
+
+Microsoft Skill Provider Adapter then consumes the descriptive skill mapping and determines whether the required Microsoft skill providers are known and mapped before a future runtime-provider seam could accept the plan.
 
 That seam is still contract-only:
 

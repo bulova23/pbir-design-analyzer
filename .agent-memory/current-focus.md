@@ -2,6 +2,307 @@
 
 ## Active Session
 
+- 2026-06-23 Design Package Microsoft Skills Integration Phase 15 is complete:
+  - objective:
+    - implement only the Phase 15 PBIR Generation Specification Framework scope
+    - add `pbir-generation-specification/v1` and `pbir-artifact-specification/v1`
+    - create the specification-only mapping layer from Design Package, Generation Request, and Planning Outcome intent into PBIR artifact specifications
+    - add specification validation and readiness evaluation
+    - stop before Microsoft Skills execution, API invocation, CLI invocation, real PBIR generation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for planning orchestration and the PBIR execution prototype boundary
+    - confirmed the new Phase 15 seam should sit between planning/runtime readiness and any future PBIR generation provider as an authoritative specification contract rather than an execution path
+    - identified the primary upstream inputs as `DesignPackage`, `GenerationRequest`, and `PlanningOutcome`, with the resulting specification intended to become the authoritative translation of Design Studio intent
+    - preparing failing xUnit coverage first for PBIR specification creation, validation, readiness states, and strict non-generation boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirGenerationSpecificationModels.cs`
+      - `service-dotnet/Services/Discovery/PbirGenerationSpecificationService.cs`
+      - `service-dotnet/Services/Discovery/PbirGenerationSpecificationValidator.cs`
+      - `service-dotnet/Services/Discovery/PbirGenerationSpecificationReadinessService.cs`
+      - `service-dotnet/tests/Discovery/PbirGenerationSpecificationServiceTests.cs`
+      - `docs/current-state/pbir-generation-specification-framework-state.md`
+    - implemented:
+      - `pbir-generation-specification/v1`
+      - `pbir-artifact-specification/v1`
+      - deterministic Design Package + Generation Request + Planning Outcome mapping into PBIR artifact specifications
+      - specification validation for page, visual, semantic, navigation, and success-criteria completeness
+      - readiness states:
+        - `incomplete`
+        - `partiallySpecified`
+        - `specified`
+        - `readyForGenerationProvider`
+    - updated:
+      - `docs/current-state/planning-orchestration-framework-state.md`
+      - `docs/current-state/pbir-execution-prototype-boundary-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirGenerationSpecificationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 15 as requested
+    - do not begin Microsoft Skills execution, API invocation, CLI invocation, real PBIR generation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Skills Integration Phase 14 is complete:
+  - objective:
+    - implement only the Phase 14 PBIR Execution Prototype Boundary scope
+    - add `pbir-execution-prototype/v1`, `pbir-execution-request/v1`, and `pbir-mock-execution-result/v1`
+    - add a PBIR-only safety gate, dry-run summary path, and deterministic mocked execution path
+    - stop before live Microsoft Skills execution, provider invocation, CLI execution, real artifact generation, deployment, Fabric App generation, Fabric Data App generation, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for planning orchestration, runtime provider framework, Microsoft runtime provider contract, Microsoft skills catalog, and Microsoft skill-provider adapter
+    - confirmed the Phase 14 seam should sit after `readyForMicrosoftRuntimeProvider` as a stricter PBIR-only execution-boundary prototype rather than a provider implementation
+    - identified the intended boundary inputs as `PlanningOrchestrationResult` plus `MicrosoftRuntimeProviderFrameworkState`
+    - preparing failing xUnit coverage first for safety-gate enforcement, deterministic dry-run summaries, mocked execution behavior, and rejection of non-PBIR or live/deployment paths
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirExecutionPrototypeModels.cs`
+      - `service-dotnet/Services/Discovery/PbirExecutionSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirExecutionPrototypeBoundaryService.cs`
+      - `service-dotnet/tests/Discovery/PbirExecutionPrototypeBoundaryServiceTests.cs`
+      - `docs/current-state/pbir-execution-prototype-boundary-state.md`
+    - implemented:
+      - `pbir-execution-prototype/v1`
+      - `pbir-execution-request/v1`
+      - `pbir-mock-execution-result/v1`
+      - `dryRun` and `mockedExecution` PBIR execution modes
+      - deterministic PBIR dry-run summaries for pages, visuals, and semantic bindings
+      - deterministic mocked execution results from explicit fixture ids and optional explicit fixture output paths
+      - `PbirExecutionSafetyGate` rejection of:
+        - non-PBIR targets
+        - missing approvals
+        - unsupported runtime readiness
+        - unsupported providers
+        - live provider invocation
+        - deployment
+        - non-dry-run requests outside mocked execution
+    - updated:
+      - `docs/current-state/runtime-provider-framework-state.md`
+      - `docs/current-state/microsoft-runtime-provider-contract-state.md`
+      - `docs/current-state/microsoft-skill-provider-adapter-state.md`
+      - `docs/current-state/planning-orchestration-framework-state.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirExecutionPrototypeBoundaryServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 14 as requested
+    - do not begin live Microsoft Skills execution, provider invocation, CLI execution, real artifact generation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Skill Provider Adapter Framework Phase 13 is complete:
+  - objective:
+    - implement only the Phase 13 Microsoft Skill Provider Adapter Framework scope
+    - add `microsoft-skill-provider-adapter/v1`, `microsoft-skill-provider/v1`, and `skill-provider-selection/v1`
+    - add descriptive provider registration, discovery, resolution, compatibility validation, and readiness evaluation
+    - integrate provider-selection metadata with planning orchestration and Microsoft runtime provider contracts without adding execution
+    - stop before Microsoft Skills execution, skill invocation, Microsoft API invocation, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and current-state docs for Microsoft skills catalog, planning orchestration, runtime provider framework, and Microsoft runtime provider contract
+    - confirmed the existing Phase 12 skill catalog is the upstream seam and that Phase 13 should add a descriptive provider-mapping layer rather than a runtime path
+    - added failing xUnit coverage first in `service-dotnet/tests/Discovery/MicrosoftSkillProviderAdapterFrameworkServiceTests.cs`
+    - verified the first red gate fails because the new provider-adapter contract types do not exist yet
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftSkillProviderModels.cs`
+    - added:
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderRegistry.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderResolutionService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderCompatibilityValidator.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderReadinessService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderAdapterFrameworkService.cs`
+    - integrated Microsoft skill-provider selection into:
+      - `service-dotnet/Services/Discovery/PlanningOrchestrationService.cs`
+      - `service-dotnet/Services/Discovery/PlanningReadinessAggregator.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderContractFrameworkService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderValidator.cs`
+      - `service-dotnet/Services/Discovery/Models/PlanningOrchestrationModels.cs`
+      - `service-dotnet/Services/Discovery/Models/MicrosoftRuntimeProviderModels.cs`
+    - added focused xUnit coverage in `service-dotnet/tests/Discovery/MicrosoftSkillProviderAdapterFrameworkServiceTests.cs`
+    - updated adjacent planning/runtime tests for the new planning-only provider-selection seam
+    - added `docs/current-state/microsoft-skill-provider-adapter-state.md`
+    - updated:
+      - `docs/current-state/microsoft-skills-catalog-state.md`
+      - `docs/current-state/planning-orchestration-framework-state.md`
+      - `docs/current-state/microsoft-runtime-provider-contract-state.md`
+      - `docs/current-state/runtime-provider-framework-state.md`
+      - `docs/current-state/capability-negotiation-framework-state.md`
+      - `docs/current-state/microsoft-adapter-specification-state.md`
+  - validation passed:
+    - focused gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftSkillProviderAdapterFrameworkServiceTests`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~PlanningOrchestrationServiceTests|FullyQualifiedName~MicrosoftRuntimeProviderContractFrameworkServiceTests|FullyQualifiedName~MicrosoftSkillsCapabilityCatalogFrameworkServiceTests|FullyQualifiedName~RuntimeProviderAbstractionFrameworkServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 13 as requested
+    - do not begin Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Skills Capability Catalog Framework Phase 12 is complete:
+  - objective:
+    - implement only the Phase 12 Microsoft Skills Capability Catalog Framework scope
+    - add `microsoft-skills-catalog/v1` and `microsoft-skill-definition/v1`
+    - add descriptive Microsoft skill registration, discovery, compatibility validation, capability resolution, and readiness evaluation
+    - integrate Microsoft skill metadata with capability negotiation, planning orchestration, and Microsoft runtime provider contracts without adding execution
+    - stop before Microsoft Skills execution, skill invocation, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and current-state docs for capability negotiation, planning orchestration, Microsoft adapter specification, runtime provider framework, and Microsoft runtime provider contract
+    - confirmed the existing Phase 6-11 stack is contract-first and execution-free, so Phase 12 should add a descriptive skill-catalog seam rather than a runtime path
+    - added failing xUnit coverage first in `service-dotnet/tests/Discovery/MicrosoftSkillsCapabilityCatalogFrameworkServiceTests.cs`
+    - verified the first red gate fails because the new Phase 12 contract types do not exist yet
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftSkillsCatalogModels.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillsCatalog.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillCompatibilityValidator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillResolutionService.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillReadinessService.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillsCapabilityCatalogFrameworkService.cs`
+    - integrated Microsoft skill readiness into:
+      - `service-dotnet/Services/Discovery/PlanningOrchestrationService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderContractFrameworkService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderValidator.cs`
+      - `service-dotnet/Services/Discovery/Models/PlanningOrchestrationModels.cs`
+      - `service-dotnet/Services/Discovery/Models/MicrosoftRuntimeProviderModels.cs`
+    - added focused xUnit coverage in `service-dotnet/tests/Discovery/MicrosoftSkillsCapabilityCatalogFrameworkServiceTests.cs`
+    - updated adjacent planning/runtime tests for the new planning-only skill metadata seam
+    - added `docs/current-state/microsoft-skills-catalog-state.md`
+    - updated:
+      - `docs/current-state/capability-negotiation-framework-state.md`
+      - `docs/current-state/planning-orchestration-framework-state.md`
+      - `docs/current-state/microsoft-runtime-provider-contract-state.md`
+      - `docs/current-state/runtime-provider-framework-state.md`
+      - `docs/current-state/microsoft-adapter-specification-state.md`
+  - validation passed:
+    - focused gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftSkillsCapabilityCatalogFrameworkServiceTests`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~PlanningOrchestrationServiceTests|FullyQualifiedName~MicrosoftRuntimeProviderContractFrameworkServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 12 as requested
+    - do not begin Microsoft Skills execution, skill invocation, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Runtime Provider Contract Phase 11 is complete:
+  - objective:
+    - implement only the Phase 11 Microsoft Runtime Provider Contract scope
+    - define `microsoft-runtime-provider/v1`, `microsoft-runtime-request/v1`, and `microsoft-runtime-context/v1`
+    - add Microsoft-specific runtime validation, readiness, provider registration, and discovery without adding execution
+    - stop before Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for runtime provider framework, planning orchestration, and Microsoft adapter specification
+    - confirmed the generic Phase 10 runtime-provider layer is contract-only and that Phase 11 should extend it with a Microsoft-specific contract rather than mutate trust boundaries
+    - added failing xUnit coverage first for contract validation, readiness states, planned versus unsupported target handling, registry discovery, and boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftRuntimeProviderModels.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderValidator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftRuntimeReadinessService.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderContractFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/MicrosoftRuntimeProviderContractFrameworkServiceTests.cs`
+    - added `docs/current-state/microsoft-runtime-provider-contract-state.md`
+    - updated `docs/current-state/runtime-provider-framework-state.md`
+    - updated `docs/current-state/planning-orchestration-framework-state.md`
+    - updated `docs/current-state/microsoft-adapter-specification-state.md`
+    - formalized contract-only Microsoft runtime provider definition, request, context, validation, readiness, and registry registration/discovery
+    - preserved deterministic target handling:
+      - `pbirReport/default` supported
+      - `fabricDataApp/default` planned-only
+      - `fabricApp/default` unsupported
+    - preserved strict non-execution boundaries with no Microsoft Skills execution, API invocation, CLI invocation, provider invocation, artifact generation, deployment, or Analyzer Workspace automation
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftRuntimeProviderContractFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 11 as requested
+    - do not begin Microsoft Skills execution, Microsoft API invocation, CLI execution, provider invocation, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Runtime Provider Abstraction Layer Phase 10 is complete:
+  - objective:
+    - implement only the Phase 10 Runtime Provider Abstraction Layer scope
+    - introduce `runtime-provider/v1`, `runtime-provider-request/v1`, `runtime-provider-context/v1`, and `runtime-provider-result/v1`
+    - define runtime interfaces, validation, readiness, registry, and execution-candidate contracts without adding execution
+    - stop before Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for the existing Discovery planning stack
+    - confirmed the worktree is already dirty from prior phases and preserved unrelated changes
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for runtime contracts, readiness states, validation failures, registry behavior, execution-candidate creation, and non-execution boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/RuntimeProviderModels.cs`
+    - added `service-dotnet/Services/Discovery/IRuntimeProvider.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeProviderValidator.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeReadinessService.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeProviderRegistry.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeProviderAbstractionFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/RuntimeProviderAbstractionFrameworkServiceTests.cs`
+    - added `docs/current-state/runtime-provider-framework-state.md`
+    - updated `docs/current-state/execution-provider-framework-state.md`
+    - updated `docs/current-state/planning-orchestration-framework-state.md`
+    - formalized the Phase 10 runtime-provider contract stack as pre-execution only
+    - added deterministic runtime readiness states:
+      - `invalid`
+      - `blocked`
+      - `unsupported`
+      - `candidate`
+      - `readyForRuntimeProvider`
+    - added contract-only runtime provider registration, discovery, validation, and execution-candidate shaping with no invocation surface
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~RuntimeProviderAbstractionFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 10 as requested
+    - do not begin runtime provider implementations, Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Planning Orchestration Framework Phase 9 is complete:
+  - objective:
+    - implement only the Phase 9 End-to-End Planning Orchestration Framework scope
+    - introduce `planning-orchestration/v1` and `planning-outcome/v1`
+    - compose the existing planning frameworks into a deterministic, execution-free orchestration workflow
+    - add explicit stage transition validation, readiness aggregation, failure classification, and lineage-preserving planning outcomes
+    - stop before Microsoft Skills execution, CLI execution, provider invocation, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for the existing Discovery planning stack
+    - confirmed the current checkout is already on branch `codex/ux-consolidation-remediation-0-2-2` and preserved unrelated worktree changes
+    - treated the approved spec and implementation plan as the design gate for this phase
+    - added failing xUnit coverage first for end-to-end planning orchestration, blocked planning outcomes, unsupported targets, transition validation, determinism, and planning-only boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/PlanningOrchestrationModels.cs`
+    - added `service-dotnet/Services/Discovery/Models/PlanningOutcomeModels.cs`
+    - added `service-dotnet/Services/Discovery/PlanningReadinessAggregator.cs`
+    - added `service-dotnet/Services/Discovery/PlanningOrchestrationService.cs`
+    - added `service-dotnet/tests/Discovery/PlanningOrchestrationServiceTests.cs`
+    - added `docs/current-state/planning-orchestration-framework-state.md`
+    - added deterministic `planning-orchestration/v1` lifecycle state with explicit stage history and transition history
+    - added deterministic `planning-outcome/v1` with metadata, references, status, readiness summary, lineage, and typed planning failures
+    - composed Design Package consumption, Generation Request, Execution Plan, Provider Adapter, Microsoft planning translation, Capability Negotiation, and Execution Provider eligibility into one execution-free planning workflow
+    - added explicit stage transition validation for predecessor outputs, version compatibility, reference integrity, and readiness consistency
+    - added readiness aggregation for blocking conditions, unresolved requirements, approval status, and execution-provider readiness
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PlanningOrchestrationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 9 as requested
+    - do not begin runtime providers, Microsoft Skills execution, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the runtime phases
+
 - 2026-06-22 Design Package Execution Provider Contract Framework Phase 8 is complete:
   - objective:
     - implement only the Phase 8 Execution Provider Contract Framework scope
@@ -2195,8 +2496,8 @@
 
 ## Current Objective
 
-- Design Package Microsoft Skills Integration Phase 6 is complete.
+- Design Package Microsoft Skills Capability Catalog Framework Phase 12 is complete.
 - Next action for this area:
-  - stop after Phase 6 as requested
-  - keep `microsoft-adapter-specification/v1` as the descriptive Microsoft capability-mapping seam downstream from `provider-adapter/v1`
-  - do not begin Microsoft Skills execution, CLI execution, provider adapters, artifact generation, deployment, or Analyzer Workspace automation unless a new goal starts the next phase
+  - stop after Phase 12 as requested
+  - preserve the existing planning-only and contract-only boundaries
+  - do not begin Microsoft Skills execution, skill invocation, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal opens the next phase

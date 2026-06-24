@@ -155,6 +155,12 @@ Capability Negotiation Framework now consumes this layer downstream and turns it
 
 Execution Provider Contract Framework then consumes the negotiated result downstream to define provider eligibility, approval inheritance, request/response contracts, and audit lineage without turning Microsoft Adapter Specification into runtime execution.
 
+Microsoft Skills Catalog now consumes this specification further downstream to map negotiated capabilities into descriptive Microsoft skill metadata and skill-provider readiness without turning Microsoft Adapter Specification into a provider implementation.
+
+Microsoft Skill Provider Adapter now consumes the descriptive skill metadata further downstream to map known skills into descriptive provider candidates and provider-selection readiness without turning Microsoft Adapter Specification into a provider implementation.
+
+Microsoft Runtime Provider Contract then consumes the specification plus the resolved Microsoft skill metadata to define Microsoft-specific runtime target support, request validation, planned-only handling, and readiness classification without turning Microsoft Adapter Specification into a provider implementation.
+
 ## Constraint Catalog
 
 The current Microsoft constraint catalog explicitly preserves:
@@ -171,6 +177,7 @@ The current Microsoft constraint catalog explicitly preserves:
 The current repo state still excludes:
 
 - Microsoft Skills execution providers
+- Microsoft skill invocation
 - CLI-backed Microsoft execution
 - PBIR generation
 - Fabric App generation

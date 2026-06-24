@@ -27,6 +27,7 @@ Its ownership is:
 - Microsoft Adapter Specification defines Microsoft capability mappings
 - Capability Negotiation Framework resolves capability requirements
 - Execution Provider Contract Framework defines runtime provider contracts
+- Runtime Provider Framework defines the downstream pre-execution runtime abstraction layer
 - Analyzer Workspace validates generated artifacts
 
 ## What Exists Today
@@ -200,6 +201,7 @@ The current framework does not:
 
 The current repo state still excludes:
 
+- Runtime Provider implementations
 - Microsoft Skills runtime providers
 - CLI-backed runtime providers
 - provider invocation
