@@ -25,6 +25,7 @@ PBIR Generation Specification Framework now sits after:
 It sits before:
 
 - the new Generation Provider Framework
+- the new Generation Provider Execution Planning Framework
 - the existing PBIR execution prototype boundary
 - any future Microsoft generation provider
 - any future PBIR artifact intake or deployment workflow
@@ -48,6 +49,7 @@ The implemented Phase 15 layer currently includes:
 - `PbirGenerationSpecificationValidator`
 - `PbirGenerationSpecificationReadinessService`
 - downstream deterministic consumption by Generation Provider Framework
+- downstream deterministic consumption by Generation Provider Execution Planning Framework
 - deterministic mapping from:
   - Design Package page intent
   - Generation Request target/profile intent

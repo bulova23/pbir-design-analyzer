@@ -16,6 +16,8 @@ Its role is:
 - classify readiness for future generation-provider consumption without executing anything
 - register and discover descriptive generation providers through a metadata-only registry
 
+The downstream execution-planning seam is documented separately in `docs/current-state/generation-provider-execution-planning-framework-state.md` so the request contract can remain distinct from the future execution-plan contract.
+
 It is not a PBIR generator, not a Microsoft Skills runtime, not a Microsoft API surface, not a CLI runner, not a deployment path, and not a report-mutation workflow.
 
 ## Current Product Position
@@ -29,6 +31,7 @@ Generation Provider Framework now sits after:
 
 It sits before:
 
+- the new Generation Provider Execution Planning Framework
 - any future Microsoft Skills generation provider
 - any future Copilot, Claude, OpenAI, local, or test generator
 - any future provider execution runtime
@@ -56,6 +59,7 @@ The implemented Phase 16 layer currently includes:
 - `GenerationProviderRegistry`
 - `GenerationProviderValidator`
 - `GenerationProviderReadinessService`
+- downstream deterministic consumption by Generation Provider Execution Planning Framework
 - explicit readiness states:
   - `unsupported`
   - `blocked`
@@ -198,6 +202,7 @@ The current Generation Provider Framework does not:
 
 The current repo state still excludes:
 
+- downstream execution-provider implementation
 - Microsoft Skills execution
 - Copilot, Claude, OpenAI, local, or test generator execution
 - Microsoft API invocation

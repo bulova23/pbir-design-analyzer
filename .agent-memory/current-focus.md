@@ -2,6 +2,103 @@
 
 ## Active Session
 
+- 2026-06-25 Design Package Microsoft Skills Integration Phase 18 is complete:
+  - objective:
+    - implement only the Phase 18 Generation Manifest Framework scope
+    - add `generation-manifest/v1`
+    - create a deterministic immutable provider-neutral handoff manifest downstream from generation-provider execution planning
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and adjacent Discovery planning/runtime/specification/provider files
+    - confirmed the new seam should gather upstream planning artifacts into one immutable metadata-only handoff document for future generators
+    - preparing failing xUnit coverage first for deterministic manifest creation, validation, readiness states, complete lineage, stable ordering, and strict boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationManifestModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestService.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestValidator.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestReadinessService.cs`
+      - `service-dotnet/tests/Discovery/GenerationManifestServiceTests.cs`
+      - `docs/current-state/generation-manifest-framework-state.md`
+    - implemented:
+      - `generation-manifest/v1`
+      - deterministic metadata-only manifest creation from planning, specification, provider, execution-planning, and runtime-provider artifacts
+      - immutable reference preservation across Design Package, Generation Request, Execution Plan, Planning Outcome, runtime provider, generation provider request, generation-provider execution plan, and PBIR generation specification
+      - manifest validation for references, lineage integrity, readiness consistency, provider compatibility, schema compatibility, and non-execution boundaries
+      - readiness states:
+        - `incomplete`
+        - `blocked`
+        - `readyForGenerator`
+    - updated:
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationManifestServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 18 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-25 Design Package Microsoft Skills Integration Phase 17 is complete:
+  - objective:
+    - implement only the Phase 17 Generation Provider Execution Planning Framework scope
+    - add `generation-provider-execution-plan/v1`
+    - create the execution-planning layer that consumes `generation-provider-request/v1` and prepares provider-neutral execution plans without invoking any provider
+    - add execution-plan validation and readiness evaluation
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and the current-state docs for the adjacent planning, PBIR specification, and generation-provider layers
+    - confirmed Phase 17 should land as a downstream execution-planning seam after `generation-provider-request/v1` and before any future provider execution implementation
+    - identified an older generic `execution-plan/v1` layer in the repo and chose to keep Phase 17 isolated as a narrower generation-provider execution-planning contract to avoid mutating earlier planning abstractions
+    - preparing failing xUnit coverage first for deterministic plan creation, validation, readiness states, and strict non-execution boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationProviderExecutionPlanningModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderExecutionPlanningService.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderExecutionPlanValidator.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderExecutionReadinessService.cs`
+      - `service-dotnet/tests/Discovery/GenerationProviderExecutionPlanningServiceTests.cs`
+      - `docs/current-state/generation-provider-execution-planning-framework-state.md`
+    - implemented:
+      - `generation-provider-execution-plan/v1`
+      - deterministic execution stages:
+        - `specificationValidation`
+        - `providerCapabilityValidation`
+        - `executionPreparation`
+        - `providerHandoffPreparation`
+      - execution constraints:
+        - dry-run only
+        - mock execution permitted
+        - provider invocation prohibited
+        - API invocation prohibited
+        - CLI invocation prohibited
+        - deployment prohibited
+        - report mutation prohibited
+      - execution dependencies for approvals, provider readiness, runtime readiness, and specification completeness
+      - readiness states:
+        - `blocked`
+        - `partiallyPrepared`
+        - `prepared`
+        - `readyForExecutionProvider`
+    - updated:
+      - `docs/current-state/generation-provider-framework-state.md`
+      - `docs/current-state/pbir-generation-specification-framework-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationProviderExecutionPlanningServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 17 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
 - 2026-06-24 Design Package Microsoft Skills Integration Phase 16 is complete:
   - objective:
     - implement only the Phase 16 Generation Provider Contract Framework scope
