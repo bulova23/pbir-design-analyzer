@@ -9,7 +9,7 @@ namespace PowerBIModelingService.Tests.Discovery;
 
 public sealed class GenerationManifestServiceTests
 {
-    [Fact(DisplayName = "Generation Manifest creates deterministic immutable provider-neutral handoff documents from upstream planning artifacts")]
+    [Fact(DisplayName = "Generation Manifest creates deterministic immutable provider-neutral execution packages from the complete upstream planning pipeline")]
     public void CreateManifestState_ValidInputs_BuildsDeterministicManifest()
     {
         var inputs = CreateReadyInputs();
@@ -21,14 +21,16 @@ public sealed class GenerationManifestServiceTests
             inputs.SpecificationState,
             inputs.ProviderState,
             inputs.ExecutionPlanningState,
-            inputs.RuntimeState,
+            inputs.RuntimeProviderState,
+            inputs.MicrosoftRuntimeState,
             createdUtc);
         var second = service.CreateManifestState(
             inputs.Planning,
             inputs.SpecificationState,
             inputs.ProviderState,
             inputs.ExecutionPlanningState,
-            inputs.RuntimeState,
+            inputs.RuntimeProviderState,
+            inputs.MicrosoftRuntimeState,
             createdUtc);
 
         Assert.NotNull(first.Manifest);
@@ -36,29 +38,47 @@ public sealed class GenerationManifestServiceTests
         Assert.Equal(GenerationManifestContract.SchemaVersionV1, first.Manifest!.Metadata.SchemaVersion);
         Assert.Equal("generationManifest:planningOutcome:designPackage:executive-summary", first.Manifest.Metadata.ManifestId);
         Assert.Equal(createdUtc.UtcDateTime, first.Manifest.Metadata.CreatedUtc);
-        Assert.Equal(inputs.Planning.Outcome.References.DesignPackageRef, first.Manifest.References.DesignPackageRef);
-        Assert.Equal(inputs.Planning.Outcome.References.GenerationRequestRef, first.Manifest.References.GenerationRequestRef);
-        Assert.Equal(inputs.Planning.Outcome.References.ExecutionPlanRef, first.Manifest.References.ExecutionPlanRef);
-        Assert.Equal(inputs.Planning.Outcome.Metadata.OutcomeId, first.Manifest.References.PlanningOutcomeRef);
-        Assert.Equal(inputs.RuntimeState.Request!.RequestId, first.Manifest.References.RuntimeProviderRef);
-        Assert.Equal(inputs.ProviderState.Request!.Metadata.RequestId, first.Manifest.References.GenerationProviderRequestRef);
-        Assert.Equal(inputs.ExecutionPlanningState.Plan!.Metadata.ExecutionPlanId, first.Manifest.References.GenerationProviderExecutionPlanRef);
-        Assert.Equal(inputs.SpecificationState.Specification!.SpecificationId, first.Manifest.GenerationSpecification.PbirGenerationSpecificationRef);
+
+        Assert.Equal(inputs.Planning.Outcome.References.DesignPackageRef, first.Manifest.SourceReferences.DesignPackageRef);
+        Assert.Equal(inputs.Planning.Outcome.References.GenerationRequestRef, first.Manifest.SourceReferences.GenerationRequestRef);
+        Assert.Equal(inputs.Planning.Outcome.References.ExecutionPlanRef, first.Manifest.SourceReferences.ExecutionPlanRef);
+        Assert.Equal(inputs.Planning.Outcome.Metadata.OutcomeId, first.Manifest.SourceReferences.PlanningOutcomeRef);
+        Assert.Equal(inputs.RuntimeProviderState.Request!.RequestId, first.Manifest.SourceReferences.RuntimeProviderRef);
+        Assert.Equal(inputs.ProviderState.Request!.Metadata.RequestId, first.Manifest.SourceReferences.GenerationProviderRequestRef);
+        Assert.Equal(inputs.ExecutionPlanningState.Plan!.Metadata.ExecutionPlanId, first.Manifest.SourceReferences.GenerationProviderExecutionPlanRef);
+        Assert.Equal(inputs.SpecificationState.Specification!.SpecificationId, first.Manifest.SourceReferences.PbirGenerationSpecificationRef);
+
         Assert.Equal(inputs.Planning.Outcome.ReadinessSummary.CapabilitySummary.RequiredCapabilities, first.Manifest.CapabilitySummary.NegotiatedCapabilities);
-        Assert.Equal(inputs.ProviderState.Provider!.SupportedCapabilities, first.Manifest.CapabilitySummary.ProviderCapabilities);
-        Assert.Equal(inputs.ProviderState.Provider!.ProviderId, first.Manifest.CapabilitySummary.SelectedProvider.ProviderId);
-        Assert.Equal(inputs.RuntimeState.Context!.MicrosoftSkillSummary.RequiredSkillIds, first.Manifest.CapabilitySummary.SelectedSkills);
+        Assert.Equal(inputs.ProviderState.Provider!.ProviderId, first.Manifest.CapabilitySummary.SelectedGenerationProvider.ProviderId);
+        Assert.Equal(inputs.ProviderState.Provider.ProviderName, first.Manifest.CapabilitySummary.SelectedGenerationProvider.ProviderName);
+        Assert.Equal(inputs.ProviderState.Provider.ProviderVersion, first.Manifest.CapabilitySummary.SelectedGenerationProvider.ProviderVersion);
+        Assert.Equal(inputs.MicrosoftRuntimeState.Definition!.ProviderId, first.Manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderId);
+        Assert.Equal(inputs.MicrosoftRuntimeState.Definition.ProviderName, first.Manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderName);
+        Assert.Equal(inputs.MicrosoftRuntimeState.Definition.ProviderVersion, first.Manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderVersion);
+        Assert.Equal(inputs.MicrosoftRuntimeState.Context!.MicrosoftSkillSummary.RequiredSkillIds, first.Manifest.CapabilitySummary.SelectedSkills);
+        Assert.Equal(inputs.MicrosoftRuntimeState.Context.MicrosoftSkillSummary.CandidateProviderIds, first.Manifest.CapabilitySummary.SelectedProviderCandidates);
+
         Assert.True(first.Manifest.ExecutionConstraints.DryRunOnly);
         Assert.False(first.Manifest.ExecutionConstraints.DeploymentAllowed);
         Assert.False(first.Manifest.ExecutionConstraints.ProviderInvocationAllowed);
         Assert.False(first.Manifest.ExecutionConstraints.ApiInvocationAllowed);
         Assert.False(first.Manifest.ExecutionConstraints.CliInvocationAllowed);
-        Assert.Contains(first.Manifest.Lineage.ImmutableReferences, reference => reference == first.Manifest.References.DesignPackageRef);
-        Assert.Contains(first.Manifest.Lineage.ImmutableReferences, reference => reference == first.Manifest.References.GenerationProviderExecutionPlanRef);
+
+        Assert.Equal(inputs.Planning.Outcome.ReadinessSummary.Status, first.Manifest.ReadinessSummary.PlanningReadiness);
+        Assert.Equal(inputs.RuntimeProviderState.Readiness, first.Manifest.ReadinessSummary.RuntimeReadiness);
+        Assert.Equal(inputs.ProviderState.Readiness, first.Manifest.ReadinessSummary.ProviderReadiness);
+        Assert.Equal(inputs.ExecutionPlanningState.Readiness, first.Manifest.ReadinessSummary.GenerationReadiness);
+
+        Assert.Equal(inputs.Planning.Outcome.ReadinessSummary.ApprovalStatus, first.Manifest.ApprovalSummary.DesignApproval);
+        Assert.Equal(inputs.Planning.Outcome.Status, first.Manifest.ApprovalSummary.PlanningApproval.OutcomeStatus);
+        Assert.Equal(inputs.MicrosoftRuntimeState.AcceptsExecutionCandidate, first.Manifest.ApprovalSummary.RuntimeApproval.AcceptsExecutionCandidate);
+        Assert.True(first.Manifest.ApprovalSummary.ProviderApproval.ProviderApproved);
+        Assert.Contains(first.Manifest.Lineage.ImmutableUpstreamLineage, reference => reference == first.Manifest.SourceReferences.DesignPackageRef);
+        Assert.Contains(first.Manifest.Lineage.ImmutableUpstreamLineage, reference => reference == first.Manifest.SourceReferences.RuntimeProviderRef);
         Assert.Equal(Serialize(first), Serialize(second));
     }
 
-    [Fact(DisplayName = "Generation Manifest validation fails for missing references, invalid readiness consistency, schema mismatches, and lineage integrity drift")]
+    [Fact(DisplayName = "Generation Manifest validation fails for missing references, invalid readiness consistency, provider incompatibility, schema mismatches, and lineage integrity drift")]
     public void Validate_InvalidManifest_FailsClosed()
     {
         var inputs = CreateReadyInputs();
@@ -70,7 +90,8 @@ public sealed class GenerationManifestServiceTests
             inputs.SpecificationState,
             inputs.ProviderState,
             inputs.ExecutionPlanningState,
-            inputs.RuntimeState,
+            inputs.RuntimeProviderState,
+            inputs.MicrosoftRuntimeState,
             createdUtc);
 
         var invalidManifest = baseline.Manifest! with
@@ -79,20 +100,24 @@ public sealed class GenerationManifestServiceTests
             {
                 SchemaVersion = "generation-manifest/v2"
             },
-            References = baseline.Manifest.References with
+            SourceReferences = baseline.Manifest.SourceReferences with
             {
                 RuntimeProviderRef = string.Empty,
                 PlanningOutcomeRef = "planningOutcome:different"
             },
-            ApprovalSummary = baseline.Manifest.ApprovalSummary with
+            ReadinessSummary = baseline.Manifest.ReadinessSummary with
             {
-                RuntimeReadiness = MicrosoftRuntimeReadinessState.Blocked,
-                GenerationReadiness = GenerationProviderExecutionPlanReadinessState.Blocked
+                RuntimeReadiness = RuntimeProviderReadinessState.Blocked,
+                ProviderReadiness = GenerationProviderReadinessState.Blocked
+            },
+            CapabilitySummary = baseline.Manifest.CapabilitySummary with
+            {
+                SelectedProviderCandidates = []
             },
             Lineage = baseline.Manifest.Lineage with
             {
-                ImmutableReferences = baseline.Manifest.Lineage.ImmutableReferences
-                    .Where(reference => !string.Equals(reference, baseline.Manifest.References.PlanningOutcomeRef, StringComparison.Ordinal))
+                ImmutableUpstreamLineage = baseline.Manifest.Lineage.ImmutableUpstreamLineage
+                    .Where(reference => !string.Equals(reference, baseline.Manifest.SourceReferences.PlanningOutcomeRef, StringComparison.Ordinal))
                     .ToArray()
             }
         };
@@ -103,14 +128,16 @@ public sealed class GenerationManifestServiceTests
             inputs.SpecificationState,
             inputs.ProviderState,
             inputs.ExecutionPlanningState,
-            inputs.RuntimeState);
+            inputs.RuntimeProviderState,
+            inputs.MicrosoftRuntimeState);
 
         Assert.False(validation.IsValid);
-        Assert.Contains("references.runtimeProviderRef", validation.Diagnostics.MissingRequiredFields);
+        Assert.Contains("sourceReferences.runtimeProviderRef", validation.Diagnostics.MissingRequiredFields);
         Assert.Contains("generation-manifest/v2", validation.Diagnostics.UnsupportedSchemaVersions);
-        Assert.Contains("references.planningOutcomeRef must match planningOutcome.metadata.outcomeId.", validation.Diagnostics.InvalidReferences);
-        Assert.Contains("approvalSummary.runtimeReadiness must match microsoftRuntimeProvider.readiness.", validation.Diagnostics.ReadinessConsistencyFailures);
-        Assert.Contains("lineage.immutableReferences must contain every required upstream reference.", validation.Diagnostics.LineageIntegrityFailures);
+        Assert.Contains("sourceReferences.planningOutcomeRef must match planningOutcome.metadata.outcomeId.", validation.Diagnostics.InvalidReferences);
+        Assert.Contains("readinessSummary.runtimeReadiness must match runtimeProvider.readiness.", validation.Diagnostics.ReadinessConsistencyFailures);
+        Assert.Contains("capabilitySummary.selectedProviderCandidates must match microsoft runtime candidate provider ids.", validation.Diagnostics.ProviderCompatibilityFailures);
+        Assert.Contains("lineage.immutableUpstreamLineage must contain every required upstream reference.", validation.Diagnostics.LineageIntegrityFailures);
     }
 
     [Fact(DisplayName = "Generation Manifest readiness distinguishes incomplete, blocked, and readyForGenerator states deterministically")]
@@ -119,13 +146,14 @@ public sealed class GenerationManifestServiceTests
         var readiness = new GenerationManifestReadinessService();
         var incompleteValidation = new GenerationManifestValidationResult(
             new GenerationManifestValidationDiagnostics(
-                MissingRequiredSections: ["references"],
+                MissingRequiredSections: ["sourceReferences"],
                 MissingRequiredFields: [],
                 InvalidReferences: [],
                 UnsupportedSchemaVersions: [],
                 LineageIntegrityFailures: [],
                 ReadinessConsistencyFailures: [],
                 ProviderCompatibilityFailures: [],
+                GenerationSpecificationCompletenessFailures: [],
                 BoundaryViolations: []));
         var blockedValidation = new GenerationManifestValidationResult(
             new GenerationManifestValidationDiagnostics(
@@ -134,8 +162,9 @@ public sealed class GenerationManifestServiceTests
                 InvalidReferences: [],
                 UnsupportedSchemaVersions: [],
                 LineageIntegrityFailures: [],
-                ReadinessConsistencyFailures: ["approvalSummary.generationReadiness must match generationProviderExecutionPlan.readiness."],
+                ReadinessConsistencyFailures: ["readinessSummary.generationReadiness must match generationProviderExecutionPlan.readiness."],
                 ProviderCompatibilityFailures: [],
+                GenerationSpecificationCompletenessFailures: [],
                 BoundaryViolations: []));
         var readyValidation = new GenerationManifestValidationResult(GenerationManifestValidationDiagnostics.Empty);
 
@@ -168,7 +197,7 @@ public sealed class GenerationManifestServiceTests
         }
     }
 
-    [Fact(DisplayName = "Generation Manifest contract inventory covers required metadata, references, specification, capability, approval, constraints, and lineage field paths")]
+    [Fact(DisplayName = "Generation Manifest contract inventory covers required metadata, source references, capability summary, readiness summary, approval summary, constraints, and lineage field paths")]
     public void GenerationManifestContracts_InventoryCoversRequiredFieldPaths()
     {
         var inventoryPaths = GenerationManifestContract.RequiredFieldInventory
@@ -186,12 +215,13 @@ public sealed class GenerationManifestServiceTests
         return JsonSerializer.Serialize(state);
     }
 
-    private static (
+    internal static (
         PlanningOrchestrationResult Planning,
         PbirGenerationSpecificationState SpecificationState,
         GenerationProviderFrameworkState ProviderState,
         GenerationProviderExecutionPlanningState ExecutionPlanningState,
-        MicrosoftRuntimeProviderFrameworkState RuntimeState) CreateReadyInputs()
+        RuntimeProviderFrameworkState RuntimeProviderState,
+        MicrosoftRuntimeProviderFrameworkState MicrosoftRuntimeState) CreateReadyInputs()
     {
         var planning = new PlanningOrchestrationService().Orchestrate(GenerationRequestFrameworkServiceTestsAccessor.CreateValidPackage());
         var specificationState = new PbirGenerationSpecificationService().PrepareForGenerationProvider(
@@ -202,13 +232,21 @@ public sealed class GenerationManifestServiceTests
             providerState.Provider!,
             specificationState,
             planning.Outcome);
-        var runtimeRegistry = new RuntimeProviderRegistry();
-        var runtimeService = new MicrosoftRuntimeProviderContractFrameworkService(runtimeRegistry);
-        var runtimeDefinition = runtimeService.CreateDefaultProviderDefinition();
-        runtimeRegistry.Register(runtimeService.CreateDefaultRegistration(runtimeDefinition, planning));
-        var runtimeState = runtimeService.CreateMicrosoftRuntimeState(planning, runtimeDefinition.ProviderId);
 
-        return (planning, specificationState, providerState, executionPlanningState, runtimeState);
+        var runtimeRegistry = new RuntimeProviderRegistry();
+        var runtimeService = new RuntimeProviderAbstractionFrameworkService(runtimeRegistry);
+        var runtimeRegistration = runtimeService.CreateDefaultRegistration(
+            planning.ExecutionProviderState!.ProviderDefinition!,
+            planning.ExecutionProviderState.ProviderRequest!);
+        runtimeRegistry.Register(runtimeRegistration);
+        var runtimeProviderState = runtimeService.CreateRuntimeCandidate(planning, runtimeRegistration.ProviderId);
+
+        var microsoftRuntimeService = new MicrosoftRuntimeProviderContractFrameworkService(runtimeRegistry);
+        var microsoftRuntimeDefinition = microsoftRuntimeService.CreateDefaultProviderDefinition();
+        runtimeRegistry.Register(microsoftRuntimeService.CreateDefaultRegistration(microsoftRuntimeDefinition, planning));
+        var microsoftRuntimeState = microsoftRuntimeService.CreateMicrosoftRuntimeState(planning, microsoftRuntimeDefinition.ProviderId);
+
+        return (planning, specificationState, providerState, executionPlanningState, runtimeProviderState, microsoftRuntimeState);
     }
 
     private static IReadOnlyList<string> EnumerateFieldPaths(Type type, string? prefix)

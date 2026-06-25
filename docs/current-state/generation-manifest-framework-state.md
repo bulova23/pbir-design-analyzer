@@ -2,18 +2,18 @@
 
 ## Summary
 
-Generation Manifest Framework is now implemented as the immutable provider-neutral manifest layer downstream from Generation Provider Execution Planning and upstream from any future generator.
+Phase 19 is now implemented as the final planning-only integration layer that composes the complete upstream planning pipeline into one immutable provider-neutral execution package and verifies that pipeline deterministically from Design Package through Generation Manifest.
 
-Its role is:
+The delivered planning-only components are:
 
-- define `generation-manifest/v1` as the canonical execution handoff document
-- compose upstream planning metadata into one deterministic immutable manifest
-- preserve references to Design Package, Generation Request, Execution Plan, Planning Outcome, runtime provider, generation provider request, generation-provider execution plan, and PBIR generation specification
-- summarize negotiated capabilities, provider capabilities, selected provider, and selected skills without invoking any runtime
-- validate completeness, lineage integrity, readiness consistency, provider compatibility, and schema compatibility
-- expose manifest readiness for future generator consumption only
+- `generation-manifest/v1`
+- `GenerationManifestService`
+- `GenerationManifestValidator`
+- `GenerationManifestReadinessService`
+- `generation-pipeline-verification/v1`
+- `GenerationPipelineVerificationService`
 
-It is not a PBIR generator, not a Microsoft Skills runtime, not a provider invocation path, not a Microsoft API surface, not a CLI runner, not a deployment path, and not a report-mutation workflow.
+This layer does not generate PBIR, invoke Microsoft Skills, invoke providers, call Microsoft APIs, invoke CLI commands, deploy assets, or mutate reports.
 
 ## Current Product Position
 
@@ -21,47 +21,35 @@ Generation Manifest Framework now sits after:
 
 - Design Package Consumption Layer
 - Generation Request Framework
+- Execution Plan Framework
 - Planning Orchestration Framework
+- Runtime Provider Abstraction Framework
+- Microsoft Runtime Provider Contract
 - PBIR Generation Specification Framework
 - Generation Provider Framework
 - Generation Provider Execution Planning Framework
-- Microsoft Runtime Provider Contract
 
 It sits before:
 
 - any future PBIR generator
 - any future Microsoft Skills execution provider
-- any future Copilot, Claude, OpenAI, local, or test generation runtime
-- any future provider invocation
+- any future provider invocation path
 - any future API or CLI execution path
 - any future artifact generation or deployment workflow
 
-Its ownership is:
+Its ownership remains:
 
 - Discovery Wizard recommends
 - Design Studio designs and approves
-- planning, specification, provider, and runtime layers normalize generation metadata
-- Generation Manifest Framework creates the immutable provider-neutral handoff package
+- planning, runtime, specification, and provider layers normalize generation metadata
+- Generation Manifest Framework composes the immutable provider-neutral execution package
+- Generation Pipeline Verification proves the pipeline is complete and deterministic
 - future generators remain downstream consumers only
 - Analyzer Workspace remains the downstream validation owner for any future generated artifact
 
-## What Exists Today
+## Generation Manifest Contract
 
-The implemented Phase 18 layer currently includes:
-
-- `generation-manifest/v1`
-- `GenerationManifestService`
-- `GenerationManifestValidator`
-- `GenerationManifestReadinessService`
-- deterministic manifest composition
-- explicit readiness states:
-  - `incomplete`
-  - `blocked`
-  - `readyForGenerator`
-
-## Manifest Contract
-
-The authoritative manifest artifact is `generation-manifest/v1`.
+The authoritative execution package is `generation-manifest/v1`.
 
 Its required sections are:
 
@@ -69,7 +57,7 @@ Its required sections are:
   - manifest id
   - schema version
   - created UTC
-- references
+- source references
   - design package reference
   - generation request reference
   - execution plan reference
@@ -77,103 +65,147 @@ Its required sections are:
   - runtime provider reference
   - generation provider request reference
   - generation-provider execution plan reference
-- generation specification
   - PBIR generation specification reference
 - capability summary
   - negotiated capabilities
-  - provider capabilities
-  - selected provider
+  - selected generation provider
+  - selected Microsoft runtime provider
   - selected skills
+  - selected provider candidates
 - execution constraints
   - dry-run only
   - deployment allowed
   - provider invocation allowed
   - API invocation allowed
   - CLI invocation allowed
+- readiness summary
+  - planning readiness
+  - runtime readiness
+  - provider readiness
+  - generation readiness
 - approval summary
   - design approval
   - planning approval
-  - runtime readiness
-  - generation readiness
+  - runtime approval
+  - provider approval
 - lineage
   - upstream lineage
-  - immutable references
+  - immutable upstream lineage
 
-The manifest does not replace the upstream artifacts it references.
+The manifest does not replace any upstream artifact.
 
-It packages them into one immutable handoff document.
+It packages the entire planning pipeline into one immutable deterministic handoff document for future generators only.
 
-## Manifest Lifecycle
-
-The current manifest lifecycle is:
-
-1. planning artifacts are created upstream
-2. provider-neutral generation planning is completed
-3. runtime provider metadata is resolved
-4. `GenerationManifestService` composes the deterministic manifest
-5. `GenerationManifestValidator` verifies completeness and integrity
-6. `GenerationManifestReadinessService` classifies the manifest for future generator consumption
-
-No generation occurs in this lifecycle.
-
-## Lineage Model
+## Immutable Lineage Model
 
 The current lineage model preserves:
 
 - complete upstream planning lineage from `planning-outcome/v1`
-- downstream metadata lineage for:
+- deterministic lineage additions for:
+  - `runtime-provider-request/v1`
   - `pbir-generation-specification/v1`
   - `generation-provider-request/v1`
   - `generation-provider-execution-plan/v1`
-  - `microsoft-runtime-request/v1`
-- immutable references as a deterministic ordered reference set
+- deterministic immutable upstream reference ordering across:
+  - Design Package
+  - Generation Request
+  - Execution Plan
+  - Planning Outcome
+  - Runtime Provider
+  - PBIR Generation Specification
+  - Generation Provider Request
+  - Generation Provider Execution Plan
 
-This preserves full handoff traceability without adding any mutation or execution authority.
+This preserves full planning-package traceability without creating any execution or mutation authority.
+
+## Readiness Aggregation
+
+`GenerationManifestReadinessService` currently determines one of:
+
+- `incomplete`
+  - required sections or required fields are missing
+- `blocked`
+  - references, schema versions, lineage integrity, readiness consistency, provider compatibility, generation-specification completeness, or trust boundaries are invalid
+- `readyForGenerator`
+  - the complete planning pipeline has produced a deterministic immutable execution package
+
+`readyForGenerator` does not imply generation occurred.
+
+It means only that the planning architecture produced a complete downstream handoff package for a future generator.
 
 ## Validation Model
 
 `GenerationManifestValidator` currently validates:
 
+- required manifest metadata
+- required source references
 - manifest schema compatibility
 - planning-outcome schema compatibility
+- runtime-provider schema compatibility
+- Microsoft runtime-provider schema compatibility
 - PBIR generation specification schema compatibility
-- generation provider framework, request, definition, and execution-plan schema compatibility
-- Microsoft runtime provider and runtime-request schema compatibility
+- generation-provider schema compatibility
+- generation-provider execution-plan schema compatibility
 - reference integrity across all required upstream artifacts
-- capability-summary compatibility with planning, generation provider, and runtime skill state
-- readiness consistency across planning, runtime, and generation execution-planning states
-- complete immutable-reference coverage
+- capability-summary compatibility with planning, generation-provider, and Microsoft runtime skill state
+- readiness consistency across planning, runtime-provider, generation-provider, and generation execution-planning states
+- generation-specification completeness
+- complete immutable-lineage coverage
 - deterministic complete lineage preservation
 - non-execution boundary constraints
 
 Validation fails closed.
 
-## Readiness Model
+## Pipeline Verification Model
 
-`GenerationManifestReadinessService` currently determines one of:
+`GenerationPipelineVerificationService` now proves the full planning pipeline:
 
-- `incomplete`
-  - required sections or fields are missing
-- `blocked`
-  - references, schema versions, lineage integrity, readiness consistency, provider compatibility, or trust boundaries are invalid
-- `readyForGenerator`
-  - the manifest is complete, internally consistent, and preserves all required metadata for a future generator
+Design Package  
+↓  
+Generation Request  
+↓  
+Execution Plan  
+↓  
+Planning Outcome  
+↓  
+Runtime Provider  
+↓  
+Microsoft Runtime Provider  
+↓  
+Skill Resolution  
+↓  
+Generation Provider  
+↓  
+Generation Provider Execution Plan  
+↓  
+Generation Manifest
 
-`readyForGenerator` does not imply generation occurred.
+The verification artifact is `generation-pipeline-verification/v1`.
 
-It only means a future generator has the required metadata handoff package.
+It records:
+
+- deterministic stage ordering
+- completed stage references
+- preserved immutable references
+- lineage reference ids
+- readiness transition validation
+- provider compatibility validation
+- non-execution boundary validation
+
+Identical inputs plus identical `createdUtc` produce identical pipeline verification output.
 
 ## Determinism Model
 
-The current manifest implementation guarantees:
+The current implementation guarantees:
 
 - identical inputs plus identical `createdUtc` produce identical manifests
-- stable property ordering from the record contract
-- stable capability ordering by preserving upstream deterministic order
+- identical inputs plus identical `createdUtc` produce identical pipeline verification results
+- stable property ordering from record contracts
 - stable immutable-reference ordering
 - stable upstream-lineage ordering
+- stable stage ordering in pipeline verification
 
-This keeps manifest serialization deterministic without inventing any execution side effects.
+No execution side effects are introduced by this determinism model.
 
 ## Current Trust Boundaries
 

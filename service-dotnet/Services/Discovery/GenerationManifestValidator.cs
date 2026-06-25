@@ -10,14 +10,16 @@ internal sealed class GenerationManifestValidator
         PbirGenerationSpecificationState specificationState,
         GenerationProviderFrameworkState providerState,
         GenerationProviderExecutionPlanningState executionPlanningState,
-        MicrosoftRuntimeProviderFrameworkState runtimeState)
+        RuntimeProviderFrameworkState runtimeProviderState,
+        MicrosoftRuntimeProviderFrameworkState microsoftRuntimeState)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(planning);
         ArgumentNullException.ThrowIfNull(specificationState);
         ArgumentNullException.ThrowIfNull(providerState);
         ArgumentNullException.ThrowIfNull(executionPlanningState);
-        ArgumentNullException.ThrowIfNull(runtimeState);
+        ArgumentNullException.ThrowIfNull(runtimeProviderState);
+        ArgumentNullException.ThrowIfNull(microsoftRuntimeState);
 
         var missingRequiredSections = new List<string>();
         var missingRequiredFields = new List<string>();
@@ -26,25 +28,27 @@ internal sealed class GenerationManifestValidator
         var lineageIntegrityFailures = new List<string>();
         var readinessConsistencyFailures = new List<string>();
         var providerCompatibilityFailures = new List<string>();
+        var generationSpecificationCompletenessFailures = new List<string>();
         var boundaryViolations = new List<string>();
 
         ValidateMetadata(manifest, missingRequiredSections, missingRequiredFields, unsupportedSchemaVersions);
-        ValidateReferences(
+        ValidateSourceReferences(
             manifest,
             planning,
             specificationState,
             providerState,
             executionPlanningState,
-            runtimeState,
+            runtimeProviderState,
             missingRequiredSections,
             missingRequiredFields,
             invalidReferences);
-        ValidateGenerationSpecification(manifest, specificationState, missingRequiredSections, missingRequiredFields, invalidReferences);
-        ValidateCapabilitySummary(manifest, providerState, runtimeState, planning, missingRequiredSections, missingRequiredFields, providerCompatibilityFailures);
+        ValidateCapabilitySummary(manifest, providerState, microsoftRuntimeState, planning, missingRequiredSections, missingRequiredFields, providerCompatibilityFailures);
         ValidateExecutionConstraints(manifest, boundaryViolations);
-        ValidateApprovalSummary(manifest, planning, executionPlanningState, runtimeState, missingRequiredSections, readinessConsistencyFailures);
-        ValidateLineage(manifest, planning, specificationState, providerState, executionPlanningState, runtimeState, missingRequiredSections, lineageIntegrityFailures);
-        ValidateUpstreamSchemaVersions(planning, specificationState, providerState, executionPlanningState, runtimeState, unsupportedSchemaVersions);
+        ValidateReadinessSummary(manifest, planning, providerState, executionPlanningState, runtimeProviderState, missingRequiredSections, readinessConsistencyFailures);
+        ValidateApprovalSummary(manifest, planning, providerState, microsoftRuntimeState, missingRequiredSections, readinessConsistencyFailures);
+        ValidateLineage(manifest, planning, specificationState, providerState, executionPlanningState, runtimeProviderState, missingRequiredSections, lineageIntegrityFailures);
+        ValidateGenerationSpecification(specificationState, generationSpecificationCompletenessFailures);
+        ValidateUpstreamSchemaVersions(planning, specificationState, providerState, executionPlanningState, runtimeProviderState, microsoftRuntimeState, unsupportedSchemaVersions);
 
         return new GenerationManifestValidationResult(
             new GenerationManifestValidationDiagnostics(
@@ -55,6 +59,7 @@ internal sealed class GenerationManifestValidator
                 LineageIntegrityFailures: DistinctAndOrder(lineageIntegrityFailures),
                 ReadinessConsistencyFailures: DistinctAndOrder(readinessConsistencyFailures),
                 ProviderCompatibilityFailures: DistinctAndOrder(providerCompatibilityFailures),
+                GenerationSpecificationCompletenessFailures: DistinctAndOrder(generationSpecificationCompletenessFailures),
                 BoundaryViolations: DistinctAndOrder(boundaryViolations)));
     }
 
@@ -79,65 +84,46 @@ internal sealed class GenerationManifestValidator
         }
     }
 
-    private static void ValidateReferences(
+    private static void ValidateSourceReferences(
         GenerationManifest manifest,
         PlanningOrchestrationResult planning,
         PbirGenerationSpecificationState specificationState,
         GenerationProviderFrameworkState providerState,
         GenerationProviderExecutionPlanningState executionPlanningState,
-        MicrosoftRuntimeProviderFrameworkState runtimeState,
+        RuntimeProviderFrameworkState runtimeProviderState,
         ICollection<string> missingRequiredSections,
         ICollection<string> missingRequiredFields,
         ICollection<string> invalidReferences)
     {
-        if (manifest.References is null)
+        if (manifest.SourceReferences is null)
         {
-            missingRequiredSections.Add("references");
+            missingRequiredSections.Add("sourceReferences");
             return;
         }
 
-        ValidateNotBlank(manifest.References.DesignPackageRef, "references.designPackageRef", missingRequiredFields);
-        ValidateNotBlank(manifest.References.GenerationRequestRef, "references.generationRequestRef", missingRequiredFields);
-        ValidateNotBlank(manifest.References.ExecutionPlanRef, "references.executionPlanRef", missingRequiredFields);
-        ValidateNotBlank(manifest.References.PlanningOutcomeRef, "references.planningOutcomeRef", missingRequiredFields);
-        ValidateNotBlank(manifest.References.RuntimeProviderRef, "references.runtimeProviderRef", missingRequiredFields);
-        ValidateNotBlank(manifest.References.GenerationProviderRequestRef, "references.generationProviderRequestRef", missingRequiredFields);
-        ValidateNotBlank(manifest.References.GenerationProviderExecutionPlanRef, "references.generationProviderExecutionPlanRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.DesignPackageRef, "sourceReferences.designPackageRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.GenerationRequestRef, "sourceReferences.generationRequestRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.ExecutionPlanRef, "sourceReferences.executionPlanRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.PlanningOutcomeRef, "sourceReferences.planningOutcomeRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.RuntimeProviderRef, "sourceReferences.runtimeProviderRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.GenerationProviderRequestRef, "sourceReferences.generationProviderRequestRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.GenerationProviderExecutionPlanRef, "sourceReferences.generationProviderExecutionPlanRef", missingRequiredFields);
+        ValidateNotBlank(manifest.SourceReferences.PbirGenerationSpecificationRef, "sourceReferences.pbirGenerationSpecificationRef", missingRequiredFields);
 
-        ValidateReference(manifest.References.DesignPackageRef, planning.Outcome.References.DesignPackageRef, "references.designPackageRef must match planningOutcome.references.designPackageRef.", invalidReferences);
-        ValidateReference(manifest.References.GenerationRequestRef, planning.Outcome.References.GenerationRequestRef, "references.generationRequestRef must match planningOutcome.references.generationRequestRef.", invalidReferences);
-        ValidateReference(manifest.References.ExecutionPlanRef, planning.Outcome.References.ExecutionPlanRef, "references.executionPlanRef must match planningOutcome.references.executionPlanRef.", invalidReferences);
-        ValidateReference(manifest.References.PlanningOutcomeRef, planning.Outcome.Metadata.OutcomeId, "references.planningOutcomeRef must match planningOutcome.metadata.outcomeId.", invalidReferences);
-        ValidateReference(manifest.References.RuntimeProviderRef, runtimeState.Request?.RequestId, "references.runtimeProviderRef must match microsoftRuntimeProvider.request.requestId.", invalidReferences);
-        ValidateReference(manifest.References.GenerationProviderRequestRef, providerState.Request?.Metadata.RequestId, "references.generationProviderRequestRef must match generationProviderRequest.metadata.requestId.", invalidReferences);
-        ValidateReference(manifest.References.GenerationProviderExecutionPlanRef, executionPlanningState.Plan?.Metadata.ExecutionPlanId, "references.generationProviderExecutionPlanRef must match generationProviderExecutionPlan.metadata.executionPlanId.", invalidReferences);
-    }
-
-    private static void ValidateGenerationSpecification(
-        GenerationManifest manifest,
-        PbirGenerationSpecificationState specificationState,
-        ICollection<string> missingRequiredSections,
-        ICollection<string> missingRequiredFields,
-        ICollection<string> invalidReferences)
-    {
-        if (manifest.GenerationSpecification is null)
-        {
-            missingRequiredSections.Add("generationSpecification");
-            return;
-        }
-
-        ValidateNotBlank(manifest.GenerationSpecification.PbirGenerationSpecificationRef, "generationSpecification.pbirGenerationSpecificationRef", missingRequiredFields);
-        ValidateReference(
-            manifest.GenerationSpecification.PbirGenerationSpecificationRef,
-            specificationState.Specification?.SpecificationId,
-            "generationSpecification.pbirGenerationSpecificationRef must match pbirGenerationSpecification.specificationId.",
-            invalidReferences);
+        ValidateReference(manifest.SourceReferences.DesignPackageRef, planning.Outcome.References.DesignPackageRef, "sourceReferences.designPackageRef must match planningOutcome.references.designPackageRef.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.GenerationRequestRef, planning.Outcome.References.GenerationRequestRef, "sourceReferences.generationRequestRef must match planningOutcome.references.generationRequestRef.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.ExecutionPlanRef, planning.Outcome.References.ExecutionPlanRef, "sourceReferences.executionPlanRef must match planningOutcome.references.executionPlanRef.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.PlanningOutcomeRef, planning.Outcome.Metadata.OutcomeId, "sourceReferences.planningOutcomeRef must match planningOutcome.metadata.outcomeId.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.RuntimeProviderRef, runtimeProviderState.Request?.RequestId, "sourceReferences.runtimeProviderRef must match runtimeProvider.request.requestId.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.GenerationProviderRequestRef, providerState.Request?.Metadata.RequestId, "sourceReferences.generationProviderRequestRef must match generationProviderRequest.metadata.requestId.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.GenerationProviderExecutionPlanRef, executionPlanningState.Plan?.Metadata.ExecutionPlanId, "sourceReferences.generationProviderExecutionPlanRef must match generationProviderExecutionPlan.metadata.executionPlanId.", invalidReferences);
+        ValidateReference(manifest.SourceReferences.PbirGenerationSpecificationRef, specificationState.Specification?.SpecificationId, "sourceReferences.pbirGenerationSpecificationRef must match pbirGenerationSpecification.specificationId.", invalidReferences);
     }
 
     private static void ValidateCapabilitySummary(
         GenerationManifest manifest,
         GenerationProviderFrameworkState providerState,
-        MicrosoftRuntimeProviderFrameworkState runtimeState,
+        MicrosoftRuntimeProviderFrameworkState microsoftRuntimeState,
         PlanningOrchestrationResult planning,
         ICollection<string> missingRequiredSections,
         ICollection<string> missingRequiredFields,
@@ -149,15 +135,25 @@ internal sealed class GenerationManifestValidator
             return;
         }
 
-        if (manifest.CapabilitySummary.SelectedProvider is null)
+        if (manifest.CapabilitySummary.SelectedGenerationProvider is null)
         {
-            missingRequiredSections.Add("capabilitySummary.selectedProvider");
+            missingRequiredSections.Add("capabilitySummary.selectedGenerationProvider");
             return;
         }
 
-        ValidateNotBlank(manifest.CapabilitySummary.SelectedProvider.ProviderId, "capabilitySummary.selectedProvider.providerId", missingRequiredFields);
-        ValidateNotBlank(manifest.CapabilitySummary.SelectedProvider.ProviderName, "capabilitySummary.selectedProvider.providerName", missingRequiredFields);
-        ValidateNotBlank(manifest.CapabilitySummary.SelectedProvider.ProviderVersion, "capabilitySummary.selectedProvider.providerVersion", missingRequiredFields);
+        if (manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider is null)
+        {
+            missingRequiredSections.Add("capabilitySummary.selectedMicrosoftRuntimeProvider");
+            return;
+        }
+
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedGenerationProvider.ProviderId, "capabilitySummary.selectedGenerationProvider.providerId", missingRequiredFields);
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedGenerationProvider.ProviderName, "capabilitySummary.selectedGenerationProvider.providerName", missingRequiredFields);
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedGenerationProvider.ProviderVersion, "capabilitySummary.selectedGenerationProvider.providerVersion", missingRequiredFields);
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderId, "capabilitySummary.selectedMicrosoftRuntimeProvider.providerId", missingRequiredFields);
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderName, "capabilitySummary.selectedMicrosoftRuntimeProvider.providerName", missingRequiredFields);
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderVersion, "capabilitySummary.selectedMicrosoftRuntimeProvider.providerVersion", missingRequiredFields);
+        ValidateNotBlank(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderCategory, "capabilitySummary.selectedMicrosoftRuntimeProvider.providerCategory", missingRequiredFields);
 
         if (!manifest.CapabilitySummary.NegotiatedCapabilities.SequenceEqual(
                 PreserveOrder(planning.Outcome.ReadinessSummary.CapabilitySummary.RequiredCapabilities),
@@ -166,25 +162,33 @@ internal sealed class GenerationManifestValidator
             providerCompatibilityFailures.Add("capabilitySummary.negotiatedCapabilities must match planning outcome negotiated capabilities.");
         }
 
-        if (!manifest.CapabilitySummary.ProviderCapabilities.SequenceEqual(
-                PreserveOrder(providerState.Provider?.SupportedCapabilities),
-                StringComparer.Ordinal))
+        if (!string.Equals(manifest.CapabilitySummary.SelectedGenerationProvider.ProviderId, providerState.Provider?.ProviderId, StringComparison.Ordinal) ||
+            !string.Equals(manifest.CapabilitySummary.SelectedGenerationProvider.ProviderName, providerState.Provider?.ProviderName, StringComparison.Ordinal) ||
+            !string.Equals(manifest.CapabilitySummary.SelectedGenerationProvider.ProviderVersion, providerState.Provider?.ProviderVersion, StringComparison.Ordinal))
         {
-            providerCompatibilityFailures.Add("capabilitySummary.providerCapabilities must match generation provider capabilities.");
+            providerCompatibilityFailures.Add("capabilitySummary.selectedGenerationProvider must match the selected generation provider.");
         }
 
-        if (!string.Equals(manifest.CapabilitySummary.SelectedProvider.ProviderId, providerState.Provider?.ProviderId, StringComparison.Ordinal) ||
-            !string.Equals(manifest.CapabilitySummary.SelectedProvider.ProviderName, providerState.Provider?.ProviderName, StringComparison.Ordinal) ||
-            !string.Equals(manifest.CapabilitySummary.SelectedProvider.ProviderVersion, providerState.Provider?.ProviderVersion, StringComparison.Ordinal))
+        if (!string.Equals(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderId, microsoftRuntimeState.Definition?.ProviderId, StringComparison.Ordinal) ||
+            !string.Equals(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderName, microsoftRuntimeState.Definition?.ProviderName, StringComparison.Ordinal) ||
+            !string.Equals(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderVersion, microsoftRuntimeState.Definition?.ProviderVersion, StringComparison.Ordinal) ||
+            !string.Equals(manifest.CapabilitySummary.SelectedMicrosoftRuntimeProvider.ProviderCategory, microsoftRuntimeState.Definition?.ProviderCategory, StringComparison.Ordinal))
         {
-            providerCompatibilityFailures.Add("capabilitySummary.selectedProvider must match the selected generation provider.");
+            providerCompatibilityFailures.Add("capabilitySummary.selectedMicrosoftRuntimeProvider must match the selected Microsoft runtime provider.");
         }
 
         if (!manifest.CapabilitySummary.SelectedSkills.SequenceEqual(
-                PreserveOrder(runtimeState.Context?.MicrosoftSkillSummary.RequiredSkillIds),
+                PreserveOrder(microsoftRuntimeState.Context?.MicrosoftSkillSummary.RequiredSkillIds),
                 StringComparer.Ordinal))
         {
             providerCompatibilityFailures.Add("capabilitySummary.selectedSkills must match microsoft runtime required skills.");
+        }
+
+        if (!manifest.CapabilitySummary.SelectedProviderCandidates.SequenceEqual(
+                PreserveOrder(microsoftRuntimeState.Context?.MicrosoftSkillSummary.CandidateProviderIds),
+                StringComparer.Ordinal))
+        {
+            providerCompatibilityFailures.Add("capabilitySummary.selectedProviderCandidates must match microsoft runtime candidate provider ids.");
         }
     }
 
@@ -204,15 +208,51 @@ internal sealed class GenerationManifestValidator
             manifest.ExecutionConstraints.ApiInvocationAllowed ||
             manifest.ExecutionConstraints.CliInvocationAllowed)
         {
-            boundaryViolations.Add("executionConstraints must preserve the Phase 18 non-execution trust boundary.");
+            boundaryViolations.Add("executionConstraints must preserve the Phase 19 non-execution trust boundary.");
+        }
+    }
+
+    private static void ValidateReadinessSummary(
+        GenerationManifest manifest,
+        PlanningOrchestrationResult planning,
+        GenerationProviderFrameworkState providerState,
+        GenerationProviderExecutionPlanningState executionPlanningState,
+        RuntimeProviderFrameworkState runtimeProviderState,
+        ICollection<string> missingRequiredSections,
+        ICollection<string> readinessConsistencyFailures)
+    {
+        if (manifest.ReadinessSummary is null)
+        {
+            missingRequiredSections.Add("readinessSummary");
+            return;
+        }
+
+        if (manifest.ReadinessSummary.PlanningReadiness != planning.Outcome.ReadinessSummary.Status)
+        {
+            readinessConsistencyFailures.Add("readinessSummary.planningReadiness must match planningOutcome.readinessSummary.status.");
+        }
+
+        if (manifest.ReadinessSummary.RuntimeReadiness != runtimeProviderState.Readiness)
+        {
+            readinessConsistencyFailures.Add("readinessSummary.runtimeReadiness must match runtimeProvider.readiness.");
+        }
+
+        if (manifest.ReadinessSummary.ProviderReadiness != providerState.Readiness)
+        {
+            readinessConsistencyFailures.Add("readinessSummary.providerReadiness must match generationProvider.readiness.");
+        }
+
+        if (manifest.ReadinessSummary.GenerationReadiness != executionPlanningState.Readiness)
+        {
+            readinessConsistencyFailures.Add("readinessSummary.generationReadiness must match generationProviderExecutionPlan.readiness.");
         }
     }
 
     private static void ValidateApprovalSummary(
         GenerationManifest manifest,
         PlanningOrchestrationResult planning,
-        GenerationProviderExecutionPlanningState executionPlanningState,
-        MicrosoftRuntimeProviderFrameworkState runtimeState,
+        GenerationProviderFrameworkState providerState,
+        MicrosoftRuntimeProviderFrameworkState microsoftRuntimeState,
         ICollection<string> missingRequiredSections,
         ICollection<string> readinessConsistencyFailures)
     {
@@ -236,14 +276,22 @@ internal sealed class GenerationManifestValidator
             readinessConsistencyFailures.Add("approvalSummary.planningApproval must match planning outcome readiness state.");
         }
 
-        if (manifest.ApprovalSummary.RuntimeReadiness != runtimeState.Readiness)
+        var expectedRuntimeApproval = new GenerationManifestRuntimeApprovalSummary(
+            RuntimeProviderId: microsoftRuntimeState.Definition?.ProviderId ?? string.Empty,
+            RuntimeReadiness: microsoftRuntimeState.Readiness,
+            AcceptsExecutionCandidate: microsoftRuntimeState.AcceptsExecutionCandidate);
+        if (manifest.ApprovalSummary.RuntimeApproval != expectedRuntimeApproval)
         {
-            readinessConsistencyFailures.Add("approvalSummary.runtimeReadiness must match microsoftRuntimeProvider.readiness.");
+            readinessConsistencyFailures.Add("approvalSummary.runtimeApproval must match microsoft runtime provider acceptance state.");
         }
 
-        if (manifest.ApprovalSummary.GenerationReadiness != executionPlanningState.Readiness)
+        var expectedProviderApproval = new GenerationManifestProviderApprovalSummary(
+            ProviderId: providerState.Provider?.ProviderId ?? string.Empty,
+            ProviderReadiness: providerState.Readiness,
+            ProviderApproved: providerState.Readiness == GenerationProviderReadinessState.ReadyForGenerationProvider);
+        if (manifest.ApprovalSummary.ProviderApproval != expectedProviderApproval)
         {
-            readinessConsistencyFailures.Add("approvalSummary.generationReadiness must match generationProviderExecutionPlan.readiness.");
+            readinessConsistencyFailures.Add("approvalSummary.providerApproval must match generation provider approval state.");
         }
     }
 
@@ -253,7 +301,7 @@ internal sealed class GenerationManifestValidator
         PbirGenerationSpecificationState specificationState,
         GenerationProviderFrameworkState providerState,
         GenerationProviderExecutionPlanningState executionPlanningState,
-        MicrosoftRuntimeProviderFrameworkState runtimeState,
+        RuntimeProviderFrameworkState runtimeProviderState,
         ICollection<string> missingRequiredSections,
         ICollection<string> lineageIntegrityFailures)
     {
@@ -268,11 +316,11 @@ internal sealed class GenerationManifestValidator
             specificationState.Specification?.SpecificationId,
             providerState.Request?.Metadata.RequestId,
             executionPlanningState.Plan?.Metadata.ExecutionPlanId,
-            runtimeState.Request?.RequestId);
+            runtimeProviderState.Request?.RequestId);
 
-        if (!expectedReferences.All(reference => manifest.Lineage.ImmutableReferences.Contains(reference, StringComparer.Ordinal)))
+        if (!expectedReferences.All(reference => manifest.Lineage.ImmutableUpstreamLineage.Contains(reference, StringComparer.Ordinal)))
         {
-            lineageIntegrityFailures.Add("lineage.immutableReferences must contain every required upstream reference.");
+            lineageIntegrityFailures.Add("lineage.immutableUpstreamLineage must contain every required upstream reference.");
         }
 
         var expectedLineage = BuildExpectedLineageEntries(
@@ -280,11 +328,27 @@ internal sealed class GenerationManifestValidator
             specificationState.Specification?.SpecificationId,
             providerState.Request?.Metadata.RequestId,
             executionPlanningState.Plan?.Metadata.ExecutionPlanId,
-            runtimeState.Request?.RequestId);
+            runtimeProviderState.Request?.RequestId);
 
         if (!manifest.Lineage.UpstreamLineage.SequenceEqual(expectedLineage))
         {
             lineageIntegrityFailures.Add("lineage.upstreamLineage must preserve complete deterministic upstream lineage.");
+        }
+    }
+
+    private static void ValidateGenerationSpecification(
+        PbirGenerationSpecificationState specificationState,
+        ICollection<string> generationSpecificationCompletenessFailures)
+    {
+        if (specificationState.Specification is null)
+        {
+            generationSpecificationCompletenessFailures.Add("pbir generation specification is missing.");
+            return;
+        }
+
+        if (specificationState.Readiness != PbirGenerationSpecificationReadinessState.ReadyForGenerationProvider)
+        {
+            generationSpecificationCompletenessFailures.Add("pbir generation specification must be readyForGenerationProvider.");
         }
     }
 
@@ -293,7 +357,8 @@ internal sealed class GenerationManifestValidator
         PbirGenerationSpecificationState specificationState,
         GenerationProviderFrameworkState providerState,
         GenerationProviderExecutionPlanningState executionPlanningState,
-        MicrosoftRuntimeProviderFrameworkState runtimeState,
+        RuntimeProviderFrameworkState runtimeProviderState,
+        MicrosoftRuntimeProviderFrameworkState microsoftRuntimeState,
         ICollection<string> unsupportedSchemaVersions)
     {
         ValidateSchemaVersion(planning.Outcome.Metadata.SchemaVersion, PlanningOutcomeContract.SchemaVersionV1, unsupportedSchemaVersions);
@@ -302,8 +367,9 @@ internal sealed class GenerationManifestValidator
         ValidateSchemaVersion(providerState.Request?.SchemaVersion, GenerationProviderRequestContract.SchemaVersionV1, unsupportedSchemaVersions);
         ValidateSchemaVersion(providerState.Provider?.SchemaVersion, GenerationProviderDefinitionContract.SchemaVersionV1, unsupportedSchemaVersions);
         ValidateSchemaVersion(executionPlanningState.Plan?.Metadata.SchemaVersion, GenerationProviderExecutionPlanContract.SchemaVersionV1, unsupportedSchemaVersions);
-        ValidateSchemaVersion(runtimeState.Definition?.SchemaVersion, MicrosoftRuntimeProviderContract.SchemaVersionV1, unsupportedSchemaVersions);
-        ValidateSchemaVersion(runtimeState.Request?.SchemaVersion, MicrosoftRuntimeRequestContract.SchemaVersionV1, unsupportedSchemaVersions);
+        ValidateSchemaVersion(runtimeProviderState.Request?.SchemaVersion, RuntimeProviderRequestContract.SchemaVersionV1, unsupportedSchemaVersions);
+        ValidateSchemaVersion(microsoftRuntimeState.Definition?.SchemaVersion, MicrosoftRuntimeProviderContract.SchemaVersionV1, unsupportedSchemaVersions);
+        ValidateSchemaVersion(microsoftRuntimeState.Request?.SchemaVersion, MicrosoftRuntimeRequestContract.SchemaVersionV1, unsupportedSchemaVersions);
     }
 
     private static void ValidateReference(string? actual, string? expected, string message, ICollection<string> invalidReferences)
@@ -361,46 +427,21 @@ internal sealed class GenerationManifestValidator
         string? generationProviderExecutionPlanRef,
         string? runtimeProviderRef)
     {
-        var manifestEntries = new List<PlanningLineageEntry>();
-
-        if (!string.IsNullOrWhiteSpace(specificationRef))
-        {
-            manifestEntries.Add(new PlanningLineageEntry("pbirGenerationSpecification", specificationRef, "PBIR generation specification"));
-        }
-
-        if (!string.IsNullOrWhiteSpace(generationProviderRequestRef))
-        {
-            manifestEntries.Add(new PlanningLineageEntry("generationProviderRequest", generationProviderRequestRef, "Generation provider request"));
-        }
-
-        if (!string.IsNullOrWhiteSpace(generationProviderExecutionPlanRef))
-        {
-            manifestEntries.Add(new PlanningLineageEntry("generationProviderExecutionPlan", generationProviderExecutionPlanRef, "Generation provider execution plan"));
-        }
-
-        if (!string.IsNullOrWhiteSpace(runtimeProviderRef))
-        {
-            manifestEntries.Add(new PlanningLineageEntry("runtimeProvider", runtimeProviderRef, "Runtime provider request"));
-        }
-
         return outcome.Lineage.UpstreamLineage
             .Concat(outcome.Lineage.PlanningLineage)
-            .Concat(manifestEntries)
+            .Concat(
+            [
+                new PlanningLineageEntry("generationProviderExecutionPlan", generationProviderExecutionPlanRef ?? string.Empty, "Generation provider execution plan"),
+                new PlanningLineageEntry("generationProviderRequest", generationProviderRequestRef ?? string.Empty, "Generation provider request"),
+                new PlanningLineageEntry("pbirGenerationSpecification", specificationRef ?? string.Empty, "PBIR generation specification"),
+                new PlanningLineageEntry("runtimeProvider", runtimeProviderRef ?? string.Empty, "Runtime provider request"),
+            ])
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.ReferenceId))
             .Distinct()
             .OrderBy(entry => entry.Stage, StringComparer.Ordinal)
             .ThenBy(entry => entry.ReferenceId, StringComparer.Ordinal)
             .ThenBy(entry => entry.Label, StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static string[] PreserveOrder(IReadOnlyList<string>? values)
-    {
-        return values is null
-            ? []
-            : values
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
     }
 
     private static string[] DistinctAndOrder(IEnumerable<string> values)
@@ -410,5 +451,13 @@ internal sealed class GenerationManifestValidator
             .Distinct(StringComparer.Ordinal)
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static string[] PreserveOrder(IReadOnlyList<string>? values)
+    {
+        return values?
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray() ?? [];
     }
 }

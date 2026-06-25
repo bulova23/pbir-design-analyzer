@@ -2,6 +2,68 @@
 
 ## Active Session
 
+- 2026-06-25 Design Package Microsoft Skills Integration Phase 19 is complete:
+  - objective:
+    - implement only the Phase 19 Generation Manifest Integration and Pipeline Verification scope
+    - integrate the complete planning pipeline into `generation-manifest/v1`
+    - add deterministic end-to-end pipeline verification from Design Package through Generation Manifest
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and the current Phase 18 manifest/runtime/provider code
+    - reconciled the repo state against the requested Phase 19 scope and identified the remaining gap as runtime-provider integration, manifest contract alignment, and explicit pipeline verification
+    - wrote failing xUnit coverage first for manifest contract expansion, deterministic readiness/lineage preservation, and end-to-end pipeline verification
+  - delivered:
+    - updated:
+      - `service-dotnet/Services/Discovery/Models/GenerationManifestModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestService.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestValidator.cs`
+      - `service-dotnet/tests/Discovery/GenerationManifestServiceTests.cs`
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `.agent-memory/repo-map.md`
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationPipelineVerificationModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationPipelineVerificationService.cs`
+      - `service-dotnet/tests/Discovery/GenerationPipelineVerificationServiceTests.cs`
+    - implemented:
+      - `generation-manifest/v1` source-reference integration across Design Package, Generation Request, Execution Plan, Planning Outcome, Runtime Provider, PBIR Generation Specification, Generation Provider Request, and Generation Provider Execution Plan
+      - separate manifest readiness summary and approval summary
+      - deterministic selected generation-provider and Microsoft runtime-provider summaries plus selected skill/provider-candidate capture
+      - `generation-pipeline-verification/v1`
+      - deterministic verification of every planning stage, preserved references, readiness transitions, immutable lineage, and non-execution boundaries
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~GenerationManifestServiceTests|FullyQualifiedName~GenerationPipelineVerificationServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 19 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, or Fabric Data App generation unless a new goal explicitly opens the next phase
+
+## Active Session
+
+- 2026-06-25 Remove ConnectWise MCP is complete:
+  - objective:
+    - remove the local ConnectWise MCP registration from the active Codex configuration
+    - remove the dependent MCP-specific wording from the weekday morning brief automation
+  - started:
+    - read `AGENTS.md`, repo memory files, and failure-avoidance notes
+    - searched the repository for ConnectWise MCP references and confirmed the repo itself did not define the MCP
+    - located the active MCP definition in `/Users/bcrowell/.codex/config.toml`
+  - delivered:
+    - removed `[mcp_servers.connectwise_manage]` from `/Users/bcrowell/.codex/config.toml`
+    - updated `/Users/bcrowell/.codex/automations/weekday-morning-brief/automation.toml` to remove the hard-coded MCP endpoint and MCP-specific access wording
+  - validation passed:
+    - verified the config no longer contains `connectwise_manage`
+    - verified the config no longer contains the removed `mcp-remote` endpoint
+    - verified the automation no longer contains the removed endpoint URL
+    - verified the automation no longer contains MCP-specific ConnectWise access wording
+  - next recommended step:
+    - review whether archived `.codex` notes or attachments still need manual cleanup, but no active MCP config changes remain
+
+## Active Session
+
 - 2026-06-25 Design Package Microsoft Skills Integration Phase 18 is complete:
   - objective:
     - implement only the Phase 18 Generation Manifest Framework scope

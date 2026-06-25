@@ -39,7 +39,7 @@
 - `docs/current-state/`: authoritative current-state snapshots for planning, runtime, PBIR specification, and execution-boundary layers
   - includes `generation-provider-framework-state.md` for the provider-neutral contract seam after PBIR specifications
   - includes `generation-provider-execution-planning-framework-state.md` for the downstream provider-neutral execution-planning seam after generation-provider requests
-  - includes `generation-manifest-framework-state.md` for the immutable provider-neutral handoff manifest seam after generation-provider execution planning and runtime readiness
+  - includes `generation-manifest-framework-state.md` for the immutable provider-neutral execution package seam plus deterministic end-to-end pipeline verification after runtime-provider, Microsoft runtime, provider, and execution-planning readiness
 
 ## Important Memory Files
 
