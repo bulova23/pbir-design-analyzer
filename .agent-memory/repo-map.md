@@ -37,6 +37,7 @@
 - `docs/ROADMAP.md`: post-`0.2.0` roadmap ordering and epic links
 - `docs/superpowers/specs/` and `docs/superpowers/plans/`: implementation specs and plans
 - `docs/current-state/`: authoritative current-state snapshots for planning, runtime, PBIR specification, and execution-boundary layers
+  - includes `generation-provider-framework-state.md` for the provider-neutral contract seam after PBIR specifications
 
 ## Important Memory Files
 

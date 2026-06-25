@@ -24,6 +24,7 @@ PBIR Generation Specification Framework now sits after:
 
 It sits before:
 
+- the new Generation Provider Framework
 - the existing PBIR execution prototype boundary
 - any future Microsoft generation provider
 - any future PBIR artifact intake or deployment workflow
@@ -46,6 +47,7 @@ The implemented Phase 15 layer currently includes:
 - `PbirGenerationSpecificationService`
 - `PbirGenerationSpecificationValidator`
 - `PbirGenerationSpecificationReadinessService`
+- downstream deterministic consumption by Generation Provider Framework
 - deterministic mapping from:
   - Design Package page intent
   - Generation Request target/profile intent
@@ -186,6 +188,7 @@ The current repo state still excludes:
 - Microsoft API invocation
 - CLI-backed execution
 - real PBIR generation
+- provider execution
 - artifact intake and quarantine
 - deployment workflows
 - Fabric App generation

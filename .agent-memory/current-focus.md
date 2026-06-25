@@ -2,6 +2,60 @@
 
 ## Active Session
 
+- 2026-06-24 Design Package Microsoft Skills Integration Phase 16 is complete:
+  - objective:
+    - implement only the Phase 16 Generation Provider Contract Framework scope
+    - add `generation-provider/v1`, `generation-provider-definition/v1`, `generation-provider-request/v1`, `generation-provider-context/v1`, and `generation-provider-result/v1`
+    - create a provider-neutral registry, validation, readiness, and PBIR-specification-to-provider-request mapping seam
+    - stop before PBIR generation, Microsoft Skills execution, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and the current-state docs for the Phase 10-15 planning/runtime/specification layers
+    - confirmed the new seam should sit after `pbir-generation-specification/v1` as a metadata-only provider contract that future generators can consume without introducing execution
+    - identified the target implementation pattern from adjacent phases:
+      - versioned model contract file
+      - focused framework service
+      - validator
+      - readiness service
+      - metadata-only registry
+      - xUnit contract and boundary tests
+    - preparing failing xUnit coverage first for registration, discovery, request mapping, compatibility validation, readiness evaluation, and strict non-generation boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationProviderModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderFrameworkService.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderRegistry.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderValidator.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderReadinessService.cs`
+      - `service-dotnet/tests/Discovery/GenerationProviderFrameworkServiceTests.cs`
+      - `docs/current-state/generation-provider-framework-state.md`
+    - implemented:
+      - `generation-provider/v1`
+      - `generation-provider-definition/v1`
+      - `generation-provider-request/v1`
+      - `generation-provider-context/v1`
+      - `generation-provider-result/v1`
+      - provider-neutral PBIR specification to generation-provider request mapping
+      - metadata-only generation provider registration, discovery, capability lookup, artifact-type lookup, and target-profile lookup
+      - generation-provider validation for specification completeness, provider compatibility, artifact-type support, target-profile support, and schema compatibility
+      - readiness states:
+        - `unsupported`
+        - `blocked`
+        - `candidate`
+        - `readyForGenerationProvider`
+    - updated:
+      - `docs/current-state/pbir-generation-specification-framework-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationProviderFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 16 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
 - 2026-06-23 Design Package Microsoft Skills Integration Phase 15 is complete:
   - objective:
     - implement only the Phase 15 PBIR Generation Specification Framework scope
@@ -2496,8 +2550,8 @@
 
 ## Current Objective
 
-- Design Package Microsoft Skills Capability Catalog Framework Phase 12 is complete.
+- Design Package Microsoft Skills Integration Phase 16 is complete.
 - Next action for this area:
-  - stop after Phase 12 as requested
+  - stop after Phase 16 as requested
   - preserve the existing planning-only and contract-only boundaries
-  - do not begin Microsoft Skills execution, skill invocation, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal opens the next phase
+  - do not begin PBIR generation, Microsoft Skills execution, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal opens the next phase
