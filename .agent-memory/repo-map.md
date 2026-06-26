@@ -40,6 +40,10 @@
   - includes `generation-provider-framework-state.md` for the provider-neutral contract seam after PBIR specifications
   - includes `generation-provider-execution-planning-framework-state.md` for the downstream provider-neutral execution-planning seam after generation-provider requests
   - includes `generation-manifest-framework-state.md` for the immutable provider-neutral execution package seam plus deterministic end-to-end pipeline verification after runtime-provider, Microsoft runtime, provider, and execution-planning readiness
+  - includes `architecture-certification-state.md`, `architecture-readiness-report.md`, and `architecture-gap-analysis.md` for Phase 20 planning-architecture certification, readiness classification, and remaining implementation gap categories
+  - includes `reference-generator-state.md` for the Phase 21 local deterministic Reference PBIR Generator prototype and its non-execution safety model
+  - includes `pbir-intermediate-representation-state.md` for Phase 22 canonical pbir-ir/v1, pbir-serializer-request/v1, IR lifecycle, serializer boundary, and remaining serializer implementation gap
+  - includes `pbir-preview-serializer-state.md` for Phase 23 pbir-preview-artifact/v1, pbir-preview-manifest/v1, local preview behavior, serializer safety boundary, and the remaining deployable PBIR serialization gap
 
 ## Important Memory Files
 

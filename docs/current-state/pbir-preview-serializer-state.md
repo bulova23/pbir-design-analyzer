@@ -1,0 +1,212 @@
+# PBIR Preview Serializer Current State
+
+## Status
+
+Phase 23 adds the PBIR Preview Serializer boundary.
+
+The preview artifact contract is pbir-preview-artifact/v1.
+
+The preview manifest contract is pbir-preview-manifest/v1.
+
+## Purpose
+
+The preview serializer proves that canonical PBIR IR can be rendered into deterministic human-reviewable output.
+
+It is not deployable PBIR serialization.
+
+It does not create Power BI project files, PBIR report definitions, semantic model files, TMDL, or deployable artifacts.
+
+## Current Product Position
+
+PBIR Preview Serializer sits after:
+
+- pbir-ir/v1
+- pbir-serializer-request/v1
+
+It consumes:
+
+- PbirIntermediateRepresentationState
+- PbirSerializerRequest
+- PbirPreviewSerializerOptions
+
+It produces:
+
+- pbir-preview-artifact/v1
+- pbir-preview-manifest/v1
+- deterministic Markdown preview descriptors
+- deterministic JSON preview descriptors
+- page summaries
+- visual and page layout summaries
+- semantic binding summaries
+- navigation summaries
+- deterministic SHA-256 hashes
+- immutable preview lineage
+- warnings
+- unsupported-section inventory
+
+The implementation uses in-memory local file descriptors. It does not write files, invoke external tools, call network APIs, or deploy assets.
+
+## Architecture
+
+The delivered backend components are:
+
+- PbirPreviewSerializerService
+- PbirPreviewSerializerSafetyGate
+- PbirPreviewSerializerValidator
+- PbirPreviewSerializerOptions
+- PbirPreviewArtifact
+- PbirPreviewManifest
+- PbirPreviewGeneratedFile
+- PbirPreviewSerializerState
+
+The service flow is:
+
+1. Validate safety before preview generation.
+2. Reject unsafe or incomplete input without generated artifacts.
+3. Validate pbir-serializer-request/v1 against the supplied pbir-ir/v1 reference and content hash.
+4. Render deterministic Markdown and JSON preview descriptors.
+5. Compute deterministic file, file-set, output, and manifest hashes.
+6. Preserve source references and immutable lineage.
+7. Record forbidden deployable sections as unsupported, not generated.
+
+## Preview Artifact Model
+
+pbir-preview-artifact/v1 contains:
+
+- schema version
+- metadata
+  - artifact id
+  - generated UTC
+  - local output root
+  - local-only flag
+- source references
+  - PBIR IR reference
+  - PBIR IR schema version
+  - PBIR IR content hash
+  - serializer request reference
+- generated file descriptors
+  - relative path
+  - content type
+  - purpose
+  - preview output type
+  - content
+  - byte length
+  - SHA-256 content hash
+- hashes
+  - input hash
+  - file-set hash
+  - output hash
+
+Current generated preview descriptors are:
+
+- pbir-preview-artifact/v1/report-preview.md
+- pbir-preview-artifact/v1/report-preview.json
+
+These names are preview descriptor paths only. They are not Power BI project paths.
+
+## Preview Manifest Model
+
+pbir-preview-manifest/v1 contains:
+
+- schema version
+- metadata
+  - manifest id
+  - generated UTC
+- source references
+  - PBIR IR reference
+  - PBIR IR schema version
+  - PBIR IR content hash
+  - serializer request reference
+- generated preview file references
+- lineage
+  - upstream lineage
+  - immutable preview lineage
+- warnings
+- unsupported sections
+- hashes
+  - input hash
+  - file-set hash
+  - manifest hash
+
+The manifest is intended to make preview output reviewable and auditable without granting mutation or deployment authority.
+
+## Safety Model
+
+PbirPreviewSerializerSafetyGate fails closed.
+
+It rejects:
+
+- missing or incomplete PBIR IR
+- invalid serializer request schema
+- serializer request PBIR IR reference mismatches
+- serializer request PBIR IR content hash mismatches
+- deployable output requests
+- report.json output requests
+- definition.pbir output requests
+- model.bim output requests
+- TMDL output requests
+- Power BI project file output requests
+- provider invocation requests
+- Microsoft API requests
+- CLI requests
+- Microsoft Skills execution requests
+- deployment requests
+- non-local output paths
+
+Rejected requests return no preview artifact and no preview manifest.
+
+## Validation Model
+
+PbirPreviewSerializerValidator validates:
+
+- preview artifact schema version
+- preview manifest schema version
+- source reference integrity
+- generated preview file presence
+- supported preview output types
+- generated file byte length and SHA-256 stability
+- file-set hash stability
+- manifest hash stability
+- immutable lineage coverage
+- absence of deployable PBIR file references
+
+Validation fails closed.
+
+## Determinism Model
+
+For identical PBIR IR, serializer request, options, and generated UTC:
+
+- Markdown preview content is identical
+- JSON preview content is identical
+- generated file hashes are identical
+- file-set hash is identical
+- output hash is identical
+- manifest hash is identical
+- immutable lineage ordering is identical
+
+## Current Trust Boundaries
+
+The PBIR Preview Serializer does not:
+
+- generate deployable PBIR artifacts
+- create report.json
+- create definition.pbir
+- create model.bim
+- create TMDL
+- create Power BI project files
+- execute Microsoft Skills
+- invoke providers
+- call Microsoft APIs
+- invoke CLI commands
+- deploy assets
+- publish artifacts
+- mutate reports
+- automate Analyzer Workspace
+
+## Remaining PBIR Serialization Gap
+
+Deployable PBIR serialization remains unimplemented.
+
+The repo still has no production PBIR serializer, no deployable PBIR project materialization, no Microsoft Skills execution, no provider invocation, no Microsoft API invocation, no CLI invocation, and no deployment workflow.
+
+Future deployable serializer work must remain downstream from pbir-ir/v1 and must preserve this preview boundary as local human-review output only.

@@ -31,7 +31,10 @@ Generation Manifest Framework now sits after:
 
 It sits before:
 
-- any future PBIR generator
+- the local deterministic Reference PBIR Generator prototype
+- the canonical PBIR Intermediate Representation layer
+- the local PBIR Preview Serializer boundary
+- any future production PBIR generator
 - any future Microsoft Skills execution provider
 - any future provider invocation path
 - any future API or CLI execution path
@@ -44,7 +47,9 @@ Its ownership remains:
 - planning, runtime, specification, and provider layers normalize generation metadata
 - Generation Manifest Framework composes the immutable provider-neutral execution package
 - Generation Pipeline Verification proves the pipeline is complete and deterministic
-- future generators remain downstream consumers only
+- the Reference PBIR Generator is a downstream consumer only
+- PBIR Intermediate Representation is a downstream canonicalization layer only
+- future production generators remain downstream consumers only
 - Analyzer Workspace remains the downstream validation owner for any future generated artifact
 
 ## Generation Manifest Contract
@@ -129,9 +134,9 @@ This preserves full planning-package traceability without creating any execution
 - `readyForGenerator`
   - the complete planning pipeline has produced a deterministic immutable execution package
 
-`readyForGenerator` does not imply generation occurred.
+`readyForGenerator` does not imply production generation occurred.
 
-It means only that the planning architecture produced a complete downstream handoff package for a future generator.
+It means only that the planning architecture produced a complete downstream handoff package for a generator. In Phase 21, the local Reference PBIR Generator may consume it to create deterministic reference artifacts only. In Phase 22, PBIR IR may consume it to create the canonical internal representation for a future serializer. In Phase 23, the local PBIR Preview Serializer may consume canonical PBIR IR and the serializer request contract to render deterministic local preview artifacts only.
 
 ## Validation Model
 
@@ -211,7 +216,8 @@ No execution side effects are introduced by this determinism model.
 
 The current framework does not:
 
-- generate PBIR artifacts
+- generate deployable PBIR artifacts
+- create deployable PBIR serializer output
 - invoke Microsoft Skills
 - invoke providers
 - call Microsoft APIs
@@ -224,7 +230,8 @@ The current framework does not:
 
 The current repo state still excludes:
 
-- PBIR generation
+- production PBIR generation
+- deployable PBIR project generation
 - Microsoft Skills execution
 - provider invocation
 - Microsoft API invocation

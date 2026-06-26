@@ -2,6 +2,205 @@
 
 ## Active Session
 
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 23 is complete:
+  - objective:
+    - implement only PBIR Serializer Boundary and Local Preview Artifacts
+    - create pbir-preview-artifact/v1 and pbir-preview-manifest/v1
+    - consume canonical pbir-ir/v1 and pbir-serializer-request/v1
+    - emit deterministic local Markdown and JSON preview artifacts for human review only
+    - preserve immutable lineage and deterministic hashes
+    - stop before deployable PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, and deployable PBIR serialization
+  - starting context:
+    - Phase 22 canonical PBIR IR and serializer request contract are complete
+    - no PBIR serializer implementation, deployable PBIR output, Microsoft Skills execution, provider/API/CLI invocation, or deployment exists
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirPreviewSerializerModels.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewSerializerSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewSerializerValidator.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewSerializerService.cs`
+      - `service-dotnet/tests/Discovery/PbirPreviewSerializerServiceTests.cs`
+      - `docs/current-state/pbir-preview-serializer-state.md`
+      - `docs/superpowers/plans/2026-06-26-pbir-preview-serializer-phase23.md`
+      - `.agent-memory/sessions/2026-06-26-143218-pbir-preview-serializer-phase23.md`
+    - implemented:
+      - pbir-preview-artifact/v1
+      - pbir-preview-manifest/v1
+      - local deterministic PBIR preview serializer output descriptors
+      - deterministic Markdown and JSON preview artifacts
+      - page, visual layout, semantic binding, and navigation summaries
+      - deterministic file, file-set, output, and manifest hashes
+      - immutable preview lineage
+      - fail-closed safety rejection for deployable output, report.json, definition.pbir, model.bim, TMDL, Power BI project files, provider invocation, Microsoft API invocation, CLI invocation, Microsoft Skills execution, deployment, non-local paths, incomplete IR, and request hash mismatches
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewSerializerServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewSerializerServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 23 as requested
+    - do not begin deployable PBIR serialization, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 22 is complete:
+  - objective:
+    - implement only the Canonical PBIR Intermediate Representation scope
+    - create pbir-ir/v1 and pbir-serializer-request/v1 request contract
+    - consume generation-manifest/v1 and PBIR generation specification
+    - produce deterministic canonical IR with hashes and immutable lineage
+    - update the Reference PBIR Generator to emit canonical IR descriptors instead of descriptive-only intermediate metadata
+    - stop before Microsoft Skills execution, PBIR serialization, provider invocation, Microsoft API invocation, CLI invocation, deployment, and deployable PBIR generation
+  - starting context:
+    - Phase 21 local deterministic reference generator is complete
+    - no execution providers, Microsoft Skills execution, serializer, deployment, or deployable PBIR generation exists
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirIntermediateRepresentationModels.cs`
+      - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationService.cs`
+      - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationValidator.cs`
+      - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationReadinessService.cs`
+      - `service-dotnet/tests/Discovery/PbirIntermediateRepresentationServiceTests.cs`
+      - `docs/current-state/pbir-intermediate-representation-state.md`
+      - `docs/superpowers/plans/2026-06-26-pbir-intermediate-representation-phase22.md`
+      - `.agent-memory/sessions/2026-06-26-pbir-intermediate-representation-phase22.md`
+    - updated:
+      - `service-dotnet/Services/Discovery/Models/ReferencePbirGenerationModels.cs`
+      - `service-dotnet/Services/Discovery/ReferencePbirGenerationService.cs`
+      - `service-dotnet/tests/Discovery/ReferencePbirGenerationServiceTests.cs`
+      - `docs/current-state/reference-generator-state.md`
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - pbir-ir/v1
+      - pbir-serializer-request/v1 request contract only
+      - deterministic PBIR IR generation from generation-manifest/v1 and PBIR generation specification
+      - PBIR IR validation for completeness, navigation integrity, semantic integrity, layout integrity, schema compatibility, and boundary protection
+      - PBIR IR readiness states:
+        - incomplete
+        - blocked
+        - canonical
+        - readyForSerializer
+      - deterministic IR input, content, and lineage hashes
+      - immutable IR lineage
+      - Reference PBIR Generator canonical IR output:
+        - `reference-pbir-generator/v1/canonical-pbir-ir.json`
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirIntermediateRepresentationServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~PbirIntermediateRepresentationServiceTests|FullyQualifiedName~ReferencePbirGenerationServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 22 as requested
+    - do not begin PBIR serialization, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, deployable PBIR generation, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 21 is complete:
+  - objective:
+    - implement only the Reference PBIR Generator local deterministic prototype
+    - create `reference-pbir-generator/v1` and `reference-generation-output/v1`
+    - consume `generation-manifest/v1`
+    - preserve immutable lineage, generation metadata, deterministic hashes, and local-only reference output
+    - stop before Microsoft Skills execution, Copilot execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, production PBIR generation, Fabric App generation, Fabric Data App generation, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, Phase 20 architecture certification docs, and current-state planning architecture summaries
+    - added failing xUnit coverage first for deterministic output, stable hashes, lineage, metadata, safety rejection, and boundary protection
+  - current validation:
+    - focused red gate failed as expected before implementation because Phase 21 reference generator types did not exist
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ReferencePbirGenerationServiceTests`
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/ReferencePbirGenerationModels.cs`
+      - `service-dotnet/Services/Discovery/ReferenceGenerationSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/ReferencePbirGenerationService.cs`
+      - `service-dotnet/tests/Discovery/ReferencePbirGenerationServiceTests.cs`
+      - `docs/current-state/reference-generator-state.md`
+      - `docs/superpowers/plans/2026-06-26-reference-pbir-generator-phase21.md`
+      - `.agent-memory/sessions/2026-06-26-reference-pbir-generator-phase21.md`
+    - updated:
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `docs/current-state/architecture-readiness-report.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - `reference-pbir-generator/v1`
+      - `reference-generation-output/v1`
+      - `IReferenceGenerationProvider`
+      - `ReferencePbirGenerationService`
+      - `ReferenceGenerationSafetyGate`
+      - deterministic local JSON and Markdown reference output descriptors
+      - deterministic SHA-256 input, file-set, output, and file-content hashes
+      - immutable lineage and generation metadata preservation
+      - fail-closed safety rejection for non-certified architecture, missing manifest, deployment requests, provider invocation requests, Microsoft API requests, CLI requests, network requests, and incomplete PBIR specification readiness
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ReferencePbirGenerationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 21 as requested
+    - do not begin Microsoft Skills execution, Copilot execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, production PBIR generation, Fabric App generation, Fabric Data App generation, Analyzer Workspace automation, or broader execution-provider implementation unless a new goal explicitly opens that phase
+
+## Active Session
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 20 is complete:
+  - objective:
+    - implement only Architecture Validation and Readiness Certification
+    - create `architecture-certification/v1`, `architecture-readiness-report/v1`, and `architecture-gap-analysis/v1`
+    - validate planning architecture, trust boundaries, ownership boundaries, provider neutrality, deterministic behavior, immutable lineage, schema consistency, readiness transitions, and approval transitions
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, and Analyzer Workspace automation
+  - started:
+    - Phase 19 completed deterministic planning pipeline verification through `generation-manifest/v1`
+    - added failing architecture certification tests first, then implemented the minimum certification-only services and contracts
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/ArchitectureCertificationModels.cs`
+      - `service-dotnet/Services/Discovery/ArchitectureValidationService.cs`
+      - `service-dotnet/Services/Discovery/ArchitectureReadinessCertificationService.cs`
+      - `service-dotnet/tests/Discovery/ArchitectureCertificationServiceTests.cs`
+      - `docs/current-state/architecture-certification-state.md`
+      - `docs/current-state/architecture-readiness-report.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+    - implemented:
+      - `architecture-validation/v1`
+      - `architecture-certification/v1`
+      - `architecture-readiness-report/v1`
+      - `architecture-gap-analysis/v1`
+      - readiness states:
+        - `incomplete`
+        - `conditionallyReady`
+        - `architecturallyComplete`
+        - `readyForExecutionImplementation`
+      - deterministic validation for layer participation, trust boundaries, ownership boundaries, provider neutrality, schema versions, readiness transitions, approvals, deterministic pipeline verification, and immutable lineage
+      - deterministic certification and gap analysis documenting remaining implementation-only categories
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ArchitectureCertificationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 20 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, Analyzer Workspace automation, or execution implementation unless a new goal explicitly opens that phase
+
+## Active Session
+
 - 2026-06-25 Design Package Microsoft Skills Integration Phase 19 is complete:
   - objective:
     - implement only the Phase 19 Generation Manifest Integration and Pipeline Verification scope
