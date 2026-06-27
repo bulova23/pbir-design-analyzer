@@ -46,6 +46,10 @@ It produces:
 
 The implementation uses in-memory local file descriptors. It does not write files, invoke external tools, call network APIs, or deploy assets.
 
+Phase 24 adds a downstream PBIR Local Artifact Writer Boundary that may consume pbir-preview-manifest/v1 and pbir-ir/v1 to produce dry-run local write manifests.
+
+Phase 25 adds a downstream PBIR Local Preview File Writer that may write only approved local preview files from those manifests. It still does not create deployable PBIR artifacts.
+
 ## Architecture
 
 The delivered backend components are:
@@ -203,10 +207,12 @@ The PBIR Preview Serializer does not:
 - mutate reports
 - automate Analyzer Workspace
 
+The downstream local writer boundary and local preview writer preserve these restrictions. They plan or write local preview, IR, manifest, and diagnostics artifacts only, and they reject report.json, definition.pbir, model.bim, TMDL, PBIP project output, Microsoft Skills execution, provider/API/CLI invocation, and deployment.
+
 ## Remaining PBIR Serialization Gap
 
 Deployable PBIR serialization remains unimplemented.
 
-The repo still has no production PBIR serializer, no deployable PBIR project materialization, no Microsoft Skills execution, no provider invocation, no Microsoft API invocation, no CLI invocation, and no deployment workflow.
+The repo still has no production PBIR serializer, no deployable PBIR project materialization, no deployable local artifact writer, no Microsoft Skills execution, no provider invocation, no Microsoft API invocation, no CLI invocation, and no deployment workflow.
 
 Future deployable serializer work must remain downstream from pbir-ir/v1 and must preserve this preview boundary as local human-review output only.

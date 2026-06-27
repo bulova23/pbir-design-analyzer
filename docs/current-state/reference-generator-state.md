@@ -44,6 +44,8 @@ It produces:
 
 It sits before the Phase 23 PBIR Preview Serializer, which may consume canonical pbir-ir/v1 to render local human-review preview artifacts only.
 
+It also sits upstream from the Phase 24 PBIR Local Artifact Writer Boundary, which may consume pbir-ir/v1 and pbir-preview-manifest/v1 to produce dry-run write manifests only.
+
 ## Architecture
 
 The delivered backend components are:
@@ -138,6 +140,7 @@ The reference generator does not:
 - serialize deployable PBIR
 - create deployable PBIR projects
 - create Fabric artifacts
+- write local artifact files
 
 ## Remaining Production Gaps
 
@@ -145,6 +148,7 @@ The following remain intentionally unimplemented:
 
 - PBIR serialization
 - deployable PBIR serialization
+- real local artifact writing
 - production PBIR generation
 - deployable PBIR project materialization
 - Microsoft Skills execution

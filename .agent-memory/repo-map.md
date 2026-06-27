@@ -44,6 +44,8 @@
   - includes `reference-generator-state.md` for the Phase 21 local deterministic Reference PBIR Generator prototype and its non-execution safety model
   - includes `pbir-intermediate-representation-state.md` for Phase 22 canonical pbir-ir/v1, pbir-serializer-request/v1, IR lifecycle, serializer boundary, and remaining serializer implementation gap
   - includes `pbir-preview-serializer-state.md` for Phase 23 pbir-preview-artifact/v1, pbir-preview-manifest/v1, local preview behavior, serializer safety boundary, and the remaining deployable PBIR serialization gap
+  - includes `pbir-local-writer-boundary-state.md` for Phase 24 pbir-local-writer/v1, pbir-local-write-request/v1, pbir-local-write-manifest/v1, dry-run local write planning, overwrite risk, rollback planning, forbidden deployable artifact policy, and the remaining real writer gap
+  - includes `pbir-local-preview-writer-state.md` for Phase 25 pbir-local-preview-writer/v1, pbir-local-preview-write-result/v1, preview-only file writing, hash-matched overwrite protection, rollback metadata references, forbidden deployable artifact policy, and the remaining deployable PBIR writer gap
 
 ## Important Memory Files
 

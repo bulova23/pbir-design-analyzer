@@ -2,6 +2,104 @@
 
 ## Active Session
 
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 25 is complete:
+  - objective:
+    - implement only the PBIR Local Preview File Writer
+    - create pbir-local-preview-writer/v1 and pbir-local-preview-write-result/v1
+    - consume pbir-local-write-manifest/v1 plus approved local write request outputs
+    - write only safe non-deployable preview artifacts to a local output folder
+    - preserve deterministic file content, paths, hashes, source lineage, rollback metadata, and overwrite protection
+    - stop before deployable PBIR generation, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, and deployment
+  - starting context:
+    - Phase 24 PBIR Local Artifact Writer Safety Boundary is present as a dry-run-only manifest producer
+    - actual file writing remains unimplemented before this phase
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirLocalPreviewFileWriterModels.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalPreviewFileContentFactory.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalPreviewFileWriterSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalPreviewFileWriterService.cs`
+      - `service-dotnet/tests/Discovery/PbirLocalPreviewFileWriterServiceTests.cs`
+      - `docs/current-state/pbir-local-preview-writer-state.md`
+      - `.agent-memory/sessions/2026-06-26T194003Z-pbir-local-preview-file-writer-phase25.md`
+    - updated:
+      - `service-dotnet/Services/Discovery/Models/PbirLocalArtifactWriterModels.cs`
+      - `docs/current-state/pbir-local-writer-boundary-state.md`
+      - `docs/current-state/pbir-preview-serializer-state.md`
+      - `docs/current-state/pbir-intermediate-representation-state.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - pbir-local-preview-writer/v1
+      - pbir-local-preview-write-result/v1
+      - preview-only local file writes for approved pbir-local-write-manifest/v1 entries
+      - deterministic content resolution for preview Markdown, preview JSON, canonical IR JSON, preview manifest JSON, and diagnostics Markdown
+      - hash preservation against the approved dry-run manifest
+      - fail-if-exists and allow-overwrite-only-when-hash-matches policies
+      - rollback metadata reference without automatic rollback execution
+      - fail-closed rejection for report.json, definition.pbir, model.bim, TMDL, PBIP project structure paths, non-local output paths, blind overwrite, missing rollback metadata, unapproved manifest entries, Microsoft Skills execution, provider/API/CLI invocation, and deployment
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalPreviewFileWriterServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalPreviewFileWriterServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - session note:
+    - `.agent-memory/sessions/2026-06-26T194003Z-pbir-local-preview-file-writer-phase25.md`
+  - next recommended step:
+    - stop after Phase 25 as requested
+    - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 24 is complete:
+  - objective:
+    - implement only the PBIR Local Artifact Writer Safety Boundary
+    - create pbir-local-writer/v1, pbir-local-write-request/v1, and pbir-local-write-manifest/v1
+    - consume pbir-preview-manifest/v1 and pbir-ir/v1
+    - produce deterministic dry-run local write manifests with planned paths, hashes, overwrite risk, rollback planning, warnings, and rejected artifacts
+    - stop before actual file writing, deployable PBIR generation, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, and deployment
+  - starting context:
+    - Phase 23 PBIR Preview Serializer is complete
+    - no deployable PBIR serialization, local artifact writer, Microsoft Skills execution, provider/API/CLI invocation, or deployment exists
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirLocalArtifactWriterModels.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalArtifactWriterSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalArtifactWriterBoundaryService.cs`
+      - `service-dotnet/tests/Discovery/PbirLocalArtifactWriterBoundaryServiceTests.cs`
+      - `docs/current-state/pbir-local-writer-boundary-state.md`
+      - `docs/superpowers/plans/2026-06-26-pbir-local-writer-boundary-phase24.md`
+      - `.agent-memory/sessions/2026-06-26-pbir-local-writer-boundary-phase24.md`
+    - implemented:
+      - pbir-local-writer/v1
+      - pbir-local-write-request/v1
+      - pbir-local-write-manifest/v1
+      - dry-run-only local artifact writer boundary
+      - planned local paths and deterministic intended hashes
+      - source lineage from PBIR IR and preview manifest
+      - caller-supplied overwrite risk detection
+      - dry-run rollback planning
+      - fail-closed rejection for deployable PBIR artifacts, report.json, definition.pbir, model.bim, TMDL, PBIP project output, provider/API/CLI invocation, Microsoft Skills execution, deployment, non-local output roots, missing dry-run, and unsafe overwrite policy
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalArtifactWriterBoundaryServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalArtifactWriterBoundaryServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 24 as requested
+    - do not begin actual local file writing, deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 23 is complete:
   - objective:
     - implement only PBIR Serializer Boundary and Local Preview Artifacts

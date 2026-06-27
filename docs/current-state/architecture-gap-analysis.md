@@ -30,7 +30,11 @@ Phase 22 adds canonical PBIR IR as the deterministic internal representation for
 
 Phase 23 adds deterministic local PBIR preview artifacts for human review only.
 
-No production PBIR, deployable PBIR project, Fabric App, or Fabric Data App generation exists. PBIR generation specification remains a specification-only contract, PBIR IR remains a canonical internal representation, and PBIR preview artifacts remain non-deployable local descriptors.
+Phase 24 adds a deterministic PBIR Local Artifact Writer Boundary that produces dry-run local write manifests only. It plans local paths, intended hashes, overwrite risk, and rollback metadata without writing files.
+
+Phase 25 adds a deterministic PBIR Local Preview File Writer that writes only non-deployable local preview files approved by pbir-local-write-manifest/v1.
+
+No production PBIR, deployable PBIR project, Fabric App, or Fabric Data App generation exists. PBIR generation specification remains a specification-only contract, PBIR IR remains a canonical internal representation, PBIR preview artifacts and local preview write results remain non-deployable, and deployable PBIR output remains absent.
 
 ## Serializer Implementation
 
@@ -39,6 +43,10 @@ No deployable PBIR serializer exists.
 pbir-serializer-request/v1 identifies the PBIR IR reference and hash that a serializer boundary may consume.
 
 Phase 23 implements only a local PBIR Preview Serializer that emits pbir-preview-artifact/v1 and pbir-preview-manifest/v1 for human review. It does not serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, or deploy artifacts.
+
+Phase 24 implements only a PBIR Local Artifact Writer Boundary that emits pbir-local-write-manifest/v1 for dry-run planning. It does not write files, emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, or deploy artifacts.
+
+Phase 25 implements only a PBIR Local Preview File Writer that emits pbir-local-preview-write-result/v1 and writes approved non-deployable preview files. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, or deploy artifacts.
 
 ## Deployment
 

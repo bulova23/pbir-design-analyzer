@@ -182,6 +182,10 @@ The current request contract always reports:
 
 Phase 23 adds a local preview serializer that consumes this request contract and pbir-ir/v1 for human-reviewable preview artifacts only.
 
+Phase 24 adds a downstream PBIR Local Artifact Writer Boundary that consumes pbir-ir/v1 plus pbir-preview-manifest/v1 to produce deterministic dry-run local write manifests. It plans paths, hashes, overwrite risk, and rollback metadata only.
+
+Phase 25 adds a PBIR Local Preview File Writer that consumes pbir-ir/v1 through the approved preview/write-manifest chain and writes only non-deployable preview files.
+
 No deployable PBIR serializer implementation exists.
 
 No deployable PBIR serialization exists.
@@ -226,11 +230,12 @@ The PBIR IR layer does not:
 - publish artifacts
 - mutate reports
 - automate Analyzer Workspace
+- write deployable local artifact files
 
 ## Remaining Serializer Implementation Gap
 
 The remaining implementation gap is a future deployable serializer that consumes pbir-ir/v1 and produces PBIR artifacts.
 
-That deployable serializer is intentionally not implemented in Phase 22 or Phase 23.
+That deployable serializer is intentionally not implemented in Phase 22, Phase 23, Phase 24, or Phase 25.
 
 Future deployable serializer work must remain downstream from PBIR IR and must not consume Design Studio artifacts directly.
