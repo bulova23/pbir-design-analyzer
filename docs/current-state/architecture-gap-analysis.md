@@ -34,7 +34,13 @@ Phase 24 adds a deterministic PBIR Local Artifact Writer Boundary that produces 
 
 Phase 25 adds a deterministic PBIR Local Preview File Writer that writes only non-deployable local preview files approved by pbir-local-write-manifest/v1.
 
-No production PBIR, deployable PBIR project, Fabric App, or Fabric Data App generation exists. PBIR generation specification remains a specification-only contract, PBIR IR remains a canonical internal representation, PBIR preview artifacts and local preview write results remain non-deployable, and deployable PBIR output remains absent.
+Phase 26 adds deterministic PBIR Preview Package and Review Handoff metadata records. The package preserves safe local preview file inventory, hashes, lineage, warnings, rejected artifacts, and rollback metadata references. The handoff preserves Design Studio approval context and Analyzer Workspace validation boundaries without running validation or automation.
+
+Phase 27 adds Design Studio Preview Review as a review-only UI and workflow integration over pbir-preview-package/v1 and pbir-review-handoff/v1. It exposes preview package summary, file inventory, hash inventory, lineage, warnings, rejected artifacts, rollback metadata, readiness, required reviewer action, and review handoff state inside Design Studio. It adds explicit review-only actions for marking preview reviewed, requesting revision, deferring review, and preparing analyzer candidate metadata. It does not run Analyzer validation, launch Analyzer Workspace automatically, mutate reports, generate deployable PBIR, create report.json, create definition.pbir, execute Microsoft Skills, invoke providers, call APIs, invoke CLI commands, or deploy assets.
+
+Phase 28 adds Design Studio Execution Readiness as an informational dashboard over the completed planning, manifest, PBIR IR, preview package, preview review, and review handoff trail. It exposes deterministic Architecture, Planning, Generation, Runtime, Skills, Review, Warnings, and Readiness Summary sections. It adds backend and extension safety gates plus protocol validation for design-studio-execution-readiness/v1 payloads. It does not run execution, generate deployable PBIR, invoke providers, invoke Microsoft Skills, call APIs, invoke CLI commands, deploy assets, or automate Analyzer Workspace.
+
+No production PBIR, deployable PBIR project, Fabric App, or Fabric Data App generation exists. PBIR generation specification remains a specification-only contract, PBIR IR remains a canonical internal representation, PBIR preview artifacts, local preview write results, preview packages, and review handoffs remain non-deployable, and deployable PBIR output remains absent.
 
 ## Serializer Implementation
 
@@ -48,13 +54,19 @@ Phase 24 implements only a PBIR Local Artifact Writer Boundary that emits pbir-l
 
 Phase 25 implements only a PBIR Local Preview File Writer that emits pbir-local-preview-write-result/v1 and writes approved non-deployable preview files. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, or deploy artifacts.
 
+Phase 26 implements only PBIR Preview Package and Review Handoff records. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, deploy artifacts, approve outputs, or automate Analyzer Workspace validation.
+
+Phase 27 implements only Design Studio review-surface integration for preview package and review handoff metadata. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, deploy artifacts, approve outputs automatically, launch Analyzer Workspace automatically, or automate Analyzer Workspace validation.
+
+Phase 28 implements only Design Studio execution-readiness aggregation and dashboard rendering. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, deploy artifacts, approve outputs automatically, launch Analyzer Workspace automatically, or automate Analyzer Workspace validation.
+
 ## Deployment
 
 No deployment or publishing exists. The generation manifest and PBIR execution prototype boundary prohibit deployment.
 
 ## Product UX Integration
 
-No product UX starts execution, provider invocation, deployment, artifact generation, or Analyzer Workspace automation from this architecture certification.
+No product UX starts execution, provider invocation, deployment, deployable artifact generation, or Analyzer Workspace automation from this architecture certification. Design Studio Preview Review is metadata inspection and review-state capture only.
 
 ## Deferred Architecture Gaps
 

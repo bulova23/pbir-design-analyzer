@@ -2,6 +2,129 @@
 
 ## Active Session
 
+- 2026-06-27 Design Package Microsoft Skills Integration Phase 28 is complete:
+  - objective:
+    - implement only Design Studio Execution Readiness Dashboard
+    - create design-studio-execution-readiness/v1
+    - aggregate architecture, planning, generation, runtime, skills, review, warnings, readiness summary, lineage, and trust-boundary status into a consultant-friendly dashboard
+    - preserve protocol validation and reject malformed readiness payloads
+    - preserve informational-only boundaries
+    - stop before deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, and Analyzer Workspace automation
+  - delivered:
+    - added backend DesignStudioExecutionReadinessService and DesignStudioExecutionReadinessSafetyGate
+    - added backend design-studio-execution-readiness/v1 models and focused xUnit coverage
+    - added extension DesignStudioExecutionReadinessSafetyGate and derived dashboard view model
+    - rendered the dashboard inside Design Studio Preview Review
+    - extended Design Studio protocol for requestExecutionReadiness and executionReadinessUpdated
+    - added `docs/current-state/design-studio-execution-readiness-state.md`
+    - updated current-state docs and repo memory
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudioExecutionReadinessServiceTests`
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioProtocol.test.ts --runInBand`
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs webview-src/design-studio/__tests__/App.test.tsx --runInBand`
+    - focused green gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudioExecutionReadinessServiceTests`
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioProtocol.test.ts --runInBand`
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs webview-src/design-studio/__tests__/App.test.tsx --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioWorkspace.test.ts --runInBand`
+      - `cd vscode-extension && npm run compile`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 28 as requested
+    - do not begin deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
+- 2026-06-27 Design Package Microsoft Skills Integration Phase 27 is complete:
+  - objective:
+    - implement only Design Studio Preview Review Surface Integration
+    - create design-studio-preview-review/v1 in the VS Code extension workflow layer
+    - expose pbir-preview-package/v1 and pbir-review-handoff/v1 metadata inside Design Studio as review-only state
+    - add preview package summary, file inventory, hash inventory, lineage, warnings, rejected artifacts, rollback metadata, review readiness, and required reviewer action to the Design Studio surface
+    - add explicit review-only actions: mark preview reviewed, request revision, defer review, and prepare analyzer candidate metadata
+    - preserve protocol validation, reject unsupported message versions, reject malformed preview review payloads, and preserve Analyzer Workspace validation boundaries
+    - stop before deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, and Analyzer Workspace automation
+  - delivered:
+    - added DesignStudioPreviewReviewSafetyGate and persisted preview review store in the extension
+    - added Preview Review workflow stage between Prepare For Review and Review Design
+    - added host/webview protocol messages and validation for preview review actions/state
+    - added React rendering for preview package, review handoff, boundary, lineage, hash, rollback, warning, and rejected-artifact metadata
+    - added `docs/current-state/design-studio-preview-review-state.md`
+    - updated Design Studio and architecture current-state documentation
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+    - focused green gates:
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioProtocol.test.ts --runInBand`
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs webview-src/design-studio/__tests__/App.test.tsx --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioWorkspace.test.ts --runInBand`
+      - `cd vscode-extension && npm run compile`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 27 as requested
+    - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
+- 2026-06-27 Design Package Microsoft Skills Integration Phase 26 is complete:
+  - objective:
+    - implement only PBIR Preview Package and Review Handoff
+    - create pbir-preview-package/v1 and pbir-review-handoff/v1
+    - consume pbir-local-preview-write-result/v1, pbir-preview-manifest/v1, pbir-ir/v1, and generation-manifest/v1 approval context
+    - create deterministic metadata-only preview package records with file inventory, hash inventory, lineage, warnings, rejected artifacts, and rollback metadata reference
+    - create explicit Design Studio and Analyzer Workspace review handoff records
+    - preserve the Design Studio review boundary and Analyzer Workspace validation boundary
+    - stop before deployable PBIR generation, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, and Analyzer Workspace automation
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirPreviewPackageReviewHandoffModels.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewPackageService.cs`
+      - `service-dotnet/Services/Discovery/PbirReviewHandoffSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirReviewHandoffService.cs`
+      - `service-dotnet/tests/Discovery/PbirPreviewPackageReviewHandoffServiceTests.cs`
+      - `docs/current-state/pbir-preview-package-review-handoff-state.md`
+      - `.agent-memory/sessions/2026-06-27T110748Z-pbir-preview-package-review-handoff-phase26.md`
+    - updated:
+      - `docs/current-state/pbir-local-preview-writer-state.md`
+      - `docs/current-state/pbir-local-writer-boundary-state.md`
+      - `docs/current-state/pbir-preview-serializer-state.md`
+      - `docs/current-state/pbir-intermediate-representation-state.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - pbir-preview-package/v1
+      - pbir-review-handoff/v1
+      - PbirPreviewPackageService
+      - PbirReviewHandoffService
+      - PbirReviewHandoffSafetyGate
+      - review readiness states: incomplete, readyForDesignReview, readyForAnalyzerReview, blocked
+      - fail-closed rejection for forbidden deployable artifact references, missing hashes, incomplete lineage, missing Design Studio approval context, automatic Analyzer Workspace validation, Analyzer Workspace launch, deployment, and non-dry-run generation manifest constraints
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewPackageReviewHandoffServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewPackageReviewHandoffServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 26 as requested
+    - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+## Active Session
+
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 25 is complete:
   - objective:
     - implement only the PBIR Local Preview File Writer
@@ -3006,8 +3129,54 @@
 
 ## Current Objective
 
-- Design Package Microsoft Skills Integration Phase 16 is complete.
-- Next action for this area:
-  - stop after Phase 16 as requested
-  - preserve the existing planning-only and contract-only boundaries
-  - do not begin PBIR generation, Microsoft Skills execution, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal opens the next phase
+- No active implementation phase recorded.
+- Latest recorded product state: Design Package Microsoft Skills Integration Phase 28 is complete.
+- Preserve the existing planning-only, review-only, and informational-only boundaries.
+- Do not begin deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase.
+
+## In Progress
+
+- No active pbir-design-analyzer implementation phase recorded.
+- External repo-contract break/fix is updating this current-focus file to satisfy the shared Tier 1 memory contract without changing product state.
+
+## Blockers
+
+- No active blocker recorded.
+
+## Validation Status
+
+- Latest recorded Phase 28 validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Current repo-contract break/fix validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run build`
+- Shared repo-contract validation passed after this current-focus contract repair from Consulting-AI-Memory:
+  - `python3 scripts/validate_repo_contract.py --repo Consulting-AI-Memory --repo awesome-copilot --repo pbir-design-analyzer`
+- Phase-documentation audit found no `docs/memory/phase*.md`, no `docs/memory/phases/` content, and no `source_refs` in this repo; local phase-documentation namespacing validation is not needed until the repo starts storing shared memory phase docs.
+
+## Next Recommended Step
+
+- Stop after Phase 28 unless a new goal explicitly opens the next phase.
+- Re-run shared repo-contract validation from Consulting-AI-Memory:
+  - `python3 scripts/validate_repo_contract.py --repo Consulting-AI-Memory --repo awesome-copilot --repo pbir-design-analyzer`
+
+## Relevant Files
+
+- `AGENTS.md`
+- `README.md`
+- `.agent-memory/current-focus.md`
+- `.agent-memory/repo-map.md`
+- `.agent-memory/session-summaries.md`
+- `docs/current-state/design-studio-execution-readiness-state.md`
+- `docs/current-state/design-studio-preview-review-state.md`
+- `docs/current-state/pbir-preview-package-review-handoff-state.md`
+- `.agent-memory/sessions/2026-06-27-0754-repo-contract-phase-doc-audit.md`
+
+## Last Updated
+
+- Date: `2026-06-27`
+- By: `codex`

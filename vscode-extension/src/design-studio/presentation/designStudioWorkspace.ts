@@ -8,6 +8,8 @@ import { loadDesignBriefState } from '../state/designBriefStore';
 import { loadDraftState } from '../state/draftStore';
 import { evaluateIterationCompletion, loadIterationState } from '../state/iterationStore';
 import { loadPrepareForReviewState } from '../state/prepareForReviewStore';
+import { loadDesignStudioPreviewReviewState, type DesignStudioPreviewReviewRecord } from '../state/previewReviewStore';
+import { buildDesignStudioExecutionReadinessDashboard } from '../state/executionReadinessStore';
 import { loadRefinementState } from '../state/refinementStore';
 import { loadReviewDesignState } from '../state/reviewDesignStore';
 import type { AlternateReportConcept, DesignArtifactApprovalState, DesignArtifactApprovalKind, DesignBrief } from '../contracts/designStudioModels';
@@ -23,6 +25,8 @@ import type {
   DesignStudioDraftNavigationReviewViewModel,
   DesignStudioDraftPageReviewViewModel,
   DesignStudioDraftReviewViewModel,
+  DesignStudioPreviewReviewViewModel,
+  DesignStudioExecutionReadinessViewModel,
   DesignStudioWorkflowCompletionViewModel,
   DesignStudioMaterializationReadinessViewModel,
   DesignStudioReviewDesignViewModel,
@@ -126,6 +130,8 @@ function stageLabel(id: DesignStudioWorkflowStageId): string {
       return 'Refinement Studio';
     case 'materialize':
       return 'Prepare For Review';
+    case 'previewReview':
+      return 'Preview Review';
     case 'handoff':
       return 'Review Design';
     case 'compare':
@@ -161,6 +167,11 @@ function stageSummary(id: DesignStudioWorkflowStageId): { title: string; descrip
       return {
         title: 'Prepare For Review',
         description: 'Prepare the approved draft for review explicitly without changing the report.',
+      };
+    case 'previewReview':
+      return {
+        title: 'Preview Review',
+        description: 'Inspect the PBIR preview package and review handoff metadata without running validation or mutating the report.',
       };
     case 'handoff':
       return {
@@ -445,17 +456,88 @@ function buildApprovalCard(
   }
 }
 
+function previewReviewLabel(action: string): string {
+  switch (action) {
+    case 'markedReviewed':
+      return 'Preview Reviewed';
+    case 'revisionRequested':
+      return 'Revision Requested';
+    case 'deferred':
+      return 'Review Deferred';
+    case 'analyzerCandidateMetadataPrepared':
+      return 'Analyzer Metadata Prepared';
+    default:
+      return 'Pending Review';
+  }
+}
+
+function findPreviewReference(
+  record: DesignStudioPreviewReviewRecord,
+  artifactType: string,
+): string | undefined {
+  return record.previewPackage.fileInventory.find((file) => file.artifactType === artifactType)?.reference;
+}
+
+function buildPreviewReviewViewModel(record: DesignStudioPreviewReviewRecord): DesignStudioPreviewReviewViewModel {
+  return {
+    previewReviewId: record.previewReviewId,
+    schemaVersion: record.schemaVersion,
+    previewPackageId: record.previewPackage.packageId,
+    previewPackageSchemaVersion: record.previewPackage.schemaVersion,
+    previewPackageHash: record.previewPackage.packageHash,
+    generatedUtc: record.previewPackage.generatedUtc,
+    reviewHandoffId: record.reviewHandoff.handoffId,
+    reviewHandoffSchemaVersion: record.reviewHandoff.schemaVersion,
+    reviewReadiness: record.reviewHandoff.reviewReadiness,
+    readinessState: record.readinessState,
+    reviewerAction: record.reviewerAction,
+    reviewerNotes: record.reviewerNotes,
+    reviewTimestamp: record.reviewTimestamp,
+    requiredReviewerAction: record.reviewHandoff.requiredReviewerAction,
+    summary: {
+      fileCount: record.previewPackage.summary.fileCount,
+      warningCount: record.previewPackage.summary.warningCount,
+      rejectedArtifactCount: record.previewPackage.summary.rejectedArtifactCount,
+      hashCount: record.previewPackage.hashInventory.length,
+    },
+    references: {
+      previewMarkdown: findPreviewReference(record, 'previewMarkdown'),
+      previewJson: findPreviewReference(record, 'previewJson'),
+      canonicalIr: findPreviewReference(record, 'canonicalIrJson'),
+      previewManifest: findPreviewReference(record, 'previewManifestJson'),
+      diagnostics: findPreviewReference(record, 'diagnosticsMarkdown'),
+      reviewHandoff: record.reviewHandoff.handoffId,
+    },
+    fileInventory: record.previewPackage.fileInventory.map((file) => ({ ...file })),
+    hashInventory: record.previewPackage.hashInventory.map((entry) => ({ ...entry })),
+    lineage: {
+      ...record.previewPackage.lineage,
+      immutableLineage: [...record.previewPackage.lineage.immutableLineage],
+    },
+    rollbackMetadata: { ...record.previewPackage.rollbackMetadata },
+    analyzerBoundary: { ...record.reviewHandoff.analyzerWorkspaceBoundary },
+    reviewOnlyBoundary: { ...record.reviewOnlyBoundary },
+    warnings: [...record.warnings, ...record.previewPackage.warnings, ...record.reviewHandoff.warnings],
+    rejectedArtifacts: [...record.previewPackage.rejectedArtifacts],
+    canMarkReviewed: record.reviewerAction !== 'markedReviewed',
+    canRequestRevision: record.reviewerAction !== 'revisionRequested',
+    canDeferReview: record.reviewerAction !== 'deferred',
+    canPrepareAnalyzerCandidateMetadata: record.reviewerAction !== 'analyzerCandidateMetadataPrepared',
+  };
+}
+
 export async function buildDesignStudioWorkspace(
   context: vscode.ExtensionContext,
   reportPath: string,
 ): Promise<DesignStudioWorkspaceBuildResult> {
   const threadId = createThreadId(reportPath);
   const reportLabel = path.basename(reportPath, path.extname(reportPath));
-  const [briefState, conceptState, draftState, prepareForReviewState, refinementState, reviewDesignState, iterationState, workflowCompletion] = await Promise.all([
+  const [briefState, conceptState, draftState, prepareForReviewState, previewReviewState, refinementState, reviewDesignState, iterationState, workflowCompletion] = await Promise.all([
     loadDesignBriefState(context, threadId),
     loadConceptState(context, threadId),
     loadDraftState(context, threadId),
     loadPrepareForReviewState(context, threadId),
+    loadDesignStudioPreviewReviewState(context, threadId),
     loadRefinementState(context, threadId),
     loadReviewDesignState(context, threadId),
     loadIterationState(context, threadId),
@@ -468,8 +550,22 @@ export async function buildDesignStudioWorkspace(
   let materializationReadiness: DesignStudioMaterializationReadinessViewModel | undefined;
   let analyzerHandoff: DesignStudioAnalyzerHandoffViewModel | undefined;
   let reviewDesign: DesignStudioReviewDesignViewModel | undefined;
+  let previewReview: DesignStudioPreviewReviewViewModel | undefined;
+  let executionReadiness: DesignStudioExecutionReadinessViewModel | undefined;
   let materializeStatus: DesignStudioWorkflowStageStatus = 'blocked';
+  let previewReviewStatus: DesignStudioWorkflowStageStatus = 'blocked';
   let handoffStatus: DesignStudioWorkflowStageStatus = 'blocked';
+
+  if (previewReviewState?.currentReview) {
+    previewReview = buildPreviewReviewViewModel(previewReviewState.currentReview);
+    executionReadiness = buildDesignStudioExecutionReadinessDashboard(previewReviewState.currentReview);
+    previewReviewStatus = previewReviewState.currentReview.reviewerAction === 'markedReviewed'
+      || previewReviewState.currentReview.reviewerAction === 'analyzerCandidateMetadataPrepared'
+      ? 'approved'
+      : previewReviewState.currentReview.reviewerAction === 'pending'
+        ? 'ready'
+        : 'inProgress';
+  }
 
   if (draftState?.currentDraft.approvalState === 'approved') {
     const request = await createApprovedDraftMaterializationRequest(context, {
@@ -844,7 +940,14 @@ export async function buildDesignStudioWorkspace(
         ? 'Blocked'
         : !prepareForReviewState
           ? 'Not Started'
-          : approvalStateLabel(prepareForReviewState.currentCandidate.approvalState),
+            : approvalStateLabel(prepareForReviewState.currentCandidate.approvalState),
+    ),
+    buildStage(
+      'previewReview',
+      previewReviewStatus,
+      previewReview
+        ? previewReviewLabel(previewReview.reviewerAction)
+        : 'No Preview Package',
     ),
     buildStage(
       'handoff',
@@ -954,6 +1057,8 @@ export async function buildDesignStudioWorkspace(
       ],
       materializationReadiness,
       analyzerHandoff,
+      previewReview,
+      executionReadiness,
       reviewDesign,
       refinementExperience: refinementExperienceViewModel,
       conceptReview,

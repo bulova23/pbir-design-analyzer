@@ -1,5 +1,7 @@
 # Session Summaries
 
+- 2026-06-27: Repaired the shared Tier 1 repo-contract gap by adding the required current-focus sections to `.agent-memory/current-focus.md`, preserved the existing Phase 28 stop boundary, audited phase-documentation collision risk, confirmed there are no `docs/memory/phase*.md`, no `docs/memory/phases/` content, and no `source_refs`, documented that local phase-documentation namespacing validation is not needed yet, and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, `cd vscode-extension && npm run build`, and the shared repo-contract validator from Consulting-AI-Memory.
+
 - 2026-06-26: Completed Design Package → Microsoft Skills Integration Phase 25 only, added `pbir-local-preview-writer/v1` and `pbir-local-preview-write-result/v1` through `PbirLocalPreviewFileWriterService`, `PbirLocalPreviewFileWriterSafetyGate`, and deterministic content resolution from approved preview/write manifests, wrote only non-deployable local preview Markdown, preview JSON, canonical IR JSON, preview manifest JSON, and diagnostics Markdown, added hash-matched overwrite protection and rollback metadata references, documented `docs/current-state/pbir-local-preview-writer-state.md`, and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile` while preserving the absence of deployable PBIR serialization, report.json, definition.pbir, Microsoft Skills execution, provider/API/CLI invocation, and deployment.
 
 - 2026-06-26: Completed Design Package → Microsoft Skills Integration Phase 20 only, added `architecture-validation/v1`, `architecture-certification/v1`, `architecture-readiness-report/v1`, and `architecture-gap-analysis/v1` through `ArchitectureValidationService` and `ArchitectureReadinessCertificationService`, validated every Phase 1-19 framework, trust boundaries, ownership boundaries, provider neutrality, deterministic pipeline behavior, immutable lineage, schema consistency, readiness transitions, and approval transitions, documented the certification/readiness/gap state in `docs/current-state/`, and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile` without introducing PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, or Analyzer Workspace automation.
@@ -2013,3 +2015,34 @@
 - Safety gate rejects deployable PBIR artifacts, report.json, definition.pbir, model.bim, TMDL, PBIP project output, deployment, provider/API/CLI invocation, Microsoft Skills execution, non-local roots, missing dry-run, and unsafe overwrite policy.
 - Added current-state documentation for the remaining real writer gap.
 - Validation passed: dotnet backend tests, extension Jest tests, webview Jest tests, and extension compile.
+
+# 2026-06-27 PBIR Preview Package and Review Handoff Phase 26
+
+- Added pbir-preview-package/v1 and pbir-review-handoff/v1 contracts.
+- Added PbirPreviewPackageService, PbirReviewHandoffService, and PbirReviewHandoffSafetyGate.
+- Implemented deterministic metadata-only preview packages with file inventory, hash inventory, lineage, warnings, rejected artifacts, and rollback metadata references.
+- Implemented explicit Design Studio and Analyzer Workspace review handoff records with readiness states incomplete, readyForDesignReview, readyForAnalyzerReview, and blocked.
+- Preserved review-only boundaries: no deployable PBIR output, report.json, definition.pbir, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation.
+- Added current-state documentation for preview package and review handoff architecture.
+- Validation passed: dotnet backend tests, extension Jest tests, webview Jest tests, and extension compile.
+
+# 2026-06-27 Design Studio Preview Review Phase 27
+
+- Added design-studio-preview-review/v1 extension-side state plus DesignStudioPreviewReviewSafetyGate.
+- Added Preview Review as a Design Studio workflow stage between Prepare For Review and Review Design.
+- Exposed preview package summary, preview file inventory, hash inventory, lineage, warnings, rejected artifacts, rollback metadata, review readiness, required reviewer action, and review handoff metadata in Design Studio.
+- Added explicit review-only actions: mark preview reviewed, request revision, defer review, and prepare analyzer candidate metadata.
+- Extended Design Studio protocol validation for preview review state and action messages, including rejection of malformed preview review payloads and unsupported protocol versions.
+- Preserved review-only boundaries: no deployable PBIR output, report.json, definition.pbir, Microsoft Skills execution, provider/API/CLI invocation, deployment, automatic Analyzer launch, or Analyzer Workspace automation.
+- Added current-state documentation at `docs/current-state/design-studio-preview-review-state.md`.
+- Validation passed: `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`.
+
+# 2026-06-27 Design Studio Execution Readiness Phase 28
+
+- Added design-studio-execution-readiness/v1 backend and extension-side dashboard models.
+- Added DesignStudioExecutionReadinessService and DesignStudioExecutionReadinessSafetyGate.
+- Aggregated Architecture, Planning, Generation, Runtime, Skills, Review, Warnings, Readiness Summary, lineage, architecture certification, and trust-boundary status into an informational Design Studio dashboard.
+- Extended Design Studio protocol for requestExecutionReadiness and executionReadinessUpdated with malformed payload rejection.
+- Rendered the dashboard under Preview Review without adding execution, PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation.
+- Added current-state documentation at `docs/current-state/design-studio-execution-readiness-state.md`.
+- Validation passed: `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`.

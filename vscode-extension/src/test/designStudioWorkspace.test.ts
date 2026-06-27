@@ -438,11 +438,13 @@ describe('designStudioWorkspace', () => {
       'draft',
       'refinement',
       'materialize',
+      'previewReview',
       'handoff',
       'compare',
       'completion',
     ]);
     expect(stageLabels.materialize).toBe('Prepare For Review');
+    expect(stageLabels.previewReview).toBe('Preview Review');
     expect(stageLabels.handoff).toBe('Review Design');
     expect(result.workspace.approvalCards.find((card) => card.kind === 'validationApproval')).toEqual(
       expect.objectContaining({

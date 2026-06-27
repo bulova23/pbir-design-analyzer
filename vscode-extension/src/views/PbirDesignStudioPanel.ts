@@ -35,6 +35,10 @@ import {
   submitReviewCandidateForApproval,
 } from '../design-studio/state/prepareForReviewStore';
 import {
+  prepareAnalyzerCandidateMetadata,
+  setPreviewReviewAction,
+} from '../design-studio/state/previewReviewStore';
+import {
   loadReviewDesignState,
   markReviewCompleted,
   recordReviewLaunch,
@@ -282,6 +286,59 @@ export class PbirDesignStudioPanel {
         await this.refresh();
         return;
       }
+      case 'markPreviewReviewed':
+        await setPreviewReviewAction(this.context, this.threadId, {
+          previewReviewId: parsed.message.previewReviewId,
+          reviewerAction: 'markedReviewed',
+          reviewerNotes: parsed.message.reviewerNotes ?? '',
+          reviewerId: 'user',
+        });
+        await this.refresh();
+        return;
+      case 'requestPreviewRevision':
+        await setPreviewReviewAction(this.context, this.threadId, {
+          previewReviewId: parsed.message.previewReviewId,
+          reviewerAction: 'revisionRequested',
+          reviewerNotes: parsed.message.reviewerNotes ?? '',
+          reviewerId: 'user',
+        });
+        await this.refresh();
+        return;
+      case 'deferPreviewReview':
+        await setPreviewReviewAction(this.context, this.threadId, {
+          previewReviewId: parsed.message.previewReviewId,
+          reviewerAction: 'deferred',
+          reviewerNotes: parsed.message.reviewerNotes ?? '',
+          reviewerId: 'user',
+        });
+        await this.refresh();
+        return;
+      case 'prepareAnalyzerCandidateMetadata':
+        await prepareAnalyzerCandidateMetadata(this.context, this.threadId, {
+          previewReviewId: parsed.message.previewReviewId,
+          reviewerNotes: parsed.message.reviewerNotes ?? '',
+          reviewerId: 'user',
+        });
+        await this.refresh();
+        return;
+      case 'requestExecutionReadiness': {
+        const workspaceState = await buildDesignStudioWorkspace(this.context, this.reportPath);
+        if (parsed.message.threadId !== workspaceState.threadId) {
+          void vscode.window.showWarningMessage('Execution readiness request does not match the active Design Studio thread.');
+          return;
+        }
+
+        if (!workspaceState.workspace.executionReadiness) {
+          void vscode.window.showWarningMessage('Execution readiness is not available until preview review metadata exists.');
+          return;
+        }
+
+        this.postMessage({
+          type: 'executionReadinessUpdated',
+          readiness: workspaceState.workspace.executionReadiness,
+        });
+        return;
+      }
       case 'completeIteration':
         await completeIteration(this.context, this.threadId);
         await this.refresh();
@@ -345,7 +402,11 @@ export class PbirDesignStudioPanel {
     });
   }
 
-  private postMessage(message: { type: 'studioState'; state: DesignStudioStudioState }): void {
+  private postMessage(
+    message:
+      | { type: 'studioState'; state: DesignStudioStudioState }
+      | { type: 'executionReadinessUpdated'; readiness: NonNullable<DesignStudioStudioState['workspace']>['executionReadiness'] },
+  ): void {
     const wrapped = withDesignStudioEnvelope(message) as DesignStudioHostToWebviewMessagePayload;
 
     if (!this.isReady) {

@@ -136,7 +136,7 @@ This preserves full planning-package traceability without creating any execution
 
 `readyForGenerator` does not imply production generation occurred.
 
-It means only that the planning architecture produced a complete downstream handoff package for a generator. In Phase 21, the local Reference PBIR Generator may consume it to create deterministic reference artifacts only. In Phase 22, PBIR IR may consume it to create the canonical internal representation for a future serializer. In Phase 23, the local PBIR Preview Serializer may consume canonical PBIR IR and the serializer request contract to render deterministic local preview artifacts only.
+It means only that the planning architecture produced a complete downstream handoff package for a generator. In Phase 21, the local Reference PBIR Generator may consume it to create deterministic reference artifacts only. In Phase 22, PBIR IR may consume it to create the canonical internal representation for a future serializer. In Phase 23, the local PBIR Preview Serializer may consume canonical PBIR IR and the serializer request contract to render deterministic local preview artifacts only. In Phase 28, the Design Studio Execution Readiness Dashboard may summarize generation-manifest/v1 readiness, capability summary, approval summary, execution constraints, and lineage as UI-ready metadata only.
 
 ## Validation Model
 

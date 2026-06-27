@@ -115,6 +115,283 @@ describe('DesignStudio App shell', () => {
     expect(screen.queryByRole('heading', { name: 'Design Approval' })).not.toBeInTheDocument();
   });
 
+  it('renders the preview review surface and posts review-only actions', async () => {
+    const hash = 'b'.repeat(64);
+    render(<App />);
+
+    dispatchHostMessage(withDesignStudioEnvelope({
+      type: 'studioState',
+      state: {
+        threadId: 'design-studio:active-report',
+        iterationHistory: [],
+        pendingRefinementProposals: [],
+        workspace: {
+          reportLabel: 'Sales & Production',
+          currentStage: 'previewReview',
+          stages: [
+            { id: 'brief', label: 'Design Brief', status: 'approved', readinessLabel: 'Approved', title: 'Design Brief', description: 'Define the brief.' },
+            { id: 'concept', label: 'Concept Studio', status: 'approved', readinessLabel: 'Approved', title: 'Concept Studio', description: 'Approve the concept.' },
+            { id: 'draft', label: 'Draft Studio', status: 'approved', readinessLabel: 'Approved', title: 'Draft Studio', description: 'Approve the draft.' },
+            { id: 'materialize', label: 'Prepare For Review', status: 'approved', readinessLabel: 'Approved', title: 'Prepare For Review', description: 'Prepare a review candidate.' },
+            { id: 'previewReview', label: 'Preview Review', status: 'ready', readinessLabel: 'Pending Review', title: 'Preview Review', description: 'Inspect preview package metadata.' },
+            { id: 'handoff', label: 'Review Design', status: 'blocked', readinessLabel: 'Blocked', title: 'Review Design', description: 'Analyzer handoff stays explicit.' },
+          ],
+          currentStageSummary: {
+            title: 'Preview Review',
+            description: 'Inspect preview package metadata.',
+          },
+          approvalCards: [],
+          previewReview: {
+            previewReviewId: 'designStudioPreviewReview:phase27',
+            schemaVersion: 'design-studio-preview-review/v1',
+            previewPackageId: 'pbirPreviewPackage:phase27',
+            previewPackageSchemaVersion: 'pbir-preview-package/v1',
+            previewPackageHash: hash,
+            generatedUtc: '2026-06-27T11:30:00.000Z',
+            reviewHandoffId: 'pbirReviewHandoff:phase27',
+            reviewHandoffSchemaVersion: 'pbir-review-handoff/v1',
+            reviewReadiness: 'readyForDesignReview',
+            readinessState: 'readyForDesignReview',
+            reviewerAction: 'pending',
+            reviewerNotes: '',
+            requiredReviewerAction: 'Review local preview outputs in Design Studio before any future execution planning.',
+            summary: {
+              fileCount: 5,
+              warningCount: 1,
+              rejectedArtifactCount: 0,
+              hashCount: 2,
+            },
+            references: {
+              previewMarkdown: 'local-preview-output/pbir-local-writer/v1/preview/report-preview.md',
+              previewJson: 'local-preview-output/pbir-local-writer/v1/preview/report-preview.json',
+              canonicalIr: 'local-preview-output/pbir-local-writer/v1/ir/canonical-pbir-ir.json',
+              previewManifest: 'local-preview-output/pbir-local-writer/v1/manifests/pbir-preview-manifest.json',
+              diagnostics: 'local-preview-output/pbir-local-writer/v1/diagnostics/local-write-diagnostics.md',
+              reviewHandoff: 'pbirReviewHandoff:phase27',
+            },
+            fileInventory: [
+              {
+                artifactType: 'previewMarkdown',
+                relativePath: 'pbir-local-writer/v1/preview/report-preview.md',
+                reference: 'local-preview-output/pbir-local-writer/v1/preview/report-preview.md',
+                contentType: 'text/markdown',
+                hashSha256: hash,
+                byteLength: 120,
+              },
+            ],
+            hashInventory: [
+              {
+                hashKind: 'package',
+                referenceId: 'pbirPreviewPackage:phase27',
+                hashSha256: hash,
+                description: 'Package hash',
+              },
+              {
+                hashKind: 'previewManifest',
+                referenceId: 'pbirPreviewManifest:phase27',
+                hashSha256: hash,
+                description: 'Preview manifest hash',
+              },
+            ],
+            lineage: {
+              previewPackageRef: 'pbirPreviewPackage:phase27',
+              generationManifestRef: 'generationManifest:phase27',
+              pbirIrRef: 'pbirIr:phase27',
+              previewManifestRef: 'pbirPreviewManifest:phase27',
+              sourceWriteManifestRef: 'pbirLocalWriteManifest:phase27',
+              immutableLineage: ['generationManifest:phase27', 'pbirPreviewPackage:phase27'],
+            },
+            rollbackMetadata: {
+              rollbackPlanRef: 'rollback:phase27',
+              rollbackPlanHash: hash,
+              actionCount: 5,
+              automaticRollbackExecuted: false,
+            },
+            analyzerBoundary: {
+              validationOccurred: false,
+              automaticValidationRequested: false,
+              automaticValidationAllowed: false,
+              workspaceLaunchRequested: false,
+              validationStatus: 'No Analyzer Workspace validation has occurred.',
+            },
+            reviewOnlyBoundary: {
+              reportMutationAllowed: false,
+              analyzerExecutionAllowed: false,
+              analyzerLaunchAllowed: false,
+              microsoftSkillsExecutionAllowed: false,
+              providerInvocationAllowed: false,
+              apiInvocationAllowed: false,
+              cliInvocationAllowed: false,
+              deploymentAllowed: false,
+              deployablePbirGenerationAllowed: false,
+              reportJsonGenerationAllowed: false,
+              definitionPbirGenerationAllowed: false,
+            },
+            warnings: ['Review is advisory until Analyzer Workspace validates a candidate.'],
+            rejectedArtifacts: [],
+            canMarkReviewed: true,
+            canRequestRevision: true,
+            canDeferReview: true,
+            canPrepareAnalyzerCandidateMetadata: true,
+          },
+          executionReadiness: {
+            schemaVersion: 'design-studio-execution-readiness/v1',
+            readinessSummary: 'readyForDesignReview',
+            readinessLabel: 'Ready for Design Review',
+            stageSummaries: [
+              {
+                stageId: 'architecture',
+                section: 'Architecture',
+                status: 'ready',
+                summary: 'Architecture certification and readiness classification.',
+                items: [
+                  { label: 'Architecture certification status', value: 'Certified' },
+                  { label: 'Architecture readiness classification', value: 'ReadyForExecutionImplementation' },
+                ],
+              },
+              {
+                stageId: 'planning',
+                section: 'Planning',
+                status: 'ready',
+                summary: 'Planning outcome, generation manifest, and pipeline verification.',
+                items: [
+                  { label: 'Planning outcome status', value: 'Approved' },
+                  { label: 'Generation Manifest status', value: 'ReadyForGenerator' },
+                  { label: 'Pipeline verification status', value: 'Verified' },
+                ],
+              },
+              {
+                stageId: 'generation',
+                section: 'Generation',
+                status: 'ready',
+                summary: 'PBIR generation specification, canonical IR, preview package, and preview review.',
+                items: [
+                  { label: 'PBIR Generation Specification readiness', value: 'ReadyForGenerationProvider' },
+                  { label: 'PBIR IR readiness', value: 'ReadyForSerializer' },
+                  { label: 'Preview Package readiness', value: 'Packaged' },
+                  { label: 'Preview Review status', value: 'Pending' },
+                ],
+              },
+              {
+                stageId: 'runtime',
+                section: 'Runtime',
+                status: 'ready',
+                summary: 'Runtime and provider readiness without invocation.',
+                items: [
+                  { label: 'Runtime Provider readiness', value: 'ReadyForRuntimeProvider' },
+                  { label: 'Microsoft Runtime Provider readiness', value: 'ReadyForMicrosoftRuntimeProvider' },
+                  { label: 'Generation Provider readiness', value: 'ReadyForGenerationProvider' },
+                ],
+              },
+              {
+                stageId: 'skills',
+                section: 'Skills',
+                status: 'ready',
+                summary: 'Skill metadata and capability coverage only.',
+                items: [
+                  { label: 'Skill readiness', value: 'ReadyForSkillProviderMetadata' },
+                  { label: 'Selected provider', value: 'reference-pbir-generation-provider' },
+                  { label: 'Selected skills', value: 'powerbi.report.create, powerbi.visual.create' },
+                  { label: 'Capability coverage summary', value: '4 negotiated capabilities; 1 provider candidates.' },
+                ],
+              },
+              {
+                stageId: 'review',
+                section: 'Review',
+                status: 'ready',
+                summary: 'Design approval, preview review, and Analyzer handoff readiness.',
+                items: [
+                  { label: 'Design approval status', value: 'Approved' },
+                  { label: 'Preview review status', value: 'Pending' },
+                  { label: 'Analyzer handoff readiness', value: 'ReadyForDesignReview' },
+                ],
+              },
+            ],
+            warningSummaries: [
+              {
+                category: 'unsupportedCapability',
+                severity: 'info',
+                message: 'PBIR generation is not implemented.',
+              },
+              {
+                category: 'unsupportedCapability',
+                severity: 'info',
+                message: 'Microsoft Skills execution is not implemented.',
+              },
+            ],
+            reviewerActionsAvailable: ['Review readiness dashboard', 'Request revision'],
+            lineageReferences: [
+              {
+                stage: 'generationManifest',
+                referenceId: 'generationManifest:phase27',
+                schemaVersion: 'generation-manifest/v1',
+              },
+            ],
+            architectureCertificationReference: {
+              certificationId: 'architectureCertification:phase27',
+              readinessReportId: 'architectureReadiness:phase27',
+              schemaVersion: 'architecture-certification/v1',
+              readiness: 'ReadyForExecutionImplementation',
+              isCertified: true,
+            },
+            trustBoundary: {
+              executionAllowed: false,
+              providerInvocationAllowed: false,
+              microsoftSkillsExecutionAllowed: false,
+              apiInvocationAllowed: false,
+              cliInvocationAllowed: false,
+              deploymentAllowed: false,
+              automaticAnalyzerValidationAllowed: false,
+              automaticAnalyzerLaunchAllowed: false,
+            },
+          },
+        },
+      },
+    }));
+
+    expect((await screen.findAllByRole('heading', { name: 'Preview Review' })).length).toBeGreaterThan(0);
+    expect(screen.getByText('Review local preview outputs in Design Studio before any future execution planning.')).toBeInTheDocument();
+    expect(screen.getByText('Preview Package Summary')).toBeInTheDocument();
+    expect(screen.getByText('local-preview-output/pbir-local-writer/v1/preview/report-preview.md')).toBeInTheDocument();
+    expect(screen.getByText('local-preview-output/pbir-local-writer/v1/preview/report-preview.json')).toBeInTheDocument();
+    expect(screen.getByText('local-preview-output/pbir-local-writer/v1/ir/canonical-pbir-ir.json')).toBeInTheDocument();
+    expect(screen.getByText('local-preview-output/pbir-local-writer/v1/manifests/pbir-preview-manifest.json')).toBeInTheDocument();
+    expect(screen.getByText('local-preview-output/pbir-local-writer/v1/diagnostics/local-write-diagnostics.md')).toBeInTheDocument();
+    expect(screen.getByText(/Analyzer execution allowed:\s*No/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Microsoft Skills execution allowed:\s*No/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Deployment allowed:\s*No/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('heading', { name: 'Execution Readiness Dashboard' })).toBeInTheDocument();
+    expect(screen.getByText('Ready for Design Review')).toBeInTheDocument();
+    expect(screen.getAllByText('Architecture').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Planning').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Generation').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Runtime').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Skills').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/PBIR generation is not implemented\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Preview Reviewed' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Request Revision' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Defer Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare Analyzer Candidate Metadata' }));
+
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'markPreviewReviewed',
+      previewReviewId: 'designStudioPreviewReview:phase27',
+    }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'requestPreviewRevision',
+      previewReviewId: 'designStudioPreviewReview:phase27',
+    }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'deferPreviewReview',
+      previewReviewId: 'designStudioPreviewReview:phase27',
+    }));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'prepareAnalyzerCandidateMetadata',
+      previewReviewId: 'designStudioPreviewReview:phase27',
+    }));
+  });
+
   it('renders the executable Design Brief workflow, keeps header selection in sync, and unlocks Concept Studio only after approval', async () => {
     render(<App />);
 

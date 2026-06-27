@@ -15,6 +15,7 @@ export const DESIGN_STUDIO_WORKFLOW_STAGE_IDS = [
   'draft',
   'refinement',
   'materialize',
+  'previewReview',
   'handoff',
   'compare',
   'completion',
@@ -89,6 +90,143 @@ export interface DesignStudioAnalyzerHandoffViewModel {
   analyzerProfileId: string;
   canOpen: boolean;
   diagnostics: string[];
+}
+
+export interface DesignStudioPreviewReviewViewModel {
+  previewReviewId: string;
+  schemaVersion: 'design-studio-preview-review/v1';
+  previewPackageId: string;
+  previewPackageSchemaVersion: string;
+  previewPackageHash: string;
+  generatedUtc: string;
+  reviewHandoffId: string;
+  reviewHandoffSchemaVersion: string;
+  reviewReadiness: string;
+  readinessState: string;
+  reviewerAction: string;
+  reviewerNotes: string;
+  reviewTimestamp?: string;
+  requiredReviewerAction: string;
+  summary: {
+    fileCount: number;
+    warningCount: number;
+    rejectedArtifactCount: number;
+    hashCount: number;
+  };
+  references: {
+    previewMarkdown?: string;
+    previewJson?: string;
+    canonicalIr?: string;
+    previewManifest?: string;
+    diagnostics?: string;
+    reviewHandoff: string;
+  };
+  fileInventory: Array<{
+    artifactType: string;
+    relativePath: string;
+    reference: string;
+    contentType: string;
+    hashSha256: string;
+    byteLength: number;
+  }>;
+  hashInventory: Array<{
+    hashKind: string;
+    referenceId: string;
+    hashSha256: string;
+    description: string;
+  }>;
+  lineage: {
+    previewPackageRef: string;
+    generationManifestRef: string;
+    pbirIrRef: string;
+    previewManifestRef: string;
+    sourceWriteManifestRef: string;
+    immutableLineage: string[];
+  };
+  rollbackMetadata: {
+    rollbackPlanRef: string;
+    rollbackPlanHash: string;
+    actionCount: number;
+    automaticRollbackExecuted: boolean;
+  };
+  analyzerBoundary: {
+    validationOccurred: boolean;
+    automaticValidationRequested: boolean;
+    automaticValidationAllowed: boolean;
+    workspaceLaunchRequested: boolean;
+    validationStatus: string;
+  };
+  reviewOnlyBoundary: {
+    reportMutationAllowed: boolean;
+    analyzerExecutionAllowed: boolean;
+    analyzerLaunchAllowed: boolean;
+    microsoftSkillsExecutionAllowed: boolean;
+    providerInvocationAllowed: boolean;
+    apiInvocationAllowed: boolean;
+    cliInvocationAllowed: boolean;
+    deploymentAllowed: boolean;
+    deployablePbirGenerationAllowed: boolean;
+    reportJsonGenerationAllowed: boolean;
+    definitionPbirGenerationAllowed: boolean;
+  };
+  warnings: string[];
+  rejectedArtifacts: string[];
+  canMarkReviewed: boolean;
+  canRequestRevision: boolean;
+  canDeferReview: boolean;
+  canPrepareAnalyzerCandidateMetadata: boolean;
+}
+
+export interface DesignStudioExecutionReadinessStageItemViewModel {
+  label: string;
+  value: string;
+}
+
+export interface DesignStudioExecutionReadinessStageSummaryViewModel {
+  stageId: 'architecture' | 'planning' | 'generation' | 'runtime' | 'skills' | 'review';
+  section: string;
+  status: string;
+  summary: string;
+  items: DesignStudioExecutionReadinessStageItemViewModel[];
+}
+
+export interface DesignStudioExecutionReadinessWarningSummaryViewModel {
+  category: string;
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+}
+
+export interface DesignStudioExecutionReadinessLineageReferenceViewModel {
+  stage: string;
+  referenceId: string;
+  schemaVersion: string;
+}
+
+export interface DesignStudioExecutionReadinessViewModel {
+  schemaVersion: 'design-studio-execution-readiness/v1';
+  readinessSummary: 'notReady' | 'readyForDesignReview' | 'readyForAnalyzerReview' | 'readyForGenerationProvider' | 'blocked';
+  readinessLabel: 'Not Ready' | 'Ready for Design Review' | 'Ready for Analyzer Review' | 'Ready for Generation Provider' | 'Blocked';
+  stageSummaries: DesignStudioExecutionReadinessStageSummaryViewModel[];
+  warningSummaries: DesignStudioExecutionReadinessWarningSummaryViewModel[];
+  reviewerActionsAvailable: string[];
+  lineageReferences: DesignStudioExecutionReadinessLineageReferenceViewModel[];
+  architectureCertificationReference: {
+    certificationId: string;
+    readinessReportId: string;
+    schemaVersion: 'architecture-certification/v1';
+    readiness: string;
+    isCertified: boolean;
+  };
+  trustBoundary: {
+    executionAllowed: boolean;
+    providerInvocationAllowed: boolean;
+    microsoftSkillsExecutionAllowed: boolean;
+    apiInvocationAllowed: boolean;
+    cliInvocationAllowed: boolean;
+    deploymentAllowed: boolean;
+    automaticAnalyzerValidationAllowed: boolean;
+    automaticAnalyzerLaunchAllowed: boolean;
+  };
 }
 
 export interface DesignStudioReviewDesignViewModel {
@@ -276,6 +414,8 @@ export interface DesignStudioWorkspaceViewModel {
   approvalCards: DesignStudioApprovalCardViewModel[];
   materializationReadiness?: DesignStudioMaterializationReadinessViewModel;
   analyzerHandoff?: DesignStudioAnalyzerHandoffViewModel;
+  previewReview?: DesignStudioPreviewReviewViewModel;
+  executionReadiness?: DesignStudioExecutionReadinessViewModel;
   reviewDesign?: DesignStudioReviewDesignViewModel;
   refinementExperience?: DesignStudioRefinementExperienceViewModel;
   conceptReview?: DesignStudioConceptReviewViewModel;

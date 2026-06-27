@@ -6,6 +6,8 @@ Phase 24 adds the PBIR Local Artifact Writer Safety Boundary.
 
 Phase 25 adds a downstream PBIR Local Preview File Writer that consumes this boundary output for non-deployable preview files only.
 
+Phase 26 adds a downstream PBIR Preview Package and Review Handoff layer that packages metadata and creates review handoff records only.
+
 The writer boundary contract is pbir-local-writer/v1.
 
 The write request contract is pbir-local-write-request/v1.
@@ -241,6 +243,8 @@ The PBIR Local Artifact Writer Boundary does not:
 ## Remaining Real Writer Gap
 
 Actual local preview writing is implemented only for non-deployable preview artifacts through pbir-local-preview-writer/v1.
+
+Review-ready preview package metadata and review handoff records are implemented through pbir-preview-package/v1 and pbir-review-handoff/v1.
 
 The repo still has no deployable PBIR serializer, no report.json generation, no definition.pbir generation, no Power BI project materialization, no Microsoft Skills execution, no provider invocation, no Microsoft API invocation, no CLI invocation, and no deployment workflow.
 

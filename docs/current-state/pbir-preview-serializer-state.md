@@ -50,6 +50,8 @@ Phase 24 adds a downstream PBIR Local Artifact Writer Boundary that may consume 
 
 Phase 25 adds a downstream PBIR Local Preview File Writer that may write only approved local preview files from those manifests. It still does not create deployable PBIR artifacts.
 
+Phase 26 adds a downstream PBIR Preview Package and Review Handoff layer that references safe preview outputs and prepares manual Design Studio or Analyzer Workspace review handoff records. It does not run validation or automate Analyzer Workspace.
+
 ## Architecture
 
 The delivered backend components are:
@@ -208,6 +210,8 @@ The PBIR Preview Serializer does not:
 - automate Analyzer Workspace
 
 The downstream local writer boundary and local preview writer preserve these restrictions. They plan or write local preview, IR, manifest, and diagnostics artifacts only, and they reject report.json, definition.pbir, model.bim, TMDL, PBIP project output, Microsoft Skills execution, provider/API/CLI invocation, and deployment.
+
+The downstream preview package and review handoff layer also preserves these restrictions. It records metadata, references, lineage, warnings, rejected artifacts, rollback metadata, Design Studio approval context, and Analyzer Workspace validation boundaries only.
 
 ## Remaining PBIR Serialization Gap
 

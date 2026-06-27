@@ -48,6 +48,8 @@ It produces:
 - rejected file inventory
 - warnings
 
+Phase 26 adds a downstream PBIR Preview Package and Review Handoff layer that consumes pbir-local-preview-write-result/v1 as metadata input. It creates review package and handoff records only, not deployable PBIR output or Analyzer automation.
+
 ## Architecture
 
 The delivered backend components are:
@@ -177,3 +179,5 @@ Deployable PBIR writing remains unimplemented.
 The repo still has no deployable PBIR serializer, no report.json generation, no definition.pbir generation, no Power BI project materialization, no Microsoft Skills execution, no provider invocation, no Microsoft API invocation, no CLI invocation, and no deployment workflow.
 
 Future deployable writer work must be a separate phase with explicit serializer contracts, approval gates, deterministic preview/apply/rollback semantics, and strict separation from pbir-local-preview-writer/v1.
+
+The downstream pbir-preview-package/v1 and pbir-review-handoff/v1 contracts remain review-only metadata layers and do not close the deployable PBIR writer gap.

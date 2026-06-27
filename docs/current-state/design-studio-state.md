@@ -59,10 +59,11 @@ The current executable shell stages are:
 2. Concept Studio
 3. Draft Studio
 4. Prepare For Review
-5. Review Design
-6. Refinement Studio
-7. Compare Iterations
-8. Workflow Completion
+5. Preview Review
+6. Review Design
+7. Refinement Studio
+8. Compare Iterations
+9. Workflow Completion
 
 This workflow is represented in the current webview shell and associated state contracts.
 
@@ -134,6 +135,32 @@ It supports:
 - approve candidate
 
 The candidate remains a review candidate, not a production asset.
+
+### Preview Review
+
+Preview Review is the review-only PBIR preview package inspection surface.
+
+It supports:
+
+- preview package summary inspection
+- preview file inventory inspection
+- hash inventory inspection
+- lineage inspection
+- warning and rejected-artifact inspection
+- rollback metadata inspection
+- review handoff state inspection
+- mark preview reviewed
+- request revision
+- defer review
+- prepare analyzer candidate metadata
+
+Preview Review consumes design-studio-preview-review/v1 state backed by pbir-preview-package/v1 and pbir-review-handoff/v1 metadata.
+
+It does not approve anything automatically, run Analyzer validation, launch Analyzer Workspace automatically, mutate PBIR files, generate deployable PBIR files, create report.json, create definition.pbir, execute Microsoft Skills, invoke providers, call APIs, invoke CLI commands, deploy assets, or publish assets.
+
+Preview Review now also renders the Design Studio Execution Readiness Dashboard.
+
+The dashboard consumes design-studio-execution-readiness/v1 view state and summarizes architecture, planning, generation, runtime, skills, review, warnings, lineage, and trust-boundary status. It is informational only and does not trigger generation, provider invocation, deployment, Microsoft Skills execution, or Analyzer Workspace automation.
 
 ### Review Design
 
@@ -208,6 +235,8 @@ Design Studio currently must not:
 - issue validation approval
 - mutate PBIR reports automatically
 - create production assets through materialization
+- treat Preview Review as validation
+- use preview package review actions as report mutation authority
 - bypass deterministic preview, apply, and rollback
 - let provider outputs self-approve
 - collapse design approval into validation approval
@@ -229,6 +258,9 @@ The current system expects:
 - rejection of unsupported message types
 - nested payload validation
 - rejection of malformed or cross-thread lineage
+- rejection of malformed preview package review payloads
+- rejection of malformed execution readiness payloads
+- rejection of preview review messages that imply hidden Analyzer execution, provider invocation, deployment, or report mutation
 
 This is part of the current architecture, not a future aspiration.
 
@@ -267,6 +299,8 @@ The current Design Studio workflow still excludes:
 - provider-required workflow steps
 - self-validation
 - hidden analyzer execution
+- automatic preview approval
+- automatic Analyzer launch from preview package review
 
 It also should not be described as a generic AI report generator. Its current architecture is still design-first, advisory-first, and validation-gated.
 

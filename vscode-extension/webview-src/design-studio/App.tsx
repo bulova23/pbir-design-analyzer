@@ -606,6 +606,336 @@ export function App() {
             </section>
           ) : null}
 
+          {selectedStage === 'previewReview' && workspace.previewReview ? (
+            <section className='detail-card'>
+              <h3>Preview Review</h3>
+              <p>{workspace.previewReview.requiredReviewerAction}</p>
+              <section>
+                <h4>Review Readiness</h4>
+                <p>{workspace.previewReview.readinessState}</p>
+                <p>{workspace.previewReview.reviewerAction}</p>
+                {workspace.previewReview.reviewTimestamp ? (
+                  <p>{workspace.previewReview.reviewTimestamp}</p>
+                ) : null}
+                {workspace.previewReview.reviewerNotes ? (
+                  <p>{workspace.previewReview.reviewerNotes}</p>
+                ) : null}
+              </section>
+              <section>
+                <h4>Preview Package Summary</h4>
+                <dl>
+                  <div>
+                    <dt>Package</dt>
+                    <dd>{workspace.previewReview.previewPackageId}</dd>
+                  </div>
+                  <div>
+                    <dt>Schema</dt>
+                    <dd>{workspace.previewReview.previewPackageSchemaVersion}</dd>
+                  </div>
+                  <div>
+                    <dt>Generated</dt>
+                    <dd>{workspace.previewReview.generatedUtc}</dd>
+                  </div>
+                  <div>
+                    <dt>Package hash</dt>
+                    <dd>{workspace.previewReview.previewPackageHash}</dd>
+                  </div>
+                </dl>
+                <div className='summary-metric-grid'>
+                  <article className='summary-metric-card'>
+                    <p>Preview files</p>
+                    <strong>{workspace.previewReview.summary.fileCount}</strong>
+                  </article>
+                  <article className='summary-metric-card'>
+                    <p>Hashes</p>
+                    <strong>{workspace.previewReview.summary.hashCount}</strong>
+                  </article>
+                  <article className='summary-metric-card'>
+                    <p>Warnings</p>
+                    <strong>{workspace.previewReview.summary.warningCount}</strong>
+                  </article>
+                  <article className='summary-metric-card'>
+                    <p>Rejected</p>
+                    <strong>{workspace.previewReview.summary.rejectedArtifactCount}</strong>
+                  </article>
+                </div>
+              </section>
+              <section>
+                <h4>Preview References</h4>
+                <dl>
+                  <div>
+                    <dt>Preview Markdown</dt>
+                    <dd>{workspace.previewReview.references.previewMarkdown ?? 'Not available'}</dd>
+                  </div>
+                  <div>
+                    <dt>Preview JSON</dt>
+                    <dd>{workspace.previewReview.references.previewJson ?? 'Not available'}</dd>
+                  </div>
+                  <div>
+                    <dt>Canonical IR</dt>
+                    <dd>{workspace.previewReview.references.canonicalIr ?? 'Not available'}</dd>
+                  </div>
+                  <div>
+                    <dt>Preview Manifest</dt>
+                    <dd>{workspace.previewReview.references.previewManifest ?? 'Not available'}</dd>
+                  </div>
+                  <div>
+                    <dt>Diagnostics</dt>
+                    <dd>{workspace.previewReview.references.diagnostics ?? 'Not available'}</dd>
+                  </div>
+                  <div>
+                    <dt>Review Handoff</dt>
+                    <dd>{workspace.previewReview.references.reviewHandoff}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <h4>File Inventory</h4>
+                <ul>
+                  {workspace.previewReview.fileInventory.map((file) => (
+                    <li key={`${file.artifactType}:${file.reference}`}>
+                      <strong>{file.artifactType}</strong>
+                      {' '}· {file.relativePath}
+                      {' '}· {file.hashSha256}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>Hash Inventory</h4>
+                <ul>
+                  {workspace.previewReview.hashInventory.map((entry) => (
+                    <li key={`${entry.hashKind}:${entry.referenceId}`}>
+                      <strong>{entry.hashKind}</strong>
+                      {' '}· {entry.referenceId}
+                      {' '}· {entry.hashSha256}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>Lineage</h4>
+                <dl>
+                  <div>
+                    <dt>Generation manifest</dt>
+                    <dd>{workspace.previewReview.lineage.generationManifestRef}</dd>
+                  </div>
+                  <div>
+                    <dt>PBIR IR</dt>
+                    <dd>{workspace.previewReview.lineage.pbirIrRef}</dd>
+                  </div>
+                  <div>
+                    <dt>Preview manifest</dt>
+                    <dd>{workspace.previewReview.lineage.previewManifestRef}</dd>
+                  </div>
+                  <div>
+                    <dt>Source write manifest</dt>
+                    <dd>{workspace.previewReview.lineage.sourceWriteManifestRef}</dd>
+                  </div>
+                </dl>
+                <ul>
+                  {workspace.previewReview.lineage.immutableLineage.map((entry) => (
+                    <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>Rollback Metadata</h4>
+                <p>{workspace.previewReview.rollbackMetadata.rollbackPlanRef}</p>
+                <p>{workspace.previewReview.rollbackMetadata.rollbackPlanHash}</p>
+                <p>Automatic rollback executed: {workspace.previewReview.rollbackMetadata.automaticRollbackExecuted ? 'Yes' : 'No'}</p>
+              </section>
+              <section>
+                <h4>Review-Only Boundary</h4>
+                <ul>
+                  <li>Analyzer execution allowed: {workspace.previewReview.reviewOnlyBoundary.analyzerExecutionAllowed ? 'Yes' : 'No'}</li>
+                  <li>Analyzer launch allowed: {workspace.previewReview.reviewOnlyBoundary.analyzerLaunchAllowed ? 'Yes' : 'No'}</li>
+                  <li>Microsoft Skills execution allowed: {workspace.previewReview.reviewOnlyBoundary.microsoftSkillsExecutionAllowed ? 'Yes' : 'No'}</li>
+                  <li>Provider invocation allowed: {workspace.previewReview.reviewOnlyBoundary.providerInvocationAllowed ? 'Yes' : 'No'}</li>
+                  <li>Deployment allowed: {workspace.previewReview.reviewOnlyBoundary.deploymentAllowed ? 'Yes' : 'No'}</li>
+                  <li>report.json generation allowed: {workspace.previewReview.reviewOnlyBoundary.reportJsonGenerationAllowed ? 'Yes' : 'No'}</li>
+                  <li>definition.pbir generation allowed: {workspace.previewReview.reviewOnlyBoundary.definitionPbirGenerationAllowed ? 'Yes' : 'No'}</li>
+                </ul>
+              </section>
+              <section>
+                <h4>Analyzer Boundary</h4>
+                <p>{workspace.previewReview.analyzerBoundary.validationStatus}</p>
+              </section>
+              {workspace.previewReview.warnings.length > 0 ? (
+                <section>
+                  <h4>Warnings</h4>
+                  <ul>
+                    {workspace.previewReview.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {workspace.previewReview.rejectedArtifacts.length > 0 ? (
+                <section>
+                  <h4>Rejected Artifacts</h4>
+                  <ul>
+                    {workspace.previewReview.rejectedArtifacts.map((artifact) => (
+                      <li key={artifact}>{artifact}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {workspace.executionReadiness ? (
+                <section>
+                  <h3>Execution Readiness Dashboard</h3>
+                  <p>{workspace.executionReadiness.readinessLabel}</p>
+                  <div className='summary-metric-grid'>
+                    {workspace.executionReadiness.stageSummaries.map((stage) => (
+                      <article className='summary-metric-card' key={stage.stageId}>
+                        <p>{stage.section}</p>
+                        <strong>{stage.status}</strong>
+                      </article>
+                    ))}
+                  </div>
+                  <section>
+                    <h4>Readiness Summary</h4>
+                    <dl>
+                      {workspace.executionReadiness.stageSummaries.map((stage) => (
+                        <div key={`${stage.stageId}:summary`}>
+                          <dt>{stage.section}</dt>
+                          <dd>{stage.summary}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                  <section>
+                    <h4>Stage Details</h4>
+                    {workspace.executionReadiness.stageSummaries.map((stage) => (
+                      <div key={`${stage.stageId}:details`}>
+                        <h5>{stage.section}</h5>
+                        <dl>
+                          {stage.items.map((item) => (
+                            <div key={`${stage.stageId}:${item.label}`}>
+                              <dt>{item.label}</dt>
+                              <dd>{item.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ))}
+                  </section>
+                  <section>
+                    <h4>Warnings</h4>
+                    <ul>
+                      {workspace.executionReadiness.warningSummaries.map((warning) => (
+                        <li key={`${warning.category}:${warning.message}`}>
+                          <strong>{warning.category}</strong>
+                          {' '}· {warning.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section>
+                    <h4>Reviewer Actions Available</h4>
+                    <ul>
+                      {workspace.executionReadiness.reviewerActionsAvailable.map((action) => (
+                        <li key={action}>{action}</li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section>
+                    <h4>Readiness Lineage</h4>
+                    <ul>
+                      {workspace.executionReadiness.lineageReferences.map((reference) => (
+                        <li key={`${reference.stage}:${reference.referenceId}`}>
+                          <strong>{reference.stage}</strong>
+                          {' '}· {reference.referenceId}
+                          {' '}· {reference.schemaVersion}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section>
+                    <h4>Architecture Certification Reference</h4>
+                    <dl>
+                      <div>
+                        <dt>Certification</dt>
+                        <dd>{workspace.executionReadiness.architectureCertificationReference.certificationId}</dd>
+                      </div>
+                      <div>
+                        <dt>Readiness report</dt>
+                        <dd>{workspace.executionReadiness.architectureCertificationReference.readinessReportId}</dd>
+                      </div>
+                      <div>
+                        <dt>Classification</dt>
+                        <dd>{workspace.executionReadiness.architectureCertificationReference.readiness}</dd>
+                      </div>
+                    </dl>
+                  </section>
+                  <section>
+                    <h4>Execution Trust Boundary</h4>
+                    <ul>
+                      <li>Execution allowed: {workspace.executionReadiness.trustBoundary.executionAllowed ? 'Yes' : 'No'}</li>
+                      <li>Provider invocation allowed: {workspace.executionReadiness.trustBoundary.providerInvocationAllowed ? 'Yes' : 'No'}</li>
+                      <li>Microsoft Skills execution allowed: {workspace.executionReadiness.trustBoundary.microsoftSkillsExecutionAllowed ? 'Yes' : 'No'}</li>
+                      <li>API invocation allowed: {workspace.executionReadiness.trustBoundary.apiInvocationAllowed ? 'Yes' : 'No'}</li>
+                      <li>CLI invocation allowed: {workspace.executionReadiness.trustBoundary.cliInvocationAllowed ? 'Yes' : 'No'}</li>
+                      <li>Deployment allowed: {workspace.executionReadiness.trustBoundary.deploymentAllowed ? 'Yes' : 'No'}</li>
+                      <li>Automatic Analyzer validation allowed: {workspace.executionReadiness.trustBoundary.automaticAnalyzerValidationAllowed ? 'Yes' : 'No'}</li>
+                      <li>Automatic Analyzer launch allowed: {workspace.executionReadiness.trustBoundary.automaticAnalyzerLaunchAllowed ? 'Yes' : 'No'}</li>
+                    </ul>
+                  </section>
+                </section>
+              ) : null}
+              <div className='workflow-actions'>
+                <button
+                  type='button'
+                  disabled={!workspace.previewReview.canMarkReviewed}
+                  onClick={() => {
+                    vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                      type: 'markPreviewReviewed',
+                      previewReviewId: workspace.previewReview!.previewReviewId,
+                    }));
+                  }}
+                >
+                  Mark Preview Reviewed
+                </button>
+                <button
+                  type='button'
+                  disabled={!workspace.previewReview.canRequestRevision}
+                  onClick={() => {
+                    vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                      type: 'requestPreviewRevision',
+                      previewReviewId: workspace.previewReview!.previewReviewId,
+                    }));
+                  }}
+                >
+                  Request Revision
+                </button>
+                <button
+                  type='button'
+                  disabled={!workspace.previewReview.canDeferReview}
+                  onClick={() => {
+                    vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                      type: 'deferPreviewReview',
+                      previewReviewId: workspace.previewReview!.previewReviewId,
+                    }));
+                  }}
+                >
+                  Defer Review
+                </button>
+                <button
+                  type='button'
+                  disabled={!workspace.previewReview.canPrepareAnalyzerCandidateMetadata}
+                  onClick={() => {
+                    vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({
+                      type: 'prepareAnalyzerCandidateMetadata',
+                      previewReviewId: workspace.previewReview!.previewReviewId,
+                    }));
+                  }}
+                >
+                  Prepare Analyzer Candidate Metadata
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           {selectedStage === 'handoff' && workspace.reviewDesign ? (
             <section className='detail-card'>
               <h3>Review Design</h3>

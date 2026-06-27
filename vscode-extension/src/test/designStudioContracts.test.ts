@@ -276,6 +276,7 @@ describe('designStudio contracts', () => {
       'materializationRequested',
       'iterationComparison',
       'analyzerHandoffOpened',
+      'executionReadinessUpdated',
     ]);
     expect(DESIGN_STUDIO_WEBVIEW_MESSAGE_TYPES).toEqual([
       'webviewReady',
@@ -292,6 +293,11 @@ describe('designStudio contracts', () => {
       'openAnalyzerHandoff',
       'markReviewCompleted',
       'attachAnalyzerResults',
+      'markPreviewReviewed',
+      'requestPreviewRevision',
+      'deferPreviewReview',
+      'prepareAnalyzerCandidateMetadata',
+      'requestExecutionReadiness',
       'completeIteration',
       'reopenIteration',
       'setRefinementProposalState',
@@ -305,6 +311,8 @@ describe('designStudio contracts', () => {
     expect(protocolText).not.toContain('apply');
     expect(protocolText).not.toContain('deploy');
     expect(protocolText).not.toContain('publish');
+    expect(protocolText).not.toContain('execute');
+    expect(protocolText).not.toContain('invoke');
   });
 
   it('does not widen the score-panel, Story Assessment, surface, or analyzer contracts', () => {

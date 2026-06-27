@@ -186,6 +186,8 @@ Phase 24 adds a downstream PBIR Local Artifact Writer Boundary that consumes pbi
 
 Phase 25 adds a PBIR Local Preview File Writer that consumes pbir-ir/v1 through the approved preview/write-manifest chain and writes only non-deployable preview files.
 
+Phase 26 adds PBIR Preview Package and Review Handoff contracts that consume pbir-ir/v1 lineage through the preview write result and preserve the generation manifest reference for Design Studio and future Analyzer review handoff.
+
 No deployable PBIR serializer implementation exists.
 
 No deployable PBIR serialization exists.
@@ -231,6 +233,8 @@ The PBIR IR layer does not:
 - mutate reports
 - automate Analyzer Workspace
 - write deployable local artifact files
+
+The downstream pbir-preview-package/v1 and pbir-review-handoff/v1 layers preserve this boundary by creating metadata and review handoff records only.
 
 ## Remaining Serializer Implementation Gap
 

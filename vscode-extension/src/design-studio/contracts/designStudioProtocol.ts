@@ -41,6 +41,7 @@ export const DESIGN_STUDIO_HOST_MESSAGE_TYPES = [
   'materializationRequested',
   'iterationComparison',
   'analyzerHandoffOpened',
+  'executionReadinessUpdated',
 ] as const;
 
 export const DESIGN_STUDIO_WEBVIEW_MESSAGE_TYPES = [
@@ -58,6 +59,11 @@ export const DESIGN_STUDIO_WEBVIEW_MESSAGE_TYPES = [
   'openAnalyzerHandoff',
   'markReviewCompleted',
   'attachAnalyzerResults',
+  'markPreviewReviewed',
+  'requestPreviewRevision',
+  'deferPreviewReview',
+  'prepareAnalyzerCandidateMetadata',
+  'requestExecutionReadiness',
   'completeIteration',
   'reopenIteration',
   'setRefinementProposalState',
@@ -463,6 +469,108 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
     }
   }
 
+  if (value.previewReview !== undefined) {
+    const review = isRecord(value.previewReview) ? value.previewReview : undefined;
+    const summary = isRecord(review?.summary) ? review.summary : undefined;
+    const references = isRecord(review?.references) ? review.references : undefined;
+    const fileInventory = Array.isArray(review?.fileInventory) ? review.fileInventory : undefined;
+    const hashInventory = Array.isArray(review?.hashInventory) ? review.hashInventory : undefined;
+    const lineage = isRecord(review?.lineage) ? review.lineage : undefined;
+    const rollbackMetadata = isRecord(review?.rollbackMetadata) ? review.rollbackMetadata : undefined;
+    const analyzerBoundary = isRecord(review?.analyzerBoundary) ? review.analyzerBoundary : undefined;
+    const reviewOnlyBoundary = isRecord(review?.reviewOnlyBoundary) ? review.reviewOnlyBoundary : undefined;
+
+    if (
+      !review
+      || readString(review, 'schemaVersion') !== 'design-studio-preview-review/v1'
+      || !readString(review, 'previewReviewId')
+      || !readString(review, 'previewPackageId')
+      || readString(review, 'previewPackageSchemaVersion') !== 'pbir-preview-package/v1'
+      || !readString(review, 'previewPackageHash')
+      || !readString(review, 'generatedUtc')
+      || !readString(review, 'reviewHandoffId')
+      || readString(review, 'reviewHandoffSchemaVersion') !== 'pbir-review-handoff/v1'
+      || !readString(review, 'reviewReadiness')
+      || !readString(review, 'readinessState')
+      || !readString(review, 'reviewerAction')
+      || !readString(review, 'requiredReviewerAction')
+      || !summary
+      || readNumber(summary, 'fileCount') === undefined
+      || readNumber(summary, 'warningCount') === undefined
+      || readNumber(summary, 'rejectedArtifactCount') === undefined
+      || readNumber(summary, 'hashCount') === undefined
+      || !references
+      || !readString(references, 'reviewHandoff')
+      || !fileInventory
+      || !hashInventory
+      || !lineage
+      || !rollbackMetadata
+      || !analyzerBoundary
+      || !reviewOnlyBoundary
+      || !isStringArray(review.warnings)
+      || !isStringArray(review.rejectedArtifacts)
+      || readBoolean(review, 'canMarkReviewed') === undefined
+      || readBoolean(review, 'canRequestRevision') === undefined
+      || readBoolean(review, 'canDeferReview') === undefined
+      || readBoolean(review, 'canPrepareAnalyzerCandidateMetadata') === undefined
+    ) {
+      return false;
+    }
+
+    if (!fileInventory.every((file) => isRecord(file)
+      && !!readString(file, 'artifactType')
+      && !!readString(file, 'relativePath')
+      && !!readString(file, 'reference')
+      && !!readString(file, 'contentType')
+      && !!readString(file, 'hashSha256')
+      && readNumber(file, 'byteLength') !== undefined)) {
+      return false;
+    }
+
+    if (!hashInventory.every((entry) => isRecord(entry)
+      && !!readString(entry, 'hashKind')
+      && !!readString(entry, 'referenceId')
+      && !!readString(entry, 'hashSha256')
+      && !!readString(entry, 'description'))) {
+      return false;
+    }
+
+    if (
+      !readString(lineage, 'previewPackageRef')
+      || !readString(lineage, 'generationManifestRef')
+      || !readString(lineage, 'pbirIrRef')
+      || !readString(lineage, 'previewManifestRef')
+      || !readString(lineage, 'sourceWriteManifestRef')
+      || !isNonEmptyStringArray(lineage.immutableLineage)
+      || !readString(rollbackMetadata, 'rollbackPlanRef')
+      || !readString(rollbackMetadata, 'rollbackPlanHash')
+      || readNumber(rollbackMetadata, 'actionCount') === undefined
+      || readBoolean(rollbackMetadata, 'automaticRollbackExecuted') === undefined
+      || readBoolean(analyzerBoundary, 'validationOccurred') === undefined
+      || readBoolean(analyzerBoundary, 'automaticValidationRequested') === undefined
+      || readBoolean(analyzerBoundary, 'automaticValidationAllowed') === undefined
+      || readBoolean(analyzerBoundary, 'workspaceLaunchRequested') === undefined
+      || !readString(analyzerBoundary, 'validationStatus')
+      || readBoolean(reviewOnlyBoundary, 'reportMutationAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'analyzerExecutionAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'analyzerLaunchAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'microsoftSkillsExecutionAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'providerInvocationAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'apiInvocationAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'cliInvocationAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'deploymentAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'deployablePbirGenerationAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'reportJsonGenerationAllowed') !== false
+      || readBoolean(reviewOnlyBoundary, 'definitionPbirGenerationAllowed') !== false
+    ) {
+      return false;
+    }
+  }
+
+  if (value.executionReadiness !== undefined && !isExecutionReadinessPayload(value.executionReadiness)) {
+    return false;
+  }
+
   if (value.reviewDesign !== undefined) {
     const reviewDesign = isRecord(value.reviewDesign) ? value.reviewDesign : undefined;
     if (
@@ -667,6 +775,97 @@ function isWorkspaceStatePayload(value: unknown): value is DesignStudioWorkspace
   return true;
 }
 
+function isExecutionReadinessPayload(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const validSummary = ['notReady', 'readyForDesignReview', 'readyForAnalyzerReview', 'readyForGenerationProvider', 'blocked'];
+  const validLabels = ['Not Ready', 'Ready for Design Review', 'Ready for Analyzer Review', 'Ready for Generation Provider', 'Blocked'];
+  const expectedStages = ['architecture', 'planning', 'generation', 'runtime', 'skills', 'review'];
+  const stageSummaries = Array.isArray(value.stageSummaries) ? value.stageSummaries : undefined;
+  const warningSummaries = Array.isArray(value.warningSummaries) ? value.warningSummaries : undefined;
+  const reviewerActionsAvailable = Array.isArray(value.reviewerActionsAvailable) ? value.reviewerActionsAvailable : undefined;
+  const lineageReferences = Array.isArray(value.lineageReferences) ? value.lineageReferences : undefined;
+  const architectureCertificationReference = isRecord(value.architectureCertificationReference) ? value.architectureCertificationReference : undefined;
+  const trustBoundary = isRecord(value.trustBoundary) ? value.trustBoundary : undefined;
+  const readinessSummary = readString(value, 'readinessSummary');
+  const readinessLabel = readString(value, 'readinessLabel');
+
+  if (
+    readString(value, 'schemaVersion') !== 'design-studio-execution-readiness/v1'
+    || !readinessSummary
+    || !validSummary.includes(readinessSummary)
+    || !readinessLabel
+    || !validLabels.includes(readinessLabel)
+    || !stageSummaries
+    || stageSummaries.length !== expectedStages.length
+    || !warningSummaries
+    || !reviewerActionsAvailable
+    || !lineageReferences
+    || !architectureCertificationReference
+    || !trustBoundary
+  ) {
+    return false;
+  }
+
+  if (!stageSummaries.every((stage, index) => {
+    if (!isRecord(stage)) {
+      return false;
+    }
+
+    const items = Array.isArray(stage.items) ? stage.items : undefined;
+    return readString(stage, 'stageId') === expectedStages[index]
+      && !!readString(stage, 'section')
+      && !!readString(stage, 'status')
+      && !!readString(stage, 'summary')
+      && !!items
+      && items.length > 0
+      && items.every((item) => isRecord(item) && !!readString(item, 'label') && !!readString(item, 'value'));
+  })) {
+    return false;
+  }
+
+  if (!warningSummaries.every((warning) =>
+    isRecord(warning)
+    && !!readString(warning, 'category')
+    && ['info', 'warning', 'error'].includes(readString(warning, 'severity') ?? '')
+    && !!readString(warning, 'message'))) {
+    return false;
+  }
+
+  if (!reviewerActionsAvailable.every((action) => typeof action === 'string' && action.trim().length > 0)) {
+    return false;
+  }
+
+  if (!lineageReferences.every((reference) =>
+    isRecord(reference)
+    && !!readString(reference, 'stage')
+    && !!readString(reference, 'referenceId')
+    && !!readString(reference, 'schemaVersion'))) {
+    return false;
+  }
+
+  if (
+    !readString(architectureCertificationReference, 'certificationId')
+    || !readString(architectureCertificationReference, 'readinessReportId')
+    || readString(architectureCertificationReference, 'schemaVersion') !== 'architecture-certification/v1'
+    || !readString(architectureCertificationReference, 'readiness')
+    || readBoolean(architectureCertificationReference, 'isCertified') === undefined
+  ) {
+    return false;
+  }
+
+  return readBoolean(trustBoundary, 'executionAllowed') === false
+    && readBoolean(trustBoundary, 'providerInvocationAllowed') === false
+    && readBoolean(trustBoundary, 'microsoftSkillsExecutionAllowed') === false
+    && readBoolean(trustBoundary, 'apiInvocationAllowed') === false
+    && readBoolean(trustBoundary, 'cliInvocationAllowed') === false
+    && readBoolean(trustBoundary, 'deploymentAllowed') === false
+    && readBoolean(trustBoundary, 'automaticAnalyzerValidationAllowed') === false
+    && readBoolean(trustBoundary, 'automaticAnalyzerLaunchAllowed') === false;
+}
+
 function isStudioStatePayload(value: unknown): value is DesignStudioStudioState {
   if (!isRecord(value)) {
     return false;
@@ -725,7 +924,8 @@ export type DesignStudioHostToWebviewMessagePayload =
   | (DesignStudioEnvelope & { type: 'artifactApproved'; artifactKind: DesignStudioArtifactKind; artifactId: string; version: number })
   | (DesignStudioEnvelope & { type: 'materializationRequested'; request: MaterializationRequest })
   | (DesignStudioEnvelope & { type: 'iterationComparison'; iterationId: string; summary: string })
-  | (DesignStudioEnvelope & { type: 'analyzerHandoffOpened'; requestId: string; target: 'analyzerWorkspace' });
+  | (DesignStudioEnvelope & { type: 'analyzerHandoffOpened'; requestId: string; target: 'analyzerWorkspace' })
+  | (DesignStudioEnvelope & { type: 'executionReadinessUpdated'; readiness: NonNullable<DesignStudioWorkspaceViewModel['executionReadiness']> });
 
 export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'webviewReady' })
@@ -742,6 +942,11 @@ export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'openAnalyzerHandoff'; requestId: string })
   | (DesignStudioEnvelope & { type: 'markReviewCompleted'; requestId: string })
   | (DesignStudioEnvelope & { type: 'attachAnalyzerResults'; requestId: string })
+  | (DesignStudioEnvelope & { type: 'markPreviewReviewed'; previewReviewId: string; reviewerNotes?: string })
+  | (DesignStudioEnvelope & { type: 'requestPreviewRevision'; previewReviewId: string; reviewerNotes?: string })
+  | (DesignStudioEnvelope & { type: 'deferPreviewReview'; previewReviewId: string; reviewerNotes?: string })
+  | (DesignStudioEnvelope & { type: 'prepareAnalyzerCandidateMetadata'; previewReviewId: string; reviewerNotes?: string })
+  | (DesignStudioEnvelope & { type: 'requestExecutionReadiness'; threadId: string })
   | (DesignStudioEnvelope & { type: 'completeIteration' })
   | (DesignStudioEnvelope & { type: 'reopenIteration' })
   | (DesignStudioEnvelope & { type: 'setRefinementProposalState'; proposalId: string; action: 'approve' | 'reject' | 'defer' });
@@ -812,6 +1017,10 @@ export function parseDesignStudioHostMessage(value: unknown):
         ? { ok: true, message: withDesignStudioEnvelope({ type, requestId, target }) }
         : { ok: false, error: 'Design Studio analyzerHandoffOpened host message is missing required fields.' };
     }
+    case 'executionReadinessUpdated':
+      return isExecutionReadinessPayload(value.readiness)
+        ? { ok: true, message: withDesignStudioEnvelope({ type, readiness: value.readiness as NonNullable<DesignStudioWorkspaceViewModel['executionReadiness']> }) }
+        : { ok: false, error: 'Design Studio executionReadinessUpdated host message has an invalid readiness payload.' };
     default:
       return { ok: false, error: `Unsupported Design Studio host message type: ${type}.` };
   }
@@ -900,6 +1109,22 @@ export function parseDesignStudioWebviewMessage(value: unknown):
       return requestId
         ? { ok: true, message: withDesignStudioEnvelope({ type, requestId }) }
         : { ok: false, error: 'Design Studio attachAnalyzerResults webview message is missing requestId.' };
+    }
+    case 'markPreviewReviewed':
+    case 'requestPreviewRevision':
+    case 'deferPreviewReview':
+    case 'prepareAnalyzerCandidateMetadata': {
+      const previewReviewId = readString(value, 'previewReviewId');
+      const reviewerNotes = value.reviewerNotes === undefined ? undefined : readString(value, 'reviewerNotes');
+      return previewReviewId && (value.reviewerNotes === undefined || reviewerNotes !== undefined)
+        ? { ok: true, message: withDesignStudioEnvelope({ type, previewReviewId, reviewerNotes }) }
+        : { ok: false, error: `Design Studio ${type} webview message is missing required fields.` };
+    }
+    case 'requestExecutionReadiness': {
+      const threadId = readString(value, 'threadId');
+      return threadId
+        ? { ok: true, message: withDesignStudioEnvelope({ type, threadId }) }
+        : { ok: false, error: 'Design Studio requestExecutionReadiness webview message is missing threadId.' };
     }
     case 'setRefinementProposalState': {
       const proposalId = readString(value, 'proposalId');
