@@ -2046,3 +2046,12 @@
 - Rendered the dashboard under Preview Review without adding execution, PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation.
 - Added current-state documentation at `docs/current-state/design-studio-execution-readiness-state.md`.
 - Validation passed: `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, and `cd vscode-extension && npm run compile`.
+
+# 2026-07-26 Rayfin Fabricator Integration Review
+
+- Reviewed `spatney/rayfin-fabricator` at commit `4d4609797a92515c5815877ab8675387f997f4de`.
+- Identified Fabricator custom-skill import, structured live-preview design handoff, Graphein specs, and headless render diagnostics as the useful interoperability seams.
+- Recommended a versioned advisory instruction-pack export from existing Fabric App Review findings, with explicit user import or chat handoff into Fabricator.
+- Rejected direct Fabricator invocation, embedded source reuse, prompt copying, deployment automation, and mutation authority.
+- Recorded that current Fabric App Review evidence must gain deterministic Graphein-aware analysis before it can produce strong chart-specific instructions.
+- No product code changed.

@@ -2,6 +2,23 @@
 
 ## Active Session
 
+- 2026-07-26 Repository Phase 29 — Original Roadmap Phase 4A design approval gate is active:
+  - objective:
+    - define the deterministic modern PBIR serializer phase boundary
+    - map Repository Phase 29 explicitly to original seven-phase roadmap Phase 4A
+    - prepare a concise design specification and test-first implementation plan
+    - stop before implementation until the user approves the written phase boundary
+  - current constraints:
+    - consume canonical pbir-ir/v1 through the serializer boundary only
+    - emit modern definition.pbir plus the definition/ hierarchy in memory only
+    - never emit root-level report.json or materialize files
+    - preserve unrelated repository memory/session changes
+  - next gate:
+    - user approval of the Phase 29 design and plan
+    - do not begin implementation, deployable writing, provider execution, deployment, or Analyzer automation before approval
+
+## Active Session
+
 - 2026-06-27 Design Package Microsoft Skills Integration Phase 28 is complete:
   - objective:
     - implement only Design Studio Execution Readiness Dashboard
@@ -3131,13 +3148,14 @@
 
 - No active implementation phase recorded.
 - Latest recorded product state: Design Package Microsoft Skills Integration Phase 28 is complete.
+- Rayfin Fabricator interoperability research is complete; no integration design or implementation has been approved.
 - Preserve the existing planning-only, review-only, and informational-only boundaries.
 - Do not begin deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase.
 
 ## In Progress
 
 - No active pbir-design-analyzer implementation phase recorded.
-- External repo-contract break/fix is updating this current-focus file to satisfy the shared Tier 1 memory contract without changing product state.
+- No Fabricator integration implementation is in progress.
 
 ## Blockers
 
@@ -3157,12 +3175,16 @@
 - Shared repo-contract validation passed after this current-focus contract repair from Consulting-AI-Memory:
   - `python3 scripts/validate_repo_contract.py --repo Consulting-AI-Memory --repo awesome-copilot --repo pbir-design-analyzer`
 - Phase-documentation audit found no `docs/memory/phase*.md`, no `docs/memory/phases/` content, and no `source_refs` in this repo; local phase-documentation namespacing validation is not needed until the repo starts storing shared memory phase docs.
+- Rayfin Fabricator research validation:
+  - reviewed public repository commit `4d4609797a92515c5815877ab8675387f997f4de`
+  - external JavaScript type-check passed
+  - external Vitest run was inconclusive under Node 25 because the environment exposed a non-functional global `localStorage`
+  - no pbir-design-analyzer product code changed
 
 ## Next Recommended Step
 
 - Stop after Phase 28 unless a new goal explicitly opens the next phase.
-- Re-run shared repo-contract validation from Consulting-AI-Memory:
-  - `python3 scripts/validate_repo_contract.py --repo Consulting-AI-Memory --repo awesome-copilot --repo pbir-design-analyzer`
+- If approved, design a versioned advisory Fabricator instruction-pack export that consumes existing Fabric App Review normalized findings and remains manual-import/manual-chat only.
 
 ## Relevant Files
 
@@ -3175,8 +3197,9 @@
 - `docs/current-state/design-studio-preview-review-state.md`
 - `docs/current-state/pbir-preview-package-review-handoff-state.md`
 - `.agent-memory/sessions/2026-06-27-0754-repo-contract-phase-doc-audit.md`
+- `.agent-memory/sessions/2026-07-26T120654Z-rayfin-fabricator-integration-review.md`
 
 ## Last Updated
 
-- Date: `2026-06-27`
+- Date: `2026-07-26`
 - By: `codex`
