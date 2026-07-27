@@ -40,11 +40,13 @@ Phase 27 adds Design Studio Preview Review as a review-only UI and workflow inte
 
 Phase 28 adds Design Studio Execution Readiness as an informational dashboard over the completed planning, manifest, PBIR IR, preview package, preview review, and review handoff trail. It exposes deterministic Architecture, Planning, Generation, Runtime, Skills, Review, Warnings, and Readiness Summary sections. It adds backend and extension safety gates plus protocol validation for design-studio-execution-readiness/v1 payloads. It does not run execution, generate deployable PBIR, invoke providers, invoke Microsoft Skills, call APIs, invoke CLI commands, deploy assets, or automate Analyzer Workspace.
 
-No production PBIR, deployable PBIR project, Fabric App, or Fabric Data App generation exists. PBIR generation specification remains a specification-only contract, PBIR IR remains a canonical internal representation, PBIR preview artifacts, local preview write results, preview packages, and review handoffs remain non-deployable, and deployable PBIR output remains absent.
+Phase 29 maps to original roadmap Phase 4A and adds deterministic modern PBIR serialization in memory. It emits a schema-locked definition.pbir and definition hierarchy, including definition/report.json, page definitions, and supported visual definitions. It never emits root-level report.json. It does not write files or add execution authority.
+
+No deployable PBIR project materialization, Fabric App, or Fabric Data App generation exists. PBIR IR remains canonical, preview artifacts remain non-deployable, and Phase 29 artifacts remain in-memory writer inputs only.
 
 ## Serializer Implementation
 
-No deployable PBIR serializer exists.
+Repository Phase 29 implements the first deployable modern PBIR serializer for the explicitly supported pbir-ir/v1 subset.
 
 pbir-serializer-request/v1 identifies the PBIR IR reference and hash that a serializer boundary may consume.
 
@@ -60,6 +62,8 @@ Phase 27 implements only Design Studio review-surface integration for preview pa
 
 Phase 28 implements only Design Studio execution-readiness aggregation and dashboard rendering. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, deploy artifacts, approve outputs automatically, launch Analyzer Workspace automatically, or automate Analyzer Workspace validation.
 
+Phase 29 implements original roadmap Phase 4A serialization only. It creates no filesystem, provider, Microsoft Skills, API, CLI, Desktop, deployment, publishing, or Analyzer automation surface.
+
 ## Deployment
 
 No deployment or publishing exists. The generation manifest and PBIR execution prototype boundary prohibit deployment.
@@ -70,4 +74,7 @@ No product UX starts execution, provider invocation, deployment, deployable arti
 
 ## Deferred Architecture Gaps
 
-None.
+- **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls** is proposed as Repository Phase 30 and awaits explicit design/plan approval.
+- Phase 4B must add a separate safe deployable writer and must not reuse or widen the preview-only writer.
+- The proposed design uses read-only target preview, exact Phase 29 artifact validation, same-filesystem staged directory promotion, external transaction receipts/journals, and current-transaction rollback/recovery. No production implementation exists yet.
+- Provider execution, Microsoft Skills execution, PBIP project materialization, Desktop verification, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, and Fabric Data App generation remain unimplemented.

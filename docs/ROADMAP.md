@@ -60,6 +60,20 @@ Packaging note for the shipped `0.5.0` set:
 
 The next roadmap epics build on that foundation without reopening the scoring architecture.
 
+## Design Package To Microsoft Skills Roadmap Mapping
+
+The original seven-phase roadmap remains distinct from the release and AI-fix roadmaps elsewhere in this document.
+
+- Original Phases 1–3: substantially implemented through the existing consumption, prompt, request, runtime, review, and readiness infrastructure
+- Original Phase 4A: implemented by Repository Phase 29 as deterministic in-memory modern PBIR serialization
+- Original Phase 4B: proposed as Repository Phase 30 and awaiting explicit design/plan approval — **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**
+- Original Phase 4 provider execution, Microsoft Skills execution, Desktop verification, deployment, and publishing work: not started
+- Original Phases 5–7: not started as execution phases
+
+Repository Phase 29 emits definition.pbir and the modern definition hierarchy, including definition/report.json. It never emits PBIR-Legacy root-level report.json and does not materialize files.
+
+The proposed Repository Phase 30 boundary would consume only the validated Phase 29 artifact and manifest, use a new deployable materializer with read-only preview plus staged apply/rollback controls, and leave the preview-only writer unchanged. No Phase 30 production implementation is approved yet.
+
 ## Story Assessment Promotion Boundary
 
 Implemented now:

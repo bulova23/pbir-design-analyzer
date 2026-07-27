@@ -52,6 +52,8 @@ Phase 25 adds a downstream PBIR Local Preview File Writer that may write only ap
 
 Phase 26 adds a downstream PBIR Preview Package and Review Handoff layer that references safe preview outputs and prepares manual Design Studio or Analyzer Workspace review handoff records. It does not run validation or automate Analyzer Workspace.
 
+Repository Phase 29 adds a separate in-memory modern PBIR serializer. The preview serializer does not call it, return its contracts, or gain deployable authority. Preview output remains byte-stable when serializer implementation availability becomes true.
+
 ## Architecture
 
 The delivered backend components are:
@@ -213,10 +215,10 @@ The downstream local writer boundary and local preview writer preserve these res
 
 The downstream preview package and review handoff layer also preserves these restrictions. It records metadata, references, lineage, warnings, rejected artifacts, rollback metadata, Design Studio approval context, and Analyzer Workspace validation boundaries only.
 
-## Remaining PBIR Serialization Gap
+## Separate Deployable Serializer Boundary
 
-Deployable PBIR serialization remains unimplemented.
+Repository Phase 29 implements original roadmap Phase 4A serialization as a separate service downstream from pbir-ir/v1.
 
-The repo still has no production PBIR serializer, no deployable PBIR project materialization, no deployable local artifact writer, no Microsoft Skills execution, no provider invocation, no Microsoft API invocation, no CLI invocation, and no deployment workflow.
+The preview serializer remains unchanged in authority and artifact type. It never emits definition.pbir, definition/report.json, root-level report.json, page definitions, or visual definitions.
 
-Future deployable serializer work must remain downstream from pbir-ir/v1 and must preserve this preview boundary as local human-review output only.
+The remaining gap is **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**. It requires a new goal and a separate writer. The repo still has no deployable local artifact writer, PBIP project materialization, Microsoft Skills execution, provider invocation, API or CLI invocation, Desktop automation, deployment, publishing, or Analyzer automation.

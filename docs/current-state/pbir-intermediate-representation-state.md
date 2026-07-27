@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 22 adds the canonical PBIR Intermediate Representation layer.
+Phase 22 adds the canonical PBIR Intermediate Representation layer. Repository Phase 29 now adds the first deployable serializer downstream from that unchanged IR contract.
 
 The IR contract is pbir-ir/v1.
 
@@ -20,7 +20,7 @@ PBIR IR
 ↓  
 Future Generation Providers
 
-Future generation providers must consume PBIR IR instead of Design Studio artifacts directly.
+Serializers and future generation providers must consume PBIR IR instead of Design Studio artifacts directly.
 
 PBIR IR is not a serializer, generator, provider invocation path, Microsoft Skills runtime, Microsoft API surface, CLI runner, deployment workflow, or deployable PBIR output.
 
@@ -35,7 +35,7 @@ PBIR IR sits after:
 It sits before:
 
 - the local PBIR Preview Serializer
-- any future deployable PBIR serializer
+- the Repository Phase 29 deterministic modern PBIR serializer
 - any future production PBIR generator
 - any future Microsoft Skills execution provider
 - any future provider invocation path
@@ -173,9 +173,9 @@ It records:
 - deployment allowed flag
 - Microsoft Skills execution allowed flag
 
-The current request contract always reports:
+The current request contract reports:
 
-- serializer implementation available: false
+- serializer implementation available: true
 - provider invocation allowed: false
 - deployment allowed: false
 - Microsoft Skills execution allowed: false
@@ -188,9 +188,9 @@ Phase 25 adds a PBIR Local Preview File Writer that consumes pbir-ir/v1 through 
 
 Phase 26 adds PBIR Preview Package and Review Handoff contracts that consume pbir-ir/v1 lineage through the preview write result and preserve the generation manifest reference for Design Studio and future Analyzer review handoff.
 
-No deployable PBIR serializer implementation exists.
+Repository Phase 29 implements original Phase 4A serialization through pbir-deployable-serializer-request/v1. It consumes pbir-ir/v1 and produces an in-memory modern PBIR artifact inventory and manifest.
 
-No deployable PBIR serialization exists.
+It does not write files, generate PBIP projects or semantic models, invoke providers or Microsoft Skills, call APIs or CLI tools, automate Desktop or Analyzer Workspace, deploy, or publish.
 
 ## Reference Generator Integration
 
@@ -236,10 +236,10 @@ The PBIR IR layer does not:
 
 The downstream pbir-preview-package/v1 and pbir-review-handoff/v1 layers preserve this boundary by creating metadata and review handoff records only.
 
-## Remaining Serializer Implementation Gap
+## Remaining Materialization Gap
 
-The remaining implementation gap is a future deployable serializer that consumes pbir-ir/v1 and produces PBIR artifacts.
+The serializer implementation gap is closed for the supported modern PBIR subset.
 
-That deployable serializer is intentionally not implemented in Phase 22, Phase 23, Phase 24, or Phase 25.
+The next separate phase is **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**.
 
-Future deployable serializer work must remain downstream from PBIR IR and must not consume Design Studio artifacts directly.
+That phase requires a new goal, must remain downstream from PBIR IR and the Phase 29 manifest, and must not reuse or widen the preview-only writer.

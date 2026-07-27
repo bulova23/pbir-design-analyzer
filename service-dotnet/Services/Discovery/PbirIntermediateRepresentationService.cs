@@ -81,8 +81,7 @@ internal sealed class PbirIntermediateRepresentationService
             specification
         }));
         var lineageHash = ComputeSha256(Serialize(lineage.ImmutableLineage));
-        var contentHash = ComputeSha256(Serialize(new
-        {
+        var contentHash = PbirIntermediateRepresentationIntegrity.ComputeContentHash(
             metadata,
             references,
             pages,
@@ -91,8 +90,7 @@ internal sealed class PbirIntermediateRepresentationService
             navigation,
             layout,
             successCriteria,
-            lineage
-        }));
+            lineage);
 
         var ir = new PbirIntermediateRepresentation(
             Metadata: metadata,
@@ -131,7 +129,7 @@ internal sealed class PbirIntermediateRepresentationService
             PbirIrRef: state.Ir.Metadata.IrId,
             PbirIrSchemaVersion: state.Ir.Metadata.SchemaVersion,
             PbirIrContentHash: state.Ir.Hashes.ContentHash,
-            SerializerImplementationAvailable: false,
+            SerializerImplementationAvailable: true,
             ProviderInvocationAllowed: false,
             DeploymentAllowed: false,
             MicrosoftSkillsExecutionAllowed: false);

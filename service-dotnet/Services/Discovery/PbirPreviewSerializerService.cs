@@ -69,7 +69,10 @@ internal sealed class PbirPreviewSerializerService
         var inputHash = ComputeSha256(Serialize(new
         {
             ir,
-            serializerRequest,
+            serializerRequest = serializerRequest with
+            {
+                SerializerImplementationAvailable = false
+            },
             outputTypes = options.OutputTypes.OrderBy(outputType => outputType.ToString(), StringComparer.Ordinal).ToArray()
         }));
         var fileSetHash = PbirPreviewSerializerValidator.ComputeFileSetHash(generatedFiles);

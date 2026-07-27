@@ -2,22 +2,45 @@
 
 ## Active Session
 
-- 2026-07-26 Repository Phase 29 — Original Roadmap Phase 4A design approval gate is active:
+- 2026-07-27 Repository Phase 30 — Original Roadmap Phase 4B design gate:
   - objective:
-    - define the deterministic modern PBIR serializer phase boundary
-    - map Repository Phase 29 explicitly to original seven-phase roadmap Phase 4A
-    - prepare a concise design specification and test-first implementation plan
-    - stop before implementation until the user approves the written phase boundary
-  - current constraints:
-    - consume canonical pbir-ir/v1 through the serializer boundary only
-    - emit modern definition.pbir plus the definition/ hierarchy in memory only
-    - never emit root-level report.json or materialize files
-    - preserve unrelated repository memory/session changes
-  - next gate:
-    - user approval of the Phase 29 design and plan
-    - do not begin implementation, deployable writing, provider execution, deployment, or Analyzer automation before approval
+    - define safe local deployable PBIR materialization with preview/apply/rollback controls
+    - consume only validated Phase 29 artifact and manifest contracts
+    - preserve the separate preview-only writer and every external execution prohibition
+  - current status:
+    - phase boundary proposed
+    - implementation plan proposed
+    - explicit approval of both documents is required before production implementation
+  - proposed architecture:
+    - read-only target preview
+    - dedicated target report-definition directory
+    - exact-byte staging and verification
+    - same-filesystem directory promotion
+    - external transaction journal, receipt, backup, and rollback quarantine
+    - arbitrary nonempty user-managed targets fail closed
+  - stop boundary:
+    - no Phase 30 production code before approval
+    - no provider, Skills, API, CLI, deployment, publishing, Desktop, Analyzer, semantic-model, PBIP, legacy PBIR, refinement-loop, Fabric App, Fabric Data App, or UI work
 
-## Active Session
+- 2026-07-26 Repository Phase 29 — Original Roadmap Phase 4A is complete:
+  - objective:
+    - serialize canonical pbir-ir/v1 into deterministic modern PBIR artifacts in memory
+    - validate the supported subset against pinned official Microsoft schemas offline
+    - stop before deployable filesystem materialization or execution work
+  - approval status:
+    - approved: Repository Phase 29 maps to original roadmap Phase 4A
+    - approved: deterministic in-memory modern PBIR serialization only
+    - approved and completed: production implementation plan
+  - delivered:
+    - pbir-deployable request, artifact, manifest, validation, readiness, diagnostics, lineage, and hash contracts
+    - modern definition.pbir and definition hierarchy in memory
+    - deterministic identities, canonical JSON, fixed layout, semantic projections, and SHA-256 hashes
+    - pinned offline Microsoft schema conformance tests
+    - fail-closed unsupported-input, tamper, trust-boundary, and preview-regression coverage
+  - next boundary:
+    - stop after Phase 29
+    - **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls** requires a new goal
+    - provider, Microsoft Skills, deployment, Desktop, and Analyzer automation remain unauthorized
 
 - 2026-06-27 Design Package Microsoft Skills Integration Phase 28 is complete:
   - objective:
@@ -56,7 +79,7 @@
     - stop after Phase 28 as requested
     - do not begin deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-27 Design Package Microsoft Skills Integration Phase 27 is complete:
   - objective:
@@ -91,7 +114,7 @@
     - stop after Phase 27 as requested
     - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-27 Design Package Microsoft Skills Integration Phase 26 is complete:
   - objective:
@@ -140,7 +163,7 @@
     - stop after Phase 26 as requested
     - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 25 is complete:
   - objective:
@@ -194,7 +217,7 @@
     - stop after Phase 25 as requested
     - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 24 is complete:
   - objective:
@@ -238,7 +261,7 @@
     - stop after Phase 24 as requested
     - do not begin actual local file writing, deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 23 is complete:
   - objective:
@@ -283,7 +306,7 @@
     - stop after Phase 23 as requested
     - do not begin deployable PBIR serialization, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 22 is complete:
   - objective:
@@ -342,7 +365,7 @@
     - stop after Phase 22 as requested
     - do not begin PBIR serialization, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, deployable PBIR generation, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 21 is complete:
   - objective:
@@ -394,7 +417,7 @@
     - stop after Phase 21 as requested
     - do not begin Microsoft Skills execution, Copilot execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, production PBIR generation, Fabric App generation, Fabric Data App generation, Analyzer Workspace automation, or broader execution-provider implementation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-26 Design Package Microsoft Skills Integration Phase 20 is complete:
   - objective:
@@ -437,7 +460,7 @@
     - stop after Phase 20 as requested
     - do not begin PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, Analyzer Workspace automation, or execution implementation unless a new goal explicitly opens that phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-25 Design Package Microsoft Skills Integration Phase 19 is complete:
   - objective:
@@ -478,7 +501,7 @@
     - stop after Phase 19 as requested
     - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, or Fabric Data App generation unless a new goal explicitly opens the next phase
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-25 Remove ConnectWise MCP is complete:
   - objective:
@@ -499,7 +522,7 @@
   - next recommended step:
     - review whether archived `.codex` notes or attachments still need manual cleanup, but no active MCP config changes remain
 
-## Active Session
+### Prior Session Record
 
 - 2026-06-25 Design Package Microsoft Skills Integration Phase 18 is complete:
   - objective:
@@ -3146,23 +3169,50 @@
 
 ## Current Objective
 
-- No active implementation phase recorded.
-- Latest recorded product state: Design Package Microsoft Skills Integration Phase 28 is complete.
+- Repository Phase 30 is the proposed mapping for original roadmap Phase 4B.
+- Obtain explicit approval of both the Phase 30 boundary and implementation plan before production implementation.
+- Repository Phase 29 / original roadmap Phase 4A is complete.
+- Latest recorded product state: deterministic modern PBIR serialization is available in memory for the supported pbir-ir/v1 subset.
 - Rayfin Fabricator interoperability research is complete; no integration design or implementation has been approved.
 - Preserve the existing planning-only, review-only, and informational-only boundaries.
-- Do not begin deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase.
+- Phase 30 production implementation and all provider, Microsoft Skills, deployment, Desktop, and Analyzer automation remain unauthorized pending the relevant explicit approval.
 
 ## In Progress
 
-- No active pbir-design-analyzer implementation phase recorded.
+- Phase 30 design and implementation-plan approval gate.
+- No active production implementation phase.
 - No Fabricator integration implementation is in progress.
 
 ## Blockers
 
-- No active blocker recorded.
+- No active blocker.
 
 ## Validation Status
 
+- Phase 30 approval-gate document validation passed:
+  - `git diff --check`
+  - both JSON examples parse
+  - all 14 versioned contract names match between design and plan
+  - all 12 journal phases, including terminal pre-mutation aborted, match between design and plan
+  - private control-root ownership marker is specified and unrelated existing control directories fail closed
+  - no placeholders, superseded names, production Phase 30 files, preview-writer widening, or external execution authorization
+  - one Active Session heading remains
+- Phase 29 implementation validation passed:
+  - focused backend across deployable serializer, canonical IR, and preview regression: 54 passed, 0 failed, 0 skipped
+  - full backend: 617 passed, 0 failed, 0 skipped
+  - Jest: 105 suites passed, 527 tests passed
+  - TypeScript compilation: passed
+  - all nine emitted fixture documents conform to the pinned local Microsoft Draft 7 schemas
+  - architecture-review remediation covers complete mutable contract hashing, stale IR integrity, null nested request rejection, exact semantic coverage, runtime hierarchy checks, and exact fixture-byte hashes
+  - no root-level report.json, filesystem writer, provider, Skills, API, CLI, deployment, Desktop, or Analyzer automation surface was added
+- Phase 29 document-only audit validation passed:
+  - `git diff --check`
+  - no trailing whitespace, placeholders, superseded request-reference names, or superseded runtime-validation names in the spec or plan
+  - all 13 JSON examples parse
+  - semantic-model inventory sample is exactly 310 UTF-8 bytes and hashes to `bc4f58184e62028614f7867e3927c5591f1b55c0104b3f70a9d85ed4e9516d29`
+  - all six modern-grid-1280x720/v1 slots satisfy the specified bounds, margins, and gutters
+  - approval-state, contract-name, supported-visual, validation-terminology, and preview-regression consistency checks passed
+  - changed-file scope contains only the Phase 29 spec, plan, and repository memory records
 - Latest recorded Phase 28 validation passed:
   - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
   - `cd vscode-extension && npm test`
@@ -3183,8 +3233,9 @@
 
 ## Next Recommended Step
 
-- Stop after Phase 28 unless a new goal explicitly opens the next phase.
-- If approved, design a versioned advisory Fabricator instruction-pack export that consumes existing Fabric App Review normalized findings and remains manual-import/manual-chat only.
+- Review and explicitly approve or revise the proposed Repository Phase 30 boundary and implementation plan.
+- Do not begin Phase 30 production implementation before both approvals.
+- Rayfin Fabricator advisory instruction-pack design remains a separate, unapproved future option.
 
 ## Relevant Files
 
@@ -3196,8 +3247,14 @@
 - `docs/current-state/design-studio-execution-readiness-state.md`
 - `docs/current-state/design-studio-preview-review-state.md`
 - `docs/current-state/pbir-preview-package-review-handoff-state.md`
+- `docs/current-state/pbir-modern-serializer-state.md`
+- `docs/superpowers/specs/2026-07-26-deterministic-modern-pbir-serializer-phase29-design.md`
+- `docs/superpowers/specs/2026-07-27-safe-local-deployable-pbir-materialization-phase30-design.md`
+- `docs/superpowers/plans/2026-07-27-safe-local-deployable-pbir-materialization-phase30-plan.md`
+- `docs/superpowers/plans/2026-07-26-deterministic-modern-pbir-serializer-phase29-plan.md`
 - `.agent-memory/sessions/2026-06-27-0754-repo-contract-phase-doc-audit.md`
 - `.agent-memory/sessions/2026-07-26T120654Z-rayfin-fabricator-integration-review.md`
+- `.agent-memory/sessions/2026-07-26T121536Z-pbir-modern-serializer-phase29-design.md`
 
 ## Last Updated
 

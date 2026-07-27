@@ -135,6 +135,20 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 
 ## Phase 4 – PBIR Generation
 
+### Current Subphase Status
+
+- **Phase 4A — Deterministic Modern PBIR Serialization:** implemented by Repository Phase 29
+  - consumes canonical pbir-ir/v1 only
+  - emits an in-memory modern PBIR artifact inventory and manifest
+  - emits definition.pbir and the definition hierarchy, including definition/report.json
+  - never emits PBIR-Legacy root-level report.json
+  - adds no writer or execution authority
+- **Phase 4B — Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls:** proposed as Repository Phase 30; design and implementation plan await explicit approval
+  - requires a new goal
+  - must add a separate deployable writer
+  - must not reuse or widen the preview-only writer
+- Provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing: not started
+
 ### Scope
 
 - implement the Microsoft PBIR adapter profile
@@ -305,7 +319,7 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 1. Phase 1 – Design Package Consumption Layer
 2. Phase 2 – Skills Prompt Generation
 3. Phase 3 – Generation Request Framework
-4. Phase 4 – PBIR Generation
+4. Phase 4A – Repository Phase 29 deterministic modern PBIR serialization, followed by approval-gated Repository Phase 30 / original Phase 4B materialization and separately authorized later execution work
 5. Phase 5 – Analyzer Handoff
 6. Phase 6 – Refinement Loop
 7. Phase 7 – Fabric App Generation
@@ -319,8 +333,9 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 
 ### Gate After Phase 4
 
-- PBIR generation path works as the reference adapter
-- generated output classification is safe
+- Phase 4A serialization produces schema-conformant deterministic in-memory modern PBIR artifacts
+- Phase 4B materialization and later execution work remain separately approval-gated
+- generated output classification remains fail closed
 
 ### Gate After Phase 5
 

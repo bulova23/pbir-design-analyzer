@@ -2055,3 +2055,34 @@
 - Rejected direct Fabricator invocation, embedded source reuse, prompt copying, deployment automation, and mutation authority.
 - Recorded that current Fabric App Review evidence must gain deterministic Graphein-aware analysis before it can produce strong chart-specific instructions.
 - No product code changed.
+
+# 2026-07-26 Repository Phase 29 Design Audit Remediation
+
+- Preserved the approved mapping of Repository Phase 29 to original roadmap Phase 4A and kept production implementation unapproved.
+- Revised the deterministic in-memory modern PBIR serializer design and test-first implementation plan to resolve all ten audit findings.
+- Locked exact layout geometry, canonical document templates, semantic binding mappings, semantic inventory hashing, runtime contract validation terminology, precise trust-boundary tests, and preview serializer regression coverage.
+- Consolidated the adjacent Active Session heading, made Phase 29 implementation approval the next gate, and preserved the unrelated Rayfin Fabricator research record.
+- Document-only whitespace, placeholder, JSON, hash, geometry, contradiction, scope, and type-consistency checks passed.
+- No production code, package, schema fixture, writer, provider, deployment, Desktop, or Analyzer automation change was made.
+
+# 2026-07-26 Repository Phase 29 — Original Roadmap Phase 4A
+
+- Implemented deterministic in-memory modern PBIR serialization downstream from canonical pbir-ir/v1.
+- Added versioned deployable request, artifact, manifest, validation, readiness, diagnostics, lineage, and hash contracts.
+- Emitted definition.pbir and the required definition hierarchy without generating PBIR-Legacy root-level report.json.
+- Supported card, table, clustered column chart, and line chart through exact explicit semantic-model inventory and role bindings.
+- Added canonical UTF-8 JSON, deterministic identities, fixed six-slot layout, SHA-256 hashes, immutable lineage, atomic fail-closed output, and tamper validation.
+- Pinned official Microsoft schemas locally and validated every emitted document offline with a test-only schema dependency.
+- Preserved byte-identical preview serializer behavior and preview-only authority after serializer implementation availability became true.
+- Validation passed after architecture-review remediation: 54 focused backend tests across deployable serialization, canonical IR, and preview regression; 617 full backend tests; 105 Jest suites and 527 Jest tests; TypeScript compilation.
+- Remediation closed complete contract-hash coverage, stale IR integrity, null nested request, exact semantic coverage, runtime hierarchy validation, and pinned fixture-byte verification gaps.
+- Stopped before Phase 4B materialization and all provider, Microsoft Skills, deployment, Desktop, and Analyzer automation work.
+
+# 2026-07-27 Repository Phase 30 Design And Plan Gate
+
+- Proposed Repository Phase 30 as the explicit mapping to original roadmap Phase 4B: Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls.
+- Selected a separate read-only preview plus exact-byte staged directory-swap architecture with external journals, receipts, backups, quarantine, and current-transaction rollback/recovery.
+- Limited replacement to valid Phase 30-managed targets; arbitrary nonempty user-managed directories fail closed.
+- Preserved Phase 29 as the only serializer and kept the preview-only writer unchanged and outside the proposed dependency surface.
+- Recorded a detailed test-first implementation plan and retained all provider, Skills, API, CLI, deployment, Desktop, Analyzer, semantic-model, PBIP, legacy PBIR, refinement-loop, Fabric App, Fabric Data App, and UI exclusions.
+- Awaiting explicit approval of both the phase boundary and implementation plan; no Phase 30 production code was added.

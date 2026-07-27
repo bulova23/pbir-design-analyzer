@@ -215,7 +215,7 @@ public sealed class PbirIntermediateRepresentationServiceTests
         Assert.Equal($"pbirSerializerRequest:{irState.Ir!.Metadata.IrId}", request.RequestId);
         Assert.Equal(irState.Ir.Metadata.IrId, request.PbirIrRef);
         Assert.Equal(irState.Ir.Hashes.ContentHash, request.PbirIrContentHash);
-        Assert.False(request.SerializerImplementationAvailable);
+        Assert.True(request.SerializerImplementationAvailable);
         Assert.False(request.ProviderInvocationAllowed);
         Assert.False(request.DeploymentAllowed);
         Assert.False(request.MicrosoftSkillsExecutionAllowed);

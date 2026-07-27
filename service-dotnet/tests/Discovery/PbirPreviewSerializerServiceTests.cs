@@ -230,6 +230,67 @@ public sealed class PbirPreviewSerializerServiceTests
         }
     }
 
+    [Fact(DisplayName = "PBIR preview serializer remains byte-identical and preview-only when deployable serializer availability becomes true")]
+    public void CreatePreviewArtifacts_DeployableSerializerAvailable_PreservesPreviewBehavior()
+    {
+        var inputs = CreateReadyPreviewInputs();
+        var availableRequest = inputs.SerializerRequest with
+        {
+            SerializerImplementationAvailable = true
+        };
+        var unavailableRequest = availableRequest with
+        {
+            SerializerImplementationAvailable = false
+        };
+        var options = PbirPreviewSerializerOptions.LocalPreview(
+            "preview-artifacts",
+            [PbirPreviewOutputType.Markdown, PbirPreviewOutputType.Json]);
+        var generatedUtc = DateTimeOffset.Parse("2026-06-26T15:00:00+00:00");
+        var service = new PbirPreviewSerializerService();
+
+        var available = service.CreatePreviewArtifacts(
+            inputs.IrState,
+            availableRequest,
+            options,
+            generatedUtc);
+        var unavailable = service.CreatePreviewArtifacts(
+            inputs.IrState,
+            unavailableRequest,
+            options,
+            generatedUtc);
+
+        Assert.Equal(PbirPreviewSerializerReadinessState.Generated, available.Readiness);
+        Assert.Equal(Serialize(unavailable.Output), Serialize(available.Output));
+        Assert.Equal(Serialize(unavailable.Manifest), Serialize(available.Manifest));
+        Assert.False(availableRequest.ProviderInvocationAllowed);
+        Assert.False(availableRequest.DeploymentAllowed);
+        Assert.False(availableRequest.MicrosoftSkillsExecutionAllowed);
+        Assert.All(
+            available.Output!.GeneratedFiles,
+            file => Assert.StartsWith("pbir-preview-artifact/v1/", file.RelativePath, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            available.Output.GeneratedFiles,
+            file =>
+                file.RelativePath is "definition.pbir" or "definition/report.json" or "report.json" ||
+                file.RelativePath.Contains("/visuals/", StringComparison.Ordinal));
+
+        var dependencyTypes = typeof(PbirPreviewSerializerService)
+            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+            .Select(field => field.FieldType)
+            .Concat(
+                typeof(PbirPreviewSerializerService)
+                    .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                    .SelectMany(constructor => constructor.GetParameters())
+                    .Select(parameter => parameter.ParameterType))
+            .ToArray();
+
+        Assert.DoesNotContain(typeof(PbirDeployableSerializerService), dependencyTypes);
+        Assert.DoesNotContain(
+            typeof(PbirPreviewSerializerService)
+                .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public),
+            method => method.ReturnType == typeof(PbirDeployableSerializerState));
+    }
+
     public static IEnumerable<object[]> UnsafePreviewOptions()
     {
         yield return

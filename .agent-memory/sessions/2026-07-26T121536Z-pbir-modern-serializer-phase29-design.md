@@ -17,6 +17,8 @@ Define the approval-gated design specification and implementation plan for the f
 - Phase 29 is in-memory modern PBIR serialization only.
 - The next separate phase is safe local deployable PBIR materialization with deterministic preview/apply/rollback controls.
 - No writer, PBIP materialization, provider, Microsoft Skills, API, CLI, deployment, Desktop automation, Analyzer automation, or refinement loop is authorized.
+- The user approved this phase boundary on 2026-07-26.
+- The user approved the revised implementation plan on 2026-07-26.
 
 ## Session Status
 
@@ -28,7 +30,7 @@ Define the approval-gated design specification and implementation plan for the f
   - `docs/superpowers/plans/2026-07-26-deterministic-modern-pbir-serializer-phase29-plan.md`
 - Self-review found no placeholders, scope contradictions, or writer/execution leakage.
 - `git diff --check` passed.
-- Production implementation remains blocked on explicit user approval.
+- Production implementation completed within the approved Phase 4A boundary.
 
 ## Requirement Audit
 
@@ -50,3 +52,54 @@ Audit corrections:
 - renamed the proposed contract family from modern-only terminology to explicit pbir-deployable-* versioned contracts
 - added semantic-model inventory reference and content hash requirements so model-reference validation is snapshot-bound and offline
 - added docs/ROADMAP.md to implementation closeout
+
+## Implementation Plan Audit Remediation
+
+The user approved the Phase 29 boundary and requested document-only remediation before implementation approval.
+
+Revisions:
+
+- replaced broad forbidden-word scans with exact callable-surface, dependency-type, API-invocation, and project-reference checks; negative authority flags remain legal
+- defined the complete six-slot modern-grid-1280x720/v1 geometry, margins, gutters, z-order, tab order, and overflow rejection
+- added exact canonical JSON templates and property mappings for every required file and all four supported visual types
+- defined exact IR-to-semantic-record-to-inventory-to-role-projection mapping with no inferred role, property, aggregation, display name, format, queryRef, or nativeQueryRef
+- defined semanticModelInventoryContentHash canonical bytes, ordering, separators, encoding, escaping, duplicate rejection, and covered fields
+- chose test-time full Draft 7 conformance against offline pinned fixtures; renamed runtime results to schemaContractResults
+- renamed modernSerializerRequestRef to deployableSerializerRequestRef
+- added preview serializer regression coverage for serializerImplementationAvailable true with no deployable authority
+- consolidated the adjacent duplicate Active Session heading and made Phase 29 implementation approval the current next step while preserving Rayfin research
+- document-only validation passed:
+  - `git diff --check`
+  - no trailing whitespace or placeholder markers
+  - no superseded request-reference or runtime-validation names
+  - all 13 JSON examples parsed
+  - the canonical semantic-model inventory sample reproduced the specified 310-byte length and SHA-256 hash
+  - all six layout slots passed bounds, margin, and gutter arithmetic
+  - approval-state, contract-name, supported-visual, validation-terminology, and preview-regression consistency checks passed
+  - the changed-file inventory contains only the Phase 29 spec, plan, and repository memory records
+
+## Implementation Outcome
+
+- Added versioned deployable serializer request, artifact, manifest, validation, readiness, diagnostic, lineage, and hash contracts.
+- Added deterministic canonical JSON, 20-character page and visual identities, modern-grid-1280x720/v1 layout, direct semantic projections, immutable lineage, and SHA-256 hashing.
+- Added atomic in-memory modern PBIR serialization for definition.pbir, definition/version.json, definition/report.json, pages metadata, page definitions, and supported card, table, clustered column, and line visual definitions.
+- Added fail-closed validation for unsupported visuals, incomplete bindings, invalid model references, unsafe paths, duplicate identities, invalid navigation/layout, incompatible schemas, authority flags, and hash tampering.
+- Added pinned Microsoft schema fixtures from commit `34356d97e1218c79331780f8f5b77b03f2d13f35` and test-only JsonSchema.Net 9.3.0 validation.
+- Set serializer implementation availability true while preserving preview serializer bytes and preview-only authority.
+- Added current-state, architecture-gap, roadmap, original Phase 4 mapping, and memory updates.
+- Did not add deployable filesystem writing, PBIP materialization, semantic-model generation, provider or Microsoft Skills execution, APIs, CLI, Desktop automation, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, or Fabric Data App generation.
+
+## Final Validation
+
+- Focused backend: 34 passed, 0 failed, 0 skipped.
+- Focused deployable serializer, canonical IR, and preview regression gate: 54 passed, 0 failed, 0 skipped.
+- Full backend: 617 passed, 0 failed, 0 skipped.
+- Post-implementation architecture review remediation added complete mutable artifact/manifest hash coverage, current canonical IR content-hash verification, null-safe nested request gating, exact semantic coverage, runtime page/visual cross-reference checks, and exact fixture-byte hash assertions.
+- Jest: 105 suites passed, 527 tests passed.
+- TypeScript compilation passed.
+- Pinned offline schema suite passed for every emitted modern PBIR document.
+- `git diff --check` passed before final memory closeout.
+
+## Stop Boundary
+
+Phase 29 is complete. The next separate phase is **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls** and requires a new goal.
