@@ -684,3 +684,7 @@ feat(pbir): complete deterministic modern serializer phase 29
 - [x] **Step 8: Stop.**
 
 Do not begin safe local materialization, provider execution, Microsoft Skills execution, Desktop automation, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, or Fabric Data App generation.
+
+## Downstream Phase 31 Note
+
+The separately authorized Repository Phase 31 application boundary reuses PbirDeployableSerializerService directly and leaves every Phase 29 contract and supported-subset decision unchanged.

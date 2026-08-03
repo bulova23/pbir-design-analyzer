@@ -91,10 +91,12 @@ Phase 29 contains no:
 
 The existing preview serializer remains preview-only and byte-stable when serializer implementation availability becomes true. It gains no deployable dependency or authority.
 
-## Next Separate Phase
+## Downstream Materialization
 
 The next phase is:
 
 **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**
 
-That work is proposed as Repository Phase 30 / original roadmap Phase 4B. Its design and implementation plan await explicit approval. It must introduce a separate deployable materializer and must not reuse or widen the preview-only file writer.
+That work is implemented as Repository Phase 30 / original roadmap Phase 4B. The separate materializer consumes the unchanged Phase 29 artifact and manifest, revalidates them before local publication, and does not reuse or widen the preview-only file writer. Phase 29 remains the only component that serializes modern PBIR content.
+
+Repository Phase 31 now composes this unchanged serializer with Phase 30 through the PBIR Materialization Application Orchestration boundary. The orchestrator calls PbirDeployableSerializerService directly and does not reproduce serializer projection, validation, schema-lock, canonical JSON, identity, lineage, or hashing logic.

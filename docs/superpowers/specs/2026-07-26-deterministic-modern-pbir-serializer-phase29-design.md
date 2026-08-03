@@ -1150,3 +1150,7 @@ Phase 29 is complete only when:
 - documentation names original Phase 4B as the next separate safe materialization phase
 
 After the exit gate, stop. Do not begin materialization or any provider-execution work without a new goal.
+
+## Downstream Phase 31 Integration
+
+Repository Phase 31 was separately authorized on 2026-08-02. Its application orchestrator invokes this unchanged canonical serializer before every preview and apply. It does not reproduce Phase 29 serialization, validation, schema-lock, canonical JSON, identity, lineage, or hashing logic.
