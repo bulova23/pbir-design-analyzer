@@ -2086,3 +2086,45 @@
 - Preserved Phase 29 as the only serializer and kept the preview-only writer unchanged and outside the proposed dependency surface.
 - Recorded a detailed test-first implementation plan and retained all provider, Skills, API, CLI, deployment, Desktop, Analyzer, semantic-model, PBIP, legacy PBIR, refinement-loop, Fabric App, Fabric Data App, and UI exclusions.
 - Awaiting explicit approval of both the phase boundary and implementation plan; no Phase 30 production code was added.
+
+# 2026-08-02 Repository Phase 30 Implementation
+
+- Implemented Repository Phase 30 as original roadmap Phase 4B: safe local materialization of validated Phase 29 modern PBIR artifacts.
+- Added deterministic read-only preview, embedded pinned-schema runtime validation, safe path and collision controls, staged same-filesystem apply, external journals and receipts, managed replacement, rollback quarantine, and interrupted-transaction recovery.
+- Preserved exact Phase 29 bytes, hashes, and lineage; never generated root-level legacy report.json; kept the preview-only writer unchanged.
+- Defined fail-closed existing-target, cleanup, and retry behavior: arbitrary nonempty targets are not overwritten, history is retained, and retries require a fresh preview and new transaction ID.
+- Validation passed: 82 focused backend tests; 650 full backend tests; 105 Jest suites and 527 Jest tests; standalone TypeScript compilation; 8-test offline schema gate; document, whitespace, and scope checks.
+- Left all changes uncommitted and stopped before provider, Skills, Desktop, deployment, publishing, Analyzer, UI, and later roadmap work.
+
+# 2026-08-02 Repository Phase 31 Implementation
+
+- Confirmed Repository Phase 31 as the first separately authorized original Phase 4 post-4B application-integration slice, not broader provider or Skills execution.
+- Added a stateless PBIR materialization orchestrator over canonical Phase 29 serialization and Phase 30 preview/apply services, with explicit typed destination, conflict, recovery, stale, cancellation, transaction-reuse, schema, and failure outcomes.
+- Required apply to recreate and match the complete validated preview identity and carry a fresh transaction ID; preserved Phase 30 locking, staging, journals, receipts, backups, quarantine, rollback/recovery, deterministic bytes/hashes, immutable lineage, and the same eight pinned offline schemas.
+- Added transaction-safe cancellation, concurrency, recovery-inspection, diagnostic-redaction, and dependency-boundary coverage without adding external provider, Skills, Desktop, deployment, Analyzer, UI, PBIP, semantic-model, or legacy report.json behavior.
+- Validation passed: 14 Phase 31 tests; 111 focused Phase 29–31 tests; 665 full backend tests with zero failures/skips; 105 Jest suites / 527 tests; standalone TypeScript compilation; eight offline schema/boundary tests over exactly eight pinned resources; document, whitespace, roadmap, scope, and changed-boundary checks.
+- Left all Phase 29–31 changes uncommitted on codex/ux-consolidation-remediation-0-2-2.
+
+# 2026-08-02 Repository Phase 32 Roadmap Gate
+
+- Stopped before implementation because repository evidence does not map a provider-facing Phase 31 transport adapter to Repository Phase 32.
+- Confirmed that the original Phase 4 next step is a broader concrete Microsoft PBIR adapter, while provider/execution/runtime frameworks remain contract-only and RpcHost lacks the assumed strict cancellable concurrent request lifecycle.
+- Documented the discrepancy in ROADMAP.md, architecture-gap analysis, provider-adapter current state, repo map, current focus, and this summary.
+- Proposed the smallest next action as a design-only roadmap decision for a local Phase 31 transport adapter with an explicit RpcHost lifecycle-hardening prerequisite; no production code, tests, design/plan completion claim, commit, push, pull request, merge, discard, or cleanup was performed.
+- Documentation placeholder, production-boundary, and diff checks passed; implementation suites were not rerun because the roadmap gate stopped before product or test changes.
+
+# 2026-08-03 Repository Phase 32 Roadmap Gate Recheck
+
+- Independently rechecked the original roadmap/design/plan, Phase 29–31 documents and contracts, provider framework state, Phase 31 orchestration, and RpcHost transport.
+- Confirmed ROADMAP.md explicitly leaves Repository Phase 32 unmapped; the original next provider work is broader than a Phase 31 wrapper, and RpcHost lacks the required strict bounded cancellable concurrent lifecycle.
+- Applied the request's stop condition: no Phase 32 design, implementation plan, production code, test, or implementation-validation claim was added.
+- Proposed the smallest alternative: separately authorize a roadmap amendment for a local Phase 31 transport adapter, with bounded RpcHost lifecycle hardening explicitly separated from the broader first runtime-provider implementation.
+- Preserved all uncommitted Phase 29–31 work and performed no commit, push, pull request, merge, discard, or cleanup.
+
+# 2026-08-03 Phase 29–31 Integration Preparation
+
+- Audited every dirty path and mixed documentation hunk; found Phase 29 boundary records, Phase 30 materialization, Phase 31 orchestration, and Phase 32 roadmap-gate documentation only, with no unrelated implementation or Phase 32 production behavior.
+- Fresh validation passed 135 focused backend tests, all 665 backend tests, 105 Jest suites / 527 tests, standalone TypeScript compilation, eight offline schema/boundary tests, diff checks, roadmap assertions, and Phase 32 production-scope checks.
+- Proved the repository ESLint result is an unchanged b50d17d9 baseline: both clean baseline and active worktree produced the same 44 normalized errors across the same 28 files; there are no changed TypeScript/JavaScript files and no scoped lint errors.
+- Created four focused local commits in dependency order for Phase 29 boundary documentation, Phase 30 materialization, Phase 31 orchestration, and the Phase 32 roadmap gate/integration audit.
+- Repeated the full post-commit validation matrix successfully. One concurrent focused/full .NET attempt hit a shared-output CS2012 lock; the full suite passed, and the focused suite passed 135/135 when rerun serially. No Phase 32 implementation, unrelated lint cleanup, merge, push, pull request, or discard occurred.

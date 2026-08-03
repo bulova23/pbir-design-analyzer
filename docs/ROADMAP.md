@@ -66,13 +66,19 @@ The original seven-phase roadmap remains distinct from the release and AI-fix ro
 
 - Original Phases 1–3: substantially implemented through the existing consumption, prompt, request, runtime, review, and readiness infrastructure
 - Original Phase 4A: implemented by Repository Phase 29 as deterministic in-memory modern PBIR serialization
-- Original Phase 4B: proposed as Repository Phase 30 and awaiting explicit design/plan approval — **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**
-- Original Phase 4 provider execution, Microsoft Skills execution, Desktop verification, deployment, and publishing work: not started
+- Original Phase 4B: implemented by Repository Phase 30 — **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**
+- Original Phase 4 post-4B application integration: implemented by Repository Phase 31 as a narrow orchestration boundary over Phase 29 serialization and Phase 30 preview/apply/recovery inspection
+- Repository Phase 32: not mapped. The roadmap does not currently define a provider-facing transport adapter over Phase 31, and that mapping must be approved before implementation.
+- Original Phase 4 external provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing work: not started
 - Original Phases 5–7: not started as execution phases
 
 Repository Phase 29 emits definition.pbir and the modern definition hierarchy, including definition/report.json. It never emits PBIR-Legacy root-level report.json and does not materialize files.
 
-The proposed Repository Phase 30 boundary would consume only the validated Phase 29 artifact and manifest, use a new deployable materializer with read-only preview plus staged apply/rollback controls, and leave the preview-only writer unchanged. No Phase 30 production implementation is approved yet.
+Repository Phase 30 consumes only the validated Phase 29 artifact and manifest. It adds read-only destination preview, embedded pinned-schema validation, exact-byte staging, same-filesystem directory promotion, external journals and receipts, managed replacement, rollback quarantine, and interrupted-transaction recovery. Arbitrary nonempty targets fail closed, and the preview-only writer remains unchanged.
+
+Repository Phase 31 is the first separately authorized post-4B integration slice. It composes the canonical Phase 29 serializer and Phase 30 services behind one backend application boundary, requires exact validated preview identity plus a fresh transaction ID for apply, exposes typed destination/conflict/recovery/failure outcomes, propagates cancellation safely, and redacts sensitive local paths. It adds no external provider, Skills, deployment, Desktop, Analyzer, or UI authority.
+
+No exact Repository Phase 32 mapping exists yet. The provider-planning and runtime-provider contracts remain execution-free, while the shipped RpcHost transport does not yet provide the strict, cancellable, concurrent request lifecycle assumed by a provider-facing materialization adapter. The smallest next step is a separately authorized design decision that maps either a local Phase 31 transport adapter plus its transport-lifecycle prerequisite or the broader first runtime-provider implementation. Do not infer one from the other.
 
 ## Story Assessment Promotion Boundary
 

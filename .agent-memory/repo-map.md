@@ -49,8 +49,10 @@
   - includes `pbir-preview-package-review-handoff-state.md` for Phase 26 pbir-preview-package/v1, pbir-review-handoff/v1, metadata-only preview package inventory, Design Studio review handoff, Analyzer Workspace validation boundary preservation, and remaining deployable PBIR and Analyzer automation gaps
   - includes `design-studio-preview-review-state.md` for Phase 27 design-studio-preview-review/v1, the Design Studio Preview Review stage, review-only actions, protocol validation, preview package/handoff metadata rendering, and remaining deployable PBIR and Analyzer automation gaps
   - includes `design-studio-execution-readiness-state.md` for Phase 28 design-studio-execution-readiness/v1, the informational execution-readiness dashboard, stage and warning aggregation, protocol validation, safety gates, and remaining execution implementation gaps
-  - includes `pbir-modern-serializer-state.md` for Repository Phase 29 / original Phase 4A, deterministic in-memory modern PBIR artifacts, locked local schema conformance, fail-closed semantic projection, and the remaining Phase 4B materialization gap
-  - proposed Repository Phase 30 / original Phase 4B is documented in `docs/superpowers/specs/2026-07-27-safe-local-deployable-pbir-materialization-phase30-design.md` and its approval-gated implementation plan; no production materializer exists yet
+  - includes `pbir-modern-serializer-state.md` for Repository Phase 29 / original Phase 4A, deterministic in-memory modern PBIR artifacts, locked local schema conformance, and fail-closed semantic projection
+  - includes `pbir-deployable-materialization-state.md` for implemented Repository Phase 30 / original Phase 4B, read-only target preview, embedded pinned-schema validation, staged directory promotion, managed replacement, journals, receipts, rollback, recovery, retry, and cleanup behavior
+  - includes `pbir-materialization-application-orchestration-state.md` for Repository Phase 31 post-4B application composition, typed outcomes, validated-preview/fresh-transaction enforcement, cancellation, concurrency, recovery inspection, and diagnostic redaction
+  - includes `pbir-materialization-provider-adapter-state.md` for the unmapped Repository Phase 32 provider/transport discrepancy, current lifecycle gaps, and the required design-first roadmap decision
 
 ## Important Memory Files
 

@@ -2,6 +2,91 @@
 
 ## Active Session
 
+- 2026-08-03 Phase 29–31 integration preparation:
+  - audit the full dirty worktree and classify every path and mixed hunk before staging
+  - run fresh focused Phase 29–31 backend tests followed by applicable repository validation
+  - if validation passes, create focused conventional commits for Phase 29 boundary documentation, Phase 30 materialization, Phase 31 orchestration, and the Phase 32 roadmap-gate records
+  - preserve the approved stop boundary: no Phase 32 implementation, merge, push, or pull request
+  - current result:
+    - no unrelated worktree changes or Phase 32 implementation were found
+    - focused backend passed 135/135; full backend passed 665/665; Jest passed 105 suites / 527 tests; TypeScript compilation and the 8-test schema/boundary gate passed; diff and scope checks passed
+    - a clean b50d17d9 worktree and the active worktree produced the same normalized 44 ESLint errors across the same 28 unchanged VS Code files; changed TypeScript/JavaScript count and scoped lint errors are both zero
+    - created four focused local commits in dependency order for Phase 29, Phase 30, Phase 31, and the Phase 32 roadmap gate/integration audit
+    - post-commit backend, Jest, TypeScript, offline schema/boundary, scoped-lint, roadmap/scope, and diff gates passed
+  - next recommended step:
+    - keep the branch local and wait for explicit authorization before any Phase 32 roadmap amendment, design, plan, implementation, merge, push, or pull request
+
+- 2026-08-03 Repository Phase 32 roadmap gate — mapping remains unconfirmed:
+  - independently rechecked the original Phase 4 roadmap/design/plan, Phase 29–31 state, provider contracts, Phase 31 orchestration, and RpcHost transport
+  - confirmed ROADMAP.md explicitly leaves Repository Phase 32 unmapped
+  - confirmed the original next provider scope is a broader Microsoft PBIR runtime adapter, while the requested local wrapper also requires transport-lifecycle capabilities RpcHost does not currently provide
+  - stopped without Phase 32 design, plan, code, tests, or validation claims as required by the request
+  - next recommended step:
+    - separately authorize a design-only roadmap amendment for a local Phase 31 transport adapter
+    - make strict bounded RpcHost request lifecycle hardening an explicit prerequisite or first bounded task
+    - keep that work distinct from the broader first runtime-provider implementation
+
+- 2026-08-02 Repository Phase 32 roadmap gate — stopped before implementation:
+  - requested objective:
+    - add a bounded provider-facing backend adapter over Phase 31 materialization orchestration
+  - evidence:
+    - ROADMAP.md and the original Phase 4 plan map only Phase 29 / 4A, Phase 30 / 4B, and Phase 31 post-4B application orchestration
+    - original Phase 4 next names a broader Microsoft PBIR adapter and external execution work, not a transport wrapper over Phase 31
+    - provider, execution-provider, and runtime-provider frameworks remain contract-only and explicitly exclude provider invocation
+    - RpcHost has no per-request cancellation registry, cancellation notification handling, concurrent dispatch, strict unknown-field rejection, or bounded provider payload contract
+  - decision:
+    - Repository Phase 32 is not clearly roadmap-mapped, so no production code, tests, Phase 32 design, or implementation plan was created
+    - documented the discrepancy in the roadmap, architecture-gap analysis, and provider-adapter current state
+    - documentation placeholder, production-boundary, and diff checks passed; implementation suites were intentionally not rerun
+  - next recommended step:
+    - authorize a design-only roadmap decision for either a local Phase 31 transport adapter with an explicit RpcHost lifecycle prerequisite, or the broader first runtime-provider implementation
+    - prefer the smaller local transport option, but do not call it an existing provider adapter or begin implementation until its mapping is approved
+
+- 2026-08-02 Repository Phase 31 — original roadmap Phase 4 post-4B application integration:
+  - objective:
+    - confirm the next authorized roadmap slice from repository evidence
+    - expose Phase 29 serialization and Phase 30 preview/apply/recovery inspection through one narrow backend application orchestration boundary
+    - preserve explicit preview identity, fresh transaction identity, fail-closed outcomes, cancellation, redacted diagnostics, and all Phase 29–30 durability guarantees
+  - authorization:
+    - the explicit Phase 31 goal authorizes the bounded provider/application-layer integration slice only
+    - no Skills execution, external provider invocation, deployment, publishing, Desktop, Analyzer, UI, PBIP, semantic-model, legacy report.json, schema upgrade, commit, push, pull request, or merge work
+  - current status:
+    - implementation and required documentation complete; all changes left uncommitted
+    - Phase 31 focused: 14 passed; Phase 29–31 focused: 111 passed
+    - full backend: 665 passed, 0 failed, 0 skipped
+    - Jest: 105 suites / 527 tests passed; standalone TypeScript compilation passed
+    - offline schema/boundary: 8 passed with exactly 8 pinned resources
+    - document, whitespace, roadmap, scope, changed-boundary, repository-output, and diff checks passed
+  - next recommended step:
+    - review the combined uncommitted Phase 29–31 diff and choose a Git disposition
+    - do not begin external provider, Skills, Desktop, deployment, publishing, Analyzer, UI, or later roadmap work without separate authorization
+
+- 2026-08-02 Repository Phase 30 — Original Roadmap Phase 4B implementation:
+  - objective:
+    - persist only validated Phase 29 modern PBIR artifacts to a caller-supplied local destination
+    - use read-only preview plus staged apply, rollback, and interrupted-transaction recovery
+    - preserve exact bytes, hashes, lineage, modern-only paths, and preview-writer behavior
+  - authorization:
+    - Phase 30 design and implementation plan approved by the explicit implementation goal
+    - no commit, push, pull request, merge, provider, Skills, deployment, Desktop, Analyzer, legacy report.json, UI, or unrelated cleanup work
+  - current status:
+    - implementation complete and left uncommitted for review
+    - focused backend: 82 passed, 0 failed, 0 skipped
+    - full backend: 650 passed, 0 failed, 0 skipped
+    - Jest: 105 suites and 527 tests passed
+    - standalone TypeScript compilation passed
+    - offline schema: 8 focused tests passed; document, whitespace, and scope checks passed
+  - delivered:
+    - versioned Phase 30 preview, apply, transaction, receipt, rollback, lineage, diagnostic, and hash contracts
+    - bounded filesystem adapter, canonical path policy, and embedded pinned-schema runtime validator
+    - read-only destination classification and exact Phase 29 inventory planning
+    - staged same-filesystem publication, managed replacement, rollback quarantine, and interrupted-transaction recovery
+    - focused tests for repeatability, stale targets, hostile and colliding paths, schema rejection, failure restoration, retries, and preview-writer boundaries
+    - Phase 30/4B design, plan, current-state, roadmap, and repository-memory updates
+  - next recommended step:
+    - review the uncommitted Phase 30 diff and choose a Git disposition
+    - do not begin provider, Skills, Desktop, deployment, publishing, Analyzer, UI, or later roadmap work without separate authorization
+
 - 2026-07-27 Repository Phase 30 — Original Roadmap Phase 4B design gate:
   - objective:
     - define safe local deployable PBIR materialization with preview/apply/rollback controls

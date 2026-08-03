@@ -18,6 +18,8 @@ Repository Phase 31 adds only the first backend application orchestration seam f
 
 No generation or runtime provider invocation exists. Providers remain interchangeable contract definitions and planning candidates only.
 
+No Repository Phase 32 mapping currently connects those provider contracts to Phase 31 materialization. The requested provider-facing adapter is not a documented next slice: the original Phase 4 roadmap next names a concrete Microsoft PBIR adapter, while RpcHost lacks the strict cancellable concurrent request lifecycle that a transport-only adapter would require. A roadmap/design decision must separate local transport integration from the broader runtime-provider implementation before either is authorized.
+
 ## Microsoft Skills Implementation
 
 No Microsoft Skills execution exists. Microsoft Skills are represented only through catalog, capability, adapter, provider selection, and runtime-preparation metadata.
@@ -76,7 +78,9 @@ No product UX starts execution, provider invocation, deployment, deployable arti
 
 ## Deferred Architecture Gaps
 
-- **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls** is proposed as Repository Phase 30 and awaits explicit design/plan approval.
-- Phase 4B must add a separate safe deployable writer and must not reuse or widen the preview-only writer.
-- The proposed design uses read-only target preview, exact Phase 29 artifact validation, same-filesystem staged directory promotion, external transaction receipts/journals, and current-transaction rollback/recovery. No production implementation exists yet.
-- Provider execution, Microsoft Skills execution, PBIP project materialization, Desktop verification, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, and Fabric Data App generation remain unimplemented.
+- **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls** is implemented as Repository Phase 30 / original roadmap Phase 4B.
+- The separate deployable materializer uses read-only target preview, exact Phase 29 artifact validation, embedded pinned Microsoft schema validation, same-filesystem staged directory promotion, external transaction receipts and journals, managed replacement, and current-transaction rollback/recovery.
+- The preview-only writer is unchanged and remains outside the Phase 30 dependency and authority surface.
+- Repository Phase 31 adds the bounded application orchestration seam with validated-preview, fresh-transaction, cancellation, concurrency, recovery-inspection, and redacted-diagnostic controls.
+- Repository Phase 32 remains unmapped; no provider-facing materialization adapter or transport lifecycle is implemented.
+- External provider execution, Microsoft Skills execution, PBIP project materialization, Desktop verification, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, and Fabric Data App generation remain unimplemented.
