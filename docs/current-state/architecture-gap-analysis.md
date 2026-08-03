@@ -12,7 +12,7 @@ The remaining work is intentionally implementation work, not architecture repair
 
 ## Execution Implementation
 
-No execution providers are implemented. Future work may add execution providers behind the certified execution provider, runtime provider, and generation provider contracts.
+Repository Phase 31 adds only the first backend application orchestration seam for the deterministic local PBIR path. It composes Phase 29 serialization and Phase 30 preview/apply/recovery inspection behind typed contracts. No external execution provider is implemented; future providers must consume this application seam rather than Phase 30 filesystem internals.
 
 ## Provider Implementation
 
@@ -42,7 +42,7 @@ Phase 28 adds Design Studio Execution Readiness as an informational dashboard ov
 
 Phase 29 maps to original roadmap Phase 4A and adds deterministic modern PBIR serialization in memory. It emits a schema-locked definition.pbir and definition hierarchy, including definition/report.json, page definitions, and supported visual definitions. It never emits root-level report.json. It does not write files or add execution authority.
 
-No deployable PBIR project materialization, Fabric App, or Fabric Data App generation exists. PBIR IR remains canonical, preview artifacts remain non-deployable, and Phase 29 artifacts remain in-memory writer inputs only.
+Safe local modern PBIR report-definition materialization now exists through Phase 30 and its Phase 31 application boundary. PBIP project materialization, semantic-model generation, Fabric App generation, and Fabric Data App generation do not exist. PBIR IR remains canonical and preview artifacts remain non-deployable.
 
 ## Serializer Implementation
 
@@ -63,6 +63,8 @@ Phase 27 implements only Design Studio review-surface integration for preview pa
 Phase 28 implements only Design Studio execution-readiness aggregation and dashboard rendering. It does not emit report.json, emit definition.pbir, serialize deployable PBIR, invoke providers, call Microsoft APIs, invoke CLI commands, execute Microsoft Skills, deploy artifacts, approve outputs automatically, launch Analyzer Workspace automatically, or automate Analyzer Workspace validation.
 
 Phase 29 implements original roadmap Phase 4A serialization only. It creates no filesystem, provider, Microsoft Skills, API, CLI, Desktop, deployment, publishing, or Analyzer automation surface.
+
+Phase 31 does not change Phase 29 authority. It invokes the canonical serializer, then passes only its validated artifact and manifest to Phase 30.
 
 ## Deployment
 

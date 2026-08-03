@@ -744,3 +744,7 @@ Proposed commit:
 ```text
 feat(pbir): materialize modern PBIR safely
 ```
+
+## Separately Authorized Phase 31 Note
+
+Repository Phase 31 adds only the application consumer planned after Phase 4B. It reuses the delivered Phase 30 preview/apply services, adds transaction-safe cancellation checks to apply, and leaves all Phase 30 persistence and recovery algorithms canonical and unchanged.

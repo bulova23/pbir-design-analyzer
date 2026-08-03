@@ -143,11 +143,17 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
   - emits definition.pbir and the definition hierarchy, including definition/report.json
   - never emits PBIR-Legacy root-level report.json
   - adds no writer or execution authority
-- **Phase 4B — Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls:** proposed as Repository Phase 30; design and implementation plan await explicit approval
-  - requires a new goal
-  - must add a separate deployable writer
-  - must not reuse or widen the preview-only writer
-- Provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing: not started
+- **Phase 4B — Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls:** implemented by Repository Phase 30
+  - consumes only validated Phase 29 artifact and manifest contracts
+  - writes exact modern PBIR bytes through staged same-filesystem promotion
+  - supports read-only preview, managed replacement, rollback, and interrupted-transaction recovery
+  - does not reuse or widen the preview-only writer
+- **Post-4B application orchestration:** implemented by Repository Phase 31
+  - composes canonical Phase 29 serialization with Phase 30 preview and explicit apply
+  - requires the validated preview identity and a fresh transaction ID
+  - exposes typed conflict, stale-preview, recovery-inspection, cancellation, and failure outcomes
+  - preserves Phase 30 as the only filesystem transaction authority
+- External provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing: not started
 
 ### Scope
 
@@ -319,7 +325,7 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 1. Phase 1 – Design Package Consumption Layer
 2. Phase 2 – Skills Prompt Generation
 3. Phase 3 – Generation Request Framework
-4. Phase 4A – Repository Phase 29 deterministic modern PBIR serialization, followed by approval-gated Repository Phase 30 / original Phase 4B materialization and separately authorized later execution work
+4. Phase 4A – Repository Phase 29 deterministic modern PBIR serialization, Repository Phase 30 / original Phase 4B materialization, and Repository Phase 31 bounded post-4B application orchestration; broader execution remains separately authorized
 5. Phase 5 – Analyzer Handoff
 6. Phase 6 – Refinement Loop
 7. Phase 7 – Fabric App Generation
@@ -334,7 +340,7 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 ### Gate After Phase 4
 
 - Phase 4A serialization produces schema-conformant deterministic in-memory modern PBIR artifacts
-- Phase 4B materialization and later execution work remain separately approval-gated
+- Phase 4B local materialization and the bounded Phase 31 application orchestration seam are implemented; external provider, Skills, PBIP, Desktop, deployment, and publishing work remains separately approval-gated
 - generated output classification remains fail closed
 
 ### Gate After Phase 5
