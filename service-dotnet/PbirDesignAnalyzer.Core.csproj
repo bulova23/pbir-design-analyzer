@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="tests/Fixtures/PbirSchemas/**/*.json" Link="PbirSchemas/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="RpcHost/**" />
     <Compile Remove="tests/**" />
     <Compile Remove="tools/**" />

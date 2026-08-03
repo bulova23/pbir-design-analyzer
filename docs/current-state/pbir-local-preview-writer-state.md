@@ -1,5 +1,7 @@
 # PBIR Local Preview Writer Current State
 
+Repository Phase 30 adds a separate deployable materializer downstream from Phase 29. It does not reuse this preview-only writer, alter its contracts, change its bytes, or grant it deployable authority.
+
 ## Status
 
 Phase 25 adds the PBIR Local Preview File Writer.

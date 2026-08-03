@@ -1,6 +1,6 @@
 # Safe Local Deployable PBIR Materialization — Repository Phase 30 Design
 
-Status: Proposed for approval. No Phase 30 production implementation is authorized by this document.
+Status: Approved and implemented on 2026-08-02 for Repository Phase 30 / original roadmap Phase 4B only.
 
 ## Roadmap Mapping
 
@@ -613,11 +613,12 @@ Documentation must say:
 - provider execution and all other non-goals remain unimplemented;
 - the next phase is not authorized by Phase 30.
 
-## Approval Gate
+## Implementation Outcome
 
-Approval must confirm both:
+The explicit Phase 30 implementation goal approved both this boundary and the implementation plan. The delivered implementation preserves the dedicated-directory staged-swap architecture, validates Phase 29 outputs against the embedded pinned Microsoft schema set at runtime with network access disabled, and leaves the preview-only writer unchanged.
 
-1. the Phase 30 boundary and selected dedicated-directory transaction architecture; and
-2. the Phase 30 implementation plan.
+Provider execution, Microsoft Skills execution, deployment, Desktop automation, Analyzer automation, legacy root-level report.json generation, UI integration, and later roadmap phases remain unauthorized and unimplemented.
 
-Until both are approved, only this design, its plan, roadmap/current-state notes, and repository memory may change.
+## Separately Authorized Phase 31 Consumer
+
+Repository Phase 31 now consumes Phase 30 through a narrow application orchestrator. It recreates and validates Phase 30 preview state before apply, passes a fresh transaction ID, exposes read-only recovery inspection, and maps failures to redacted typed results. Phase 30 remains the only filesystem, locking, staging, journal, receipt, backup, quarantine, rollback, recovery, schema, lineage, and hash authority.
