@@ -52,11 +52,18 @@ import {
 } from '../design-studio/contracts/designStudioProtocol';
 import type { DesignBriefDraftInput, MaterializedSurfaceCandidate } from '../design-studio/contracts/designStudioModels';
 import { PBIR_COMMANDS } from '../platform/extensionIds';
+import { AnalyzerBridgeService, BridgeState } from '../services/rpc/AnalyzerBridgeService';
+import {
+  PbirMaterializationWorkflow,
+  type PbirMaterializationCancellation,
+  type PbirMaterializationWorkflowState,
+} from '../services/materialization/PbirMaterializationWorkflow';
 
 declare global {
   interface Window {
     __PBIR_DESIGN_STUDIO_BOOTSTRAP__?: {
       threadId: string;
+      initialStage?: string;
     };
   }
 }
@@ -73,10 +80,15 @@ export class PbirDesignStudioPanel {
   private isReady = false;
   private pendingMessages: DesignStudioHostToWebviewMessagePayload[] = [];
   private threadId = 'design-studio:active-report';
+  private readonly materializationWorkflow: PbirMaterializationWorkflow;
+  private readonly materializationInputProvider?: () => unknown | Promise<unknown>;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
     reportPath: string,
+    bridge?: AnalyzerBridgeService,
+    materializationInputProvider?: () => unknown | Promise<unknown>,
+    initialStage?: string,
   ): Promise<PbirDesignStudioPanel> {
     if (PbirDesignStudioPanel.instance) {
       PbirDesignStudioPanel.instance.panel.reveal(vscode.ViewColumn.Beside);
@@ -96,7 +108,7 @@ export class PbirDesignStudioPanel {
       },
     );
 
-    const instance = new PbirDesignStudioPanel(context, panel, reportPath);
+    const instance = new PbirDesignStudioPanel(context, panel, reportPath, bridge, materializationInputProvider, initialStage);
     PbirDesignStudioPanel.instance = instance;
     context.subscriptions.push({ dispose: () => instance.dispose() });
     return instance;
@@ -106,10 +118,40 @@ export class PbirDesignStudioPanel {
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
     reportPath: string,
+    bridge?: AnalyzerBridgeService,
+    materializationInputProvider?: () => unknown | Promise<unknown>,
+    private readonly initialStage?: string,
   ) {
     this.context = context;
     this.panel = panel;
     this.reportPath = reportPath;
+    this.materializationInputProvider = materializationInputProvider;
+    this.materializationWorkflow = new PbirMaterializationWorkflow(
+      {
+        executeRequest: async <T>(route: 'pbir/materialization/preview' | 'pbir/materialization/apply' | 'pbir/materialization/recovery/inspect', params: unknown, token?: unknown) => {
+          if (!bridge) {
+            throw new Error('PBIR analyzer backend is unavailable.');
+          }
+          return bridge.executeRequest<T>(route, params, token as vscode.CancellationToken | undefined);
+        },
+      },
+      {
+        createCancellation: () => {
+          const source = new vscode.CancellationTokenSource();
+          return {
+            token: source.token,
+            cancel: () => (source as vscode.CancellationTokenSource & { cancel?: () => void }).cancel?.(),
+            dispose: () => source.dispose(),
+          } satisfies PbirMaterializationCancellation;
+        },
+      },
+    );
+    bridge?.onStateChange((state) => {
+      if (state === BridgeState.ERROR || state === BridgeState.UNINITIALIZED) {
+        this.materializationWorkflow.reset();
+        this.postMaterializationWorkflowState();
+      }
+    });
     this.panel.webview.html = this.getReactHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -136,6 +178,19 @@ export class PbirDesignStudioPanel {
         return;
       case 'loadStudioState':
         await this.refresh();
+        return;
+      case 'startLocalMaterializationPreview':
+        await this.startMaterializationPreview();
+        return;
+      case 'requestLocalMaterializationApply':
+        await this.requestMaterializationApply();
+        return;
+      case 'inspectLocalMaterializationRecovery':
+        await this.inspectMaterializationRecovery();
+        return;
+      case 'cancelLocalMaterialization':
+        this.materializationWorkflow.cancel();
+        this.postMaterializationWorkflowState();
         return;
       case 'saveArtifact': {
         if (parsed.message.artifactKind !== 'designBrief') {
@@ -400,12 +455,14 @@ export class PbirDesignStudioPanel {
         workspace: workspaceState.workspace,
       },
     });
+    this.postMaterializationWorkflowState();
   }
 
   private postMessage(
     message:
       | { type: 'studioState'; state: DesignStudioStudioState }
-      | { type: 'executionReadinessUpdated'; readiness: NonNullable<DesignStudioStudioState['workspace']>['executionReadiness'] },
+      | { type: 'executionReadinessUpdated'; readiness: NonNullable<DesignStudioStudioState['workspace']>['executionReadiness'] }
+      | { type: 'materializationWorkflowUpdated'; workflow: ReturnType<PbirDesignStudioPanel['toMaterializationWorkflowViewModel']> },
   ): void {
     const wrapped = withDesignStudioEnvelope(message) as DesignStudioHostToWebviewMessagePayload;
 
@@ -415,6 +472,97 @@ export class PbirDesignStudioPanel {
     }
 
     void this.panel.webview.postMessage(wrapped);
+  }
+
+  private async startMaterializationPreview(): Promise<void> {
+    const input = await this.materializationInputProvider?.();
+    if (input === undefined) {
+      void vscode.window.showWarningMessage('Local PBIR preview is unavailable until an approved canonical PBIR input is ready.');
+      return;
+    }
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Preparing local PBIR preview', cancellable: true },
+      async (_progress, token) => {
+        const cancellationListener = (token as vscode.CancellationToken).onCancellationRequested?.(() => {
+          this.materializationWorkflow.cancel();
+        });
+        try {
+          const state = await this.materializationWorkflow.preview(input);
+          if (token.isCancellationRequested) {
+            this.materializationWorkflow.cancel();
+          }
+          this.postMaterializationWorkflowState(state);
+        } finally {
+          cancellationListener?.dispose();
+        }
+      },
+    );
+  }
+
+  private async requestMaterializationApply(): Promise<void> {
+    const confirmation = await vscode.window.showWarningMessage(
+      'Apply this exact validated local PBIR preview? This writes only through the local materialization transaction boundary.',
+      { modal: true },
+      'Apply Preview',
+    );
+    if (confirmation !== 'Apply Preview') {
+      return;
+    }
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Applying local PBIR preview', cancellable: true },
+      async (_progress, token) => {
+        const cancellationListener = (token as vscode.CancellationToken).onCancellationRequested?.(() => {
+          this.materializationWorkflow.cancel();
+        });
+        try {
+          const result = await this.materializationWorkflow.apply(true);
+          this.postMaterializationWorkflowState(result.state);
+        } finally {
+          cancellationListener?.dispose();
+        }
+      },
+    );
+  }
+
+  private async inspectMaterializationRecovery(): Promise<void> {
+    const input = await this.materializationInputProvider?.();
+    const previewRequestId = this.materializationWorkflow.getPreviewRequestId();
+    if (input === undefined || !previewRequestId) {
+      void vscode.window.showWarningMessage('Recovery inspection requires a fresh preview request.');
+      return;
+    }
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Inspecting local PBIR recovery state', cancellable: true },
+      async (_progress, token) => {
+        const cancellationListener = (token as vscode.CancellationToken).onCancellationRequested?.(() => {
+          this.materializationWorkflow.cancel();
+        });
+        try {
+          const state = await this.materializationWorkflow.inspectRecovery(input, previewRequestId);
+          this.postMaterializationWorkflowState(state);
+        } finally {
+          cancellationListener?.dispose();
+        }
+      },
+    );
+  }
+
+  private postMaterializationWorkflowState(state = this.materializationWorkflow.getState()): void {
+    this.postMessage({
+      type: 'materializationWorkflowUpdated',
+      workflow: this.toMaterializationWorkflowViewModel(state),
+    });
+  }
+
+  private toMaterializationWorkflowViewModel(state: PbirMaterializationWorkflowState) {
+    return {
+      status: state.status,
+      outcome: state.outcome,
+      summary: state.summary,
+      diagnostics: state.diagnostics,
+      writtenFiles: state.writtenFiles,
+      transactionId: state.transactionId,
+    };
   }
 
   private flushPendingMessages(): void {
@@ -457,7 +605,7 @@ export class PbirDesignStudioPanel {
   <body>
     <div id="root"></div>
     <script nonce="${nonce}">
-      window.__PBIR_DESIGN_STUDIO_BOOTSTRAP__ = ${JSON.stringify({ threadId: this.threadId })};
+      window.__PBIR_DESIGN_STUDIO_BOOTSTRAP__ = ${JSON.stringify({ threadId: this.threadId, initialStage: this.initialStage })};
     </script>
     <script nonce="${nonce}" src="${String(assets.scriptUri)}"></script>
   </body>
@@ -470,6 +618,7 @@ export class PbirDesignStudioPanel {
     }
 
     this.isDisposed = true;
+    this.materializationWorkflow.reset();
     if (PbirDesignStudioPanel.instance === this) {
       PbirDesignStudioPanel.instance = undefined;
     }

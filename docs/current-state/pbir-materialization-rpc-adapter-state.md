@@ -11,7 +11,7 @@ Roadmap mapping:
 - Phase 31 = post-4B application orchestration.
 - Phase 32 = RPC transport hardening.
 - Phase 33 = local PBIR RPC adapter.
-- Phase 34 onward remains provisional and unauthorized until separately approved.
+- Phase 34 is now the separately authorized VS Code workflow consumer; Phase 35 onward remains provisional and unauthorized.
 
 ## Routes and authority
 
@@ -38,3 +38,5 @@ The adapter delegates cancellation, duplicate active request arbitration, concur
 ## Explicitly out of scope
 
 Provider invocation, Microsoft Skills execution, external APIs/CLI/network, UI, VS Code commands/views, Desktop, Analyzer handoff, deployment/publishing, PBIP or semantic-model generation, generated-artifact intake, authentication/authorization/encryption, remote transport, and legacy root-level report.json remain unimplemented.
+
+Phase 34 adds the UI consumer in a separate boundary. It does not change these routes or the adapter contracts.

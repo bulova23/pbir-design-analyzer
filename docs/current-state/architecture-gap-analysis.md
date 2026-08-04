@@ -20,7 +20,7 @@ No generation or runtime provider invocation exists. Providers remain interchang
 
 Repository Phase 32 is explicitly mapped to generic RPC transport hardening. It supplies the strict bounded envelope, cancellable concurrent request lifecycle, serialized writer, disconnect cleanup, and redacted diagnostic prerequisite for later adapters.
 
-Repository Phase 33 now connects exactly three local PBIR routes to Phase 31: preview, apply, and recovery inspection. It does not connect provider contracts, invoke providers or Skills, expose lower-level writers, or add external execution authority. The broader Microsoft PBIR runtime-provider and Skills execution work remains provisional Repository Phase 35 and unimplemented.
+Repository Phase 33 now connects exactly three local PBIR routes to Phase 31: preview, apply, and recovery inspection. Repository Phase 34 consumes only those routes from the existing Design Studio materialize stage, with explicit confirmation, read-only recovery, cancellation, redaction, and lifecycle invalidation. It does not connect provider contracts, invoke providers or Skills, expose lower-level writers, or add external execution authority. The broader Microsoft PBIR runtime-provider and Skills execution work remains provisional Repository Phase 35 and unimplemented.
 
 ## Microsoft Skills Implementation
 
@@ -86,4 +86,5 @@ No product UX starts execution, provider invocation, deployment, deployable arti
 - Repository Phase 31 adds the bounded application orchestration seam with validated-preview, fresh-transaction, cancellation, concurrency, recovery-inspection, and redacted-diagnostic controls.
 - Repository Phase 32 implements only the shared RpcHost transport lifecycle.
 - Repository Phase 33 implements the stateless local PBIR RPC adapter over Phase 31 with strict versioned contracts, safe outcome mapping, local preflight, cancellation propagation, and redacted responses. No provider-facing or external execution adapter is implemented.
+- Repository Phase 34 implements only the VS Code workflow consumer over those three routes. It adds no backend authority, filesystem access, provider/Skills execution, generated-artifact intake, Analyzer handoff, refinement, Fabric App generation, deployment, or publishing.
 - External provider execution, Microsoft Skills execution, PBIP project materialization, Desktop verification, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, and Fabric Data App generation remain unimplemented.

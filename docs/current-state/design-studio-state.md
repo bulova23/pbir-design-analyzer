@@ -304,6 +304,8 @@ The current Design Studio workflow still excludes:
 
 It also should not be described as a generic AI report generator. Its current architecture is still design-first, advisory-first, and validation-gated.
 
+Repository Phase 34 adds a local PBIR materialization workflow to the existing materialize stage. It is a route-only consumer of Phase 33 with explicit apply confirmation, read-only recovery inspection, cancellation, and lifecycle reset. It does not add provider, Skills, Analyzer, deployment, publishing, or filesystem authority.
+
 ## Current State Assessment
 
 The current repo documentation and implemented shell together support this summary:

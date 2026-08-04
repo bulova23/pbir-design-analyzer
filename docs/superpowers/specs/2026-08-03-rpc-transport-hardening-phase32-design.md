@@ -19,7 +19,7 @@ Repository Phase 32 maps only to RPC Transport Hardening.
 The following sequence is provisional planning and creates no implementation authority:
 
 - Repository Phase 33: local PBIR RPC adapter over Repository Phase 31
-- Repository Phase 34: VS Code PBIR materialization workflow
+- Repository Phase 34: VS Code local PBIR materialization workflow (separately authorized consumer of Phase 33)
 - Repository Phase 35: Microsoft PBIR runtime-provider and Skills execution
 - Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
 - Repository Phases 37–38: original Phase 5 Analyzer handoff

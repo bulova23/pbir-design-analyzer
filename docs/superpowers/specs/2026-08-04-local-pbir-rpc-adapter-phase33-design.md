@@ -13,9 +13,11 @@ Repository Phase 33 is the first local transport integration slice after the com
 - Repository Phase 31 = post-4B application orchestration over those services.
 - Repository Phase 32 = generic RPC transport hardening.
 - Repository Phase 33 = provider-neutral local PBIR RPC adapter over Phase 31.
-- Repository Phase 34 onward remains provisional and unauthorized until separately approved.
+- Repository Phase 34 is separately authorized as the VS Code workflow consumer; Repository Phase 35 onward remains provisional and unauthorized.
 
 This phase adds no provider invocation, Microsoft Skills execution, UI, deployment, publishing, Desktop, Analyzer, PBIP, semantic-model generation, legacy root-level report.json, external transport, authentication, authorization, or new filesystem/writer authority.
+
+Phase 34 consumes this adapter through the existing Design Studio surface without changing these contracts or adding another route.
 
 ## Architecture decision
 
@@ -106,4 +108,3 @@ Use deterministic in-memory JSON-RPC streams and synchronization seams. Tests co
 2. High risk: exposing filesystem transaction details would make the local protocol a de facto writer API. The response DTO is deliberately redacted and relative-path-only.
 3. High risk: treating cancellation or disconnect as rollback authority would corrupt transaction truth. Cancellation is propagated; Phase 30 remains the only rollback/recovery authority.
 4. Medium risk: widening the route or version contract early would make future provider integration harder. Exactly three routes and one version are supported.
-

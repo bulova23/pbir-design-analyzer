@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import type { CancellationToken } from 'vscode';
 import { LanguageClient, State } from 'vscode-languageclient/node';
 import { getBackendOutputChannel } from '../../platform/outputChannels';
 
@@ -121,14 +122,19 @@ export class AnalyzerBridgeService extends EventEmitter {
     return this.sendRequest('model/pbir/getTree', { reportPath });
   }
 
-  async executeRequest<T = unknown>(method: string, params: unknown = {}): Promise<T> {
-    return this.sendRequest<T>(method, params);
+  async executeRequest<T = unknown>(
+    method: string,
+    params: unknown = {},
+    cancellationToken?: CancellationToken,
+  ): Promise<T> {
+    return this.sendRequest<T>(method, params, this.defaultTimeout, cancellationToken);
   }
 
   private async sendRequest<T>(
     method: string,
     params: unknown = {},
     timeout: number = this.defaultTimeout,
+    cancellationToken?: CancellationToken,
   ): Promise<T> {
     if (!this.client) {
       throw new Error('Analyzer backend not available. Call initialize() first.');
@@ -156,7 +162,7 @@ export class AnalyzerBridgeService extends EventEmitter {
         timeoutHandle = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
       });
 
-      const resultPromise = this.client.sendRequest<T>(method, params);
+      const resultPromise = this.client.sendRequest<T>(method, params, cancellationToken);
       const result = await Promise.race([resultPromise, timeoutPromise]);
       const elapsed = Date.now() - startTime;
 

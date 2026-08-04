@@ -2,6 +2,20 @@
 
 ## Active Session
 
+- 2026-08-04 Repository Phase 34 — VS Code Local PBIR Materialization Workflow:
+  - authorized scope:
+    - consume only the Phase 33 preview, apply, and recovery inspection routes from the existing Design Studio materialize stage
+    - require explicit confirmation, exact preview identity, fresh transaction IDs, cancellation, lifecycle invalidation, and safe redacted presentation
+    - preserve all Phase 29–33 backend and transport authority and leave changes uncommitted
+  - current status:
+    - Phase 34 design, implementation plan, current-state, roadmap mapping, Skills-plan mapping, and architecture-boundary updates written
+    - host coordinator and Design Studio workflow component implemented with focused tests passing
+    - full extension/webview and backend validation passes: 494 extension tests, 68 webview tests, 773 backend tests with zero skips
+    - eight pinned offline schema/boundary tests and 29 focused RPC/changed-boundary tests pass; scoped changed-file lint is clean; repository lint remains at the documented 43-error baseline
+    - validation is complete; the scoped Phase 34 change set is being committed and pushed under explicit user authorization
+
+- Previous Phase 33 focus is retained below as historical context.
+
 - 2026-08-04 Repository Phase 33 — Local PBIR RPC Adapter:
   - authorized scope:
     - implement the provider-neutral local PBIR RPC adapter over completed Phase 31 and hardened Phase 32

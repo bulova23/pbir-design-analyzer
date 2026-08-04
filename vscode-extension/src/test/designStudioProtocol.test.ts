@@ -7,6 +7,35 @@ import {
 } from '../design-studio/contracts/designStudioProtocol';
 
 describe('designStudioProtocol', () => {
+  it('accepts local materialization intents and validates safe workflow updates', () => {
+    expect(parseDesignStudioWebviewMessage(withDesignStudioEnvelope({ type: 'startLocalMaterializationPreview' }))).toEqual(expect.objectContaining({ ok: true }));
+    expect(parseDesignStudioWebviewMessage(withDesignStudioEnvelope({ type: 'requestLocalMaterializationApply' }))).toEqual(expect.objectContaining({ ok: true }));
+    expect(parseDesignStudioWebviewMessage(withDesignStudioEnvelope({ type: 'inspectLocalMaterializationRecovery' }))).toEqual(expect.objectContaining({ ok: true }));
+    expect(parseDesignStudioWebviewMessage(withDesignStudioEnvelope({ type: 'cancelLocalMaterialization' }))).toEqual(expect.objectContaining({ ok: true }));
+
+    const update = parseDesignStudioHostMessage(withDesignStudioEnvelope({
+      type: 'materializationWorkflowUpdated',
+      workflow: {
+        status: 'preview-ready',
+        outcome: 'absent-destination',
+        summary: { destinationClassification: 'absent', artifactCount: 1, rollbackAvailable: false },
+        diagnostics: [{ code: 'PBIR', field: 'destination', message: 'Safe diagnostic.' }],
+        writtenFiles: [{ relativePath: 'definition.pbir', byteLength: 10, hashSha256: 'hash' }],
+      },
+    }));
+
+    expect(update).toEqual(expect.objectContaining({ ok: true }));
+  });
+
+  it('rejects malformed materialization workflow updates before rendering', () => {
+    const result = parseDesignStudioHostMessage(withDesignStudioEnvelope({
+      type: 'materializationWorkflowUpdated',
+      workflow: { status: 'preview-ready', diagnostics: [{ message: 'raw' }], writtenFiles: [] },
+    }));
+
+    expect(result).toEqual(expect.objectContaining({ ok: false }));
+  });
+
   it('accepts valid host messages', () => {
     const result = parseDesignStudioHostMessage(withDesignStudioEnvelope({
       type: 'artifactApproved',

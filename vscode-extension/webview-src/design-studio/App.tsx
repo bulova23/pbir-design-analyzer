@@ -3,7 +3,10 @@ import {
   parseDesignStudioHostMessage,
   withDesignStudioEnvelope,
 } from '../../src/design-studio/contracts/designStudioProtocol';
-import type { DesignStudioStudioState } from '../../src/design-studio/contracts/designStudioProtocol';
+import type {
+  DesignStudioMaterializationWorkflowViewModel,
+  DesignStudioStudioState,
+} from '../../src/design-studio/contracts/designStudioProtocol';
 import type {
   DesignStudioApprovalCardViewModel,
   DesignStudioWorkflowStageId,
@@ -14,6 +17,7 @@ import { ClosedLoopView } from './views/ClosedLoopView';
 import { ConceptStudioView } from './views/ConceptStudioView';
 import { DesignBriefView } from './views/DesignBriefView';
 import { DraftStudioView } from './views/DraftStudioView';
+import { LocalPbirMaterializationWorkflow } from './components/LocalPbirMaterializationWorkflow';
 import {
   createInitialDesignBriefState,
   designBriefReducer,
@@ -35,6 +39,12 @@ type ViewState =
 
 function defaultThreadId(): string {
   return window.__PBIR_DESIGN_STUDIO_BOOTSTRAP__?.threadId ?? 'design-studio:active-report';
+}
+
+function defaultStage(): DesignStudioWorkflowStageId | undefined {
+  return window.__PBIR_DESIGN_STUDIO_BOOTSTRAP__?.initialStage === 'materialize'
+    ? 'materialize'
+    : undefined;
 }
 
 function approvalStateLabel(value: DesignStudioApprovalCardViewModel['approvalState']): string {
@@ -162,6 +172,11 @@ function buildConceptStudioState(
 export function App() {
   const vscodeApiRef = useRef<VsCodeApi | undefined>(undefined);
   const [viewState, setViewState] = useState<ViewState>({ kind: 'loading' });
+  const [materializationWorkflow, setMaterializationWorkflow] = useState<DesignStudioMaterializationWorkflowViewModel>({
+    status: 'idle',
+    diagnostics: [],
+    writtenFiles: [],
+  });
   const [briefEditorState, setBriefEditorState] = useState<DesignBriefEditorState>(() => createInitialDesignBriefState());
   const threadId = defaultThreadId();
 
@@ -183,7 +198,7 @@ export function App() {
 
       if (parsed.message.type === 'studioState') {
         const studioState = parsed.message.state;
-        const fallbackSelectedStage = studioState.workspace?.currentStage ?? 'brief';
+          const fallbackSelectedStage = defaultStage() ?? studioState.workspace?.currentStage ?? 'brief';
         setViewState((previous) => {
           const previousSelection = previous.kind === 'ready' ? previous.selectedStage : fallbackSelectedStage;
           const nextSelection = studioState.workspace?.stages.some((stage) => stage.id === previousSelection)
@@ -192,6 +207,8 @@ export function App() {
 
           return { kind: 'ready', state: studioState, selectedStage: nextSelection };
         });
+      } else if (parsed.message.type === 'materializationWorkflowUpdated') {
+        setMaterializationWorkflow(parsed.message.workflow);
       }
     };
 
@@ -604,6 +621,16 @@ export function App() {
                 ) : null}
               </div>
             </section>
+          ) : null}
+
+          {selectedStage === 'materialize' ? (
+            <LocalPbirMaterializationWorkflow
+              workflow={materializationWorkflow}
+              onPreview={() => vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({ type: 'startLocalMaterializationPreview' }))}
+              onApply={() => vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({ type: 'requestLocalMaterializationApply' }))}
+              onRecovery={() => vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({ type: 'inspectLocalMaterializationRecovery' }))}
+              onCancel={() => vscodeApiRef.current?.postMessage(withDesignStudioEnvelope({ type: 'cancelLocalMaterialization' }))}
+            />
           ) : null}
 
           {selectedStage === 'previewReview' && workspace.previewReview ? (

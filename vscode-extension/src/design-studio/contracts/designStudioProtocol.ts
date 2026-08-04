@@ -81,6 +81,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isMaterializationWorkflowPayload(value: unknown): value is DesignStudioMaterializationWorkflowViewModel {
+  if (!isRecord(value) || typeof value.status !== 'string' || !Array.isArray(value.diagnostics) || !Array.isArray(value.writtenFiles)) {
+    return false;
+  }
+
+  return value.diagnostics.every((diagnostic) => isRecord(diagnostic)
+      && typeof diagnostic.code === 'string'
+      && typeof diagnostic.field === 'string'
+      && typeof diagnostic.message === 'string')
+    && value.writtenFiles.every((file) => isRecord(file)
+      && typeof file.relativePath === 'string'
+      && typeof file.byteLength === 'number'
+      && typeof file.hashSha256 === 'string');
+}
+
 function readString(value: Record<string, unknown>, key: string): string | undefined {
   return typeof value[key] === 'string' ? value[key] as string : undefined;
 }
@@ -917,6 +932,23 @@ export interface DesignStudioStudioState {
   workspace?: DesignStudioWorkspaceViewModel;
 }
 
+export interface DesignStudioMaterializationWorkflowViewModel {
+  status: 'idle' | 'previewing' | 'preview-ready' | 'inspecting-recovery' | 'applying' | 'terminal' | 'preview-required' | 'disconnected';
+  outcome?: string;
+  summary?: {
+    destinationClassification: string;
+    artifactCount: number;
+    identityReference?: string;
+    previewHash?: string;
+    targetStateHash?: string;
+    activeTransactionRef?: string;
+    rollbackAvailable: boolean;
+  };
+  diagnostics: Array<{ code: string; field: string; message: string }>;
+  writtenFiles: Array<{ relativePath: string; byteLength: number; hashSha256: string }>;
+  transactionId?: string;
+}
+
 export type DesignStudioHostToWebviewMessagePayload =
   | (DesignStudioEnvelope & { type: 'studioState'; state: DesignStudioStudioState })
   | (DesignStudioEnvelope & { type: 'artifactSaved'; artifactKind: DesignStudioArtifactKind; artifactId: string; version: number })
@@ -925,7 +957,8 @@ export type DesignStudioHostToWebviewMessagePayload =
   | (DesignStudioEnvelope & { type: 'materializationRequested'; request: MaterializationRequest })
   | (DesignStudioEnvelope & { type: 'iterationComparison'; iterationId: string; summary: string })
   | (DesignStudioEnvelope & { type: 'analyzerHandoffOpened'; requestId: string; target: 'analyzerWorkspace' })
-  | (DesignStudioEnvelope & { type: 'executionReadinessUpdated'; readiness: NonNullable<DesignStudioWorkspaceViewModel['executionReadiness']> });
+  | (DesignStudioEnvelope & { type: 'executionReadinessUpdated'; readiness: NonNullable<DesignStudioWorkspaceViewModel['executionReadiness']> })
+  | (DesignStudioEnvelope & { type: 'materializationWorkflowUpdated'; workflow: DesignStudioMaterializationWorkflowViewModel });
 
 export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'webviewReady' })
@@ -947,6 +980,10 @@ export type DesignStudioWebviewToHostMessagePayload =
   | (DesignStudioEnvelope & { type: 'deferPreviewReview'; previewReviewId: string; reviewerNotes?: string })
   | (DesignStudioEnvelope & { type: 'prepareAnalyzerCandidateMetadata'; previewReviewId: string; reviewerNotes?: string })
   | (DesignStudioEnvelope & { type: 'requestExecutionReadiness'; threadId: string })
+  | (DesignStudioEnvelope & { type: 'startLocalMaterializationPreview' })
+  | (DesignStudioEnvelope & { type: 'requestLocalMaterializationApply' })
+  | (DesignStudioEnvelope & { type: 'inspectLocalMaterializationRecovery' })
+  | (DesignStudioEnvelope & { type: 'cancelLocalMaterialization' })
   | (DesignStudioEnvelope & { type: 'completeIteration' })
   | (DesignStudioEnvelope & { type: 'reopenIteration' })
   | (DesignStudioEnvelope & { type: 'setRefinementProposalState'; proposalId: string; action: 'approve' | 'reject' | 'defer' });
@@ -1021,6 +1058,10 @@ export function parseDesignStudioHostMessage(value: unknown):
       return isExecutionReadinessPayload(value.readiness)
         ? { ok: true, message: withDesignStudioEnvelope({ type, readiness: value.readiness as NonNullable<DesignStudioWorkspaceViewModel['executionReadiness']> }) }
         : { ok: false, error: 'Design Studio executionReadinessUpdated host message has an invalid readiness payload.' };
+    case 'materializationWorkflowUpdated':
+      return isMaterializationWorkflowPayload(value.workflow)
+        ? { ok: true, message: withDesignStudioEnvelope({ type, workflow: value.workflow as DesignStudioMaterializationWorkflowViewModel }) }
+        : { ok: false, error: 'Design Studio materializationWorkflowUpdated host message has an invalid workflow payload.' };
     default:
       return { ok: false, error: `Unsupported Design Studio host message type: ${type}.` };
   }
@@ -1054,6 +1095,11 @@ export function parseDesignStudioWebviewMessage(value: unknown):
         ? { ok: true, message: withDesignStudioEnvelope({ type, threadId }) }
         : { ok: false, error: 'Design Studio loadStudioState webview message is missing threadId.' };
     }
+    case 'startLocalMaterializationPreview':
+    case 'requestLocalMaterializationApply':
+    case 'inspectLocalMaterializationRecovery':
+    case 'cancelLocalMaterialization':
+      return { ok: true, message: withDesignStudioEnvelope({ type }) };
     case 'saveArtifact': {
       const artifactKind = readString(value, 'artifactKind');
       return artifactKind && isArtifactKind(artifactKind) && 'artifact' in value

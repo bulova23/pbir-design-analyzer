@@ -199,6 +199,31 @@ body {
   margin: 0;
 }
 
+.local-pbir-materialization {
+  display: grid;
+  gap: 12px;
+}
+
+.local-pbir-status {
+  min-height: 1.4em;
+  font-weight: 600;
+}
+
+.local-pbir-summary {
+  margin: 0;
+}
+
+.local-pbir-confirmation {
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.local-pbir-confirmation button {
+  margin-right: 8px;
+}
+
 @media (max-width: 900px) {
   .studio-layout {
     grid-template-columns: 1fr;

@@ -2,7 +2,7 @@
 
 ## Status
 
-Repository Phase 33 implements the local PBIR materialization RPC adapter. Repository Phase 32 remains the generic transport prerequisite.
+Repository Phase 33 implements the local PBIR materialization RPC adapter. Repository Phase 34 consumes that adapter from the existing VS Code Design Studio workflow. Repository Phase 32 remains the generic transport prerequisite.
 
 Repository Phase 31 remains the application authority. Phase 33 exposes it through exactly three local routes: pbir/materialization/preview, pbir/materialization/apply, and pbir/materialization/recovery/inspect.
 
@@ -26,6 +26,6 @@ Phase 33 reuses that prerequisite without adding a transport stack. Operation pa
 
 ## Preserved State
 
-- No provider, runtime-provider, Microsoft Skills, API, CLI, deployment, publishing, Desktop, Analyzer, extension command, dialog, notification, tree view, or webview behavior is added by Phase 33.
+- No provider, runtime-provider, Microsoft Skills, API, CLI, deployment, publishing, Desktop, Analyzer, or generated-artifact authority is added by Phase 34. Its one command and existing Design Studio materialize card are presentation/orchestration consumers only.
 - Phase 33 does not change Phase 29–31 production contracts or services; it uses their existing internal orchestration boundary.
 - No commit, push, pull request, merge, discard, or working-tree cleanup was performed.

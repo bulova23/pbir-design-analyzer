@@ -56,6 +56,7 @@
   - includes `rpc-transport-state.md` for Repository Phase 32 strict bounded framing, request lifecycle, cancellation, concurrency, serialized response writing, shutdown, cleanup, and diagnostic guarantees
   - includes `pbir-materialization-provider-adapter-state.md` for the provider/runtime boundary and Phase 32 prerequisite
   - includes `pbir-materialization-rpc-adapter-state.md` for implemented Repository Phase 33 local PBIR RPC routes, contracts, outcomes, limits, lifecycle, and exclusions
+  - includes `vscode-local-pbir-materialization-workflow-state.md` for Repository Phase 34 Design Studio workflow, lifecycle, redaction, and route-only boundaries
 
 ## Important Memory Files
 

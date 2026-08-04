@@ -55,6 +55,25 @@ describe('pbir.designStudio tree item targets', () => {
     expect(PbirDesignStudioPanel.createOrShow).toHaveBeenCalledWith(
       expect.anything(),
       reportRoot,
+      undefined,
+    );
+  });
+
+  it('opens the existing Design Studio directly on the local materialization stage', async () => {
+    registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+
+    const handler = getRegisteredHandler(PBIR_COMMANDS.openLocalPbirMaterialization);
+    await handler({
+      kind: 'report',
+      jsonFilePath: reportJsonPath,
+    });
+
+    expect(PbirDesignStudioPanel.createOrShow).toHaveBeenCalledWith(
+      expect.anything(),
+      reportRoot,
+      undefined,
+      undefined,
+      'materialize',
     );
   });
 });

@@ -3,7 +3,17 @@ import * as path from 'path';
 
 describe('extension manifest 0.5.2 runtime posture', () => {
   const packageJsonPath = path.resolve(__dirname, '../../package.json');
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, any>;
+  type PackageJson = {
+    capabilities?: Record<string, unknown>;
+    contributes?: {
+      commands?: Array<{ command?: string }>;
+      views?: Record<string, Array<{ id?: string }>>;
+      configuration?: { properties?: Record<string, unknown> };
+      menus?: Record<string, Array<{ command?: string }>>;
+    };
+    scripts?: Record<string, string>;
+  };
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as PackageJson;
 
   it('declares explicit unsupported workspace capabilities', () => {
     expect(packageJson.capabilities).toEqual({
@@ -19,7 +29,7 @@ describe('extension manifest 0.5.2 runtime posture', () => {
   });
 
   it('uses the canonical pbirAnalyzer explorer view id', () => {
-    const views = packageJson.contributes?.views?.['pbir-analyzer-container'];
+    const views = packageJson.contributes?.views?.['pbir-analyzer-container'] ?? [];
     expect(Array.isArray(views)).toBe(true);
     expect(views[0]?.id).toBe('pbirAnalyzer.explorer');
   });
@@ -40,6 +50,9 @@ describe('extension manifest 0.5.2 runtime posture', () => {
     expect(commands).toEqual(expect.arrayContaining([
       expect.objectContaining({
         command: 'pbirAnalyzer.openDesignStudio',
+      }),
+      expect.objectContaining({
+        command: 'pbirAnalyzer.openLocalPbirMaterialization',
       }),
     ]));
 

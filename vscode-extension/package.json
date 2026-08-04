@@ -71,6 +71,11 @@
         "icon": "$(rocket)"
       },
       {
+        "command": "pbirAnalyzer.openLocalPbirMaterialization",
+        "title": "PBIR Design Analyzer: Open Local PBIR Materialization",
+        "icon": "$(database)"
+      },
+      {
         "command": "pbirAnalyzer.openProject",
         "title": "PBIR Design Analyzer: Open PBIP Project",
         "icon": "$(folder-opened)"
@@ -173,6 +178,11 @@
           "command": "pbirAnalyzer.openDesignStudio",
           "when": "view == pbirAnalyzer.explorer",
           "group": "navigation@3"
+        },
+        {
+          "command": "pbirAnalyzer.openLocalPbirMaterialization",
+          "when": "view == pbirAnalyzer.explorer",
+          "group": "navigation@4"
         },
         {
           "command": "pbirAnalyzer.scoreReport",

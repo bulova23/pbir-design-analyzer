@@ -157,6 +157,7 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
   - hardens the existing stdio JSON-RPC envelope, framing, concurrency, cancellation, response writing, diagnostics, disconnect, and shutdown lifecycle
   - adds no PBIR operation, Phase 31 adapter, provider invocation, Skills execution, UI integration, artifact intake, deployment, or publishing authority
 - **Local PBIR RPC adapter:** Repository Phase 33 maps to the first local transport integration slice after Phase 32
+- **VS Code local PBIR workflow:** Repository Phase 34 maps to the existing Design Studio workflow consumer of Phase 33. It adds only preview, explicit apply, recovery inspection, cancellation, lifecycle, and redacted presentation behavior over the three local routes.
   - exposes only preview, apply, and recovery inspection over Phase 31
   - requires strict versioned contracts, exact preview identity, fresh transaction IDs, local preflight, redacted responses, and transport-owned cancellation/concurrency/disconnect behavior
   - adds no Microsoft provider, Skills execution, external invocation, PBIP/semantic-model generation, UI, Desktop, deployment, publishing, or Analyzer authority
@@ -167,7 +168,7 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 This sequence is planning-only. It records intended dependency order and does not authorize implementation:
 
 1. Repository Phase 33: local PBIR RPC adapter over Repository Phase 31 (implemented in the separate Phase 33 slice)
-2. Repository Phase 34: VS Code PBIR materialization workflow
+2. Repository Phase 34: VS Code local PBIR materialization workflow (implemented in the separate Phase 34 slice)
 3. Repository Phase 35: Microsoft PBIR runtime-provider and Skills execution
 4. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
 5. Repository Phases 37–38: original Phase 5 Analyzer handoff
@@ -176,6 +177,8 @@ This sequence is planning-only. It records intended dependency order and does no
 8. Repository Phase 44: release hardening, packaging, and publishing
 
 Repository Phase 32 is not part of original Phase 4 feature delivery. Every phase above remains separately approval-gated.
+
+Phase 34 does not implement external provider/Skills execution, generated-artifact intake, Analyzer handoff or automation, refinement, Fabric App generation, deployment, or publishing. Repository Phase 35 onward remains provisional and unauthorized.
 
 ### Scope
 

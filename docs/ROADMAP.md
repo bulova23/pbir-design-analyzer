@@ -70,6 +70,7 @@ The original seven-phase roadmap remains distinct from the release and AI-fix ro
 - Original Phase 4 post-4B application integration: implemented by Repository Phase 31 as a narrow orchestration boundary over Phase 29 serialization and Phase 30 preview/apply/recovery inspection
 - Repository Phase 32: **RPC Transport Hardening**, shared infrastructure only. It adds no original Phase 4 application feature or operation.
 - Repository Phase 33: **Local PBIR RPC Adapter**, a provider-neutral local adapter over Phase 31 using the hardened RpcHost.
+- Repository Phase 34: **VS Code Local PBIR Materialization Workflow**, integrated into the existing Report Design Studio materialize stage and using only the three Phase 33 routes.
 - Original Phase 4 external provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing work: not started
 - Original Phases 5–7: not started as execution phases
 
@@ -85,7 +86,7 @@ Repository Phase 33 adds exactly three local routes over Phase 31: PBIR material
 
 The later repository sequence is provisional planning only and does not authorize implementation:
 
-1. Repository Phase 34: VS Code PBIR materialization workflow
+1. Repository Phase 34: VS Code local PBIR materialization workflow (implemented in the separately authorized Phase 34 slice)
 2. Repository Phase 35: Microsoft PBIR runtime-provider and Skills execution
 3. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
 4. Repository Phases 37–38: original Phase 5 Analyzer handoff
@@ -94,6 +95,8 @@ The later repository sequence is provisional planning only and does not authoriz
 7. Repository Phase 44: release hardening, packaging, and publishing
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
+
+Phase 34 does not implement external provider or Microsoft Skills execution, generated-artifact intake, Analyzer handoff or automation, refinement, Fabric App generation, deployment, or publishing. Those capabilities remain unimplemented and Phase 35 onward remains provisional and unauthorized.
 
 ## Story Assessment Promotion Boundary
 

@@ -222,8 +222,26 @@ export function registerPbirCommands(
                 return;
             }
 
-            await PbirDesignStudioPanel.createOrShow(context, reportPath);
+            await PbirDesignStudioPanel.createOrShow(context, reportPath, getBridge());
         })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.openLocalPbirMaterialization, async (target?: PbirCommandTarget) => {
+            const reportPath = resolveCommandTarget(target).reportPath;
+            if (!reportPath) {
+                await vscode.commands.executeCommand(PBIR_COMMANDS.openDesignStudio, target);
+                return;
+            }
+
+            await PbirDesignStudioPanel.createOrShow(
+                context,
+                reportPath,
+                getBridge(),
+                undefined,
+                'materialize',
+            );
+        }),
     );
 
     context.subscriptions.push(

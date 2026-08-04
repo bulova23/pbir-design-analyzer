@@ -2,6 +2,7 @@ export const PBIR_COMMANDS = {
   getTree: 'pbirAnalyzer.getTree',
   openProject: 'pbirAnalyzer.openProject',
   openDesignStudio: 'pbirAnalyzer.openDesignStudio',
+  openLocalPbirMaterialization: 'pbirAnalyzer.openLocalPbirMaterialization',
   refreshReports: 'pbirAnalyzer.refreshReports',
   scoreReport: 'pbirAnalyzer.scoreReport',
   openAnalyzerWorkspaceHandoff: 'pbirAnalyzer.openAnalyzerWorkspaceHandoff',

@@ -126,6 +126,8 @@ The dashboard records these as false:
 
 The dashboard is not an execution planner, generator, provider adapter, deployment workflow, Analyzer automation workflow, or validation substitute.
 
+Repository Phase 34 is a separately authorized local PBIR workflow consumer outside this dashboard. It requires a canonical Phase 31 input from an explicit host seam and delegates all filesystem and transaction authority through the Phase 33 preview, apply, and recovery-inspection routes.
+
 ## Remaining Execution Implementation Gaps
 
 Deployable PBIR generation remains unimplemented.
