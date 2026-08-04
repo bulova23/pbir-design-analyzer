@@ -294,18 +294,17 @@ namespace ServiceDotnet.Tests
         }
 
         [Fact]
-        public async Task JsonRpcFraming_ReadRequestAsync_ReturnsNullForMalformedContentLength()
+        public async Task JsonRpcFraming_ReadRequestAsync_RejectsMalformedContentLength()
         {
             var payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}";
             await using var input = new MemoryStream(Encoding.UTF8.GetBytes(
                 $"Content-Length: nope\r\n\r\n{payload}"));
 
-            var request = await RpcHost::PowerBIModelingService.RpcHost.JsonRpcFraming.ReadRequestAsync(
-                input,
-                RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
-                NullLogger.Instance);
-
-            Assert.Null(request);
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                RpcHost::PowerBIModelingService.RpcHost.JsonRpcFraming.ReadRequestAsync(
+                    input,
+                    RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
+                    NullLogger.Instance));
         }
 
         [Fact]
@@ -322,7 +321,7 @@ namespace ServiceDotnet.Tests
                     RpcHost::PowerBIModelingService.RpcHost.SimpleJsonRpcServer.CreateJsonSerializerOptions(),
                     NullLogger.Instance));
 
-            Assert.Contains("Expected", error.Message);
+            Assert.Equal("The RPC request frame is invalid or incomplete.", error.Message);
         }
 
         // Minimal stubs for test

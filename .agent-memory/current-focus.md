@@ -2,6 +2,42 @@
 
 ## Active Session
 
+- 2026-08-04 Repository Phase 33 — Local PBIR RPC Adapter:
+  - authorized scope:
+    - implement the provider-neutral local PBIR RPC adapter over completed Phase 31 and hardened Phase 32
+    - preserve all uncommitted Phase 32 changes
+    - support only preview, apply, and recovery inspection
+    - update Phase 33 design, plan, current-state, roadmap, original Skills plan, architecture gap, provider-adapter state, repository map, summaries, and session record
+    - leave changes uncommitted and do not add UI, provider, Skills, deployment, Desktop, Analyzer, PBIP, semantic-model, or legacy-report work
+  - current status:
+    - design and implementation plan written before production changes
+    - stateless adapter implemented over PbirMaterializationOrchestrationService with strict versioned validation and safe explicit outcome mapping
+    - RpcHost now references Core through an internal friend boundary, reusing existing Phase 31 types without exposing Phase 30 services
+    - validation passed: focused adapter/contract 12/12; Phase 29–33 regression inventory 202/202; full backend 773/773 with zero failures/skips; pinned offline schema/boundary 8/8; extension Jest 95 suites/462 tests; webview Jest 10 suites/65 tests; TypeScript compilation; RPC transport 107/107; repository lint remains the unchanged 44-error baseline with zero changed TypeScript/JavaScript files; whitespace, scope, document, and diff checks passed
+    - residual lifecycle risks remain inherited from Phase 32: non-cooperative handlers can delay disconnect drain, and an OS write already in progress cannot be retracted; Phase 30 transaction artifacts remain the recovery truth
+    - branch HEAD and origin both remain 57a14da9; 34 worktree paths are uncommitted
+  - next recommended step:
+    - choose whether to prepare a scoped Phase 33 commit, prepare commit and push, keep the validated changes uncommitted, or explicitly approve discard
+
+- 2026-08-03 Repository Phase 32 — RPC Transport Hardening:
+  - authorized scope:
+    - map Repository Phase 32 explicitly to shared generic RPC transport hardening
+    - design and plan before production changes
+    - implement strict bounded framing, concurrent request lifecycle, cancellation, shutdown, safe diagnostics, and deterministic tests
+  - preserved stop boundary:
+    - no Phase 33 PBIR adapter, Phase 31 route, provider or Skills execution, UI integration, external invocation, generated-artifact intake, deployment, publishing, version bump, commit, push, merge, or discard
+  - current status:
+    - verified the clean synchronized branch `codex/ux-consolidation-remediation-0-2-2` at `57a14da9d0ea10f485c12fb9315ae1b75a5d4ba9`
+    - mapped Phase 32 explicitly to shared RPC transport hardening and recorded the Phase 33–44 sequence as provisional planning only
+    - completed and self-reviewed the design and implementation plan before production changes
+    - implemented strict bounded framing/parsing, bounded concurrent dispatch, atomic response framing, typed request registration, deterministic cancellation/duplicate arbitration, idempotent shutdown/disconnect cleanup, and redacted diagnostics
+    - retained the exact existing application route inventory and added no Phase 31, PBIR adapter, provider, Skills, UI, deployment, or publishing authority
+    - validation passed: RPC 107/107; Phase 29–31 changed-file regression inventory 116/116; full backend 761/761; offline schema/boundary 8/8; Jest 105 suites / 527 tests; TypeScript compile; exact unchanged 44-tuple b50d17d9 lint baseline; scope, document, whitespace, and diff gates
+    - all Phase 32 changes remain uncommitted as requested
+  - next recommended step:
+    - perform scoped review and choose whether to prepare a Phase 32 commit, prepare and push it, keep it uncommitted, or explicitly approve discard
+    - do not begin provisional Phase 33 or any later phase without separate authorization
+
 - 2026-08-03 Phase 29–31 integration preparation:
   - audit the full dirty worktree and classify every path and mixed hunk before staging
   - run fresh focused Phase 29–31 backend tests followed by applicable repository validation

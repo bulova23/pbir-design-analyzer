@@ -18,6 +18,7 @@
 - `vscode-extension/webview-src/`: React webview sources
 - `service-dotnet/Services/Pbir/`: backend scoring, PBIR parsing, semantic/story/governance heuristics
 - `service-dotnet/RpcHost/`: packaged backend entrypoint
+  - includes the Phase 33 stateless local PBIR RPC adapter and its strict contracts/validation over Core Phase 31 orchestration
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 
@@ -52,7 +53,9 @@
   - includes `pbir-modern-serializer-state.md` for Repository Phase 29 / original Phase 4A, deterministic in-memory modern PBIR artifacts, locked local schema conformance, and fail-closed semantic projection
   - includes `pbir-deployable-materialization-state.md` for implemented Repository Phase 30 / original Phase 4B, read-only target preview, embedded pinned-schema validation, staged directory promotion, managed replacement, journals, receipts, rollback, recovery, retry, and cleanup behavior
   - includes `pbir-materialization-application-orchestration-state.md` for Repository Phase 31 post-4B application composition, typed outcomes, validated-preview/fresh-transaction enforcement, cancellation, concurrency, recovery inspection, and diagnostic redaction
-  - includes `pbir-materialization-provider-adapter-state.md` for the unmapped Repository Phase 32 provider/transport discrepancy, current lifecycle gaps, and the required design-first roadmap decision
+  - includes `rpc-transport-state.md` for Repository Phase 32 strict bounded framing, request lifecycle, cancellation, concurrency, serialized response writing, shutdown, cleanup, and diagnostic guarantees
+  - includes `pbir-materialization-provider-adapter-state.md` for the provider/runtime boundary and Phase 32 prerequisite
+  - includes `pbir-materialization-rpc-adapter-state.md` for implemented Repository Phase 33 local PBIR RPC routes, contracts, outcomes, limits, lifecycle, and exclusions
 
 ## Important Memory Files
 

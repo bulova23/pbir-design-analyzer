@@ -2129,3 +2129,21 @@
 - Created four focused local commits in dependency order for Phase 29 boundary documentation, Phase 30 materialization, Phase 31 orchestration, and the Phase 32 roadmap gate/integration audit.
 - Repeated the full post-commit validation matrix successfully. One concurrent focused/full .NET attempt hit a shared-output CS2012 lock; the full suite passed, and the focused suite passed 135/135 when rerun serially. No agent-initiated push, Phase 32 implementation, unrelated lint cleanup, merge, pull request creation, or discard occurred.
 - The user subsequently pushed the branch through the UI on 2026-08-03 at 14:29:47 -0400, setting remote HEAD to ebf4423725c10e246a84b57e66d0a844407893fe.
+
+# 2026-08-03 Repository Phase 32 — RPC Transport Hardening
+
+- Mapped Repository Phase 32 explicitly to shared local stdio RPC transport hardening and recorded Repository Phases 33–44 as provisional planning only.
+- Replaced the monolithic RpcHost loop with one existing-route dispatcher plus generic bounded framing, strict envelope parsing, typed request registration, concurrent scheduling, atomic bounded response writing, deterministic cancellation/duplicate arbitration, idempotent shutdown/disconnect cleanup, and redacted diagnostics.
+- Preserved JSON-RPC 2.0 and valid existing LanguageClient traffic without adding a protocol version, application operation, PBIR/Phase 31 adapter, provider or Skills execution, extension UI, generated-artifact intake, deployment, or publishing authority.
+- Validation passed: 107 RPC tests; 116 Phase 29–31 changed-file regression tests; 761 full backend tests; eight offline schema/boundary tests; 105 Jest suites and 527 tests; TypeScript compilation; exact unchanged 44-tuple b50d17d9 lint baseline; scope, roadmap, document, whitespace, repository-output, and diff gates.
+- Residual lifecycle risk is explicit: non-cooperative handlers can delay drain, and an OS write already in progress at disconnect cannot be retracted. No handler or transport resource is abandoned after shutdown returns.
+- Left every Phase 32 change uncommitted on codex/ux-consolidation-remediation-0-2-2 for scoped review.
+
+# 2026-08-04 Repository Phase 33 — Local PBIR RPC Adapter
+
+- Authorized Repository Phase 33 as the local transport integration slice after Phase 31 orchestration and Phase 32 RPC hardening; preserved the provisional Phase 34–44 sequence.
+- Wrote the Phase 33 design and implementation plan before production changes.
+- Added a provider-neutral stateless adapter over PbirMaterializationOrchestrationService for preview, apply, and recovery inspection; reused existing transport lifecycle and added no initialize capability.
+- Added strict versioned wire validation, safe response mapping for all fifteen Phase 31 outcomes, local destination/artifact-policy preflight, redaction, exact preview identity/fresh transaction enforcement, and Core-to-RpcHost internal dependency wiring without exposing Phase 30 services.
+- Focused adapter/contract validation currently passes 12/12; broader required validation remains in progress.
+- All Phase 33 changes remain uncommitted; no provider, Skills, UI, deployment, Desktop, Analyzer, PBIP, semantic-model, or legacy-report work was added.

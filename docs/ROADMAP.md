@@ -68,7 +68,8 @@ The original seven-phase roadmap remains distinct from the release and AI-fix ro
 - Original Phase 4A: implemented by Repository Phase 29 as deterministic in-memory modern PBIR serialization
 - Original Phase 4B: implemented by Repository Phase 30 — **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**
 - Original Phase 4 post-4B application integration: implemented by Repository Phase 31 as a narrow orchestration boundary over Phase 29 serialization and Phase 30 preview/apply/recovery inspection
-- Repository Phase 32: not mapped. The roadmap does not currently define a provider-facing transport adapter over Phase 31, and that mapping must be approved before implementation.
+- Repository Phase 32: **RPC Transport Hardening**, shared infrastructure only. It adds no original Phase 4 application feature or operation.
+- Repository Phase 33: **Local PBIR RPC Adapter**, a provider-neutral local adapter over Phase 31 using the hardened RpcHost.
 - Original Phase 4 external provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing work: not started
 - Original Phases 5–7: not started as execution phases
 
@@ -78,7 +79,21 @@ Repository Phase 30 consumes only the validated Phase 29 artifact and manifest. 
 
 Repository Phase 31 is the first separately authorized post-4B integration slice. It composes the canonical Phase 29 serializer and Phase 30 services behind one backend application boundary, requires exact validated preview identity plus a fresh transaction ID for apply, exposes typed destination/conflict/recovery/failure outcomes, propagates cancellation safely, and redacts sensitive local paths. It adds no external provider, Skills, deployment, Desktop, Analyzer, or UI authority.
 
-No exact Repository Phase 32 mapping exists yet. The provider-planning and runtime-provider contracts remain execution-free, while the shipped RpcHost transport does not yet provide the strict, cancellable, concurrent request lifecycle assumed by a provider-facing materialization adapter. The smallest next step is a separately authorized design decision that maps either a local Phase 31 transport adapter plus its transport-lifecycle prerequisite or the broader first runtime-provider implementation. Do not infer one from the other.
+Repository Phase 32 is now explicitly mapped to generic RpcHost transport hardening. It provides strict bounded request parsing, bounded concurrent dispatch, serialized response framing, deterministic request cancellation, connection shutdown cleanup, and redacted transport diagnostics. It does not expose Phase 31 or add PBIR operations.
+
+Repository Phase 33 adds exactly three local routes over Phase 31: PBIR materialization preview, apply, and recovery inspection. The adapter is stateless, read-only for preview/recovery, requires exact preview identity plus a fresh transaction ID for apply, and adds no provider, Skills, UI, deployment, publishing, Desktop, Analyzer, PBIP, semantic-model, or legacy-report authority. It advertises no new initialize capability, preserving existing LanguageClient traffic.
+
+The later repository sequence is provisional planning only and does not authorize implementation:
+
+1. Repository Phase 34: VS Code PBIR materialization workflow
+2. Repository Phase 35: Microsoft PBIR runtime-provider and Skills execution
+3. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
+4. Repository Phases 37–38: original Phase 5 Analyzer handoff
+5. Repository Phases 39–40: original Phase 6 refinement loop
+6. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, and review intake
+7. Repository Phase 44: release hardening, packaging, and publishing
+
+Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
 
 ## Story Assessment Promotion Boundary
 

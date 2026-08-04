@@ -18,7 +18,9 @@ Repository Phase 31 adds only the first backend application orchestration seam f
 
 No generation or runtime provider invocation exists. Providers remain interchangeable contract definitions and planning candidates only.
 
-No Repository Phase 32 mapping currently connects those provider contracts to Phase 31 materialization. The requested provider-facing adapter is not a documented next slice: the original Phase 4 roadmap next names a concrete Microsoft PBIR adapter, while RpcHost lacks the strict cancellable concurrent request lifecycle that a transport-only adapter would require. A roadmap/design decision must separate local transport integration from the broader runtime-provider implementation before either is authorized.
+Repository Phase 32 is explicitly mapped to generic RPC transport hardening. It supplies the strict bounded envelope, cancellable concurrent request lifecycle, serialized writer, disconnect cleanup, and redacted diagnostic prerequisite for later adapters.
+
+Repository Phase 33 now connects exactly three local PBIR routes to Phase 31: preview, apply, and recovery inspection. It does not connect provider contracts, invoke providers or Skills, expose lower-level writers, or add external execution authority. The broader Microsoft PBIR runtime-provider and Skills execution work remains provisional Repository Phase 35 and unimplemented.
 
 ## Microsoft Skills Implementation
 
@@ -82,5 +84,6 @@ No product UX starts execution, provider invocation, deployment, deployable arti
 - The separate deployable materializer uses read-only target preview, exact Phase 29 artifact validation, embedded pinned Microsoft schema validation, same-filesystem staged directory promotion, external transaction receipts and journals, managed replacement, and current-transaction rollback/recovery.
 - The preview-only writer is unchanged and remains outside the Phase 30 dependency and authority surface.
 - Repository Phase 31 adds the bounded application orchestration seam with validated-preview, fresh-transaction, cancellation, concurrency, recovery-inspection, and redacted-diagnostic controls.
-- Repository Phase 32 remains unmapped; no provider-facing materialization adapter or transport lifecycle is implemented.
+- Repository Phase 32 implements only the shared RpcHost transport lifecycle.
+- Repository Phase 33 implements the stateless local PBIR RPC adapter over Phase 31 with strict versioned contracts, safe outcome mapping, local preflight, cancellation propagation, and redacted responses. No provider-facing or external execution adapter is implemented.
 - External provider execution, Microsoft Skills execution, PBIP project materialization, Desktop verification, deployment, publishing, Analyzer automation, refinement loops, Fabric App generation, and Fabric Data App generation remain unimplemented.

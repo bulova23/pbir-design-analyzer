@@ -153,7 +153,29 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
   - requires the validated preview identity and a fresh transaction ID
   - exposes typed conflict, stale-preview, recovery-inspection, cancellation, and failure outcomes
   - preserves Phase 30 as the only filesystem transaction authority
+- **Shared RPC transport prerequisite:** Repository Phase 32 maps to generic transport hardening only
+  - hardens the existing stdio JSON-RPC envelope, framing, concurrency, cancellation, response writing, diagnostics, disconnect, and shutdown lifecycle
+  - adds no PBIR operation, Phase 31 adapter, provider invocation, Skills execution, UI integration, artifact intake, deployment, or publishing authority
+- **Local PBIR RPC adapter:** Repository Phase 33 maps to the first local transport integration slice after Phase 32
+  - exposes only preview, apply, and recovery inspection over Phase 31
+  - requires strict versioned contracts, exact preview identity, fresh transaction IDs, local preflight, redacted responses, and transport-owned cancellation/concurrency/disconnect behavior
+  - adds no Microsoft provider, Skills execution, external invocation, PBIP/semantic-model generation, UI, Desktop, deployment, publishing, or Analyzer authority
 - External provider execution, Microsoft Skills execution, PBIP materialization, Desktop verification, deployment, and publishing: not started
+
+### Provisional Repository Sequence Toward Original Phases 4–7
+
+This sequence is planning-only. It records intended dependency order and does not authorize implementation:
+
+1. Repository Phase 33: local PBIR RPC adapter over Repository Phase 31 (implemented in the separate Phase 33 slice)
+2. Repository Phase 34: VS Code PBIR materialization workflow
+3. Repository Phase 35: Microsoft PBIR runtime-provider and Skills execution
+4. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
+5. Repository Phases 37–38: original Phase 5 Analyzer handoff
+6. Repository Phases 39–40: original Phase 6 refinement loop
+7. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, and review intake
+8. Repository Phase 44: release hardening, packaging, and publishing
+
+Repository Phase 32 is not part of original Phase 4 feature delivery. Every phase above remains separately approval-gated.
 
 ### Scope
 
@@ -325,7 +347,7 @@ Implement a provider-neutral generation framework that converts Discovery Wizard
 1. Phase 1 – Design Package Consumption Layer
 2. Phase 2 – Skills Prompt Generation
 3. Phase 3 – Generation Request Framework
-4. Phase 4A – Repository Phase 29 deterministic modern PBIR serialization, Repository Phase 30 / original Phase 4B materialization, and Repository Phase 31 bounded post-4B application orchestration; broader execution remains separately authorized
+4. Phase 4A – Repository Phase 29 deterministic modern PBIR serialization, Repository Phase 30 / original Phase 4B materialization, and Repository Phase 31 bounded post-4B application orchestration; Repository Phase 32 supplies shared RPC transport hardening only; broader execution remains separately authorized
 5. Phase 5 – Analyzer Handoff
 6. Phase 6 – Refinement Loop
 7. Phase 7 – Fabric App Generation
