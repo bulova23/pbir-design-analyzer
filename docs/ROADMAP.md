@@ -87,16 +87,18 @@ Repository Phase 33 adds exactly three local routes over Phase 31: PBIR material
 The later repository sequence is provisional planning only and does not authorize implementation:
 
 1. Repository Phase 34: VS Code local PBIR materialization workflow (implemented in the separately authorized Phase 34 slice)
-2. Repository Phase 35: Microsoft PBIR runtime-provider and Skills execution
-3. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
-4. Repository Phases 37–38: original Phase 5 Analyzer handoff
-5. Repository Phases 39–40: original Phase 6 refinement loop
-6. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, and review intake
-7. Repository Phase 44: release hardening, packaging, and publishing
+2. Repository Phase 35A: **Contract-Only Provider Foundation** (implemented)
+3. Repository Phase 35B: **Governed Runtime Provider Architecture & Execution Framework** (composition-only, implemented)
+4. Repository Phase 35C+: executable-provider trust boundary and provider-specific execution (not started)
+4. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
+5. Repository Phases 37–38: original Phase 5 Analyzer handoff
+6. Repository Phases 39–40: original Phase 6 refinement loop
+7. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, and review intake
+8. Repository Phase 44: release hardening, packaging, and publishing
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
 
-Phase 34 does not implement external provider or Microsoft Skills execution, generated-artifact intake, Analyzer handoff or automation, refinement, Fabric App generation, deployment, or publishing. Those capabilities remain unimplemented and Phase 35 onward remains provisional and unauthorized.
+Phase 34 did not implement external provider or Microsoft Skills execution. Phase 35A adds versioned contracts and deterministic governance. Phase 35B adds only an offline composition root and fake-provider test seam. **No runtime generation provider is available.** Executable provider/adaptor work is Phase 35C+ and remains unimplemented; generated-artifact intake, Analyzer handoff or automation, refinement, Fabric App generation, deployment, and publishing remain unimplemented.
 
 ## Story Assessment Promotion Boundary
 

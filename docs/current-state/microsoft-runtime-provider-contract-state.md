@@ -1,5 +1,7 @@
 # Microsoft Runtime Provider Contract Current State
 
+Phase 35A does not activate this compatibility contract. It remains descriptive/pre-execution metadata, and **No runtime generation provider is available** until a later Phase 35B+ executable adapter satisfies the separate governance contract.
+
 ## Summary
 
 Microsoft Runtime Provider Contract is now implemented as the Microsoft-specific contract-only layer downstream from Planning Orchestration Framework and alongside the generic Runtime Provider Framework.

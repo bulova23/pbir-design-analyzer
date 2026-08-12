@@ -2,6 +2,8 @@
 
 ## Summary
 
+Phase 35A is separate from this pre-execution abstraction. Its `Unavailable` conclusion is authoritative for runtime generation and does not infer readiness from this framework's `readyForRuntimeProvider` planning state.
+
 Runtime Provider Framework is now implemented as the contract-only pre-execution abstraction layer downstream from Planning Orchestration Framework and Execution Provider Contract Framework.
 
 Its role is:
@@ -184,6 +186,8 @@ The current framework does not:
 
 The current repo state still excludes:
 
+- a runtime generation provider; **No runtime generation provider is available**
+
 - runtime provider implementations
 - Microsoft runtime provider implementations
 - Microsoft Skills execution
@@ -201,3 +205,8 @@ Microsoft skill-catalog metadata is now defined separately in `docs/current-stat
 Microsoft skill-provider mapping metadata is now defined separately in `docs/current-state/microsoft-skill-provider-adapter-state.md` so the generic runtime-provider abstraction can remain provider-neutral and execution-free.
 
 PBIR execution-boundary behavior is now defined separately in `docs/current-state/pbir-execution-prototype-boundary-state.md` so the runtime-provider abstraction can remain provider-neutral and contract-first.
+## Phase 35B Runtime Composition
+
+Phase 35B adds an offline-only composition root beside the Phase 35A contract package. It coordinates exact provider resolution, authorization and readiness gates, immutable sessions, explicit lifecycle transitions, fixed validation stages, artifact intake, timeout/cancellation classification, in-memory audit projection, and structured diagnostics. The normal catalog remains unavailable and contains no executable adapter. Controlled fake adapters exist only inside tests.
+
+The runtime does not invoke Desktop, PBIR generation/materialization, processes, shell, HTTP/network, MCP, Skills, credentials, publication, or mutation. Phase 35C must address sandbox/trust, credential isolation, durable audit, artifact scanning, conformance tests, and output validation before provider activation.

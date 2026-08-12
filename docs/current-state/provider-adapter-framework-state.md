@@ -1,5 +1,7 @@
 # Provider Adapter Framework Current State
 
+Phase 35A intentionally does not add an executable provider adapter. This framework remains planning-only; **No runtime generation provider is available**.
+
 ## Summary
 
 Provider Adapter Framework is now implemented as a planning-only compatibility layer downstream from Provider Planning Framework.

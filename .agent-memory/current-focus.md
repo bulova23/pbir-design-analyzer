@@ -2,6 +2,20 @@
 
 ## Active Session
 
+- 2026-08-12 Repository Phase 35B — Governed Runtime Provider Architecture & Execution Framework:
+  - authorized scope: implement a focused offline-only composition root over authoritative uncommitted Phase 35A contracts; no real provider, external execution, publication, mutation, staging, or commit
+  - current status: design, plan, runtime services, focused tests, current-state, threat-model, roadmap, and memory updates are present; validation is complete
+  - validation: Phase 35A 11/11; Phase 35B 15/15; full backend 799/799 with zero skips; RPC 107/107; selected schema/boundary gate 36/36; extension 494/494; webview 68/68; TypeScript compile; .NET build; packaged extension build; diff/document checks passed; repository lint remains the unchanged 43-error baseline with no Phase 35B lint surface
+  - closeout: Phase 35A and Phase 35B remain uncommitted and unstaged; unrelated dirty files were preserved; next step is review/commit disposition only
+  - preservation rule: existing Phase 35A and unrelated dirty files are pre-existing and must remain untouched
+
+- 2026-08-12 Repository Phase 35A — Contract-Only Provider Foundation:
+  - authorized scope: backend-only deterministic versioned contracts and governance for future generation providers; no executable provider path; no commit
+  - current status: Phase 35A contract package, focused tests, design/plan, roadmap, current-state, and architecture-gap updates are present; focused contract validation is green; full validation remains to run
+  - authoritative readiness conclusion: **No runtime generation provider is available**
+  - validation: focused Phase 35A 11/11; full backend 784/784; RPC 119/119; pinned schema/boundary 8/8; extension/webview 494/494 and 68/68; TypeScript compile; document, placeholder, boundary, and diff checks passed; repository lint remains the unchanged 43-error baseline
+  - closeout: all Phase 35A work remains uncommitted; next step is review/commit disposition only, with no Phase 35B execution work implied
+
 - 2026-08-04 Repository Phase 34 — VS Code Local PBIR Materialization Workflow:
   - authorized scope:
     - consume only the Phase 33 preview, apply, and recovery inspection routes from the existing Design Studio materialize stage

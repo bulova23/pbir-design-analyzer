@@ -2,6 +2,8 @@
 
 ## Summary
 
+Phase 35A adds a stricter downstream governed contract package documented in `phase35a-contract-only-provider-foundation-state.md`. The existing Generation Provider Framework remains provider-neutral planning metadata; Phase 35A does not promote its `readyForGenerationProvider` state to runtime availability.
+
 Generation Provider Framework is now implemented as the provider-neutral contract layer downstream from PBIR Generation Specification Framework and upstream from any future artifact generator.
 
 Its role is:
@@ -202,6 +204,8 @@ The current Generation Provider Framework does not:
 
 The current repo state still excludes:
 
+- a runtime generation provider; the authoritative conclusion is **No runtime generation provider is available**
+
 - downstream execution-provider implementation
 - Microsoft Skills execution
 - Copilot, Claude, OpenAI, local, or test generator execution
@@ -213,3 +217,6 @@ The current repo state still excludes:
 - Fabric App generation
 - Fabric Data App generation
 - Analyzer Workspace automation
+## Phase 35B Runtime Boundary
+
+Phase 35B is an orchestration proof only. It consumes the projected Phase 35A request and coordinates a typed offline adapter seam without report generation, PBIR materialization, external execution, or publication. Resolution is exact and fail-closed; there is no fallback, probing, or heuristic selection.

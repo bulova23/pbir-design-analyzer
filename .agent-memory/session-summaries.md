@@ -2148,3 +2148,15 @@
 - Focused adapter/contract validation currently passes 12/12; broader required validation remains in progress.
 - All Phase 33 changes remain uncommitted; no provider, Skills, UI, deployment, Desktop, Analyzer, PBIP, semantic-model, or legacy-report work was added.
 - 2026-08-04 Phase 34 workflow integration: added a generation-guarded host coordinator and an accessible Design Studio local PBIR materialization card. The workflow uses only preview/apply/recovery RPC routes, requires exact preview identity plus fresh transaction IDs and explicit confirmation, supports cancellation/recovery/disconnect reset, and clears stale/conflict/failure/recovery-required apply state. Full extension Jest passed 494 tests, webview Jest passed 68 tests, backend xUnit passed 773 tests with zero skips, eight pinned offline schema/boundary tests and 29 focused RPC/changed-boundary tests passed, compilation and changed-file scoped lint passed; repository lint remains at its documented 43-error baseline. No provider, Skills, Desktop, Analyzer, deployment, publishing, PBIP, semantic-model, or legacy-report authority was added.
+# 2026-08-12 Repository Phase 35A — Contract-Only Provider Foundation
+
+- Added the backend-only Phase 35A governed provider contract package, pure projection/validation/readiness/lifecycle/hash helpers, and metadata-only provider matrix.
+- Explicitly classified `powerbi-report-author@0.1.4` as local PBIR validation/metadata inspection, Power BI Desktop as later verification/runtime, and Power BI Modeling MCP as semantic-model-only.
+- Current conclusion remains **No runtime generation provider is available**; no executable provider path or external authority was added.
+- Focused Phase 35A validation passes 11/11; full repository validation and final uncommitted diff inspection remain pending.
+
+# 2026-08-12 Repository Phase 35B — Governed Runtime Provider Architecture
+
+- Added a focused `Phase35B` composition root beside authoritative Phase 35A contracts: exact provider registry/resolution, authorization/readiness gates, immutable sessions, closed lifecycle, fixed validation stages, artifact intake, timeout/cancellation classification, audit projection, diagnostics, and a constrained offline adapter seam.
+- The production catalog remains metadata-only and unavailable for execution; fake adapters are constructed only in tests. No Desktop, PBIR generation/materialization, process/shell, HTTP/network, MCP, Skills, credential, publication, or mutation authority was added.
+- Added Phase 35B design, implementation plan, current-state, threat model, roadmap/framework/gap updates, repository map, and session record. Focused Phase 35B validation passes 14/14; broader validation and final uncommitted diff inspection remain pending.

@@ -1,5 +1,7 @@
 # Microsoft Skills Catalog Current State
 
+Phase 35A treats this catalog as research and planning metadata only. It does not execute Microsoft Skills or infer runtime generation readiness; **No runtime generation provider is available**.
+
 ## Summary
 
 Microsoft Skills Catalog is now implemented as the descriptive Microsoft skill metadata layer downstream from Capability Negotiation Framework and upstream from Microsoft Runtime Provider Contract.

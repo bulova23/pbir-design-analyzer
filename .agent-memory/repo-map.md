@@ -19,6 +19,8 @@
 - `service-dotnet/Services/Pbir/`: backend scoring, PBIR parsing, semantic/story/governance heuristics
 - `service-dotnet/RpcHost/`: packaged backend entrypoint
   - includes the Phase 33 stateless local PBIR RPC adapter and its strict contracts/validation over Core Phase 31 orchestration
+- `service-dotnet/Services/Discovery/Phase35A/`: Phase 35A contract-only provider governance; pure models, projection, validation, readiness, lifecycle, hashing, and metadata catalog only
+- `service-dotnet/Services/Discovery/Phase35B/`: Phase 35B offline-only runtime composition; exact provider resolution, gates, immutable sessions, lifecycle, validation, artifact intake, timeout/cancellation, audit, and diagnostics
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 
@@ -57,6 +59,8 @@
   - includes `pbir-materialization-provider-adapter-state.md` for the provider/runtime boundary and Phase 32 prerequisite
   - includes `pbir-materialization-rpc-adapter-state.md` for implemented Repository Phase 33 local PBIR RPC routes, contracts, outcomes, limits, lifecycle, and exclusions
   - includes `vscode-local-pbir-materialization-workflow-state.md` for Repository Phase 34 Design Studio workflow, lifecycle, redaction, and route-only boundaries
+  - includes `phase35a-contract-only-provider-foundation-state.md` for authoritative Phase 35A contracts and no-provider conclusion
+  - includes `phase35b-governed-runtime-provider-architecture-state.md` and `phase35b-runtime-threat-model.md` for the offline composition root, threat model, and Phase 35C prerequisites
 
 ## Important Memory Files
 

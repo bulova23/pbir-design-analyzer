@@ -2,6 +2,8 @@
 
 ## Summary
 
+Phase 35A adds a separate contract-only governance boundary. Existing `approvedForExecutionProvider` remains a planning eligibility result and is not runtime availability; the Phase 35A conclusion is **No runtime generation provider is available**.
+
 Execution Provider Contract Framework is now implemented as a deterministic contract-only layer downstream from Capability Negotiation Framework.
 
 Its role is:
@@ -209,3 +211,6 @@ The current repo state still excludes:
 - artifact intake and quarantine
 - deployment workflows
 - Analyzer Workspace automation
+## Phase 35B Handoff
+
+The Phase 35B runtime composition layer consumes this framework's governed Phase 35A contracts through focused gates and an exact provider registry. It adds no executable provider and does not change planning or execution eligibility semantics. Success-path tests construct an explicit offline fake adapter; the production catalog still reports no runtime generation provider.
