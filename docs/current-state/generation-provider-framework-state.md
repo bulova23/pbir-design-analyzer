@@ -220,3 +220,11 @@ The current repo state still excludes:
 ## Phase 35B Runtime Boundary
 
 Phase 35B is an orchestration proof only. It consumes the projected Phase 35A request and coordinates a typed offline adapter seam without report generation, PBIR materialization, external execution, or publication. Resolution is exact and fail-closed; there is no fallback, probing, or heuristic selection.
+
+## Phase 35C Assurance Boundary
+
+Phase 35C adds a provider trust and activation admission boundary downstream from Phase 35B. Trust requires explicit identity, attestation, expiration, and policy-version binding; execution also requires sandbox policy approval, opaque credential grants, finite resources, replay protection, audit availability, conformance, output-corpus approval, and artifact-scanner availability. The `Phase35CActivationGate` never invokes a provider. The production catalog remains non-executable, so `No runtime generation provider is available` remains authoritative.
+
+## Phase 35D Certification Boundary
+
+Phase 35D certifies an exact package identity and signed attestation for controlled pre-production eligibility only. Its conformance runner calls adapter declaration/validation methods and Phase 35C evidence evaluators but never calls adapter execution. Certification records bind provider/version/implementation/package/profile/evidence/policy identity, expiration, and lifecycle status. The Phase 35D activation binding can return `PreProductionEligible`; it cannot establish production eligibility. OS sandbox enforcement, credential issuance, real scanning, and executable provider integration remain future prerequisites.

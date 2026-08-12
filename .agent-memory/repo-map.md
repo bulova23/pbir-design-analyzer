@@ -21,6 +21,8 @@
   - includes the Phase 33 stateless local PBIR RPC adapter and its strict contracts/validation over Core Phase 31 orchestration
 - `service-dotnet/Services/Discovery/Phase35A/`: Phase 35A contract-only provider governance; pure models, projection, validation, readiness, lifecycle, hashing, and metadata catalog only
 - `service-dotnet/Services/Discovery/Phase35B/`: Phase 35B offline-only runtime composition; exact provider resolution, gates, immutable sessions, lifecycle, validation, artifact intake, timeout/cancellation, audit, and diagnostics
+- `service-dotnet/Services/Discovery/Phase35C/`: Phase 35C offline assurance boundary; trust/attestation, sandbox policy, opaque credential boundary, replay/resource policy, durable hash-chain audit abstraction, artifact safety, output corpus, conformance, and activation gate
+- `service-dotnet/Services/Discovery/Phase35D/`: Phase 35D offline provider certification; deterministic package identity, signed attestation verification, certification evidence/lifecycle, exact activation binding, non-executing conformance, and bounded protected audit/replay persistence
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 

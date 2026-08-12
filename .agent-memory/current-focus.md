@@ -1,5 +1,21 @@
 # Current Focus
 
+## Phase 35D Closeout
+
+- 2026-08-12: Phase 35D implementation and documentation are complete. Focused Phase 35A–35D: 54/54; full backend: 827/827; extension: 494/494; webview: 68/68; TypeScript compile and extension bundle pass. Repository lint remains the pre-existing 43-error baseline.
+- No provider was executed or activated. Phase 35A/B remain committed; Phase 35C and Phase 35D remain uncommitted and unstaged; unrelated dirty files were preserved.
+- Final checks: Phase 35D boundary and documentation scans passed; `npm run build` and `npm run package` passed with the darwin-arm64 VSIX. Phase 35E should address OS sandbox enforcement before controlled provider execution.
+
+## Active Session
+
+- 2026-08-12 Repository Phase 35C — Provider Trust, Sandbox, Audit, and Artifact Safety Foundation:
+  - authorized scope: additive offline-only assurance layer over Phase 35A/35B; no real provider, external execution, credentials, publication, mutation, staging, commit, or push
+  - current status: implementation, focused tests, current-state, threat model, roadmap, and validation are complete; no real provider was activated
+  - repository evidence: HEAD contains Phase 35A and Phase 35B commits; worktree was clean at session start, contrary to stale memory notes describing those phases as uncommitted
+  - validation: Phase 35C 20/20; Phase 35A–35C focused 46/46; full backend 819/819; RPC 107/107; extension 494/494; webview 68/68; TypeScript compile; .NET build; packaged extension build and VSIX package; repository lint remains the unchanged 43-error baseline; diff/document/boundary checks passed
+  - repository state: Phase 35A and Phase 35B are committed in this checkout; Phase 35C is uncommitted and unstaged; no commit, staging, reset, clean, or unrelated-file rewrite was performed
+  - next step: review Phase 35C diff and decide Git disposition; Phase 35D should begin with pre-production provider certification or the narrowest enforcement prerequisite, not provider activation
+
 ## Active Session
 
 - 2026-08-12 Repository Phase 35B — Governed Runtime Provider Architecture & Execution Framework:
@@ -3410,3 +3426,10 @@
 
 - Date: `2026-07-26`
 - By: `codex`
+# 2026-08-12 Phase 35D — pre-production provider certification
+
+- Active objective: implement additive Phase 35D certification contracts and offline evaluators on top of the uncommitted Phase 35C foundation.
+- Safety boundary: no provider execution, process/shell/HTTP/MCP/Skills/Desktop invocation, dynamic loading, publication, PBIR generation, or unrestricted credentials.
+- Planned seams: deterministic package identity, signed attestation verification, versioned certification profiles/evidence, lifecycle/record store, exact certification-to-activation binding, and bounded atomic audit/replay persistence.
+- Worktree rule: preserve all existing Phase 35C and unrelated dirty files; do not stage, commit, reset, clean, or restore.
+- Next step: add focused Phase 35D tests first, then implementation, docs, and validation.
