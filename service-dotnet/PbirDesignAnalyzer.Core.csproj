@@ -19,6 +19,9 @@
     <Compile Remove="RpcHost/**" />
     <Compile Remove="tests/**" />
     <Compile Remove="tools/**" />
+    <Compile Remove="Phase35E/**" />
+    <Compile Remove="Services/Discovery/Phase35E/Phase35ESandboxedProcessRunner.cs" />
+    <Compile Remove="Services/Discovery/Phase35E/Phase35EMacSandboxAdapter.cs" />
   </ItemGroup>
 
 </Project>

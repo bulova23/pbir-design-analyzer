@@ -1,5 +1,7 @@
 # Session Summaries
 
+- 2026-08-12 Repository Phase 35F — evaluated realistic macOS containment mechanisms on macOS 27.0/Darwin 27 arm64; selected no acceptable local mechanism, added fail-closed per-control capability/evidence reporting, removed the unused unrestricted Phase35E process fallback, and preserved no-provider/no-fixture execution. Focused Phase35E/35F tests passed 11/11; full validation and Git disposition remain outstanding.
+
 - 2026-08-12 Repository Phase 35D — pre-production provider certification foundation: added additive Phase35D package identity, RSA/SHA-256 signed attestation, certification profile/evidence/lifecycle, exact Phase35C activation binding, provider-specific non-executing conformance, and bounded atomic audit/replay persistence; focused Phase35D suite 8 passed; no provider execution or production activation; next prerequisite is OS sandbox enforcement.
 
 - 2026-06-27: Repaired the shared Tier 1 repo-contract gap by adding the required current-focus sections to `.agent-memory/current-focus.md`, preserved the existing Phase 28 stop boundary, audited phase-documentation collision risk, confirmed there are no `docs/memory/phase*.md`, no `docs/memory/phases/` content, and no `source_refs`, documented that local phase-documentation namespacing validation is not needed yet, and passed `dotnet test service-dotnet/tests/Tests.csproj -c Release`, `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, `cd vscode-extension && npm run build`, and the shared repo-contract validator from Consulting-AI-Memory.
@@ -2168,3 +2170,12 @@
 - Added 20 focused tests plus boundary tests; production catalog remains non-executable and no real provider, external execution, credential retrieval, generation, publication, or mutation was introduced.
 - Validation: Phase35A–C 46/46; full backend 819/819; RPC 107/107; extension 494/494; webview 68/68; compile/build/package green; lint remains unchanged at 43 errors.
 - Git evidence: Phase 35A/35B are committed at current HEAD; Phase 35C remains uncommitted and unstaged; no commit/stage/reset/clean actions taken.
+# 2026-08-12 — Phase 35E sandbox enforcement
+
+Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macOS Seatbelt adapter seam, bounded runner/lifecycle/audit projection, deterministic fixture, and isolated `Phase35E.Runtime` assembly. Darwin 27 custom `sandbox-exec` deny-default probes abort, so no process is admitted and the production catalog remains disabled. Focused Phase35E is 8/8; full backend is 835/835; extension/webview, builds, package, and diff checks pass; lint remains the unchanged 43-error baseline.
+# 2026-08-12 Phase 35G
+
+- Compared Virtualization.framework and controlled Windows/Linux remote execution using repository evidence plus primary Apple/Microsoft/Linux documentation.
+- Selected `remote-controlled-execution/v1`; local macOS remains `NotAdmitted`, and Windows is the primary future worker because Power BI Desktop is Windows-only.
+- Added non-enabling Phase35G decision contract/tests and design/current-state/ADR/threat-model documentation. No provider, fixture, PBIR generation, Desktop automation, secret, worker, shell bridge, MCP, or Skills execution.
+- Validation and final Git state are recorded in the Phase 35G session note after closeout.

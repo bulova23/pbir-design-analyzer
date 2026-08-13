@@ -1,5 +1,19 @@
 # Current Focus
 
+## Phase 35G Closeout
+
+- 2026-08-12: Compared Apple Virtualization.framework against controlled Windows/Linux remote execution using repository evidence and primary Apple/Microsoft/Linux documentation. Selected `remote-controlled-execution/v1` because likely Power BI Desktop-dependent provider behavior requires Windows; selection is recorded but not enabled.
+- Added a small non-enabling Phase35G decision contract and tests; extended the Phase35F mechanism vocabulary without changing the historical `none-local-macos/v1` result. No provider, fixture, PBIR generation, Desktop automation, secret, remote worker, shell bridge, MCP, or Skills execution occurred.
+- Phase 35H recommendation: prove an authenticated private domain-level protocol, isolated Windows worker, independent server-side validation, replay/reconciliation, correlated audit, and inert artifact transfer before any provider activation.
+- Validation complete: Phase35G 2/2; Phase35A–F 67/67; backend 840/840; RPC 119/119; extension 494/494; webview 68/68; TypeScript/build/package/target/boundary/diff checks passed; lint remains the unchanged 43-error baseline. Next step: review the complete uncommitted Phase35C–G diff. Preserve unrelated dirty files and keep Phase35G unstaged/uncommitted.
+
+## Phase 35F Closeout
+
+- 2026-08-12: Evaluated App Sandbox, Hardened Runtime/code signing, signed helper/XPC, Virtualization.framework, container runtime, and remote isolated execution against the Phase35C controls. Current macOS 27.0/Darwin 27 arm64 has no acceptable local mechanism proven; selection is `none-local-macos/v1` and admission remains `NotAdmitted`.
+- Added per-control Phase35F capability/evidence reporting and focused fail-closed tests; removed the unused unrestricted Phase35E process-boundary fallback. No provider or fixture executed.
+- Focused Phase35E/35F validation: 11/11 passed; Phase35A–F focused regression: 65/65; full backend: 838/838; extension: 494/494; webview: 68/68; backend target verification: 5/5; extension build/package and diff/document/boundary scans passed. ESLint remains the pre-existing 43-error baseline. All Phase35F changes remain unstaged and uncommitted; existing dirty Phase35C–E and unrelated files are preserved.
+- Next recommended step: run the full repository validation matrix, review the uncommitted Phase35C–F diff, and design-only compare Virtualization.framework against controlled Windows/Linux remote execution. Do not activate a provider.
+
 ## Phase 35D Closeout
 
 - 2026-08-12: Phase 35D implementation and documentation are complete. Focused Phase 35A–35D: 54/54; full backend: 827/827; extension: 494/494; webview: 68/68; TypeScript compile and extension bundle pass. Repository lint remains the pre-existing 43-error baseline.
@@ -7,6 +21,14 @@
 - Final checks: Phase 35D boundary and documentation scans passed; `npm run build` and `npm run package` passed with the darwin-arm64 VSIX. Phase 35E should address OS sandbox enforcement before controlled provider execution.
 
 ## Active Session
+
+- 2026-08-12 Repository Phase 35E — OS Sandbox Enforcement and Controlled Execution Containment:
+  - design and implementation added a focused Phase35E admission/evidence boundary and isolated `Phase35E.Runtime` assembly so Phase35A–D Core boundary tests remain offline-only
+  - macOS `sandbox-exec` deny-default probes on Darwin 27 aborted with exit 134/137; the adapter reports unsupported and admission fails closed; no provider or fixture process was admitted
+  - focused Phase35E validation is 8/8; fixture project build passes; full backend has one timeout-test flake after 834 passes and needs a final rerun after the timeout window adjustment
+  - no staging, commit, reset, clean, provider activation, or unrelated-file rewrite was performed
+  - final validation: full backend 835/835; focused Phase35E 8/8; extension Jest 494/494; webview Jest 68/68; TypeScript compile, backend build, extension build, VSIX package, and `git diff --check` pass; lint remains the unchanged 43-error baseline
+  - next step: review the uncommitted Phase35E diff; Phase35F should establish stronger OS enforcement before any real provider execution
 
 - 2026-08-12 Repository Phase 35C — Provider Trust, Sandbox, Audit, and Artifact Safety Foundation:
   - authorized scope: additive offline-only assurance layer over Phase 35A/35B; no real provider, external execution, credentials, publication, mutation, staging, commit, or push

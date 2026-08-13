@@ -26,13 +26,19 @@
     <ProjectReference Include="../PbirDesignAnalyzer.Core.csproj" />
     <ProjectReference Include="../RpcHost/RpcHost.csproj" Aliases="RpcHost" />
     <ProjectReference Include="../tools/StoryAssessmentValidationExport/StoryAssessmentValidationExport.csproj" />
+    <ProjectReference Include="../Phase35E/Phase35E.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="bin/**/*.cs" />
     <Compile Remove="obj/**/*.cs" />
+    <Compile Remove="Fixtures/Phase35ESandboxFixture/bin/**/*.cs" />
+    <Compile Remove="Fixtures/Phase35ESandboxFixture/obj/**/*.cs" />
+    <Compile Remove="Fixtures/Phase35ESandboxFixture/**/*.cs" />
     <EmbeddedResource Remove="bin/**" />
     <EmbeddedResource Remove="obj/**" />
+    <EmbeddedResource Remove="Fixtures/Phase35ESandboxFixture/bin/**" />
+    <EmbeddedResource Remove="Fixtures/Phase35ESandboxFixture/obj/**" />
     <Content Include="Fixtures/PbirSchemas/**/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

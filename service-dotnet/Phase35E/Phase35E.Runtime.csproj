@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Phase35E.Runtime</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PbirDesignAnalyzer.Core.csproj" />
+    <Compile Include="../Services/Discovery/Phase35E/Phase35ESandboxedProcessRunner.cs" Link="Phase35ESandboxedProcessRunner.cs" />
+    <Compile Include="../Services/Discovery/Phase35E/Phase35EMacSandboxAdapter.cs" Link="Phase35EMacSandboxAdapter.cs" />
+  </ItemGroup>
+</Project>

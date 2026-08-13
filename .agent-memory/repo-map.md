@@ -23,6 +23,9 @@
 - `service-dotnet/Services/Discovery/Phase35B/`: Phase 35B offline-only runtime composition; exact provider resolution, gates, immutable sessions, lifecycle, validation, artifact intake, timeout/cancellation, audit, and diagnostics
 - `service-dotnet/Services/Discovery/Phase35C/`: Phase 35C offline assurance boundary; trust/attestation, sandbox policy, opaque credential boundary, replay/resource policy, durable hash-chain audit abstraction, artifact safety, output corpus, conformance, and activation gate
 - `service-dotnet/Services/Discovery/Phase35D/`: Phase 35D offline provider certification; deterministic package identity, signed attestation verification, certification evidence/lifecycle, exact activation binding, non-executing conformance, and bounded protected audit/replay persistence
+- `service-dotnet/Services/Discovery/Phase35E/`: Phase 35E macOS Seatbelt sandbox admission, exact executable identity binding, capability/policy binding, bounded runner, lifecycle, and evidence projection; production catalog remains disabled
+- `service-dotnet/Services/Discovery/Phase35F/`: Phase 35F per-control macOS containment decision/evidence selector; no local mechanism selected and no process creation
+- `service-dotnet/Services/Discovery/Phase35G/`: Phase 35G non-enabling containment architecture decision record; controlled remote execution selected
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 
