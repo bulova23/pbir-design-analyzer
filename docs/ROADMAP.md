@@ -94,16 +94,17 @@ The later repository sequence is provisional planning only and does not authoriz
 6. Repository Phase 35E: **OS Sandbox Enforcement and Controlled Execution Containment** (historical Seatbelt probe seam; no enforceable local macOS boundary)
 7. Repository Phase 35F: **macOS Containment Mechanism Evaluation and Enforceable Sandbox Selection** (implemented; no acceptable local mechanism proven; admission remains closed)
 8. Repository Phase 35G: **Containment Architecture Decision** (implemented; `remote-controlled-execution/v1` selected, not enabled)
-9. Repository Phase 35H: controlled remote boundary proof (not started; no provider activation)
-10. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
-11. Repository Phases 37–38: original Phase 5 Analyzer handoff
-12. Repository Phases 39–40: original Phase 6 refinement loop
-13. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, and review intake
-14. Repository Phase 44: release hardening, packaging, and publishing
+9. Repository Phase 35H: controlled remote boundary proof (implemented as an inert in-process contract/transport proof; no Windows worker or provider activation)
+10. Repository Phase 35I: Windows worker containment enforcement and certification prerequisite
+11. Repository Phase 36: generated PBIP/PBIR intake, quarantine, and validation
+12. Repository Phases 37–38: original Phase 5 Analyzer handoff
+13. Repository Phases 39–40: original Phase 6 refinement loop
+14. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, and review intake
+15. Repository Phase 44: release hardening, packaging, and publishing
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
 
-Phase 34 did not implement external provider or Microsoft Skills execution. Phase 35A adds versioned contracts and deterministic governance. Phase 35B adds only an offline composition root and fake-provider test seam. Phase 35C adds the fail-closed trust, containment policy, credential, audit, replay/resource, artifact-safety, corpus, conformance, and activation contracts. Phase 35D adds deterministic package identity, signed offline attestation verification, certification evidence/lifecycle, exact activation binding, non-executing conformance, and bounded protected audit/replay persistence. Phase 35E adds the historical macOS Seatbelt probe seam; it does not establish enforcement on Darwin 27. Phase 35F evaluates local macOS mechanisms and selects no acceptable local mechanism. Phase 35G selects controlled remote execution as the future boundary because likely Power BI Desktop-dependent provider behavior requires Windows; the selection is recorded but not enabled. **No runtime generation provider is available.** Secret retrieval, scanner integration, TOCTOU-safe executable deployment, executable provider adapters, generated-artifact intake, Analyzer handoff or automation, refinement, Fabric App generation, deployment, and publishing remain unimplemented.
+Phase 34 did not implement external provider or Microsoft Skills execution. Phase 35A adds versioned contracts and deterministic governance. Phase 35B adds only an offline composition root and fake-provider test seam. Phase 35C adds the fail-closed trust, containment policy, credential, audit, replay/resource, artifact-safety, corpus, conformance, and activation contracts. Phase 35D adds deterministic package identity, signed offline attestation verification, certification evidence/lifecycle, exact activation binding, non-executing conformance, and bounded protected audit/replay persistence. Phase 35E adds the historical macOS Seatbelt probe seam; it does not establish enforcement on Darwin 27. Phase 35F evaluates local macOS mechanisms and selects no acceptable local mechanism. Phase 35G selects controlled remote execution as the future boundary because likely Power BI Desktop-dependent provider behavior requires Windows; the selection is recorded but not enabled. Phase 35H adds only an inert signed domain-protocol proof with an in-process transport harness, persisted replay/lifecycle state, correlated audit, and synthetic artifact quarantine. It does not prove a Windows worker, real network confidentiality, OS isolation, image certification, or provider execution. **No runtime generation provider is available.** Secret retrieval, scanner integration, TOCTOU-safe executable deployment, executable provider adapters, generated-artifact intake, Analyzer handoff or automation, refinement, Fabric App generation, deployment, and publishing remain unimplemented.
 
 ## Story Assessment Promotion Boundary
 

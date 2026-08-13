@@ -2179,3 +2179,9 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Selected `remote-controlled-execution/v1`; local macOS remains `NotAdmitted`, and Windows is the primary future worker because Power BI Desktop is Windows-only.
 - Added non-enabling Phase35G decision contract/tests and design/current-state/ADR/threat-model documentation. No provider, fixture, PBIR generation, Desktop automation, secret, worker, shell bridge, MCP, or Skills execution.
 - Validation and final Git state are recorded in the Phase 35G session note after closeout.
+
+# 2026-08-13 Phase 35H
+
+- Added the inert `remote-execution/v1` boundary proof: typed five-operation protocol, ephemeral RSA client/worker signatures, independent worker validation, exact fixture certification/profile/policy binding, replay-safe persisted lifecycle, timeout/cancellation, uncertain restart state, bounded synthetic artifact quarantine, local Phase 35C hash/safety validation, and local/remote audit correlation.
+- Focused Phase35H validation is 9/9. The proof uses an in-process transport harness only; Windows worker containment, real network confidentiality/mTLS, provider execution, credentials, Desktop, PBIR generation, MCP, Skills, publication, and Fabric mutation remain absent.
+- Phase35I recommendation is the narrow Windows containment prerequisite: Job Object plus restricted-token/no-breakaway enforcement and worker image/runner certification.

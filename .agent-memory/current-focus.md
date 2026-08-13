@@ -22,6 +22,14 @@
 
 ## Active Session
 
+- 2026-08-13 Repository Phase 35H — Remote Controlled Execution Boundary Proof:
+  - live checkout was clean at HEAD `c8f931efd604885c24440cfd52fe2721886c03e2`; Phase 35A–G are represented in committed history in this checkout; no files were staged or committed
+  - added a focused typed `remote-execution/v1` client/worker boundary with ephemeral RSA request/response signatures over an in-process transport harness, independent worker revalidation, closed inert workloads, persisted lifecycle/replay state, typed timeout/cancellation, remote quarantine, local Phase 35C artifact safety, and correlated audit
+  - focused Phase35H xUnit is 9/9; no Windows worker, mTLS, real network, provider, shell, Desktop, PBIR generation, MCP, Skills, credentials, publication, or Fabric mutation was exercised
+  - final validation: Phase35A–H focused 76/76; full backend 849/849; RPC coverage is included in the full backend run; extension Jest 494/494; webview Jest 68/68; TypeScript compilation, .NET build, extension build, VSIX packaging, boundary scan, and diff checks passed; lint remains the unchanged 43-error baseline
+  - generated darwin-arm64 backend binaries changed during the authoritative extension build and remain preserved; all Phase35H source/docs are uncommitted and unstaged; no commits were made
+  - next step: Phase35I should prove Windows Job Object plus restricted-token/no-breakaway containment and worker image/runner certification before any provider activation
+
 - 2026-08-12 Repository Phase 35E — OS Sandbox Enforcement and Controlled Execution Containment:
   - design and implementation added a focused Phase35E admission/evidence boundary and isolated `Phase35E.Runtime` assembly so Phase35A–D Core boundary tests remain offline-only
   - macOS `sandbox-exec` deny-default probes on Darwin 27 aborted with exit 134/137; the adapter reports unsupported and admission fails closed; no provider or fixture process was admitted

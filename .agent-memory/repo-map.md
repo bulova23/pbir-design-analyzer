@@ -26,6 +26,7 @@
 - `service-dotnet/Services/Discovery/Phase35E/`: Phase 35E macOS Seatbelt sandbox admission, exact executable identity binding, capability/policy binding, bounded runner, lifecycle, and evidence projection; production catalog remains disabled
 - `service-dotnet/Services/Discovery/Phase35F/`: Phase 35F per-control macOS containment decision/evidence selector; no local mechanism selected and no process creation
 - `service-dotnet/Services/Discovery/Phase35G/`: Phase 35G non-enabling containment architecture decision record; controlled remote execution selected
+- `service-dotnet/Services/Discovery/Phase35H/`: Phase 35H typed authenticated inert remote boundary proof; client/worker protocol, replay/lifecycle ledger, quarantine, and audit correlation
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 
