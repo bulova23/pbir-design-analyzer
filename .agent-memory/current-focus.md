@@ -1,5 +1,12 @@
 # Current Focus
 
+## Phase 35I Closeout
+
+- 2026-08-13: Added portable Phase35I worker/runner admission, Phase35C resource projection, worker-owned path binding, canonical evidence/proof status, one `Phase35I.Runtime` Windows-native restricted-token/Job Object boundary, and a repository-owned closed inert runner.
+- Portable and boundary validation is green: 6 portable containment tests plus 2 boundary tests. Windows integration tests are discovered and explicitly skipped on macOS with `NotApplicable: Phase35I Windows integration requires a real Windows worker.` The Windows runtime and inert runner compile; no Windows evidence exists.
+- Authoritative status: `PartiallyProven`. No provider, shell, credentials, PBIR generation, Desktop automation, MCP, Skills, publication, or Fabric mutation was added. All Phase35I changes remain uncommitted and unstaged.
+- Next step: run the Windows integration suite on a real certified Windows worker; Phase 35J should be execution-validation/remediation only.
+
 ## Phase 35G Closeout
 
 - 2026-08-12: Compared Apple Virtualization.framework against controlled Windows/Linux remote execution using repository evidence and primary Apple/Microsoft/Linux documentation. Selected `remote-controlled-execution/v1` because likely Power BI Desktop-dependent provider behavior requires Windows; selection is recorded but not enabled.
@@ -3429,9 +3436,8 @@
 
 ## Next Recommended Step
 
-- Review and explicitly approve or revise the proposed Repository Phase 30 boundary and implementation plan.
-- Do not begin Phase 30 production implementation before both approvals.
-- Rayfin Fabricator advisory instruction-pack design remains a separate, unapproved future option.
+- Run the Phase 35I WindowsIntegration suite on a real certified Windows worker and remediate only evidence-backed failures.
+- Do not activate a real provider, credentials, network isolation, or another architecture layer before Windows containment evidence is complete.
 
 ## Relevant Files
 
@@ -3454,7 +3460,7 @@
 
 ## Last Updated
 
-- Date: `2026-07-26`
+- Date: `2026-08-13`
 - By: `codex`
 # 2026-08-12 Phase 35D — pre-production provider certification
 

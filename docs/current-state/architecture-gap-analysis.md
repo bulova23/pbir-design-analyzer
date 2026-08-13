@@ -24,6 +24,8 @@ Repository Phase 33 now connects exactly three local PBIR routes to Phase 31: pr
 
 ## Microsoft Skills Implementation
 
+Phase 35I supplies the narrow Windows containment prerequisite: portable closed admission/evidence, exact certified runner identity, one `Phase35I.Runtime` native boundary, and a repository-owned inert runner. Its Windows suite is not executed on the current macOS host, so containment remains `PartiallyProven`; Phase 35J is the execution-validation gate. No provider or credential path is enabled.
+
 No Microsoft Skills execution exists. Microsoft Skills are represented only through catalog, capability, adapter, provider selection, and runtime-preparation metadata.
 
 ## Artifact Generation

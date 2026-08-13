@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -27,6 +28,7 @@
     <ProjectReference Include="../RpcHost/RpcHost.csproj" Aliases="RpcHost" />
     <ProjectReference Include="../tools/StoryAssessmentValidationExport/StoryAssessmentValidationExport.csproj" />
     <ProjectReference Include="../Phase35E/Phase35E.Runtime.csproj" />
+    <ProjectReference Include="../Phase35I.Runtime/Phase35I.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>

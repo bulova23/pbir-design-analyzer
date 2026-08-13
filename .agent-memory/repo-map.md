@@ -27,6 +27,9 @@
 - `service-dotnet/Services/Discovery/Phase35F/`: Phase 35F per-control macOS containment decision/evidence selector; no local mechanism selected and no process creation
 - `service-dotnet/Services/Discovery/Phase35G/`: Phase 35G non-enabling containment architecture decision record; controlled remote execution selected
 - `service-dotnet/Services/Discovery/Phase35H/`: Phase 35H typed authenticated inert remote boundary proof; client/worker protocol, replay/lifecycle ledger, quarantine, and audit correlation
+- `service-dotnet/Services/Discovery/Phase35I/`: Phase 35I portable Windows worker/runner admission, Phase35C resource projection, session path binding, lifecycle/result/evidence contracts, and proof classification
+- `service-dotnet/Phase35I.Runtime/`: Phase 35I Windows-only native restricted-token, suspended-process, Job Object, assignment, resume, termination, and handle boundary
+- `service-dotnet/Phase35I.InertRunner/`: Phase 35I repository-owned closed inert workload executable
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 

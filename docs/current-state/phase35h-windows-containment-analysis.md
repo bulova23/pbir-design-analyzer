@@ -1,6 +1,6 @@
 # Phase 35H Windows Worker Containment Analysis
 
-Phase 35H intentionally does not claim a Windows worker proof. The current checkout is macOS and exercises only the contract/transport harness.
+Phase 35H intentionally did not claim a Windows worker proof. Phase 35I now contains the narrow implementation-ready boundary, but the current checkout is macOS and exercises only portable contracts and boundary scans. The authoritative Phase 35I status remains `PartiallyProven`.
 
 | Mechanism | Phase 35H status | Required future evidence |
 |---|---|---|

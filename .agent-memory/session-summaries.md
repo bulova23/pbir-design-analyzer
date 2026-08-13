@@ -2185,3 +2185,10 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added the inert `remote-execution/v1` boundary proof: typed five-operation protocol, ephemeral RSA client/worker signatures, independent worker validation, exact fixture certification/profile/policy binding, replay-safe persisted lifecycle, timeout/cancellation, uncertain restart state, bounded synthetic artifact quarantine, local Phase 35C hash/safety validation, and local/remote audit correlation.
 - Focused Phase35H validation is 9/9. The proof uses an in-process transport harness only; Windows worker containment, real network confidentiality/mTLS, provider execution, credentials, Desktop, PBIR generation, MCP, Skills, publication, and Fabric mutation remain absent.
 - Phase35I recommendation is the narrow Windows containment prerequisite: Job Object plus restricted-token/no-breakaway enforcement and worker image/runner certification.
+
+# 2026-08-13 Phase 35I
+
+- Implemented the approved two-layer Phase35I architecture: portable closed admission/evidence in Core, one `net8.0-windows` native runtime, and a repository-owned closed inert runner.
+- Added exact worker/runner hash binding, session-root/path validation, Phase35C resource projection, canonical evidence with Phase35H correlation, suspended launch ordering, restricted token, Job Object configuration, explicit empty environment, no inherited handles, deterministic timeout/cancellation cleanup, and closed native failure taxonomy.
+- Validation: 6 portable containment tests passed; 2 boundary tests passed; 10 Windows integration tests discovered and skipped explicitly as not applicable on macOS; Windows runtime and inert runner builds passed; `git diff --check` passed.
+- Final status is `PartiallyProven`: Windows OS behavior was not executed. No provider, credentials, shell, PBIR, Desktop, MCP, Skills, publication, or Fabric mutation was introduced. Changes remain uncommitted and unstaged.
