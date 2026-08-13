@@ -4,7 +4,7 @@
 
 Phase 21 adds the first local deterministic reference generator prototype.
 
-Phase 36 adds the first production-quality local PBIR generation provider separately from this reference prototype. The new provider owns the narrow `local-pbir-generation-request/v1` contract and delegates canonical artifact creation to the Phase 29 serializer, persistence to Phase 31, and scoring to the existing analyzer.
+Phase 36 adds the first production-quality local PBIR generation provider separately from this reference prototype, and Phase 37 expands it with the additive typed v2 contract. The provider delegates canonical artifact creation to the Phase 29 serializer, persistence to Phase 31, and scoring to the existing analyzer.
 
 The generator contract is reference-pbir-generator/v1.
 
@@ -16,7 +16,7 @@ The reference generator proves that the certified planning architecture can driv
 
 It is not a production generator.
 
-It does not create deployable PBIR projects, deployed reports, Fabric artifacts, Fabric App artifacts, or Fabric Data App artifacts. Those capabilities belong to the Phase 36 local provider only for its explicitly supported one-page/one-card subset, through the existing Phase 29–31 contracts.
+It does not create deployable PBIR projects, deployed reports, Fabric artifacts, Fabric App artifacts, or Fabric Data App artifacts. Those capabilities belong to the Phase 36/37 local provider only for its explicitly supported PBIR subset: Phase 36 one-page/one-card requests and Phase 37 multiple pages, card/table visuals, direct measure/dimension bindings, and bounded deterministic layout through the existing Phase 29–31 contracts.
 
 ## Current Product Position
 

@@ -1,6 +1,12 @@
 # Generation Provider Framework Current State
 
-## Phase 36 Concrete Local Provider
+## Phase 37 Concrete Local Provider
+
+Phase 37 extends the backend-only local provider with the additive typed v2 request. It supports ordered page collections, multiple card and table visuals, direct measure/dimension Fields bindings, deterministic 1280x720 layout coordinates, duplicate/reference validation, Phase 29 schema validation, Phase 31 materialization, and immediate analyzer round-trip verification. Phase 36 v1 requests remain supported through the original one-page/one-card path.
+
+The provider does not add charts, category/series/axis semantics, filters, formatting, themes, semantic-model generation, RPC, VS Code, hosted execution, Windows execution, or provider-security changes. Phase 29 remains authoritative for artifact bytes and hashes, Phase 31 remains the filesystem mutation authority, and analyzer scores remain authoritative.
+
+## Phase 36 Compatibility Foundation
 
 Repository Phase 36 adds the first concrete backend-only local generation provider in `LocalPbirGenerationProviderService`. It consumes `local-pbir-generation-request/v1` for exactly one page, one `card` visual, and one direct measure binding, maps that request into the existing Phase 29 IR and deployable serializer inputs, persists through the existing Phase 31 orchestration, and immediately verifies the result through `PbirScoringService`.
 

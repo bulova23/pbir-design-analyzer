@@ -190,7 +190,7 @@ internal sealed class PbirDeployableSerializerService
                     writer.WriteStartObject();
                     writer.WriteString("$schema", PbirDeployableSchemaLock.PageSchemaUrl);
                     writer.WriteString("name", pageIdentity);
-                    writer.WriteString("displayName", page.PageId);
+                    writer.WriteString("displayName", page.DisplayName ?? page.PageId);
                     writer.WriteString("displayOption", "FitToPage");
                     writer.WriteNumber("height", 720);
                     writer.WriteNumber("width", 1280);
@@ -202,7 +202,16 @@ internal sealed class PbirDeployableSerializerService
                          .OrderBy(value => value.Order))
             {
                 var visualIdentity = visualIdentities[visual.VisualId];
-                var slot = _canonicalJson.GetLayoutSlot(ParseSlot(visual));
+                var slot = visual.Layout is null
+                    ? _canonicalJson.GetLayoutSlot(ParseSlot(visual))
+                    : new PbirDeployableLayoutSlot(
+                        ParseSlot(visual),
+                        visual.Layout.X,
+                        visual.Layout.Y,
+                        visual.Layout.Width,
+                        visual.Layout.Height,
+                        Math.Max(0, visual.Order - 1) * 1000,
+                        Math.Max(0, visual.Order - 1) * 1000);
                 var binding = request.VisualBindings.Single(value => value.VisualId == visual.VisualId);
                 var semantic = ir.Semantics.Single(value =>
                     value.PageId == visual.PageId &&

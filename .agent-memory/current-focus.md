@@ -1,5 +1,12 @@
 # Current Focus
 
+## Phase 37 — Incremental PBIR Authoring
+
+- 2026-08-13: Added typed v2 local PBIR generation for multiple pages, card/table visuals, direct measure/dimension bindings, and deterministic bounded layout while preserving Phase 36 v1 requests.
+- Focused provider coverage is 16/16; provider/serializer/analyzer regression coverage is 177/177. Full backend is 873 passed and 11 expected Windows skips out of 884; core Release build, extension build/TypeScript compilation, and git diff --check pass.
+- No RPC, VS Code, hosted/Windows execution, chart semantics, or provider-security changes were added. Changes remain uncommitted and unstaged.
+- Phase 37 closeout is complete locally. Next recommendation is Phase 38 formatting, filters, interactions, and themes before chart semantics or public surfaces.
+
 ## Phase 36 — First Local PBIR Generation Provider
 
 - 2026-08-13: Implemented the backend-only `LocalPbirGenerationProviderService` with `local-pbir-generation-request/v1` and typed result/round-trip contracts.

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -57,7 +58,11 @@ internal sealed class LocalPbirGenerationProviderService
                 serialized.Validation,
                 null,
                 null,
-                []);
+                [])
+            {
+                GeneratedPageCount = 1,
+                GeneratedVisualCount = 1
+            };
         }
         catch (ArgumentException exception)
         {
@@ -70,6 +75,53 @@ internal sealed class LocalPbirGenerationProviderService
             return Rejected(
                 request.RequestId,
                 [new("PBIR36-GENERATION-001", "artifact", exception.Message)]);
+        }
+    }
+
+    internal LocalPbirGenerationResult Generate(LocalPbirGenerationRequestV2? request)
+    {
+        var diagnostics = Validate(request);
+        if (request is null || diagnostics.Count > 0)
+        {
+            return Rejected(request?.RequestId, diagnostics);
+        }
+
+        try
+        {
+            var inputs = CreateInputs(request);
+            var serialized = _serializer.CreateArtifacts(
+                inputs.IrState,
+                inputs.SerializerRequest,
+                inputs.DeployableSerializerRequest);
+            if (serialized.Artifact is null || serialized.Manifest is null ||
+                serialized.Readiness != PbirDeployableSerializerReadinessState.Serialized ||
+                !serialized.Validation.IsValid || serialized.Diagnostics.HasFailures)
+            {
+                return Rejected(request.RequestId, ConvertDiagnostics(serialized.Diagnostics), serialized);
+            }
+
+            return new LocalPbirGenerationResult(
+                LocalPbirGenerationResultContract.SchemaVersionV1,
+                request.RequestId,
+                LocalPbirGenerationReadinessState.Generated,
+                serialized.Artifact,
+                serialized.Manifest,
+                serialized.Validation,
+                null,
+                null,
+                [])
+            {
+                GeneratedPageCount = request.Pages.Count,
+                GeneratedVisualCount = request.Visuals.Count
+            };
+        }
+        catch (ArgumentException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR37-GENERATION-001", "request", exception.Message)]);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR37-GENERATION-002", "artifact", exception.Message)]);
         }
     }
 
@@ -172,6 +224,102 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
+        LocalPbirGenerationRequestV2 request,
+        CancellationToken cancellationToken = default)
+    {
+        var generationTimer = Stopwatch.StartNew();
+        var generated = Generate(request);
+        generationTimer.Stop();
+        if (generated.Artifact is null || generated.Manifest is null ||
+            generated.Readiness != LocalPbirGenerationReadinessState.Generated)
+        {
+            return generated;
+        }
+
+        try
+        {
+            var inputs = CreateInputs(request);
+            var orchestration = new PbirMaterializationOrchestrationService();
+            var orchestrationInput = new PbirMaterializationOrchestrationInput(
+                inputs.IrState,
+                inputs.SerializerRequest,
+                inputs.DeployableSerializerRequest,
+                request.OutputBaseDirectory,
+                request.TargetDirectoryName);
+            var materializationTimer = Stopwatch.StartNew();
+            var preview = orchestration.Preview(
+                new PbirMaterializationOrchestrationPreviewRequest(
+                    PbirMaterializationOrchestrationPreviewRequestContract.SchemaVersionV1,
+                    $"{request.RequestId}-preview",
+                    "preview",
+                    orchestrationInput),
+                cancellationToken);
+            if (preview.ValidatedPreview is null ||
+                preview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or
+                    PbirMaterializationOrchestrationOutcome.Empty or
+                    PbirMaterializationOrchestrationOutcome.ExactMatch))
+            {
+                return WithMaterializationFailure(generated, preview);
+            }
+
+            var transactionId = $"phase37-{ComputeSha256(request.RequestId)[..24]}";
+            var materialization = orchestration.Apply(
+                new PbirMaterializationOrchestrationApplyRequest(
+                    PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
+                    request.RequestId,
+                    "apply",
+                    orchestrationInput,
+                    preview.ValidatedPreview,
+                    transactionId,
+                    true),
+                cancellationToken);
+            if (materialization.Outcome is not (PbirMaterializationOrchestrationOutcome.Applied or
+                PbirMaterializationOrchestrationOutcome.ExactMatch))
+            {
+                return WithMaterializationFailure(generated, materialization);
+            }
+            materializationTimer.Stop();
+
+            var targetPath = Path.Combine(request.OutputBaseDirectory, request.TargetDirectoryName);
+            var projectService = new PbirProjectService(NullLogger<PbirProjectService>.Instance);
+            var location = projectService.TryGetReportLocation(targetPath);
+            if (location is null)
+            {
+                return RoundTripFailure(generated, new("PBIR37-ROUNDTRIP-001", "artifact", "The generated PBIR report could not be resolved after materialization."));
+            }
+
+            var analyzerTimer = Stopwatch.StartNew();
+            var scoring = new PbirScoringService(projectService, NullLogger<PbirScoringService>.Instance);
+            var score = await scoring.ScoreAsync(location.ProjectRootPath).ConfigureAwait(false);
+            analyzerTimer.Stop();
+            var pageCount = score.PageScores?.Count ?? 0;
+            if (pageCount != request.Pages.Count || generated.GeneratedVisualCount != request.Visuals.Count)
+            {
+                return RoundTripFailure(generated, new("PBIR37-ROUNDTRIP-002", "roundTrip", "The analyzer did not observe the requested generated page and visual counts."), materialization);
+            }
+
+            return generated with
+            {
+                Readiness = LocalPbirGenerationReadinessState.RoundTripVerified,
+                Materialization = materialization,
+                RoundTrip = new LocalPbirGenerationRoundTrip(score, pageCount, request.Visuals.Count),
+                Performance = new LocalPbirGenerationPerformance(
+                    generationTimer.ElapsedMilliseconds,
+                    materializationTimer.ElapsedMilliseconds,
+                    analyzerTimer.ElapsedMilliseconds)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return RoundTripFailure(generated, new("PBIR37-ROUNDTRIP-CANCELLED-001", "request", "The round-trip was cancelled safely."));
+        }
+        catch (IOException)
+        {
+            return RoundTripFailure(generated, new("PBIR37-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
+        }
+    }
+
     private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequest? request)
     {
         if (request is null)
@@ -221,6 +369,153 @@ internal sealed class LocalPbirGenerationProviderService
         return diagnostics;
     }
 
+    private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequestV2? request)
+    {
+        if (request is null)
+        {
+            return [new("PBIR37-REQUEST-001", "request", "The generation request is required.")];
+        }
+
+        var diagnostics = new List<LocalPbirGenerationDiagnostic>();
+        if (request.SchemaVersion != LocalPbirGenerationRequestContract.SchemaVersionV2)
+        {
+            diagnostics.Add(new("PBIR37-REQUEST-SCHEMA-001", "schemaVersion", "The request schema version is unsupported."));
+        }
+
+        ValidateIdentifier(request.RequestId, "requestId", diagnostics, "PBIR37-REQUEST-ID-001");
+        ValidateIdentifier(request.ReportName, "reportName", diagnostics, "PBIR37-REQUEST-ID-001");
+        if (!IsSafeDatasetPath(request.DatasetPath))
+        {
+            diagnostics.Add(new("PBIR37-REQUEST-PATH-001", "datasetPath", "The dataset path must be a safe relative SemanticModel path."));
+        }
+
+        if (!Path.IsPathFullyQualified(request.OutputBaseDirectory) || !Directory.Exists(request.OutputBaseDirectory))
+        {
+            diagnostics.Add(new("PBIR37-REQUEST-OUTPUT-001", "outputBaseDirectory", "The output base must be an existing absolute directory."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TargetDirectoryName) ||
+            request.TargetDirectoryName is "." or ".." ||
+            request.TargetDirectoryName.Contains('/') || request.TargetDirectoryName.Contains('\\') ||
+            request.TargetDirectoryName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            diagnostics.Add(new("PBIR37-REQUEST-TARGET-001", "targetDirectoryName", "The target directory name must be one safe path segment."));
+        }
+
+        ValidateUniqueIdentifiers(request.Pages.Select(page => page.PageId), "pages", diagnostics);
+        ValidateUniqueIdentifiers(request.Visuals.Select(visual => visual.VisualId), "visuals", diagnostics);
+        var pageIds = request.Pages.Select(page => page.PageId).ToHashSet(StringComparer.Ordinal);
+        foreach (var page in request.Pages)
+        {
+            ValidateIdentifier(page.PageId, $"pages[{page.PageId}].pageId", diagnostics, "PBIR37-REQUEST-ID-001");
+            ValidateIdentifier(page.DisplayName, $"pages[{page.PageId}].displayName", diagnostics, "PBIR37-REQUEST-ID-001");
+            if (page.Order < 0)
+            {
+                diagnostics.Add(new("PBIR37-REQUEST-PAGE-ORDER-001", $"pages[{page.PageId}].order", "Page order must be non-negative."));
+            }
+        }
+
+        foreach (var visual in request.Visuals)
+        {
+            var bindingIds = new HashSet<string>(StringComparer.Ordinal);
+            ValidateIdentifier(visual.VisualId, $"visuals[{visual.VisualId}].visualId", diagnostics, "PBIR37-REQUEST-ID-001");
+            if (!pageIds.Contains(visual.PageId))
+            {
+                diagnostics.Add(new("PBIR37-REQUEST-REFERENCE-001", $"visuals[{visual.VisualId}].pageId", "Visual page reference must identify a requested page."));
+            }
+
+            if (!LocalPbirGenerationProviderContract.SupportedVisualTypes.Contains(visual.VisualType, StringComparer.Ordinal))
+            {
+                diagnostics.Add(new("PBIR37-REQUEST-VISUAL-001", $"visuals[{visual.VisualId}].visualType", "Only card and table visual types are supported."));
+            }
+
+            if (visual.Order < 0)
+            {
+                diagnostics.Add(new("PBIR37-REQUEST-VISUAL-ORDER-001", $"visuals[{visual.VisualId}].order", "Visual order must be non-negative."));
+            }
+
+            if (visual.Bindings.Count == 0 ||
+                (visual.VisualType == "card" && visual.Bindings.Any(binding => binding.Kind != LocalPbirGenerationBindingKind.Measure)) ||
+                (visual.VisualType == "table" && visual.Bindings.Count == 0))
+            {
+                diagnostics.Add(new("PBIR37-REQUEST-BINDING-001", $"visuals[{visual.VisualId}].bindings", "Card visuals require measures and table visuals require at least one direct field binding."));
+            }
+
+            foreach (var binding in visual.Bindings)
+            {
+                ValidateIdentifier(binding.BindingId, $"bindings[{binding.BindingId}].bindingId", diagnostics, "PBIR37-REQUEST-ID-001");
+                if (!bindingIds.Add(binding.BindingId))
+                {
+                    diagnostics.Add(new("PBIR37-REQUEST-DUPLICATE-ID-001", $"bindings[{binding.BindingId}].bindingId", "Binding identifiers must be unique."));
+                }
+
+                ValidateIdentifier(binding.Token, $"bindings[{binding.BindingId}].token", diagnostics, "PBIR37-REQUEST-ID-001");
+                ValidateIdentifier(binding.Entity, $"bindings[{binding.BindingId}].entity", diagnostics, "PBIR37-REQUEST-ID-001");
+                ValidateIdentifier(binding.Property, $"bindings[{binding.BindingId}].property", diagnostics, "PBIR37-REQUEST-ID-001");
+            }
+        }
+
+        ValidateLayout(request, diagnostics);
+        return diagnostics;
+    }
+
+    private static void ValidateUniqueIdentifiers(
+        IEnumerable<string> values,
+        string field,
+        ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var value in values)
+        {
+            if (!seen.Add(value))
+            {
+                diagnostics.Add(new("PBIR37-REQUEST-DUPLICATE-ID-001", field, "Identifiers must be unique."));
+            }
+        }
+    }
+
+    private static void ValidateLayout(
+        LocalPbirGenerationRequestV2 request,
+        ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        foreach (var group in request.Visuals.GroupBy(visual => visual.PageId, StringComparer.Ordinal))
+        {
+            var placed = new List<(LocalPbirGenerationVisual Visual, LocalPbirGenerationVisualLayout Layout)>();
+            var autoIndex = 0;
+            foreach (var visual in group.OrderBy(value => value.Order).ThenBy(value => value.VisualId, StringComparer.Ordinal))
+            {
+                var layout = visual.Layout ?? new LocalPbirGenerationLayout(
+                    24 + (autoIndex % 3) * 416,
+                    24 + (autoIndex / 3) * 344,
+                    400,
+                    328);
+                autoIndex++;
+                if (autoIndex > 6)
+                {
+                    diagnostics.Add(new("PBIR37-LAYOUT-CAPACITY-001", $"pages[{group.Key}].visuals", "A page supports at most six visuals in the Phase 37 layout profile."));
+                }
+                if (layout.X is null || layout.Y is null || layout.Width is null || layout.Height is null ||
+                    layout.X < 0 || layout.Y < 0 || layout.Width <= 0 || layout.Height <= 0 ||
+                    layout.X + layout.Width > 1280 || layout.Y + layout.Height > 720)
+                {
+                    diagnostics.Add(new("PBIR37-LAYOUT-BOUNDS-001", $"visuals[{visual.VisualId}].layout", "Visual layout must be positive and fit within the 1280x720 page canvas."));
+                    continue;
+                }
+
+                var concrete = new LocalPbirGenerationVisualLayout(layout.X.Value, layout.Y.Value, layout.Width.Value, layout.Height.Value);
+                if (placed.Any(existing => Overlaps(existing.Layout, concrete)))
+                {
+                    diagnostics.Add(new("PBIR37-LAYOUT-OVERLAP-001", $"visuals[{visual.VisualId}].layout", "Visuals on the same page must not overlap."));
+                }
+                placed.Add((visual, concrete));
+            }
+        }
+    }
+
+    private static bool Overlaps(LocalPbirGenerationVisualLayout left, LocalPbirGenerationVisualLayout right) =>
+        left.X < right.X + right.Width && left.X + left.Width > right.X &&
+        left.Y < right.Y + right.Height && left.Y + left.Height > right.Y;
+
     private static void ValidateIdentifier(
         string? value,
         string field,
@@ -230,6 +525,19 @@ internal sealed class LocalPbirGenerationProviderService
             value.Any(character => !(char.IsLetterOrDigit(character) || character is '.' or '_' or '-' or ':')))
         {
             diagnostics.Add(new("PBIR36-REQUEST-ID-001", field, "The identifier is missing or unsafe."));
+        }
+    }
+
+    private static void ValidateIdentifier(
+        string? value,
+        string field,
+        ICollection<LocalPbirGenerationDiagnostic> diagnostics,
+        string code)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 64 ||
+            value.Any(character => !(char.IsLetterOrDigit(character) || character is '.' or '_' or '-' or ':')))
+        {
+            diagnostics.Add(new(code, field, "The identifier is missing or unsafe."));
         }
     }
 
@@ -382,6 +690,141 @@ internal sealed class LocalPbirGenerationProviderService
                     null)])],
             PbirDeployableExecutionPolicy.NoAuthority);
         return new GenerationInputs(irState, serializerRequest, deployableRequest);
+    }
+
+    private static GenerationInputs CreateInputs(LocalPbirGenerationRequestV2 request)
+    {
+        var irId = $"pbirIr:{request.RequestId}";
+        var manifestRef = $"localPbirGenerationRequest:{request.RequestId}";
+        var specificationRef = $"localPbirGenerationSpecification:{request.RequestId}";
+        var orderedPages = request.Pages.OrderBy(page => page.Order).ThenBy(page => page.PageId, StringComparer.Ordinal).ToArray();
+        var orderedVisuals = request.Visuals
+            .OrderBy(visual => Array.FindIndex(orderedPages, page => page.PageId == visual.PageId))
+            .ThenBy(visual => visual.Order)
+            .ThenBy(visual => visual.VisualId, StringComparer.Ordinal)
+            .ToArray();
+        var pages = orderedPages.Select(page => new PbirIntermediateRepresentationPage(
+            page.PageId,
+            $"page:{request.RequestId}:{page.PageId}",
+            "pageTab",
+            page.DisplayName,
+            page.Order + 1,
+            page.DisplayName)).ToArray();
+        var visuals = orderedVisuals.Select(visual => new PbirIntermediateRepresentationVisual(
+            $"visual:{request.RequestId}:{visual.VisualId}",
+            visual.PageId,
+            visual.VisualType,
+            $"page:{visual.PageId}/slot:{visual.Order + 1}",
+            $"intent:{visual.VisualId}",
+            ["none"],
+            visual.Order + 1,
+            ResolveLayout(visual))).ToArray();
+        var inventoryEntries = orderedVisuals
+            .SelectMany(visual => visual.Bindings)
+            .Select(binding => new
+            {
+                EntryId = $"{(binding.Kind == LocalPbirGenerationBindingKind.Measure ? "measure" : "column")}:{binding.Entity}.{binding.Property}",
+                binding.Token,
+                binding.Entity,
+                binding.Property,
+                Kind = binding.Kind == LocalPbirGenerationBindingKind.Measure
+                    ? PbirSemanticModelEntryKind.Measure
+                    : PbirSemanticModelEntryKind.Column
+            })
+            .GroupBy(entry => entry.EntryId, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(entry => entry.EntryId, StringComparer.Ordinal)
+            .Select(entry => new PbirSemanticModelInventoryEntry(entry.EntryId, entry.Token, entry.Entity, entry.Property, entry.Kind))
+            .ToArray();
+        var inventory = new PbirSemanticModelInventory(PbirSemanticModelInventoryContract.SchemaVersionV1, $"modelInventory:{request.RequestId}", inventoryEntries);
+        var semantics = orderedPages.Select(page =>
+        {
+            var pageVisuals = orderedVisuals.Where(visual => visual.PageId == page.PageId).ToArray();
+            var bindings = pageVisuals.SelectMany(visual => visual.Bindings).ToArray();
+            return new PbirIntermediateRepresentationSemantic(
+                $"semantic:{request.RequestId}:{page.PageId}",
+                page.PageId,
+                bindings.Where(binding => binding.Kind == LocalPbirGenerationBindingKind.Measure).Select(binding => binding.Token).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                bindings.Where(binding => binding.Kind == LocalPbirGenerationBindingKind.Dimension).Select(binding => binding.Token).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                pageVisuals.Select(visual => $"intent:{visual.VisualId}").ToArray(),
+                [],
+                "none",
+                pageVisuals.Select(visual => $"visual:[visual:{request.RequestId}:{visual.VisualId}]->semantic:[intent:{visual.VisualId}]").ToArray());
+        }).ToArray();
+        var navigation = new PbirIntermediateRepresentationNavigation(
+            orderedPages[0].PageId,
+            orderedPages.Zip(orderedPages.Skip(1), (from, to) => new PbirIntermediateRepresentationPageTransition(from.PageId, to.PageId, $"{from.PageId}->{to.PageId}")).ToArray(),
+            orderedPages.Select(page => $"page:{page.PageId}").Append($"landing:{orderedPages[0].PageId}").ToArray(),
+            []);
+        var layout = new PbirIntermediateRepresentationLayout(
+            orderedPages.Select(page => new PbirIntermediateRepresentationLayoutContainer(
+                $"container:{request.RequestId}:{page.PageId}",
+                page.PageId,
+                $"deterministic {page.DisplayName} layout",
+                orderedVisuals.Where(visual => visual.PageId == page.PageId).Select(visual => $"visual:{request.RequestId}:{visual.VisualId}").ToArray())).ToArray(),
+            ["standard-8px-grid"],
+            ["deterministic-grid", "visual-placement-preserved"],
+            ["preserve-page-order", "preserve-visual-intent", "allow-future-serializer-layout-adaptation"]);
+        var successCriteria = new PbirIntermediateRepresentationSuccessCriteria(
+            orderedVisuals.SelectMany(visual => visual.Bindings).Select(binding => $"{binding.Token} is visible.").Distinct(StringComparer.Ordinal).ToArray(),
+            orderedPages.Select(page => page.DisplayName).ToArray(),
+            orderedVisuals.SelectMany(visual => visual.Bindings).Select(binding => $"{binding.Token} is bound explicitly.").Distinct(StringComparer.Ordinal).ToArray());
+        var lineage = new PbirIntermediateRepresentationLineage([new("localPbirGeneration", manifestRef, "Phase 37 local generation request")], [manifestRef, specificationRef, irId]);
+        var metadata = new PbirIntermediateRepresentationMetadata(irId, PbirIntermediateRepresentationContract.SchemaVersionV1, request.GeneratedUtc);
+        var references = new PbirIntermediateRepresentationReferences(manifestRef, specificationRef);
+        var contentHash = PbirIntermediateRepresentationIntegrity.ComputeContentHash(metadata, references, pages, visuals, semantics, navigation, layout, successCriteria, lineage);
+        var ir = new PbirIntermediateRepresentation(
+            metadata,
+            references,
+            pages,
+            visuals,
+            semantics,
+            navigation,
+            layout,
+            successCriteria,
+            lineage,
+            new(ComputeSha256(JsonSerializer.Serialize(request)), contentHash, ComputeSha256(JsonSerializer.Serialize(lineage.ImmutableLineage))));
+        var irState = new PbirIntermediateRepresentationState(ir, new PbirIntermediateRepresentationValidationResult(PbirIntermediateRepresentationValidationDiagnostics.Empty), PbirIntermediateRepresentationReadinessState.ReadyForSerializer);
+        var serializerRequest = new PbirSerializerRequest(PbirSerializerRequestContract.SchemaVersionV1, $"pbirSerializerRequest:{irId}", irId, ir.Metadata.SchemaVersion, contentHash, true, false, false, false);
+        var canonicalJson = new PbirDeployableSerializerCanonicalJson();
+        var inventoryHash = canonicalJson.ComputeSha256(canonicalJson.SerializeSemanticModelInventory(inventory));
+        var visualBindings = orderedVisuals.Select(visual => new PbirVisualBinding(
+            $"visual:{request.RequestId}:{visual.VisualId}",
+            visual.Bindings.Select((binding, index) => new PbirRoleProjectionBinding(
+                visual.VisualType == "card" ? "Fields" : "Values",
+                index + 1,
+                binding.Token,
+                $"{(binding.Kind == LocalPbirGenerationBindingKind.Measure ? "measure" : "column")}:{binding.Entity}.{binding.Property}",
+                $"{binding.Entity}.{binding.Property}",
+                binding.Property,
+                "none",
+                null,
+                null)).ToArray())).ToArray();
+        var deployableRequest = new PbirDeployableSerializerRequest(
+            PbirDeployableSerializerRequestContract.SchemaVersionV1,
+            $"pbirDeployableSerializerRequest:{request.RequestId}",
+            serializerRequest.RequestId,
+            serializerRequest.SchemaVersion,
+            irId,
+            ir.Metadata.SchemaVersion,
+            contentHash,
+            "modernPbir",
+            PbirDeployableSchemaLock.DefinitionPropertiesSchemaVersion,
+            PbirDeployableSchemaLock.DefinitionSchemaVersion,
+            new(new(request.DatasetPath)),
+            "modern-grid-1280x720/v1",
+            inventory,
+            inventory.InventoryRef,
+            inventoryHash,
+            visualBindings,
+            PbirDeployableExecutionPolicy.NoAuthority);
+        return new GenerationInputs(irState, serializerRequest, deployableRequest);
+
+        static PbirIntermediateRepresentationVisualLayout ResolveLayout(LocalPbirGenerationVisual visual)
+        {
+            var layout = visual.Layout ?? new LocalPbirGenerationLayout(24 + (visual.Order % 3) * 416, 24 + (visual.Order / 3) * 344, 400, 328);
+            return new(layout.X!.Value, layout.Y!.Value, layout.Width!.Value, layout.Height!.Value);
+        }
     }
 
     private static string ComputeSha256(string value)

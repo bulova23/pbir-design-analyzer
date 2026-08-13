@@ -2,7 +2,7 @@
 
 ## Result
 
-`PartiallyProven`. Phase35I portable and boundary behavior is locally validated, but no Windows containment property has executed on Windows. Phase35J is blocked on access to a real Windows worker and an executable integration suite.
+`PartiallyProven`. Phase35I portable and boundary behavior is locally validated, and Phase35K now supplies an executable Windows integration suite. No Windows containment property has executed on Windows. Phase35J remains blocked on access to a certified Windows worker.
 
 ## Initial red gate
 
@@ -12,7 +12,7 @@ The unmodified authoritative command was run on 2026-08-13:
 dotnet test service-dotnet/tests/Tests.csproj -c Release --filter Category=WindowsIntegration --logger "console;verbosity=normal"
 ```
 
-Result: 10 discovered, 0 executed, 0 passed, 0 failed, 10 skipped. Every skip reported `NotApplicable: Phase35I Windows integration requires a real Windows worker.` This is environment evidence only, not Windows containment evidence.
+Result before Phase35K: 10 discovered, 0 executed, 0 passed, 0 failed, 10 skipped. After Phase35K, this macOS host reports 11 discovered, 0 executed, 0 passed, 0 failed, 11 skipped, with structured `NotApplicable:Phase35I.WindowsIntegration:Windows OS is required` reasons. This is environment evidence only, not Windows containment evidence.
 
 ## Environment limitation
 
@@ -20,7 +20,9 @@ The worker available for this session is Darwin 27.0 arm64. It cannot execute `a
 
 ## Test-suite limitation
 
-The ten Windows integration methods are skip-only scaffolds with empty bodies. Consequently, even a Windows discovery run would not currently prove the named controls. The next authorized action is to replace those scaffolds with closed inert-runner assertions, then run them on a real Windows worker before changing Phase35I runtime code.
+`Phase35IWindowsIntegrationTests.cs` now contains eleven executable closed-fixture tests and a reusable harness. The next authorized action is to run them on a real certified Windows worker and remediate only measured failures; no Phase35I redesign is authorized by this gate.
+
+The current Phase35I evidence contract does not expose native step-by-step telemetry, Job Object accounting snapshots, child PID lineage, ACL result fields, or artifact manifest fields. Phase35K asserts all available result/evidence fields and closed inert-runner behavior without adding runtime telemetry.
 
 ## Controls
 

@@ -100,7 +100,7 @@ The later repository sequence is provisional planning only and does not authoriz
 12. Repository Phase 35K: real Windows containment test implementation and evidence generation (implemented; execution evidence pending)
 13. Repository Phase 35L: certified Windows execution of the completed containment suite and measured failure remediation (deferred until a concrete provider establishes the requirement; no provider activation)
 14. Repository Phase 36: **First Local PBIR Generation Provider** using the existing Phase 29–31 local path and a narrow supported subset (implemented; backend-only, one page/one card, immediate analyzer round-trip)
-15. Repository Phase 37: incremental PBIR authoring capabilities over the stabilized Phase 36 request/artifact contract (additional visuals, pages, formatting, and report constructs)
+15. Repository Phase 37: **Incremental PBIR Authoring** over the stabilized Phase 36 path (multiple pages, card and table visuals, typed measure/dimension bindings, bounded deterministic layout, and analyzer round-trip; implemented backend-only)
 16. Repository Phase 38: original Phase 5 Analyzer handoff completion and validation loop
 17. Repository Phases 39–40: original Phase 6 refinement loop
 18. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, review, deployment, and publishing

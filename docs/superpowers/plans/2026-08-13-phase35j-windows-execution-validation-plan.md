@@ -18,9 +18,9 @@ The worker setup must first build and stage `Phase35I.InertRunner`, compute its 
 
 This checkout is macOS, not Windows. The first unmodified run therefore discovered 10 tests and skipped all 10. No native Windows behavior was observed, so no Phase35I code was changed and no proof status upgrade is possible.
 
-## Precondition found
+## Precondition found (resolved by Phase 35K)
 
-`Phase35IWindowsIntegrationTests.cs` currently contains ten unconditional xUnit `Skip` attributes and empty test bodies. Removing that skip condition and implementing the actual assertions is required before the suite can be an execution gate. That work must remain closed-fixture test work and must be validated on Windows; it is not a reason to add another containment architecture.
+`Phase35IWindowsIntegrationTests.cs` contained ten unconditional xUnit `Skip` attributes and empty test bodies. Phase 35K replaced that scaffold with eleven executable closed-fixture tests and a reusable runner-staging/evidence harness. The suite still skips at discovery on unsupported hosts and must now be validated on Windows; this remains test work, not a reason to add another containment layer.
 
 ## Proof order
 

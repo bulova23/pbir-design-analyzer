@@ -6,12 +6,14 @@ namespace PowerBIModelingService.Services.Discovery.Models;
 internal static class LocalPbirGenerationRequestContract
 {
     internal const string SchemaVersionV1 = "local-pbir-generation-request/v1";
+    internal const string SchemaVersionV2 = "local-pbir-generation-request/v2";
 }
 
 internal static class LocalPbirGenerationProviderContract
 {
     internal const string SchemaVersionV1 = "local-pbir-generation-provider/v1";
     internal const string SupportedVisualType = "card";
+    internal static IReadOnlyList<string> SupportedVisualTypes { get; } = ["card", "table"];
 }
 
 internal static class LocalPbirGenerationResultContract
@@ -37,6 +39,51 @@ internal enum LocalPbirGenerationReadinessState
     Generated,
     RoundTripVerified
 }
+
+internal enum LocalPbirGenerationBindingKind
+{
+    Measure,
+    Dimension
+}
+
+internal sealed record LocalPbirGenerationPage(
+    [property: JsonPropertyName("pageId")] string PageId,
+    [property: JsonPropertyName("displayName")] string DisplayName,
+    [property: JsonPropertyName("order")] int Order);
+
+internal sealed record LocalPbirGenerationLayout(
+    [property: JsonPropertyName("x")] int? X,
+    [property: JsonPropertyName("y")] int? Y,
+    [property: JsonPropertyName("width")] int? Width,
+    [property: JsonPropertyName("height")] int? Height);
+
+internal sealed record LocalPbirGenerationVisualLayout(int X, int Y, int Width, int Height);
+
+internal sealed record LocalPbirGenerationBinding(
+    [property: JsonPropertyName("bindingId")] string BindingId,
+    [property: JsonPropertyName("token")] string Token,
+    [property: JsonPropertyName("kind")] LocalPbirGenerationBindingKind Kind,
+    [property: JsonPropertyName("entity")] string Entity,
+    [property: JsonPropertyName("property")] string Property);
+
+internal sealed record LocalPbirGenerationVisual(
+    [property: JsonPropertyName("visualId")] string VisualId,
+    [property: JsonPropertyName("pageId")] string PageId,
+    [property: JsonPropertyName("visualType")] string VisualType,
+    [property: JsonPropertyName("order")] int Order,
+    [property: JsonPropertyName("layout")] LocalPbirGenerationLayout? Layout,
+    [property: JsonPropertyName("bindings")] IReadOnlyList<LocalPbirGenerationBinding> Bindings);
+
+internal sealed record LocalPbirGenerationRequestV2(
+    [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
+    [property: JsonPropertyName("requestId")] string RequestId,
+    [property: JsonPropertyName("reportName")] string ReportName,
+    [property: JsonPropertyName("datasetPath")] string DatasetPath,
+    [property: JsonPropertyName("generatedUtc")] DateTime GeneratedUtc,
+    [property: JsonPropertyName("outputBaseDirectory")] string OutputBaseDirectory,
+    [property: JsonPropertyName("targetDirectoryName")] string TargetDirectoryName,
+    [property: JsonPropertyName("pages")] IReadOnlyList<LocalPbirGenerationPage> Pages,
+    [property: JsonPropertyName("visuals")] IReadOnlyList<LocalPbirGenerationVisual> Visuals);
 
 internal sealed record LocalPbirGenerationRequest(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
@@ -64,6 +111,11 @@ internal sealed record LocalPbirGenerationRoundTrip(
     [property: JsonPropertyName("pageCount")] int PageCount,
     [property: JsonPropertyName("visualCount")] int VisualCount);
 
+internal sealed record LocalPbirGenerationPerformance(
+    [property: JsonPropertyName("generationMilliseconds")] long GenerationMilliseconds,
+    [property: JsonPropertyName("materializationMilliseconds")] long MaterializationMilliseconds,
+    [property: JsonPropertyName("analyzerMilliseconds")] long AnalyzerMilliseconds);
+
 internal sealed record LocalPbirGenerationResult(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
     [property: JsonPropertyName("requestId")] string RequestId,
@@ -73,4 +125,9 @@ internal sealed record LocalPbirGenerationResult(
     [property: JsonPropertyName("validation")] PbirDeployableValidation? Validation,
     [property: JsonPropertyName("materialization")] PbirMaterializationOrchestrationResult? Materialization,
     [property: JsonPropertyName("roundTrip")] LocalPbirGenerationRoundTrip? RoundTrip,
-    [property: JsonPropertyName("diagnostics")] IReadOnlyList<LocalPbirGenerationDiagnostic> Diagnostics);
+    [property: JsonPropertyName("diagnostics")] IReadOnlyList<LocalPbirGenerationDiagnostic> Diagnostics)
+{
+    internal int GeneratedPageCount { get; init; }
+    internal int GeneratedVisualCount { get; init; }
+    internal LocalPbirGenerationPerformance? Performance { get; init; }
+}

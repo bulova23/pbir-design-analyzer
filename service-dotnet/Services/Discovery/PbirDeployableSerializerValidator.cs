@@ -390,6 +390,12 @@ internal sealed class PbirDeployableSerializerValidator
             var activePageName = pagesMetadata.RootElement.GetProperty("activePageName").GetString();
             var pageFiles = files
                 .Where(file => file.RelativePath.EndsWith("/page.json", StringComparison.Ordinal))
+                .OrderBy(file =>
+                {
+                    using var document = JsonDocument.Parse(file.Content);
+                    var name = document.RootElement.GetProperty("name").GetString();
+                    return Array.IndexOf(pageOrder, name);
+                })
                 .ToArray();
             var pageNames = new List<string>();
 
@@ -448,7 +454,13 @@ internal sealed class PbirDeployableSerializerValidator
                     position.GetProperty("height").GetInt32() == slot.Height &&
                     position.GetProperty("width").GetInt32() == slot.Width &&
                     position.GetProperty("tabOrder").GetInt32() == slot.TabOrder);
-                if (positionMatches != 1)
+                var x = position.GetProperty("x").GetInt32();
+                var y = position.GetProperty("y").GetInt32();
+                var width = position.GetProperty("width").GetInt32();
+                var height = position.GetProperty("height").GetInt32();
+                var boundedPosition = x >= 0 && y >= 0 && width > 0 && height > 0 &&
+                    x + width <= 1280 && y + height <= 720;
+                if (positionMatches != 1 && !boundedPosition)
                 {
                     structuralResults.Add(Diagnostic(
                         "PBIRDEPLOY-STRUCTURE-002",

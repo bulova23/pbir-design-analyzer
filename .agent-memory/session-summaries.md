@@ -2219,3 +2219,8 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Phase 29–34 contain the shortest existing path to a narrow local PBIR artifact. Phase 35G–35L are future provider/hosted-execution infrastructure with no executed provider or Windows evidence.
 - Added the architecture review and re-scoped existing Phase 36 to the first local PBIR generation provider; Windows work is deferred until a concrete provider demonstrates the need.
 - No code or runtime architecture changed.
+# 2026-08-13 — Phase 37 incremental PBIR authoring
+
+- Added the backend-only typed v2 request with multiple pages, card/table visuals, direct measure/dimension bindings, deterministic layout validation, and explicit bounded positions through the shared IR/serializer.
+- Preserved the Phase 36 v1 path and reused Phase 29 serialization/hashes, Phase 31 materialization, and analyzer scoring; no RPC, VS Code, hosted/Windows execution, chart type, or security changes.
+- Focused provider tests: 16 passed. Provider/serializer/analyzer regression filter: 177 passed. Full backend: 884 total, 873 passed, 0 failed, 11 expected Windows skips; core Release build, extension build/TypeScript compilation, and git diff --check passed. All Phase 37 changes are uncommitted and unstaged.

@@ -13,4 +13,4 @@ No Phase35I implementation defect was remediated because no Windows execution su
 
 ## Architectural finding
 
-The current Windows integration file is a ten-test skip-only scaffold, not an integration suite. This is the highest-risk Phase35J finding because a green Windows job would otherwise be a false proof signal. The fix is test harness completion, not a new containment layer.
+The original Windows integration file was a ten-test skip-only scaffold, not an integration suite. Phase35K resolves the false-proof risk by providing eleven executable tests and a fixed runner-staging/evidence harness. The remaining action is certified Windows execution and measured failure remediation, not a new containment layer.

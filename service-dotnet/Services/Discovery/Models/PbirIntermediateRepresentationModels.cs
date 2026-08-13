@@ -88,7 +88,8 @@ internal sealed record PbirIntermediateRepresentationPage(
     [property: JsonPropertyName("pageIdentity")] string PageIdentity,
     [property: JsonPropertyName("navigationBehavior")] string NavigationBehavior,
     [property: JsonPropertyName("intendedPurpose")] string IntendedPurpose,
-    [property: JsonPropertyName("order")] int Order);
+    [property: JsonPropertyName("order")] int Order,
+    [property: JsonPropertyName("displayName")] string? DisplayName = null);
 
 internal sealed record PbirIntermediateRepresentationVisual(
     [property: JsonPropertyName("visualId")] string VisualId,
@@ -97,7 +98,14 @@ internal sealed record PbirIntermediateRepresentationVisual(
     [property: JsonPropertyName("placement")] string Placement,
     [property: JsonPropertyName("semanticIntent")] string SemanticIntent,
     [property: JsonPropertyName("interactionModel")] IReadOnlyList<string> InteractionModel,
-    [property: JsonPropertyName("order")] int Order);
+    [property: JsonPropertyName("order")] int Order,
+    [property: JsonPropertyName("layout")] PbirIntermediateRepresentationVisualLayout? Layout = null);
+
+internal sealed record PbirIntermediateRepresentationVisualLayout(
+    [property: JsonPropertyName("x")] int X,
+    [property: JsonPropertyName("y")] int Y,
+    [property: JsonPropertyName("width")] int Width,
+    [property: JsonPropertyName("height")] int Height);
 
 internal sealed record PbirIntermediateRepresentationSemantic(
     [property: JsonPropertyName("semanticId")] string SemanticId,

@@ -16,6 +16,132 @@ public sealed class LocalPbirGenerationProviderServiceTests
         Assert.Contains("roundTrip.score", LocalPbirGenerationResultContract.RequiredFieldInventory);
     }
 
+    [Fact]
+    public void Contract_ExposesPhase37TypedAuthoringCatalog()
+    {
+        Assert.Equal("local-pbir-generation-request/v2", LocalPbirGenerationRequestContract.SchemaVersionV2);
+        Assert.Contains("card", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Contains("table", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+    }
+
+    [Fact]
+    public void Generate_Phase36Request_RemainsCompatibleWithTypedNormalization()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreateRequest());
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Generated, result.Readiness);
+        Assert.Equal(1, result.GeneratedPageCount);
+        Assert.Equal(1, result.GeneratedVisualCount);
+    }
+
+    [Fact]
+    public void Generate_Phase37DuplicateIdentity_FailsClosedWithoutPartialArtifact()
+    {
+        var request = CreatePhase37Request() with
+        {
+            Pages =
+            [
+                CreatePage("overview", "Overview", 0),
+                CreatePage("overview", "Detail", 1)
+            ]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR37-REQUEST-DUPLICATE-ID-001");
+    }
+
+    [Fact]
+    public void Generate_Phase37InvalidLayout_FailsClosedWithoutPartialArtifact()
+    {
+        var request = CreatePhase37Request() with
+        {
+            Visuals =
+            [
+                CreateCard("overview-card", "overview", 0, new(0, 0, 640, 400)),
+                CreateTable("overview-table", "overview", 1, new(320, 200, 640, 400))
+            ]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR37-LAYOUT-OVERLAP-001");
+    }
+
+    [Fact]
+    public void Generate_Phase37MultiPageRequest_ProducesTypedCardAndTableArtifact()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase37-");
+        try
+        {
+            var result = new LocalPbirGenerationProviderService().Generate(CreatePhase37Request(outputBase.FullName));
+
+            Assert.Equal(LocalPbirGenerationReadinessState.Generated, result.Readiness);
+            Assert.Equal(2, result.GeneratedPageCount);
+            Assert.Equal(3, result.GeneratedVisualCount);
+            Assert.NotNull(result.Artifact);
+            Assert.True(result.Validation!.IsValid);
+            Assert.Equal(3, result.Artifact!.Files.Count(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)));
+            Assert.Contains(result.Manifest!.SupportedFeatures, feature => feature == "table");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Generate_Phase37MultiPageRequest_MaterializesAndScoresRoundTrip()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase37-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(
+                CreatePhase37Request(outputBase.FullName));
+
+            Assert.Equal(LocalPbirGenerationReadinessState.RoundTripVerified, result.Readiness);
+            Assert.Equal(PbirMaterializationOrchestrationOutcome.Applied, result.Materialization!.Outcome);
+            Assert.Equal(2, result.RoundTrip!.PageCount);
+            Assert.Equal(3, result.RoundTrip.VisualCount);
+            Assert.Equal(2, result.RoundTrip.Score.PageScores!.Count);
+            Assert.NotNull(result.Performance);
+            Assert.True(result.Performance!.GenerationMilliseconds >= 0);
+            Console.WriteLine($"PHASE37_TIMING generationMs={result.Performance.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE37_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase37SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase37-");
+        try
+        {
+            var request = CreatePhase37Request(outputBase.FullName);
+            var first = new LocalPbirGenerationProviderService().Generate(request);
+            var second = new LocalPbirGenerationProviderService().Generate(request);
+
+            Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+            Assert.Equal(first.Manifest!.Hashes, second.Manifest!.Hashes);
+            Assert.Equal(
+                first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)),
+                second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+            Console.WriteLine($"PHASE37_HASH artifact={first.Artifact.Hashes.ArtifactHash} manifest={first.Manifest.Hashes.ManifestHash} fileSet={first.Artifact.Hashes.FileSetHash} lineage={first.Artifact.Hashes.LineageHash}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData("../Sales.SemanticModel")]
     [InlineData("/Sales.SemanticModel")]
@@ -124,4 +250,57 @@ public sealed class LocalPbirGenerationProviderServiceTests
             GeneratedUtc: new DateTime(2026, 8, 13, 0, 0, 0, DateTimeKind.Utc),
             OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
             TargetDirectoryName: "phase36-output");
+
+    private static LocalPbirGenerationRequestV2 CreatePhase37Request(string? outputBase = null) =>
+        new(
+            SchemaVersion: LocalPbirGenerationRequestContract.SchemaVersionV2,
+            RequestId: "phase37-sales-authoring",
+            ReportName: "Sales",
+            DatasetPath: "Sales.SemanticModel",
+            GeneratedUtc: new DateTime(2026, 8, 13, 0, 0, 0, DateTimeKind.Utc),
+            OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
+            TargetDirectoryName: "phase37-output",
+            Pages:
+            [
+                CreatePage("overview", "Overview", 0),
+                CreatePage("detail", "Detail", 1)
+            ],
+            Visuals:
+            [
+                CreateCard("overview-card", "overview", 0, new(0, 0, 320, 160)),
+                CreateTable("overview-table", "overview", 1, new(0, 176, 640, 360)),
+                CreateTable("detail-table", "detail", 0, new(0, 0, 960, 520))
+            ]);
+
+    private static LocalPbirGenerationPage CreatePage(string id, string displayName, int order) =>
+        new(id, displayName, order);
+
+    private static LocalPbirGenerationVisual CreateCard(
+        string id,
+        string pageId,
+        int order,
+        LocalPbirGenerationLayout layout) =>
+        new(
+            id,
+            pageId,
+            "card",
+            order,
+            layout,
+            [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, "Sales", "Revenue")]);
+
+    private static LocalPbirGenerationVisual CreateTable(
+        string id,
+        string pageId,
+        int order,
+        LocalPbirGenerationLayout layout) =>
+        new(
+            id,
+            pageId,
+            "table",
+            order,
+            layout,
+            [
+                new("region", "Region", LocalPbirGenerationBindingKind.Dimension, "Sales", "Region"),
+                new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, "Sales", "Revenue")
+            ]);
 }
