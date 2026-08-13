@@ -7,7 +7,8 @@
 - It delegates artifact construction to Phase 29, persistence to Phase 31, and scoring to the existing analyzer; no RPC, VS Code, Phase 35 provider activation, Windows, hosted, or remote execution was added.
 - Focused Phase 36 tests currently pass 9/9, including malformed requests, six-file artifact generation, materialization, analyzer score 73.5, and byte/hash determinism.
 - Deterministic hashes for the fixture are recorded in `docs/superpowers/implementation-notes/2026-08-13-phase36-first-local-pbir-generation-provider.md`.
-- Next step: run the full backend, .NET build, extension build, schema gate, and `git diff --check`; then close the session while preserving unrelated Phase 35 changes.
+- Final validation is complete: full backend 866 passed with 11 expected Windows skips and 0 failures; schema/provider gate 13 passed; core Release build passed with 0 warnings and 0 errors; extension build and `git diff --check` passed.
+- Session closeout is recorded in `.agent-memory/sessions/20260813-phase36-first-local-pbir-generation-provider.md`. Next step is Phase 37 incremental PBIR authoring, not RPC or VS Code exposure.
 
 ## Phase 35K Closeout
 
