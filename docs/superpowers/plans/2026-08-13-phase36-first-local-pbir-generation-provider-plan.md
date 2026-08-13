@@ -118,7 +118,7 @@ git commit -m "feat(pbir): map phase 36 requests to canonical IR"
 
 - [ ] **Step 1: Add failing serialization tests.**
 
-Assert a valid request produces `Serialized`, valid postflight validation, no failure diagnostics or warnings, exactly nine files, required paths including `definition.pbir`, `definition/report.json`, `definition/pages/pages.json`, one page file, and one visual file, plus stable SHA-256 fields.
+Assert a valid request produces `Serialized`, valid postflight validation, no failure diagnostics or warnings, exactly six files for one page and one visual, required paths including `definition.pbir`, `definition/report.json`, `definition/pages/pages.json`, one page file, and one visual file, plus stable SHA-256 fields.
 
 ```csharp
 [Fact]

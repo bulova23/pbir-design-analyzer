@@ -86,7 +86,7 @@ This phase does not support multiple pages or visuals, tables, charts, filters, 
 
 Tests are backend-only and cover:
 
-- a valid request produces the expected nine-file Phase 29 inventory and round-trip score;
+- a valid request produces the expected six-file Phase 29 inventory and round-trip score;
 - malformed identifiers, paths, fields, and unsupported visual types fail closed;
 - serializer/schema diagnostics prevent partial success;
 - repeated generation produces equal canonical file bytes and hashes;
