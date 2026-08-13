@@ -1,5 +1,21 @@
 # Current Focus
 
+## Phase 36 — First Local PBIR Generation Provider
+
+- 2026-08-13: Implemented the backend-only `LocalPbirGenerationProviderService` with `local-pbir-generation-request/v1` and typed result/round-trip contracts.
+- The provider supports exactly one page, one card visual, one direct measure binding, deterministic layout, explicit caller-supplied UTC metadata, and safe local output targeting.
+- It delegates artifact construction to Phase 29, persistence to Phase 31, and scoring to the existing analyzer; no RPC, VS Code, Phase 35 provider activation, Windows, hosted, or remote execution was added.
+- Focused Phase 36 tests currently pass 9/9, including malformed requests, six-file artifact generation, materialization, analyzer score 73.5, and byte/hash determinism.
+- Deterministic hashes for the fixture are recorded in `docs/superpowers/implementation-notes/2026-08-13-phase36-first-local-pbir-generation-provider.md`.
+- Next step: run the full backend, .NET build, extension build, schema gate, and `git diff --check`; then close the session while preserving unrelated Phase 35 changes.
+
+## Phase 35K Closeout
+
+- 2026-08-13: Replaced the Phase35I Windows skip-only scaffold with 11 executable xUnit integration tests and a disposable harness. The harness conditionally skips unsupported hosts, stages only the repository-owned inert runner from fixed build output, hashes package/executable identity, invokes existing Phase35I admission/runtime/evidence, and cleans its private worker root.
+- macOS validation: 11 discovered, 0 executed, 0 passed, 0 failed, 11 skipped with structured `NotApplicable:Phase35I.WindowsIntegration:Windows OS is required`; the Windows-targeted test assembly compiles successfully. No Windows evidence exists.
+- The current Phase35I evidence contract lacks native step telemetry, Job Object accounting snapshots, child PID lineage, ACL result fields, and artifact manifest fields; Phase35K records these as Windows-worker validation points without changing Phase35I runtime architecture.
+- Historical next-step record from the Phase35K closeout; superseded by the 2026-08-13 roadmap correction, which defers Phase35L until a concrete provider establishes a Windows/Desktop or untrusted-execution requirement.
+
 ## Phase 35I Closeout
 
 - 2026-08-13: Added portable Phase35I worker/runner admission, Phase35C resource projection, worker-owned path binding, canonical evidence/proof status, one `Phase35I.Runtime` Windows-native restricted-token/Job Object boundary, and a repository-owned closed inert runner.
@@ -28,6 +44,21 @@
 - Final checks: Phase 35D boundary and documentation scans passed; `npm run build` and `npm run package` passed with the darwin-arm64 VSIX. Phase 35E should address OS sandbox enforcement before controlled provider execution.
 
 ## Active Session
+
+- 2026-08-13 Repository Architecture Review — Roadmap Correction Around First PBIR Generation:
+  - completed a repository-wide review of the original analyzer objective, Phases 21–34 PBIR generation/materialization path, and Phases 35A–35L execution branch
+  - verified with current Microsoft documentation that PBIR supports documented external/programmatic edits, while PBIP/PBIR conversion through Desktop and some Desktop validation workflows remain Desktop-specific; this does not establish Windows as a universal PBIR-generation prerequisite
+  - concluded that the Phase35G Desktop/Windows premise is future-provider architecture based on a likely assumption, not an exercised provider requirement; Phase35L has no Windows evidence and no provider has executed
+  - added `docs/architecture/roadmap-correction-first-pbir-generation-review.md` with evidence, timeline, phase classification, gap analysis, corrected roadmap, and next-goal recommendation
+  - updated `docs/ROADMAP.md` to preserve 35G–35L history as deferred Windows/hosted infrastructure and re-scope existing Phase 36 to the first narrow local PBIR generation provider; no code or runtime architecture changed
+  - next recommended implementation goal, pending separate authorization: prove one local schema-validated PBIR generation slice over the existing Phase29–31 path
+
+- 2026-08-13 Repository Phase 35L — Certified Windows Worker Execution Gate:
+  - checked the required session memory and live worktree before execution
+  - host is macOS 27.0/Darwin 27 arm64; no attached or provisioned Windows worker, Windows environment variables, Windows VM, or local Windows execution tool was available
+  - the repository CI workflow declares a `windows-latest` matrix job, but no Phase35L worker was dispatched or externally mutated because the requested execution gate requires an actual available Windows environment and explicitly says to stop when none exists
+  - the Phase35K Windows suite was not run, no red-gate counts or Windows evidence were generated, no failures were observed, and no implementation remediation was attempted
+  - authoritative containment status remains `PartiallyProven`; Phase35L is blocked only on access to a certified Windows worker
 
 - 2026-08-13 Repository Phase 35J — Real Windows Worker Execution Validation Gate:
   - inspected startup rules, Phase35I authoritative records, native runtime, inert runner, Windows integration tests, CI, and live Git state; checkout was clean at HEAD `5b29d5e3878b8b43fbc1a882557de71618b8f711`

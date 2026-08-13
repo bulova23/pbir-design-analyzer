@@ -1,5 +1,7 @@
 # Session Summaries
 
+- 2026-08-13 Repository Phase 36 — implemented the first backend-only local PBIR generation provider over the existing Phase 29–31 path. Added a narrow deterministic one-page/one-card request contract, typed provider result and round-trip verification, fail-closed validation, exact six-file artifact generation, Phase 31 materialization, analyzer scoring, and repeated-generation byte/hash comparison. Focused Phase 36 tests pass 9/9; observed analyzer composite score is 73.5 and deterministic artifact/manifest/file-set/lineage hashes are recorded in the implementation note. No RPC, VS Code, Windows, hosted, remote, credential, or provider-security changes were made; unrelated Phase 35 worktree changes were preserved. Full validation remains to run.
+
 - 2026-08-12 Repository Phase 35F — evaluated realistic macOS containment mechanisms on macOS 27.0/Darwin 27 arm64; selected no acceptable local mechanism, added fail-closed per-control capability/evidence reporting, removed the unused unrestricted Phase35E process fallback, and preserved no-provider/no-fixture execution. Focused Phase35E/35F tests passed 11/11; full validation and Git disposition remain outstanding.
 
 - 2026-08-12 Repository Phase 35D — pre-production provider certification foundation: added additive Phase35D package identity, RSA/SHA-256 signed attestation, certification profile/evidence/lifecycle, exact Phase35C activation binding, provider-specific non-executing conformance, and bounded atomic audit/replay persistence; focused Phase35D suite 8 passed; no provider execution or production activation; next prerequisite is OS sandbox enforcement.
@@ -2198,3 +2200,22 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Inspected Phase35I records, native boundary, inert runner, test project, CI, and live Git state. The clean checkout is macOS 27.0/Darwin 27 arm64 at HEAD `5b29d5e3878b8b43fbc1a882557de71618b8f711`; no real Windows worker is available.
 - First unmodified `Category=WindowsIntegration` run: 10 discovered, 0 executed, 0 passed, 0 failed, 10 skipped with `NotApplicable: Phase35I Windows integration requires a real Windows worker.` The Windows test file is a skip-only scaffold with ten empty bodies, so even Windows discovery would not prove containment.
 - Added Phase35J plan/current-state/environment/failure records and updated Phase35I state/guide, roadmap, repo map, and current focus. No implementation remediation, provider path, credential, shell, PBIR, Desktop, MCP, Skills, publication, or Fabric mutation was added. Status remains `PartiallyProven`; changes remain unstaged and uncommitted.
+
+# 2026-08-13 Phase 35K Windows containment test implementation
+
+- Replaced the ten-test skip-only Phase35I scaffold with eleven executable integration tests plus a reusable disposable harness. The harness performs Windows/x64/.NET 8 discovery gating, stages only fixed repository-owned inert-runner output, computes package/executable SHA-256 identity, creates exact Phase35I requests/profiles, collects existing evidence, and cleans up idempotently.
+- Covered existing result/evidence behavior for launch, Job Object policy, closed child attempts, timeout, cancellation, explicit environment, restricted-resource setup, bounded artifact lineage, cleanup, and admission/failure taxonomy. No Phase35I runtime architecture was changed.
+- Fixed the first implementation's xUnit dynamic-skip behavior by using a discovery-time conditional Fact attribute. macOS result is 11 discovered, 0 executed, 0 passed, 0 failed, 11 skipped with structured Windows-only reasons. The Windows-targeted test project compiles; no Windows containment evidence exists.
+- Documented the remaining evidence-model limitations (native step telemetry, accounting, child lineage, ACL result, and artifact manifest fields) as certified-worker validation points. Phase35L recommendation is only execution on a certified Windows worker followed by measured failure remediation.
+- All Phase35K changes remain uncommitted and unstaged.
+# 2026-08-13 — Phase 35L Windows worker execution gate
+
+- Phase35L stopped before test invocation because this session has no real certified Windows worker; host is macOS 27.0/Darwin 27 arm64.
+- The existing CI workflow declares `windows-latest`, but no dispatch or external state change was made. No Windows counts, failures, evidence, hashes, or remediation claims exist.
+- Containment remains `PartiallyProven`; no implementation or test code changed, and no files were staged or committed.
+# 2026-08-13 — Roadmap correction around first PBIR generation
+
+- Repository review confirms the original v1 product objective is PBIR/PBIP analysis; generation is a later expansion and Windows/Desktop is not a proven universal requirement.
+- Phase 29–34 contain the shortest existing path to a narrow local PBIR artifact. Phase 35G–35L are future provider/hosted-execution infrastructure with no executed provider or Windows evidence.
+- Added the architecture review and re-scoped existing Phase 36 to the first local PBIR generation provider; Windows work is deferred until a concrete provider demonstrates the need.
+- No code or runtime architecture changed.

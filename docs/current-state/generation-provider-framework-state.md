@@ -1,5 +1,11 @@
 # Generation Provider Framework Current State
 
+## Phase 36 Concrete Local Provider
+
+Repository Phase 36 adds the first concrete backend-only local generation provider in `LocalPbirGenerationProviderService`. It consumes `local-pbir-generation-request/v1` for exactly one page, one `card` visual, and one direct measure binding, maps that request into the existing Phase 29 IR and deployable serializer inputs, persists through the existing Phase 31 orchestration, and immediately verifies the result through `PbirScoringService`.
+
+This does not change the provider-neutral framework into a runtime registry and does not activate the Phase 35 provider execution architecture. It is a deliberately narrow local product provider with no RPC, VS Code, Microsoft Skills, API, CLI, hosted, Windows, Desktop, or semantic-model-generation surface. Phase 31 remains the only filesystem mutation authority, and Analyzer scoring remains authoritative for round-trip results.
+
 ## Summary
 
 Phase 35A adds a stricter downstream governed contract package documented in `phase35a-contract-only-provider-foundation-state.md`. The existing Generation Provider Framework remains provider-neutral planning metadata; Phase 35A does not promote its `readyForGenerationProvider` state to runtime availability.
@@ -190,7 +196,7 @@ It only means the provider-neutral contract is complete enough for a future gene
 
 ## Current Trust Boundaries
 
-The current Generation Provider Framework does not:
+The provider-neutral Generation Provider Framework does not:
 
 - generate PBIR artifacts
 - invoke Microsoft Skills
@@ -204,14 +210,14 @@ The current Generation Provider Framework does not:
 
 The current repo state still excludes:
 
-- a runtime generation provider; the authoritative conclusion is **No runtime generation provider is available**
+- provider-neutral runtime registry activation; the Phase 36 local provider is an explicit backend service, not a registry-loaded provider
 
 - downstream execution-provider implementation
 - Microsoft Skills execution
 - Copilot, Claude, OpenAI, local, or test generator execution
 - Microsoft API invocation
 - CLI-backed execution
-- real PBIR generation
+- broad or general-purpose PBIR generation
 - artifact intake and quarantine
 - deployment workflows
 - Fabric App generation
@@ -223,7 +229,7 @@ Phase 35B is an orchestration proof only. It consumes the projected Phase 35A re
 
 ## Phase 35C Assurance Boundary
 
-Phase 35C adds a provider trust and activation admission boundary downstream from Phase 35B. Trust requires explicit identity, attestation, expiration, and policy-version binding; execution also requires sandbox policy approval, opaque credential grants, finite resources, replay protection, audit availability, conformance, output-corpus approval, and artifact-scanner availability. Phase35E adds an explicit OS-boundary seam and capability report, but the observed macOS Seatbelt mechanism fails the safe capability probe and therefore denies admission. Phase35F evaluates App Sandbox, Hardened Runtime, signed helpers/XPC, Virtualization.framework, container runtimes, and remote execution and selects no local macOS mechanism until every required capability is `Enforced`. The `Phase35CActivationGate` never invokes a provider. The production catalog remains non-executable, so `No runtime generation provider is available` remains authoritative.
+Phase 35C adds a provider trust and activation admission boundary downstream from Phase 35B. Trust requires explicit identity, attestation, expiration, and policy-version binding; execution also requires sandbox policy approval, opaque credential grants, finite resources, replay protection, audit availability, conformance, output-corpus approval, and artifact-scanner availability. Phase35E adds an explicit OS-boundary seam and capability report, but the observed macOS Seatbelt mechanism fails the safe capability probe and therefore denies admission. Phase35F evaluates App Sandbox, Hardened Runtime, signed helpers/XPC, Virtualization.framework, container runtimes, and remote execution and selects no local macOS mechanism until every required capability is `Enforced`. The `Phase35CActivationGate` never invokes a provider. The production catalog remains non-executable; Phase 36 is intentionally outside that catalog and does not alter its admission conclusion.
 
 ## Phase 35D Certification Boundary
 
