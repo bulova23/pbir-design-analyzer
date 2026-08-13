@@ -2192,3 +2192,9 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added exact worker/runner hash binding, session-root/path validation, Phase35C resource projection, canonical evidence with Phase35H correlation, suspended launch ordering, restricted token, Job Object configuration, explicit empty environment, no inherited handles, deterministic timeout/cancellation cleanup, and closed native failure taxonomy.
 - Validation: 6 portable containment tests passed; 2 boundary tests passed; 10 Windows integration tests discovered and skipped explicitly as not applicable on macOS; Windows runtime and inert runner builds passed; `git diff --check` passed.
 - Final status is `PartiallyProven`: Windows OS behavior was not executed. No provider, credentials, shell, PBIR, Desktop, MCP, Skills, publication, or Fabric mutation was introduced. Changes remain uncommitted and unstaged.
+
+# 2026-08-13 Phase 35J Windows execution-validation gate
+
+- Inspected Phase35I records, native boundary, inert runner, test project, CI, and live Git state. The clean checkout is macOS 27.0/Darwin 27 arm64 at HEAD `5b29d5e3878b8b43fbc1a882557de71618b8f711`; no real Windows worker is available.
+- First unmodified `Category=WindowsIntegration` run: 10 discovered, 0 executed, 0 passed, 0 failed, 10 skipped with `NotApplicable: Phase35I Windows integration requires a real Windows worker.` The Windows test file is a skip-only scaffold with ten empty bodies, so even Windows discovery would not prove containment.
+- Added Phase35J plan/current-state/environment/failure records and updated Phase35I state/guide, roadmap, repo map, and current focus. No implementation remediation, provider path, credential, shell, PBIR, Desktop, MCP, Skills, publication, or Fabric mutation was added. Status remains `PartiallyProven`; changes remain unstaged and uncommitted.

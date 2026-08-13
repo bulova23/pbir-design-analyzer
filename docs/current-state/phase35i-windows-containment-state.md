@@ -2,7 +2,7 @@
 
 ## Result
 
-`PartiallyProven`. Portable admission/evidence and a cross-platform compile of the Windows runtime exist. The Windows integration suite was discovered but not executed because this checkout runs on macOS. Compilation is not containment evidence.
+`PartiallyProven`. Portable admission/evidence and a cross-platform compile of the Windows runtime exist. The first unmodified Phase35J run on this checkout discovered 10 Windows integration tests and skipped all 10 because the host is macOS. Compilation and skipped discovery are not containment evidence.
 
 ## Components
 
@@ -31,6 +31,6 @@ Phase35H remains backward compatible. Phase35I adds result/evidence correlation 
 
 ## Test status
 
-Portable Phase35I tests: 6 passed. Boundary tests: 2 passed. Windows integration tests: 10 discovered, 10 skipped as `NotApplicable: Phase35I Windows integration requires a real Windows worker.` No Windows evidence exists.
+Portable Phase35I tests: 6 passed. Boundary tests: 2 passed. The first unmodified Phase35J run reported 10 discovered, 0 executed, 0 passed, 0 failed, and 10 skipped as `NotApplicable: Phase35I Windows integration requires a real Windows worker.` No Windows evidence exists. The Windows integration file is currently a skip-only scaffold with empty bodies; it must become executable closed-fixture coverage before a Windows run can be a proof gate.
 
 Phase 35J should run and remediate this suite on a real Windows worker. It should not add another architecture layer or activate a real provider.

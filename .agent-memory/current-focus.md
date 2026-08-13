@@ -29,6 +29,14 @@
 
 ## Active Session
 
+- 2026-08-13 Repository Phase 35J — Real Windows Worker Execution Validation Gate:
+  - inspected startup rules, Phase35I authoritative records, native runtime, inert runner, Windows integration tests, CI, and live Git state; checkout was clean at HEAD `5b29d5e3878b8b43fbc1a882557de71618b8f711`
+  - host is macOS 27.0/Darwin 27 arm64 with .NET 8.0.22 runtime and SDK 10.0.400; no real Windows worker is available in this session
+  - first unmodified `Category=WindowsIntegration` run: 10 discovered, 0 executed, 0 passed, 0 failed, 10 skipped with the existing NotApplicable reason
+  - found the existing Windows integration file is a skip-only scaffold with ten empty test bodies; no native failures or Windows enforcement evidence can be produced until closed-fixture assertions run on Windows
+  - added Phase35J execution-validation plan, current state, environment evidence, and failure/remediation records; updated Phase35I state/guide, roadmap, repo map, and memory; no runtime/test implementation was changed
+  - authoritative status remains `PartiallyProven`; next step is to implement/enable the closed Windows test coverage and run it on a real Windows worker; do not advance to provider execution
+
 - 2026-08-13 Repository Phase 35H — Remote Controlled Execution Boundary Proof:
   - live checkout was clean at HEAD `c8f931efd604885c24440cfd52fe2721886c03e2`; Phase 35A–G are represented in committed history in this checkout; no files were staged or committed
   - added a focused typed `remote-execution/v1` client/worker boundary with ephemeral RSA request/response signatures over an in-process transport harness, independent worker revalidation, closed inert workloads, persisted lifecycle/replay state, typed timeout/cancellation, remote quarantine, local Phase 35C artifact safety, and correlated audit

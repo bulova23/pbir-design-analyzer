@@ -30,6 +30,7 @@
 - `service-dotnet/Services/Discovery/Phase35I/`: Phase 35I portable Windows worker/runner admission, Phase35C resource projection, session path binding, lifecycle/result/evidence contracts, and proof classification
 - `service-dotnet/Phase35I.Runtime/`: Phase 35I Windows-only native restricted-token, suspended-process, Job Object, assignment, resume, termination, and handle boundary
 - `service-dotnet/Phase35I.InertRunner/`: Phase 35I repository-owned closed inert workload executable
+- `docs/current-state/phase35j-windows-execution-validation-state.md`: Phase 35J gate status and measured environment limitation
 - `docs/`: product docs, roadmap notes, specs, and plans
 - `.codex/skills/`: repo-local Codex skills
 
