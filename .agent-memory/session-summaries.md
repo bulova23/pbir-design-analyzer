@@ -2243,3 +2243,14 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Preserved v1–v4 paths and did not modify RPC, VS Code, Windows/hosted execution, provider security, or `PbirScoringService.cs`.
 - Evidence: focused 74/74; backend 900 passed and 11 expected Windows skips; extension 494/494; webview 68/68; compile/build/diff checks passed. Representative score 88.45; 73/124/97 ms generation/materialization/analyzer.
 - All changes remain uncommitted and unstaged. Phase 41 recommendation: report composition features.
+
+# 2026-08-14 Phase 41 — Report Composition start
+
+- Approved additive v6 architecture for typed page templates, sections, slots, navigation, slicers, and slicer interactions over the existing IR/serializer/materialization/analyzer path.
+- Design and plan are present; implementation is in progress and must remain uncommitted and unstaged.
+
+# 2026-08-14 Phase 41 — Report Composition closeout
+
+- Implemented additive v6 report composition with deterministic Executive Summary, Overview, Detail, and Comparison templates; typed sections/slots; validated navigation; schema-safe Slicer generation; and explicit slicer interactions over the existing IR/serializer/materialization/analyzer path.
+- Focused Phase 41: 12/12. Full backend: 913 passed, 11 expected Windows skips. Extension/webview: 494/494 and 68/68. Core build, TypeScript, extension build, VSIX packaging, and diff checks passed. Lint remains the unchanged 43-error baseline.
+- Representative score/timings: 84.23; 89/57/144 ms generation/materialization/analyzer. Hashes recorded in the implementation note. No `PbirScoringService.cs`, RPC, VS Code, or provider-security changes. All work remains uncommitted and unstaged.

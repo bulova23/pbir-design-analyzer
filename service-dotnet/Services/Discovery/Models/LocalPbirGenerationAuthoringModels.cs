@@ -134,10 +134,15 @@ internal sealed record LocalPbirGenerationChartFormatting(
     [property: JsonPropertyName("colors")] IReadOnlyList<LocalPbirGenerationColor>? Colors = null,
     [property: JsonPropertyName("background")] LocalPbirGenerationColor? Background = null);
 
+internal sealed record LocalPbirGenerationSlicerFormatting(
+    [property: JsonPropertyName("title")] string? Title = null,
+    [property: JsonPropertyName("label")] LocalPbirGenerationTextStyle? Label = null);
+
 internal sealed record LocalPbirGenerationVisualAuthoring(
     [property: JsonPropertyName("card")] LocalPbirGenerationCardFormatting? Card = null,
     [property: JsonPropertyName("table")] LocalPbirGenerationTableFormatting? Table = null,
     [property: JsonPropertyName("chart")] LocalPbirGenerationChartFormatting? Chart = null,
+    [property: JsonPropertyName("slicer")] LocalPbirGenerationSlicerFormatting? Slicer = null,
     [property: JsonPropertyName("filters")] IReadOnlyList<LocalPbirGenerationEqualityFilter>? Filters = null,
     [property: JsonPropertyName("interaction")] LocalPbirGenerationInteractionSettings? Interaction = null,
     [property: JsonPropertyName("padding")] LocalPbirGenerationPadding? Padding = null,

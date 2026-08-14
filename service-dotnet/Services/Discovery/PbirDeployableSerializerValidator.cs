@@ -14,7 +14,8 @@ internal sealed class PbirDeployableSerializerValidator
             "clusteredColumnChart",
             "lineChart",
             "barChart",
-            "pieChart"
+            "pieChart",
+            "slicer"
         };
 
     internal PbirDeployableDiagnostics ValidateInput(
@@ -528,6 +529,10 @@ internal sealed class PbirDeployableSerializerValidator
                 roles[0].Value.GetProperty("projections").GetArrayLength() == 1 &&
                 roles[1].Name == "Y" &&
                 roles[1].Value.GetProperty("projections").GetArrayLength() > 0,
+            "slicer" =>
+                roles.Length == 1 &&
+                roles[0].Name == "Category" &&
+                roles[0].Value.GetProperty("projections").GetArrayLength() == 1,
             "lineChart" =>
                 roles.Length is 2 or 3 or 4 &&
                 roles[0].Name == "Category" &&
@@ -826,6 +831,10 @@ internal sealed class PbirDeployableSerializerValidator
                 lineCategory.Length == 1 &&
                 roleGroups.TryGetValue("Y", out var lineY) &&
                 lineY.Length >= 1,
+            "slicer" =>
+                roleGroups.Count == 1 &&
+                roleGroups.TryGetValue("Category", out var slicerCategory) &&
+                slicerCategory.Length == 1,
             _ => false
         };
 
@@ -866,6 +875,7 @@ internal sealed class PbirDeployableSerializerValidator
             {
                 "card" => projection.Role == "Fields" && entries[0].Kind == PbirSemanticModelEntryKind.Measure,
                 "table" => projection.Role == "Values",
+                "slicer" => projection.Role == "Category" && entries[0].Kind == PbirSemanticModelEntryKind.Column,
                 "clusteredColumnChart" or "barChart" or "pieChart" or "lineChart" =>
                     projection.Role == "Category"
                         ? entries[0].Kind == PbirSemanticModelEntryKind.Column

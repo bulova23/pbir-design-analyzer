@@ -58,3 +58,19 @@ internal static class Phase40VisualTemplateCatalog
         _ => throw new ArgumentException($"Unsupported Phase 40 visual template: {name}", nameof(name))
     };
 }
+
+internal sealed record Phase41VisualDescriptor(
+    string VisualType,
+    IReadOnlyList<LocalPbirGenerationBindingRole> SupportedBindingRoles,
+    bool SupportsTooltip);
+
+internal static class Phase41VisualDescriptorCatalog
+{
+    internal static IReadOnlyList<Phase41VisualDescriptor> All { get; } =
+    [
+        new("slicer", [LocalPbirGenerationBindingRole.Category], false)
+    ];
+
+    internal static Phase41VisualDescriptor Get(string visualType) => All.SingleOrDefault(value => value.VisualType == visualType)
+        ?? throw new ArgumentException($"Unsupported Phase 41 visual type: {visualType}", nameof(visualType));
+}

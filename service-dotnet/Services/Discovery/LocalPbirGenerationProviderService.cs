@@ -191,6 +191,56 @@ internal sealed class LocalPbirGenerationProviderService
         return Generate(ToV3(request));
     }
 
+    internal LocalPbirGenerationResult Generate(LocalPbirGenerationRequestV6? request)
+    {
+        var diagnostics = Validate(request);
+        if (request is null || diagnostics.Count > 0)
+        {
+            return Rejected(request?.RequestId, diagnostics);
+        }
+
+        try
+        {
+            var projected = ProjectV6(request, out var projectionDiagnostics);
+            if (projectionDiagnostics.Count > 0)
+            {
+                return Rejected(request.RequestId, projectionDiagnostics);
+            }
+
+            var inputs = CreateInputs(projected);
+            var serialized = _serializer.CreateArtifacts(inputs.IrState, inputs.SerializerRequest, inputs.DeployableSerializerRequest);
+            if (serialized.Artifact is null || serialized.Manifest is null ||
+                serialized.Readiness != PbirDeployableSerializerReadinessState.Serialized ||
+                !serialized.Validation.IsValid || serialized.Diagnostics.HasFailures)
+            {
+                return Rejected(request.RequestId, ConvertDiagnostics(serialized.Diagnostics), serialized);
+            }
+
+            return new LocalPbirGenerationResult(
+                LocalPbirGenerationResultContract.SchemaVersionV1,
+                request.RequestId,
+                LocalPbirGenerationReadinessState.Generated,
+                serialized.Artifact,
+                serialized.Manifest,
+                serialized.Validation,
+                null,
+                null,
+                [])
+            {
+                GeneratedPageCount = request.Pages.Count,
+                GeneratedVisualCount = request.Visuals.Count
+            };
+        }
+        catch (ArgumentException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR41-GENERATION-001", "request", exception.Message)]);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR41-GENERATION-002", "artifact", exception.Message)]);
+        }
+    }
+
     internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
         LocalPbirGenerationRequest request,
         CancellationToken cancellationToken = default)
@@ -383,6 +433,86 @@ internal sealed class LocalPbirGenerationProviderService
         catch (IOException)
         {
             return RoundTripFailure(generated, new("PBIR37-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
+        }
+    }
+
+    internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
+        LocalPbirGenerationRequestV6 request,
+        CancellationToken cancellationToken = default)
+    {
+        var generationTimer = Stopwatch.StartNew();
+        var generated = Generate(request);
+        generationTimer.Stop();
+        if (generated.Artifact is null || generated.Manifest is null || generated.Readiness != LocalPbirGenerationReadinessState.Generated)
+        {
+            return generated;
+        }
+
+        try
+        {
+            var projected = ProjectV6(request, out var projectionDiagnostics);
+            if (projectionDiagnostics.Count > 0)
+            {
+                return RoundTripFailure(generated, projectionDiagnostics[0]);
+            }
+            var inputs = CreateInputs(projected);
+            var orchestration = new PbirMaterializationOrchestrationService();
+            var orchestrationInput = new PbirMaterializationOrchestrationInput(
+                inputs.IrState, inputs.SerializerRequest, inputs.DeployableSerializerRequest,
+                request.OutputBaseDirectory, request.TargetDirectoryName);
+            var materializationTimer = Stopwatch.StartNew();
+            var preview = orchestration.Preview(
+                new PbirMaterializationOrchestrationPreviewRequest(
+                    PbirMaterializationOrchestrationPreviewRequestContract.SchemaVersionV1,
+                    $"{request.RequestId}-preview", "preview", orchestrationInput), cancellationToken);
+            if (preview.ValidatedPreview is null || preview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
+            {
+                return WithMaterializationFailure(generated, preview);
+            }
+
+            var materialization = orchestration.Apply(
+                new PbirMaterializationOrchestrationApplyRequest(
+                    PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
+                    request.RequestId, "apply", orchestrationInput, preview.ValidatedPreview,
+                    $"phase41-{ComputeSha256(request.RequestId)[..24]}", true), cancellationToken);
+            if (materialization.Outcome is not (PbirMaterializationOrchestrationOutcome.Applied or PbirMaterializationOrchestrationOutcome.ExactMatch))
+            {
+                return WithMaterializationFailure(generated, materialization);
+            }
+            materializationTimer.Stop();
+
+            var targetPath = Path.Combine(request.OutputBaseDirectory, request.TargetDirectoryName);
+            var projectService = new PbirProjectService(NullLogger<PbirProjectService>.Instance);
+            var location = projectService.TryGetReportLocation(targetPath);
+            if (location is null)
+            {
+                return RoundTripFailure(generated, new("PBIR41-ROUNDTRIP-001", "artifact", "The generated PBIR report could not be resolved after materialization."));
+            }
+
+            var analyzerTimer = Stopwatch.StartNew();
+            var score = await new PbirScoringService(projectService, NullLogger<PbirScoringService>.Instance).ScoreAsync(location.ProjectRootPath).ConfigureAwait(false);
+            analyzerTimer.Stop();
+            var pageCount = score.PageScores?.Count ?? 0;
+            if (pageCount != request.Pages.Count || generated.GeneratedVisualCount != request.Visuals.Count)
+            {
+                return RoundTripFailure(generated, new("PBIR41-ROUNDTRIP-002", "roundTrip", "The analyzer did not observe the requested composed page and visual counts."), materialization);
+            }
+
+            return generated with
+            {
+                Readiness = LocalPbirGenerationReadinessState.RoundTripVerified,
+                Materialization = materialization,
+                RoundTrip = new LocalPbirGenerationRoundTrip(score, pageCount, request.Visuals.Count),
+                Performance = new LocalPbirGenerationPerformance(generationTimer.ElapsedMilliseconds, materializationTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return RoundTripFailure(generated, new("PBIR41-ROUNDTRIP-CANCELLED-001", "request", "The round-trip was cancelled safely."));
+        }
+        catch (IOException)
+        {
+            return RoundTripFailure(generated, new("PBIR41-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
         }
     }
 
@@ -795,6 +925,82 @@ internal sealed class LocalPbirGenerationProviderService
         return diagnostics;
     }
 
+    private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequestV6? request)
+    {
+        if (request is null)
+        {
+            return [new("PBIR41-REQUEST-001", "request", "The generation request is required.")];
+        }
+
+        var nonSlicerRequest = new LocalPbirGenerationRequestV5(
+            LocalPbirGenerationRequestContract.SchemaVersionV5,
+            request.RequestId,
+            request.ReportName,
+            request.DatasetPath,
+            request.GeneratedUtc,
+            request.OutputBaseDirectory,
+            request.TargetDirectoryName,
+            request.Pages,
+            request.Visuals.Where(visual => visual.VisualType != "slicer").ToArray(),
+            request.Theme,
+            request.ReportFilters,
+            request.Metadata,
+            request.Interaction,
+            request.Layout);
+        var diagnostics = Validate(nonSlicerRequest).ToList();
+        if (request.SchemaVersion != LocalPbirGenerationRequestContract.SchemaVersionV6)
+        {
+            diagnostics.Add(new("PBIR41-REQUEST-SCHEMA-001", "schemaVersion", "The request schema version is unsupported."));
+        }
+
+        ValidateUniqueIdentifiers(request.Pages.Select(page => page.PageId), "pages", diagnostics);
+        ValidateUniqueIdentifiers(request.Visuals.Select(visual => visual.VisualId), "visuals", diagnostics);
+        var pageIds = request.Pages.Select(page => page.PageId).ToHashSet(StringComparer.Ordinal);
+        var compositions = request.Compositions ?? [];
+        if (compositions.GroupBy(composition => composition.PageId, StringComparer.Ordinal).Any(group => group.Count() > 1))
+        {
+            diagnostics.Add(new("PBIR41-COMPOSITION-DUPLICATE-PAGE-001", "compositions", "Each page may have only one composition definition."));
+        }
+        var navigationIds = compositions
+            .Where(composition => composition.Navigation is not null)
+            .Select(composition => composition.Navigation!.NavigationId)
+            .ToArray();
+        if (navigationIds.Length != navigationIds.Distinct(StringComparer.Ordinal).Count())
+        {
+            diagnostics.Add(new("PBIR41-NAVIGATION-DUPLICATE-ID-002", "compositions.navigation", "Navigation identifiers must be unique across the report."));
+        }
+
+        foreach (var slicer in request.Visuals.Where(visual => visual.VisualType == "slicer"))
+        {
+            if (!Phase41VisualDescriptorCatalog.Get("slicer").SupportedBindingRoles.Contains(LocalPbirGenerationBindingRole.Category) ||
+                slicer.Bindings.Count != 1 ||
+                slicer.Bindings[0].Kind != LocalPbirGenerationBindingKind.Dimension ||
+                slicer.Bindings[0].Role != LocalPbirGenerationBindingRole.Category)
+            {
+                diagnostics.Add(new("PBIR41-SLICER-BINDING-001", $"visuals[{slicer.VisualId}].bindings", "A slicer requires exactly one dimension binding in the Category role."));
+            }
+        }
+
+        foreach (var composition in compositions)
+        {
+            if (composition.PageId is null || !pageIds.Contains(composition.PageId))
+            {
+                diagnostics.Add(new("PBIR41-COMPOSITION-PAGE-001", "compositions.pageId", "A composition must reference a requested page."));
+                continue;
+            }
+
+            var page = request.Pages.Single(item => item.PageId == composition.PageId);
+            var pageVisuals = request.Visuals.Where(visual => visual.PageId == page.PageId).ToArray();
+            diagnostics.AddRange(Phase41CompositionValidation.Validate(page, pageVisuals, composition, request.Pages));
+            if (composition.Slicer is { } slicer && !pageVisuals.Any(visual => visual.VisualId == slicer.VisualId && visual.VisualType == "slicer"))
+            {
+                diagnostics.Add(new("PBIR41-SLICER-REFERENCE-001", slicer.VisualId, "The composition slicer must reference a slicer visual on the same page."));
+            }
+        }
+
+        return diagnostics;
+    }
+
     private static LocalPbirGenerationRequestV3 ToV3(LocalPbirGenerationRequestV4 request) =>
         new(
             LocalPbirGenerationRequestContract.SchemaVersionV3,
@@ -828,6 +1034,64 @@ internal sealed class LocalPbirGenerationProviderService
             request.Metadata,
             request.Interaction,
             request.Layout);
+
+    private static LocalPbirGenerationRequestV3 ProjectV6(
+        LocalPbirGenerationRequestV6 request,
+        out IReadOnlyList<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        var projectedDiagnostics = new List<LocalPbirGenerationDiagnostic>();
+        var compositions = (request.Compositions ?? []).ToDictionary(composition => composition.PageId!, StringComparer.Ordinal);
+        var projectedVisuals = new List<LocalPbirGenerationVisual>();
+        foreach (var page in request.Pages)
+        {
+            var pageVisuals = request.Visuals.Where(visual => visual.PageId == page.PageId).ToArray();
+            if (!compositions.TryGetValue(page.PageId, out var composition))
+            {
+                projectedVisuals.AddRange(pageVisuals);
+                continue;
+            }
+
+            var projection = Phase41CompositionProjection.Resolve(page, pageVisuals, composition, request.Pages);
+            projectedDiagnostics.AddRange(projection.Diagnostics);
+            foreach (var visual in pageVisuals)
+            {
+                var projected = visual;
+                if (projection.VisualLayouts.TryGetValue(visual.VisualId, out var layout))
+                {
+                    projected = projected with { Layout = new LocalPbirGenerationLayout(layout.X, layout.Y, layout.Width, layout.Height) };
+                }
+                if (composition.Slicer?.VisualId == visual.VisualId)
+                {
+                    var slicer = composition.Slicer;
+                    projected = projected with
+                    {
+                        Authoring = (projected.Authoring ?? new LocalPbirGenerationVisualAuthoring()) with
+                        {
+                            Slicer = new LocalPbirGenerationSlicerFormatting(slicer.Title)
+                        }
+                    };
+                }
+                projectedVisuals.Add(projected);
+            }
+        }
+
+        diagnostics = projectedDiagnostics;
+        return new LocalPbirGenerationRequestV3(
+            LocalPbirGenerationRequestContract.SchemaVersionV3,
+            request.RequestId,
+            request.ReportName,
+            request.DatasetPath,
+            request.GeneratedUtc,
+            request.OutputBaseDirectory,
+            request.TargetDirectoryName,
+            request.Pages,
+            projectedVisuals,
+            request.Theme,
+            request.ReportFilters,
+            request.Metadata,
+            request.Interaction,
+            request.Layout);
+    }
 
     private static LocalPbirGenerationVisual ApplyTemplate(LocalPbirGenerationVisual visual)
     {
@@ -1353,6 +1617,10 @@ internal sealed class LocalPbirGenerationProviderService
 
         static string GetSerializerRole(LocalPbirGenerationVisual visual, LocalPbirGenerationBinding binding)
         {
+            if (visual.VisualType == "slicer")
+            {
+                return "Category";
+            }
             var descriptor = Phase40VisualDescriptorCatalog.Get(visual.VisualType);
             return binding.Role == LocalPbirGenerationBindingRole.Tooltip
                 ? "Tooltips"

@@ -51,6 +51,41 @@ public sealed class LocalPbirGenerationProviderServiceTests
     }
 
     [Fact]
+    public void Contract_ExposesPhase41CompositionContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v6", LocalPbirGenerationRequestContract.SchemaVersionV6);
+    }
+
+    [Fact]
+    public void Generate_Phase41ComposedReport_UsesTemplatesNavigationAndSlicer()
+    {
+        var request = CreatePhase41Request();
+        var first = new LocalPbirGenerationProviderService().Generate(request);
+        var second = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.True(first.Readiness == LocalPbirGenerationReadinessState.Generated, string.Join(" | ", first.Diagnostics.Select(diagnostic => $"{diagnostic.Code}:{diagnostic.Field}:{diagnostic.Message}")));
+        Assert.Equal(first.Artifact!.Files.Select(file => (file.RelativePath, file.Content)), second.Artifact!.Files.Select(file => (file.RelativePath, file.Content)));
+        Assert.Equal(first.Manifest!.Hashes.ArtifactHash, second.Manifest!.Hashes.ArtifactHash);
+        Assert.Equal(3, first.GeneratedPageCount);
+        Assert.Equal(7, first.GeneratedVisualCount);
+        Assert.Contains(first.Artifact.Files, file => file.Content.Contains("\"visualType\": \"slicer\"", StringComparison.Ordinal));
+        Assert.Contains(first.Artifact.Files, file => file.Content.Contains("Region filter", StringComparison.Ordinal));
+        Console.WriteLine($"PHASE41_HASHES artifact={first.Manifest.Hashes.ArtifactHash} manifest={first.Manifest.Hashes.ManifestHash} files={first.Manifest.Hashes.FileSetHash} lineage={first.Manifest.Hashes.LineageHash}");
+    }
+
+    [Fact]
+    public async Task GenerateAndVerify_Phase41ComposedReport_RoundTripsThroughAnalyzer()
+    {
+        var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase41Request());
+
+        Assert.Equal(LocalPbirGenerationReadinessState.RoundTripVerified, result.Readiness);
+        Assert.Equal(3, result.RoundTrip!.PageCount);
+        Assert.Equal(7, result.RoundTrip.VisualCount);
+        Assert.NotNull(result.Performance);
+        Console.WriteLine($"PHASE41_SCORE composite={result.RoundTrip.Score.CompositeScore} generation={result.Performance!.GenerationMilliseconds} materialization={result.Performance.MaterializationMilliseconds} analyzer={result.Performance.AnalyzerMilliseconds}");
+    }
+
+    [Fact]
     public void Generate_Phase40Catalog_UsesDescriptorsForAllSixVisuals()
     {
         var result = new LocalPbirGenerationProviderService().Generate(CreatePhase40Request());
@@ -647,6 +682,50 @@ public sealed class LocalPbirGenerationProviderServiceTests
             Metadata: null,
             Interaction: null,
             Layout: null);
+
+    private static LocalPbirGenerationRequestV6 CreatePhase41Request(string? outputBase = null) =>
+        new(
+            LocalPbirGenerationRequestContract.SchemaVersionV6,
+            "phase41-sales-composition",
+            "SalesComposition",
+            "Sales.SemanticModel",
+            new DateTime(2026, 8, 14, 0, 0, 0, DateTimeKind.Utc),
+            outputBase ?? Path.GetTempPath(),
+            "phase41-output",
+            [
+                new("summary", "ExecutiveSummary", 0),
+                new("detail", "Detail", 1),
+                new("comparison", "Comparison", 2)
+            ],
+            [
+                new("revenue", "summary", "card", 0, null, [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("summary-chart", "summary", "clusteredColumnChart", 1, null, [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("summary-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("region-slicer", "summary", "slicer", 2, null, [new("slicer-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region")]),
+                new("detail-table", "detail", "table", 0, null, [
+                    new("detail-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Value, "Sales", "Region"),
+                    new("detail-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("detail-slicer", "detail", "slicer", 1, null, [new("detail-slicer-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region")]),
+                new("comparison-bar", "comparison", "barChart", 0, null, [
+                    new("bar-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("bar-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("comparison-pie", "comparison", "pieChart", 1, null, [
+                    new("pie-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Legend, "Sales", "Region"),
+                    new("pie-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")])
+            ],
+            Compositions: [
+                new("executiveSummary", [new("Kpi1", "revenue"), new("PrimaryChart", "summary-chart"), new("RegionSlicer", "region-slicer")],
+                    new("summary-navigation", [new("detail-target", LocalPbirGenerationNavigationTargetKind.Page, "detail")]),
+                    new("region-slicer", LocalPbirGenerationAxisOrientation.Vertical, "Region filter")) { PageId = "summary" },
+                new("detail", [new("DetailTable", "detail-table"), new("Filter1", "detail-slicer")],
+                    new("detail-navigation", [new("home-target", LocalPbirGenerationNavigationTargetKind.Home)]),
+                    new("detail-slicer", LocalPbirGenerationAxisOrientation.Vertical, "Region filter")) { PageId = "detail" },
+                new("comparison", [new("PrimaryChart", "comparison-bar"), new("SecondaryChart", "comparison-pie")],
+                    new("comparison-navigation", [new("previous-target", LocalPbirGenerationNavigationTargetKind.Previous)]),
+                    null) { PageId = "comparison" }
+            ]
+        );
 
     private static LocalPbirGenerationVisual CreatePhase40Chart(string id, string type, int order, LocalPbirGenerationBindingRole categoryRole) =>
         new(id, "overview", type, order, new(order is 2 or 4 ? 0 : 320, order is <= 3 ? 180 : 360, 300, 160), [

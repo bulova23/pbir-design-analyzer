@@ -645,6 +645,10 @@ internal sealed class PbirDeployableSerializerService
                     : null;
             if (colors is { Count: > 0 }) WriteColorObjects(writer, "dataColors", colors);
         }
+        if (visual.VisualType == "slicer" && authoring.Slicer is { } slicer)
+        {
+            WriteTitleObject(writer, slicer.Title, slicer.Label, "title", null);
+        }
         // V5 axis, legend, tooltip, template, and conditional-formatting data are
         // contract-level authoring inputs. Only the existing schema-safe objects
         // above are emitted into PBIR; arbitrary custom visual-container objects
@@ -789,6 +793,7 @@ internal sealed class PbirDeployableSerializerService
             "table" => ["Values"],
             "clusteredColumnChart" or "barChart" or "pieChart" => ["Category", "Y"],
             "lineChart" => ["Category", "Y", "Series"],
+            "slicer" => ["Category"],
             _ => throw new InvalidOperationException($"Unsupported visual type: {visualType}")
         };
         return roles;

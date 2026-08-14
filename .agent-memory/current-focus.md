@@ -1,5 +1,13 @@
 # Current Focus
 
+## Phase 41 — Report Composition — Closeout
+
+- 2026-08-14: Approved additive `local-pbir-generation-request/v6` for typed page templates, sections, slots, navigation, slicers, and slicer interactions. Preserve v1–v5 unchanged; keep composition contract, projection, and validation separate from the serializer/analyzer.
+- Design and implementation plan are recorded in `docs/superpowers/specs/2026-08-14-phase41-report-composition-design.md` and `docs/superpowers/plans/2026-08-14-phase41-report-composition.md`.
+- Implemented and validated. Focused Phase 41 is 12/12; full backend Release is 913 passed with 11 expected Windows skips; extension Jest is 494/494; webview Jest is 68/68; TypeScript, extension build, package, core build, and `git diff --check` passed. Scoped lint remains the unchanged 43-error baseline.
+- Representative score is 84.23 with 89 ms generation, 57 ms materialization, and 144 ms analyzer time. Hashes are in the Phase 41 implementation note. All Phase 41 changes remain uncommitted and unstaged; generated tracked binaries were restored after packaging. Do not modify `PbirScoringService.cs` or widen RPC/VS Code/public execution surfaces.
+- Next recommendation: compatibility review of richer typed slicer interactions or report-level reusable composition before considering public RPC/VS Code exposure.
+
 ## Phase 38 — Rich PBIR Authoring
 
 - 2026-08-13: Added the backend-only typed v3 request for Card/Table formatting, deterministic themes, equality filters, basic interactions, report metadata, and deterministic layout margins/spacing while preserving v1/v2 requests.

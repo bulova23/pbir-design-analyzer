@@ -439,6 +439,12 @@ Status:
 
 Phase 40 is implemented as a backend-only additive v5 contract over the generalized binding model. The closed catalog supports Card, Table, Clustered Column Chart, Line Chart, Bar Chart, and Pie Chart with deterministic templates and schema-safe formatting projection. V1–v4 remain backward compatible. Phase 41 should shift to report composition features: reusable report sections, page templates, navigation, slicers, and richer interaction models. Public RPC and VS Code exposure remain deferred.
 
+### Phase 41 — Report Composition
+
+Phase 41 is implemented as a backend-only additive v6 contract. The provider composes deterministic Executive Summary, Overview, Detail, and Comparison pages from typed sections and slots, validates typed page navigation, and adds a narrow Slicer descriptor with one Category Dimension binding. Composition projects into the existing visual-layout, IR, serializer, materialization, schema-validation, and analyzer path. V1–v5 remain compatibility paths. Shared/synchronized slicers, bookmarks, drillthrough, dedicated tooltip emission, and public RPC/VS Code exposure remain deferred.
+
+Phase 42 should prioritize the smallest remaining typed authoring capability that strengthens the backend contract—richer explicit slicer interactions or report-level reusable composition—before public RPC exposure. The recommendation should be revisited after compatibility and generated-report editing evidence exists.
+
 These roadmap epics should not:
 
 - rewrite the core scoring engine unnecessarily
