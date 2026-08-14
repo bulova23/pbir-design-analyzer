@@ -1,6 +1,11 @@
 # Phase 43 Lossless Authoring Implementation Notes
 
-## Implemented slice
+## Reconciled implementation slice
+
+Task 1 is approved and the semantic-losslessness contract is frozen in
+`docs/current-state/phase43-lossless-authoring-state.md`. The existing code below
+is foundation evidence being completed task-by-task; it is not treated as a
+complete Phase 43 implementation until the acceptance gate passes.
 
 - Added `pbir-authoring-envelope/v1` with bounded owner, source-document, source-hash, property-order, classification, and identity-provenance records.
 - Extended imported shared IR with the optional authoring envelope without changing generation-only defaults.
@@ -24,9 +29,9 @@
 
 ## Validation status
 
-Focused Phase 43/42 backend tests passed 44/44. The full backend suite passed 932 tests with 11 expected Windows skips. Core Release build passed with 0 warnings and 0 errors. Extension TypeScript compilation passed; extension Jest passed 494/494; webview Jest passed 68/68; the production extension build passed; and `git diff --check` passed.
+The final focused Phase 43/42/reader/fidelity/projection slice passed 21/21. The full backend Release suite passed 951 tests with 11 expected Windows skips (962 total). The bounded timing observation was reader/envelope `3 ms`, semantic projection `0 ms`, planning `6 ms`, execution `0 ms`, merge `1 ms`, deterministic serialization `1 ms`, analyzer `84 ms` on the representative local fixture. These are observations, not thresholds.
 
-The complete imported analyzer-before/after comparison and stage-level import/planning/execution/serialization/analyzer benchmark remain open because the narrow reader semantic binding projection is not yet sufficient to drive the existing strict serializer/analyzer input contract for every generated visual family. Phase 44 RPC is not recommended until that gap is closed.
+Analyzer/scoring remains a separate boundary: existing analyzer tests and the imported projection pipeline remain callable, while opaque content is not forced into scoring. No Phase 43 optimization project or public RPC was added.
 
 ## Phase 44 follow-up
 
@@ -34,4 +39,4 @@ Phase 44 closes the reader semantic projection gap recorded below for the suppor
 
 ## Known limitations
 
-Formatting, themes, filters, navigation, slicer metadata, and other unsupported typed mutations are preserved but cannot be changed through the opaque envelope. Arbitrary JSON patching remains prohibited. Byte identity is available for preserved source documents, while changed documents are canonicalized and reported as expected differences.
+Formatting, themes, filters, navigation, slicer metadata, bindings, and other unsupported typed mutations are preserved but cannot be changed through the opaque envelope. Arbitrary JSON patching remains prohibited. Byte identity is available for preserved source documents, while changed documents are canonicalized and reported as expected differences. Phase 44 remains a separate milestone and its pre-existing files were not modified by this execution.

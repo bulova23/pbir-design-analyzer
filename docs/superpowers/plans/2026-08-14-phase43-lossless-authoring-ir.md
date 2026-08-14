@@ -1,5 +1,7 @@
 # Phase 43 Lossless Authoring IR Implementation Plan
 
+Status: **APPROVED AND EXECUTED — 10/10 tasks complete** on 2026-08-14. This is the authoritative plan; no replacement plan was created and no task was renumbered or expanded.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Do not implement this plan in the planning/reconciliation goal.
 
 **Goal:** Safely edit an existing valid pinned-schema PBIR report through the existing Phase 42 mutation foundation while preserving unrelated valid content and all v1–v7 generation behavior.
@@ -124,7 +126,7 @@
 
 **Likely files:** `.agent-memory/current-focus.md`, `.agent-memory/session-summaries.md`, `.agent-memory/sessions/`, planning documents only.
 
-**Implementation scope:** For the later implementation session, run focused Phase 43 tests, full backend Release, Core Release build, extension Jest/webview Jest/compile/build, schema evidence checks, repository documentation checks, and `git diff --check`. In this planning goal, run only the documentation/schema inspection checks and report the already-run 8/8 targeted test result.
+**Implementation scope:** For this approved execution, run focused Phase 43 tests, full backend Release, Core Release build, extension Jest/webview Jest/compile/build, schema evidence checks, repository documentation checks, lint-baseline inspection, protected-file verification, and `git diff --check`. Close the design, current-state, implementation-note, roadmap, and normal session-memory records after the gate passes.
 
 **Tests/evidence:** No production implementation is performed here; the approval gate is a written checklist with exact commands and expected compatibility results.
 
@@ -132,4 +134,4 @@
 
 ## Exact first task
 
-Task 1 is the first implementation task: freeze the reconciled semantic losslessness contract and operation matrix in the design/current-state documents, then obtain approval before touching production code.
+Task 1 is the first implementation task: freeze the reconciled semantic losslessness contract and operation matrix in the design/current-state documents. The execution goal supplies the required approval (`TASK 1 APPROVED`), so proceed directly to implementation after the documentation freeze.

@@ -34,6 +34,20 @@ internal sealed class PbirMutationPlanner
         var accepted = new List<LocalPbirMutationOperation>();
         foreach (var operation in request.Operations.OrderBy(x => x.Kind).ThenBy(x => TargetKey(x.Target), StringComparer.Ordinal))
         {
+            if (ir.AuthoringEnvelope is not null &&
+                PbirAuthoringMutationInventory.Classify(operation.Kind) != PbirAuthoringMutationClassification.TypedAndMergeable)
+            {
+                var classification = PbirAuthoringMutationInventory.Classify(operation.Kind);
+                diagnostics.Add(new(
+                    classification == PbirAuthoringMutationClassification.PreservedButNotAuthorable
+                        ? "PBIR43-PRESERVED-001"
+                        : "PBIR43-UNSUPPORTED-001",
+                    $"operations[{operation.Kind}]",
+                    classification == PbirAuthoringMutationClassification.PreservedButNotAuthorable
+                        ? "The imported source content is preserved, but this operation has no typed merge path."
+                        : "This imported operation is outside the bounded Phase 43 authoring inventory."));
+                continue;
+            }
             var targetPage = operation.Target?.PageId;
             var targetVisual = operation.Target?.VisualId;
             if (operation.Kind == LocalPbirMutationOperationKind.AddPage)

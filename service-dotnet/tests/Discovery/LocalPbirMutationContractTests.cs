@@ -13,4 +13,15 @@ public sealed class LocalPbirMutationContractTests
         Assert.Contains(LocalPbirMutationOperationKind.AddPage, LocalPbirMutationOperationKindCatalog.All);
         Assert.Contains(LocalPbirMutationOperationKind.UpdateSlicer, LocalPbirMutationOperationKindCatalog.All);
     }
+
+    [Fact]
+    public void AuthoringMutationInventory_HasOneTypedMergeBoundary()
+    {
+        Assert.Equal(PbirAuthoringMutationClassification.TypedAndMergeable,
+            PbirAuthoringMutationInventory.Classify(LocalPbirMutationOperationKind.ResizeVisual));
+        Assert.Equal(PbirAuthoringMutationClassification.PreservedButNotAuthorable,
+            PbirAuthoringMutationInventory.Classify(LocalPbirMutationOperationKind.UpdateTheme));
+        Assert.Equal(PbirAuthoringMutationClassification.Unsupported,
+            PbirAuthoringMutationInventory.Classify(LocalPbirMutationOperationKind.RemoveVisual));
+    }
 }

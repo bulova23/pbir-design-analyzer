@@ -49,7 +49,17 @@ internal sealed class PbirDeployableSerializerService
             return Rejected(PbirDeployableSerializerReadinessState.Blocked, inputDiagnostics);
         }
 
-        var candidate = CreateCandidate(irState.Ir, serializerRequest, request, inputDiagnostics);
+        var preservationConflicts = new List<PbirDeployableDiagnostic>();
+        var candidate = CreateCandidate(irState.Ir, serializerRequest, request, inputDiagnostics, preservationConflicts);
+        if (preservationConflicts.Count > 0)
+        {
+            return Rejected(
+                PbirDeployableSerializerReadinessState.Blocked,
+                inputDiagnostics with
+                {
+                    SchemaIncompatibilities = [.. inputDiagnostics.SchemaIncompatibilities, .. preservationConflicts]
+                });
+        }
         var validation = _validator.ValidateOutput(candidate.Artifact, candidate.Manifest, irState.Ir.AuthoringEnvelope is not null);
         if (!validation.IsValid)
         {
@@ -82,7 +92,8 @@ internal sealed class PbirDeployableSerializerService
         PbirIntermediateRepresentation ir,
         PbirSerializerRequest serializerRequest,
         PbirDeployableSerializerRequest request,
-        PbirDeployableDiagnostics diagnostics)
+        PbirDeployableDiagnostics diagnostics,
+        List<PbirDeployableDiagnostic> preservationConflicts)
     {
         var pages = ir.Pages.OrderBy(page => page.Order).ToArray();
         var pageIdentities = pages.ToDictionary(
@@ -210,7 +221,7 @@ internal sealed class PbirDeployableSerializerService
             }
         }
 
-        ApplyPreservedDocuments(files, ir);
+        ApplyPreservedDocuments(files, ir, preservationConflicts);
         var orderedFiles = files.OrderBy(file => file.RelativePath, StringComparer.Ordinal).ToArray();
         var inputHash = _canonicalJson.ComputeSha256(JsonSerializer.Serialize(new
         {
@@ -367,14 +378,24 @@ internal sealed class PbirDeployableSerializerService
                 .ToArray());
     }
 
-    private void ApplyPreservedDocuments(List<PbirDeployableGeneratedFile> files, PbirIntermediateRepresentation ir)
+    private void ApplyPreservedDocuments(
+        List<PbirDeployableGeneratedFile> files,
+        PbirIntermediateRepresentation ir,
+        List<PbirDeployableDiagnostic> preservationConflicts)
     {
         if (ir.AuthoringEnvelope is null) return;
         foreach (var document in new PbirAuthoringMergeService().Resolve(ir).Documents)
         {
             var relativePath = $"definition/{document.RelativePath}";
             var index = files.FindIndex(file => string.Equals(file.RelativePath, relativePath, StringComparison.Ordinal));
-            if (index < 0) continue;
+            if (index < 0)
+            {
+                preservationConflicts.Add(new(
+                    "PBIR43-PRESERVATION-001",
+                    relativePath,
+                    "An admitted source document has no matching serializer-owned output path."));
+                continue;
+            }
             var content = document.Content;
             files[index] = files[index] with
             {
@@ -392,7 +413,7 @@ internal sealed class PbirDeployableSerializerService
         string generatedIdentity)
     {
         var imported = ir.AuthoringEnvelope?.Find(ownerKind, ownerId)?.Identity;
-        return imported?.PreferredIdentity ?? generatedIdentity;
+        return imported?.ImportedIdentity ?? generatedIdentity;
     }
 
     private static void WriteVisual(

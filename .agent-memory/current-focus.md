@@ -2,6 +2,20 @@
 
 ## Active Session
 
+- 2026-08-14 Repository Phase 45 — Minimal Direct Typed Backend Service:
+  - selected Option B: existing typed generation and mutation providers are the direct backend boundary; no new façade, RPC contract, registration, transport, or VS Code workflow was added
+  - focused direct-boundary tests are 5/5; pinned-schema rejection, typed/opaque merge preservation, deterministic hashes, stable identity, fidelity evidence, and boundary enforcement are covered
+  - Phase 45 implementation note, current-state note, and roadmap now describe direct typed invocation; pre-existing `PbirAuthoringRpc` proposal files remain preserved and unused
+  - next recommendation: keep Phase 46 not started until a real VS Code workflow demonstrates one narrow cross-process authoring need
+
+- 2026-08-14 Repository Phase 45 roadmap reconciliation:
+  - Phase 44 is confirmed COMPLETE by HEAD `8b109776` and its committed semantic-projection artifacts/evidence
+  - Phase 43 completion changes were already uncommitted at session start and remain preserved, including overlapping reader/fidelity paths
+  - the existing RPC is VS Code extension ↔ local .NET host over stdio JSON-RPC and currently exposes analyzer plus materialization routes only
+  - no real caller for a new authoring RPC is demonstrated; the pre-existing `PbirAuthoringRpc` files are transport-independent in-process work, not an RPC boundary
+  - decision: `NEXT MILESTONE REQUIRES ARCHITECTURE DECISION`; choose a real caller and one narrow operation before approving Phase 45 implementation
+  - no Phase 45 production code, RPC registration, VS Code wiring, or protected Phase 44 artifact was modified in this goal
+
 - 2026-08-14 Repository Phase 43 planning/reconciliation review: HEAD is a clean commit that claims Phase 43 implementation although the requested starting state says Phase 43 was not started. Treat the committed Phase 43 implementation and adjacent report-reader edits as protected evidence; do not extend or delete production code in this goal. Reconcile the existing design/plan against the pinned schema boundary, Phase 42 mutation foundation, and actual serializer integration, then leave an implementation-ready corrected plan only.
 
 - 2026-08-14 Repository Phase 44 — Semantic Binding Projection and Full Round-Trip Fidelity:

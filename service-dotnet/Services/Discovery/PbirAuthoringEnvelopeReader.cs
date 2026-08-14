@@ -29,7 +29,10 @@ internal sealed class PbirAuthoringEnvelopeReader
                     : null;
                 if (!IsSupportedSchema(ownerKind, schemaUrl))
                 {
-                    diagnostics.Add(new("PBIR43-IMPORT-001", relativePath, "The document schema is outside the pinned authoring envelope."));
+                    diagnostics.Add(new LocalPbirMutationDiagnostic("PBIR43-IMPORT-001", relativePath, "The document schema is outside the pinned authoring envelope.")
+                    {
+                        ProjectionStatus = LocalPbirSemanticProjectionStatus.Invalid
+                    });
                     continue;
                 }
 
@@ -50,7 +53,17 @@ internal sealed class PbirAuthoringEnvelopeReader
             }
             catch (JsonException)
             {
-                diagnostics.Add(new("PBIR43-IMPORT-002", relativePath, "The authoring envelope document is not valid JSON."));
+                diagnostics.Add(new LocalPbirMutationDiagnostic("PBIR43-IMPORT-002", relativePath, "The authoring envelope document is not valid JSON.")
+                {
+                    ProjectionStatus = LocalPbirSemanticProjectionStatus.Invalid
+                });
+            }
+            catch (InvalidOperationException)
+            {
+                diagnostics.Add(new LocalPbirMutationDiagnostic("PBIR43-IMPORT-003", relativePath, "The authoring envelope document has an invalid schema identity shape.")
+                {
+                    ProjectionStatus = LocalPbirSemanticProjectionStatus.Invalid
+                });
             }
         }
 

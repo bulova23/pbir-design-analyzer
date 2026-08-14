@@ -166,6 +166,9 @@ internal sealed class PbirLocalReportReader
         catch (JsonException) { diagnostics.Add(new("PBIR42-IMPORT-008", field, "PBIR file is not valid JSON.")); return null; }
     }
 
-    private static bool HasSchema(JsonElement element, string expected) => element.TryGetProperty("$schema", out var schema) && schema.GetString() == expected;
+    private static bool HasSchema(JsonElement element, string expected) =>
+        element.TryGetProperty("$schema", out var schema) &&
+        schema.ValueKind == JsonValueKind.String &&
+        schema.GetString() == expected;
     private static PbirLocalReportImportSnapshot Empty(string source, IReadOnlyDictionary<string, string> files, IReadOnlyList<LocalPbirMutationDiagnostic> diagnostics) => new(PbirLocalReportImportContract.SchemaVersionV1, source, new(null, new(PbirIntermediateRepresentationValidationDiagnostics.Empty), PbirIntermediateRepresentationReadinessState.Blocked), new Dictionary<string, string>(), new Dictionary<string, string>(), files, diagnostics);
 }

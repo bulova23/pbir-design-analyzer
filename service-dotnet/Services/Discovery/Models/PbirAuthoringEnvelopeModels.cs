@@ -28,6 +28,28 @@ internal enum PbirAuthoringOwnerKind
     Layout
 }
 
+internal enum PbirAuthoringMutationClassification
+{
+    TypedAndMergeable,
+    PreservedButNotAuthorable,
+    Unsupported
+}
+
+internal static class PbirAuthoringMutationInventory
+{
+    internal static PbirAuthoringMutationClassification Classify(LocalPbirMutationOperationKind operation) => operation switch
+    {
+        LocalPbirMutationOperationKind.ResizeVisual => PbirAuthoringMutationClassification.TypedAndMergeable,
+        LocalPbirMutationOperationKind.UpdateBinding or
+        LocalPbirMutationOperationKind.UpdateFormatting or
+        LocalPbirMutationOperationKind.UpdateTheme or
+        LocalPbirMutationOperationKind.UpdateFilter or
+        LocalPbirMutationOperationKind.UpdateNavigation or
+        LocalPbirMutationOperationKind.UpdateSlicer => PbirAuthoringMutationClassification.PreservedButNotAuthorable,
+        _ => PbirAuthoringMutationClassification.Unsupported
+    };
+}
+
 internal sealed record PbirAuthoringIdentityProvenance(
     [property: JsonPropertyName("importedIdentity")] string? ImportedIdentity,
     [property: JsonPropertyName("generatedIdentity")] string? GeneratedIdentity,

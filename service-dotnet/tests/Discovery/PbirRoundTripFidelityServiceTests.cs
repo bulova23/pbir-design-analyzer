@@ -1,3 +1,4 @@
+using System.Text.Json;
 using PowerBIModelingService.Services.Discovery;
 using PowerBIModelingService.Services.Discovery.Models;
 using Xunit;
@@ -35,5 +36,32 @@ public sealed class PbirRoundTripFidelityServiceTests
         Assert.Contains("changed.json", result.IntentionallyChanged);
         Assert.Contains("unexpected.json", result.UnexpectedPaths);
         Assert.False(result.IsFidelityReady);
+    }
+
+    [Fact]
+    public void AuthoringCompare_SeparatesNoOpPreservationFromExpectedMutation()
+    {
+        using var source = JsonDocument.Parse("{\"$schema\":\"schema\",\"position\":{\"x\":1},\"future\":true}");
+        var item = new PbirAuthoringEnvelopeItem(
+            PbirAuthoringOwnerKind.Visual, "visual-1", "visual.json", "schema", "1.0.0",
+            PbirAuthoringPreservationClass.TypedSupported, source.RootElement.Clone(), source.RootElement.GetRawText(), "hash",
+            ["$schema", "position", "future"]);
+        var envelope = new PbirAuthoringEnvelope(PbirAuthoringEnvelopeContract.SchemaVersionV1, [item], "definition");
+        var unchanged = new PbirResolvedAuthoringRepresentation(
+            [new(PbirAuthoringOwnerKind.Visual, "visual-1", "visual.json", item.SourceContent!, item.SourceHash)], []);
+
+        var noOp = new PbirAuthoringFidelityService().Compare(envelope, unchanged);
+
+        Assert.True(noOp.IsFidelityReady);
+        Assert.Contains("visual.json", noOp.AuthoringIdentical);
+
+        var changed = new PbirResolvedAuthoringRepresentation(
+            [new(PbirAuthoringOwnerKind.Visual, "visual-1", "visual.json", "{\"$schema\":\"schema\",\"position\":{\"x\":2},\"future\":true}", item.SourceHash, true, "visual.json/position")],
+            ["visual.json/position"]);
+        var mutation = new PbirAuthoringFidelityService().Compare(envelope, changed);
+
+        Assert.True(mutation.IsFidelityReady);
+        Assert.Contains("visual.json", mutation.IntentionallyChanged);
+        Assert.DoesNotContain("future", mutation.UnexpectedPaths);
     }
 }

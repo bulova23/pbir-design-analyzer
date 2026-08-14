@@ -1,5 +1,11 @@
 # Session Summaries
 
+# 2026-08-14 Phase 45 direct typed backend boundary
+
+- Implemented the approved Option B interpretation by validating the existing `LocalPbirGenerationProviderService` and `LocalPbirMutationProviderService` as the direct typed backend boundary; no new façade, RPC registration, transport, or VS Code change was added.
+- Added focused direct-boundary tests covering successful invocation, pinned-schema rejection, typed/opaque preservation, deterministic serialization, stable identity, fidelity evidence, and boundary enforcement; 5/5 passed.
+- Reconciled the Phase 45 roadmap, current-state note, implementation note, current focus, and session closeout; preserved the pre-existing untracked `PbirAuthoringRpc` proposal files as unused working-tree material.
+
 # 2026-08-14 Phase 44 semantic binding projection
 
 - Implemented descriptor-catalog-based import projection for Card, Table, Clustered Column Chart, Line Chart, Bar Chart, Pie Chart, and Slicer into the existing shared IR binding model; Pie Category canonicalizes to Legend and serializer Tooltips canonicalizes to Tooltip.
@@ -2273,9 +2279,17 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - 2026-08-14 Phase 42: Added the typed local PBIR mutation/import foundation and focused tests. The narrow reader and shared-IR planner/executor work for page/visual/layout/direct-binding mutations; authoring/theme/filter/navigation/slicer mutation and full serialized hash preservation remain blocked by missing lossless IR/serializer fields. No RPC or public surface added; changes remain uncommitted and unstaged.
 2026-08-14: Executed Phase 42 explicit same-page slicer interactions. Corrected the proposal to the pinned schema (`Default`, `DataFilter`, `HighlightFilter`, `NoFilter`; visual targets only), added additive v7 typed validation/IR/serialization, and passed focused 9/9 generation/round-trip tests plus core Release build. Preserved the pre-existing adjacent report-mutation commit and concurrent Phase 43 uncommitted files.
 
+# 2026-08-14 Phase 45 — Minimal internal RPC surface
+
+- Implemented the transport-independent core `PbirAuthoringRpc` contract and pure dispatcher for `pbir-authoring-rpc/v1`, with exactly Generate, Import, Mutate, Validate, and Analyze.
+- Preserved generation v1–v7 and mutation v1; added opaque snapshot/artifact handles, bounded diagnostics, stable error categories, artifact identity, fidelity, and timing observations. No RpcHost, VS Code, transport, UI, or new generation schema was added.
+- Focused RPC: 16/16. Full backend: 967 passed, 11 expected Windows skips, 0 failed. RpcHost: 0 warnings/0 errors. Extension/webview: 494/494 and 68/68. TypeScript and production build passed; lint remains the unchanged 43-error/0-warning repository baseline; `git diff --check` passed. Changes remain unstaged and uncommitted.
+- Phase 46 recommendation: consider only Generate, Import, and Analyze VS Code consumption; keep mutation backend-only until editor UX validation.
+
 # 2026-08-14 Phase 43 — Lossless authoring IR foundation
 
 - Added the approved bounded hybrid authoring envelope over the existing shared IR: typed identity/layout projections plus preserved source JSON for pinned report, pages metadata, page, and visual owners. Unsupported schema admission fails closed; no arbitrary JSON patch or opaque mutation authority was added.
 - Added the single authoring merge boundary, imported identity selection, typed visual-layout overlay, preserved source content resolution, and explicit fidelity classifications for byte, semantic, expected-normalized, missing, and unexpected differences.
 - Focused Phase 43/42 backend: 44/44; full backend: 932 passed, 11 expected Windows skips; core Release build 0/0; extension 494/494; webview 68/68; TypeScript, production build, and diff check passed.
 - Remaining gate: the narrow reader's semantic binding projection is not yet sufficient for a complete imported analyzer-before/after run across every generated visual family, and stage-level performance timings remain unmeasured. Keep Phase 44 RPC deferred. All Phase 43 changes remain uncommitted and unstaged, with pre-existing Phase 42 dirt preserved.
+- 2026-08-14: Reconciled pbir-design-analyzer after Phase 43. HEAD `8b109776` proves Phase 44 is complete; Phase 43 uncommitted completion work and protected Phase 44 artifacts were preserved. Existing stdio JSON-RPC serves analyzer/materialization callers only, while the pre-existing Phase 45 proposal is transport-independent in-process code with no real authoring caller. Decision: `NEXT MILESTONE REQUIRES ARCHITECTURE DECISION`; no Phase 45 production behavior was implemented.

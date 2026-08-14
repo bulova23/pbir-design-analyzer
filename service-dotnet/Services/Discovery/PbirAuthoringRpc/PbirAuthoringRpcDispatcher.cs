@@ -1,0 +1,510 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
+using PowerBIModelingService;
+using PowerBIModelingService.Services;
+using PowerBIModelingService.Services.Discovery;
+using PowerBIModelingService.Services.Discovery.Models;
+using PowerBIModelingService.Services.Pbir;
+using PowerBIModelingService.Services.Pbir.Models;
+
+namespace PowerBIModelingService.PbirAuthoringRpc;
+
+internal sealed class PbirAuthoringRpcDispatcher
+{
+    private readonly LocalPbirGenerationProviderService _generation;
+    private readonly LocalPbirMutationProviderService _mutation;
+    private readonly Dictionary<string, PbirLocalReportImportSnapshot> _snapshots = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (PbirDeployableArtifact Artifact, PbirDeployableManifest Manifest)> _artifacts = new(StringComparer.Ordinal);
+
+    internal PbirAuthoringRpcDispatcher()
+        : this(new LocalPbirGenerationProviderService(), new LocalPbirMutationProviderService())
+    {
+    }
+
+    internal PbirAuthoringRpcDispatcher(
+        LocalPbirGenerationProviderService generation,
+        LocalPbirMutationProviderService mutation)
+    {
+        _generation = generation;
+        _mutation = mutation;
+    }
+
+    internal Task<PbirAuthoringRpcResponse> DispatchAsync(
+        PbirAuthoringRpcRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        var timer = Stopwatch.StartNew();
+        var operation = request?.Operation ?? PbirAuthoringRpcOperation.Generate;
+        var response = ValidateRequest(request, operation);
+        timer.Stop();
+        if (response is not null)
+            return Task.FromResult(response with { Timing = new(timer.ElapsedMilliseconds, 0, 0, 0) });
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return operation switch
+        {
+            PbirAuthoringRpcOperation.Generate => GenerateAsync(request!, timer, cancellationToken),
+            PbirAuthoringRpcOperation.Import => Task.FromResult(Import(request!, timer)),
+            PbirAuthoringRpcOperation.Mutate => MutateAsync(request!, timer, cancellationToken),
+            PbirAuthoringRpcOperation.Validate => Task.FromResult(Validate(request!, timer)),
+            PbirAuthoringRpcOperation.Analyze => AnalyzeAsync(request!, timer, cancellationToken),
+            _ => Task.FromResult(Failure(operation, PbirAuthoringRpcErrorCategory.InternalFailure,
+                "PBIR-RPC-INTERNAL-001", "The requested authoring operation is not implemented."))
+        };
+    }
+
+    private async Task<PbirAuthoringRpcResponse> GenerateAsync(
+        PbirAuthoringRpcRequest request,
+        Stopwatch dispatchTimer,
+        CancellationToken cancellationToken)
+    {
+        var operationTimer = Stopwatch.StartNew();
+        LocalPbirGenerationResult result;
+        try
+        {
+            result = request.Generate!.Request.Kind switch
+            {
+                PbirAuthoringGenerationRequestKind.V1 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V1!, cancellationToken),
+                PbirAuthoringGenerationRequestKind.V2 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V2!, cancellationToken),
+                PbirAuthoringGenerationRequestKind.V3 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V3!, cancellationToken),
+                PbirAuthoringGenerationRequestKind.V4 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V4!, cancellationToken),
+                PbirAuthoringGenerationRequestKind.V5 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V5!, cancellationToken),
+                PbirAuthoringGenerationRequestKind.V6 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V6!, cancellationToken),
+                PbirAuthoringGenerationRequestKind.V7 => await _generation.GenerateAndVerifyAsync(request.Generate.Request.V7!, cancellationToken),
+                _ => throw new InvalidOperationException()
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-CANCELLED-001", "The authoring operation was cancelled.");
+        }
+        catch (Exception)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.InternalFailure, "PBIR-RPC-INTERNAL-002", "The authoring operation failed safely.");
+        }
+
+        operationTimer.Stop();
+        var artifact = result.Artifact is null || result.Manifest is null ? null : CreateArtifactHandle(result.Artifact, result.Manifest);
+        if (result.Artifact is not null && result.Manifest is not null)
+            _artifacts[artifact!.ArtifactHash] = (result.Artifact, result.Manifest);
+        var analyzer = result.RoundTrip is null ? null : CreateAnalyzerSummary(result.RoundTrip.Score, result.RoundTrip.PageCount, result.RoundTrip.VisualCount);
+        var response = new PbirAuthoringRpcResponse(
+            PbirAuthoringRpcContract.SchemaVersionV1,
+            request.Operation,
+            result.Readiness is LocalPbirGenerationReadinessState.Generated or LocalPbirGenerationReadinessState.RoundTripVerified,
+            result.Diagnostics.Select(ToDiagnostic).ToArray(),
+            result.Readiness == LocalPbirGenerationReadinessState.Rejected
+                ? new(ErrorCategoryFor(result.Diagnostics), "PBIR-RPC-GENERATE-001", "Generation was rejected by the existing authoring provider.")
+                : null,
+            artifact is null ? null : ToArtifactIdentity(artifact),
+            null,
+            analyzer,
+            new(0, operationTimer.ElapsedMilliseconds, result.Performance?.MaterializationMilliseconds ?? 0, result.Performance?.AnalyzerMilliseconds ?? 0),
+            new(result.SchemaVersion, artifact),
+            null, null, null, null);
+        dispatchTimer.Stop();
+        return response with { Timing = response.Timing with { DispatchMilliseconds = dispatchTimer.ElapsedMilliseconds } };
+    }
+
+    private PbirAuthoringRpcResponse Import(PbirAuthoringRpcRequest request, Stopwatch dispatchTimer)
+    {
+        var operationTimer = Stopwatch.StartNew();
+        PbirLocalReportImportSnapshot snapshot;
+        try
+        {
+            snapshot = _mutation.Import(request.Import!.SourceDirectory);
+        }
+        catch (Exception)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.ImportFailed, "PBIR-RPC-IMPORT-001", "The PBIR report could not be imported.");
+        }
+
+        operationTimer.Stop();
+        var contentHash = Hash(string.Join("|", snapshot.FileHashes.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => $"{x.Key}:{x.Value}")));
+        var handle = new PbirAuthoringSnapshotHandle(
+            PbirAuthoringRpcContract.SnapshotHandleSchemaVersionV1,
+            $"snapshot:{contentHash[..24]}",
+            new(Path.GetFileName(Path.TrimEndingDirectorySeparator(snapshot.SourceDirectory)), contentHash, snapshot.FileHashes.Count));
+        _snapshots[handle.SnapshotId] = snapshot;
+        dispatchTimer.Stop();
+        return new(
+            PbirAuthoringRpcContract.SchemaVersionV1,
+            request.Operation,
+            snapshot.IrState.Ir is not null && snapshot.Diagnostics.All(diagnostic => diagnostic.ProjectionStatus != LocalPbirSemanticProjectionStatus.Invalid),
+            snapshot.Diagnostics.Select(ToDiagnostic).ToArray(),
+            snapshot.IrState.Ir is null ? new(PbirAuthoringRpcErrorCategory.ImportFailed, "PBIR-RPC-IMPORT-002", "The PBIR report did not satisfy the supported import boundary.") : null,
+            null, null, null,
+            new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0, 0),
+            null,
+            new(handle), null, null, null);
+    }
+
+    private async Task<PbirAuthoringRpcResponse> AnalyzeAsync(
+        PbirAuthoringRpcRequest request,
+        Stopwatch dispatchTimer,
+        CancellationToken cancellationToken)
+    {
+        var operationTimer = Stopwatch.StartNew();
+        try
+        {
+            var location = new PbirProjectService(NullLogger<PbirProjectService>.Instance)
+                .TryGetReportLocation(request.Analyze!.ReportDirectory);
+            if (location is null)
+                return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-001", "The report could not be resolved for analysis.");
+            var analyzerTimer = Stopwatch.StartNew();
+            var score = await new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance)
+                .ScoreAsync(location.ProjectRootPath);
+            analyzerTimer.Stop();
+            operationTimer.Stop();
+            dispatchTimer.Stop();
+            var summary = CreateAnalyzerSummary(score, score.PageScores?.Count ?? 0, score.DataVisualCount);
+            return new(PbirAuthoringRpcContract.SchemaVersionV1, request.Operation, true, [], null, null, null, summary,
+                new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0, analyzerTimer.ElapsedMilliseconds),
+                null, null, null, null, new(summary));
+        }
+        catch (OperationCanceledException)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-002", "Analysis was cancelled safely.");
+        }
+        catch (Exception)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-003", "The report could not be analyzed safely.");
+        }
+    }
+
+    private PbirAuthoringRpcResponse Validate(PbirAuthoringRpcRequest request, Stopwatch dispatchTimer)
+    {
+        var operationTimer = Stopwatch.StartNew();
+        if (!_artifacts.TryGetValue(request.Validate!.Artifact.ArtifactHash, out var stored) ||
+            stored.Artifact.ArtifactId != request.Validate.Artifact.ArtifactId ||
+            stored.Manifest.Hashes.ManifestHash != request.Validate.Artifact.ManifestHash)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-VALIDATE-001", "The generated artifact handle is unknown or stale.");
+        }
+
+        var validation = new PbirDeployableSerializerValidator().ValidateOutput(stored.Artifact, stored.Manifest);
+        operationTimer.Stop();
+        dispatchTimer.Stop();
+        var diagnostics = validation.SchemaContractResults.Concat(validation.StructuralValidationResults)
+            .Concat(validation.CrossReferenceValidationResults).Concat(validation.HashValidationResults)
+            .Select(ToDiagnostic).ToArray();
+        return new(
+            PbirAuthoringRpcContract.SchemaVersionV1,
+            request.Operation,
+            validation.IsValid,
+            diagnostics,
+            validation.IsValid ? null : new(PbirAuthoringRpcErrorCategory.ValidationFailed, "PBIR-RPC-VALIDATE-002", "Schema validation rejected the artifact."),
+            new(stored.Artifact.ArtifactId, stored.Artifact.Hashes.ArtifactHash, stored.Manifest.ManifestId, stored.Manifest.Hashes.ManifestHash),
+            null, null,
+            new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0),
+            null, null, null,
+            new(validation.IsValid, validation.ValidatedFileCount), null);
+    }
+
+    private async Task<PbirAuthoringRpcResponse> MutateAsync(
+        PbirAuthoringRpcRequest request,
+        Stopwatch dispatchTimer,
+        CancellationToken cancellationToken)
+    {
+        var operationTimer = Stopwatch.StartNew();
+        if (!_snapshots.TryGetValue(request.Mutate!.Snapshot.SnapshotId, out var snapshot) ||
+            snapshot.SourceDirectory != request.Mutate.Request.SourceDirectory)
+        {
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-MUTATE-001", "The imported snapshot handle is unknown or stale.");
+        }
+
+        var plan = _mutation.Plan(snapshot, request.Mutate.Request);
+        if (!plan.IsValid)
+        {
+            var category = plan.Diagnostics.Any(diagnostic => diagnostic.Code.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase))
+                ? PbirAuthoringRpcErrorCategory.MutationConflict
+                : plan.Diagnostics.Any(diagnostic => diagnostic.Code.Contains("UNSUPPORTED", StringComparison.OrdinalIgnoreCase))
+                    ? PbirAuthoringRpcErrorCategory.UnsupportedAuthoring
+                    : PbirAuthoringRpcErrorCategory.InvalidRequest;
+            return Failure(request.Operation, category, "PBIR-RPC-MUTATE-002", "The mutation request was rejected by the existing planner.");
+        }
+
+        var execution = _mutation.Execute(plan);
+        if (execution.IrState.Ir is null)
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-003", "The mutation could not produce a valid shared authoring state.");
+
+        var updatedIr = execution.IrState.Ir with
+        {
+            Hashes = execution.IrState.Ir.Hashes with
+            {
+                ContentHash = PbirIntermediateRepresentationIntegrity.ComputeContentHash(execution.IrState.Ir)
+            }
+        };
+        var normalizedIr = NormalizeImportedIr(updatedIr);
+        normalizedIr = normalizedIr with
+        {
+            Hashes = normalizedIr.Hashes with
+            {
+                ContentHash = PbirIntermediateRepresentationIntegrity.ComputeContentHash(normalizedIr)
+            }
+        };
+        var irState = execution.IrState with { Ir = normalizedIr };
+        var resolved = new PbirAuthoringMergeService().Resolve(normalizedIr);
+        var irService = new PbirIntermediateRepresentationService();
+        var serializerRequest = irService.CreateSerializerRequest(irState);
+        var deployableRequest = CreateImportedDeployableRequest(irState, serializerRequest, request.Mutate.Request);
+        var serializerTimer = Stopwatch.StartNew();
+        var serialized = new PbirDeployableSerializerService().CreateArtifacts(irState, serializerRequest, deployableRequest);
+        serializerTimer.Stop();
+        if (serialized.Artifact is null || serialized.Manifest is null)
+        {
+            var serializerDiagnostics = serialized.Diagnostics.UnsupportedVisualTypes
+                .Concat(serialized.Diagnostics.IncompleteSemanticBindings)
+                .Concat(serialized.Diagnostics.InvalidModelReferences)
+                .Concat(serialized.Diagnostics.DuplicateIdentities)
+                .Concat(serialized.Diagnostics.InvalidLayoutDefinitions)
+                .Concat(serialized.Diagnostics.SchemaIncompatibilities)
+                .Concat(serialized.Validation.SchemaContractResults)
+                .Concat(serialized.Validation.StructuralValidationResults)
+                .Concat(serialized.Validation.CrossReferenceValidationResults)
+                .Concat(serialized.Validation.HashValidationResults)
+                .Select(ToDiagnostic).ToArray();
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.ValidationFailed, "PBIR-RPC-MUTATE-004", "The mutated report failed existing serializer validation.", serializerDiagnostics);
+        }
+
+        var input = new PbirMaterializationOrchestrationInput(
+            irState, serializerRequest, deployableRequest,
+            request.Mutate.Request.OutputBaseDirectory,
+            request.Mutate.Request.TargetDirectoryName);
+        var orchestration = new PbirMaterializationOrchestrationService();
+        var preview = orchestration.Preview(new(
+            PbirMaterializationOrchestrationPreviewRequestContract.SchemaVersionV1,
+            $"{request.Mutate.Request.MutationId}-preview",
+            "preview", input), cancellationToken);
+        if (preview.ValidatedPreview is null || preview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-005", "The mutation destination has a materialization conflict.");
+        var applied = orchestration.Apply(new(
+            PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
+            request.Mutate.Request.MutationId,
+            "apply", input, preview.ValidatedPreview,
+            "phase45-" + Hash(request.Mutate.Request.MutationId)[..24], true), cancellationToken);
+        if (applied.Outcome is not (PbirMaterializationOrchestrationOutcome.Applied or PbirMaterializationOrchestrationOutcome.ExactMatch))
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-006", "The mutation could not be materialized safely.");
+
+        var outputDirectory = Path.Combine(request.Mutate.Request.OutputBaseDirectory, request.Mutate.Request.TargetDirectoryName);
+        var analyzerTimer = Stopwatch.StartNew();
+        var score = await new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance).ScoreAsync(outputDirectory);
+        analyzerTimer.Stop();
+        operationTimer.Stop();
+        dispatchTimer.Stop();
+        var artifact = CreateArtifactHandle(serialized.Artifact, serialized.Manifest);
+        _artifacts[artifact.ArtifactHash] = (serialized.Artifact, serialized.Manifest);
+        var fidelity = CreateFidelity(snapshot, serialized.Artifact, plan.AffectedPages.Count + plan.AffectedVisuals.Count > 0);
+        var response = new PbirAuthoringRpcResponse(
+            PbirAuthoringRpcContract.SchemaVersionV1, request.Operation, true,
+            plan.Diagnostics.Select(ToDiagnostic).ToArray(), null, ToArtifactIdentity(artifact), fidelity,
+            CreateAnalyzerSummary(score, score.PageScores?.Count ?? 0, score.DataVisualCount),
+            new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, serializerTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds),
+            null, null,
+            new(artifact, plan.AffectedPages.Count, plan.AffectedVisuals.Count), null, null);
+        _ = resolved;
+        return response;
+    }
+
+    private static PbirAuthoringRpcResponse? ValidateRequest(
+        PbirAuthoringRpcRequest? request,
+        PbirAuthoringRpcOperation operation)
+    {
+        if (request is null || request.SchemaVersion != PbirAuthoringRpcContract.SchemaVersionV1)
+            return Failure(operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-REQUEST-001", "The RPC request is invalid.");
+
+        if (!PbirAuthoringRpcOperationCatalog.All.Contains(operation))
+            return Failure(operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-REQUEST-002", "The RPC operation is not supported.");
+
+        var payloadCount = new[]
+        {
+            request.Generate is not null,
+            request.Import is not null,
+            request.Mutate is not null,
+            request.Validate is not null,
+            request.Analyze is not null
+        }.Count(value => value);
+        if (payloadCount != 1 || !HasExpectedPayload(request, operation) ||
+            (operation == PbirAuthoringRpcOperation.Generate && !HasExactlyOneGenerationCase(request.Generate!.Request)))
+            return Failure(operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-REQUEST-003", "Exactly one payload matching the operation is required.");
+
+        return null;
+    }
+
+    private static bool HasExpectedPayload(PbirAuthoringRpcRequest request, PbirAuthoringRpcOperation operation) =>
+        operation switch
+        {
+            PbirAuthoringRpcOperation.Generate => request.Generate is not null && request.Generate.Request is not null,
+            PbirAuthoringRpcOperation.Import => request.Import is not null && !string.IsNullOrWhiteSpace(request.Import.SourceDirectory),
+            PbirAuthoringRpcOperation.Mutate => request.Mutate is not null && request.Mutate.Snapshot is not null && request.Mutate.Request is not null,
+            PbirAuthoringRpcOperation.Validate => request.Validate is not null && request.Validate.Artifact is not null,
+            PbirAuthoringRpcOperation.Analyze => request.Analyze is not null && !string.IsNullOrWhiteSpace(request.Analyze.ReportDirectory),
+            _ => false
+        };
+
+    private static bool HasExactlyOneGenerationCase(PbirAuthoringGenerationRequest request) =>
+        new[] { request.V1 is not null, request.V2 is not null, request.V3 is not null, request.V4 is not null,
+            request.V5 is not null, request.V6 is not null, request.V7 is not null }.Count(value => value) == 1;
+
+    private static PbirAuthoringArtifactHandle CreateArtifactHandle(PbirDeployableArtifact artifact, PbirDeployableManifest manifest) =>
+        new(PbirAuthoringRpcContract.ArtifactHandleSchemaVersionV1, artifact.ArtifactId, artifact.Hashes.ArtifactHash, manifest.ManifestId, manifest.Hashes.ManifestHash);
+
+    private static PbirAuthoringArtifactIdentity ToArtifactIdentity(PbirAuthoringArtifactHandle artifact) =>
+        new(artifact.ArtifactId, artifact.ArtifactHash, artifact.ManifestId, artifact.ManifestHash);
+
+    private static PbirAuthoringAnalyzerSummary CreateAnalyzerSummary(ScoreResult score, int pageCount, int visualCount) =>
+        new(score.CompositeScore, pageCount, visualCount, score);
+
+    private static PbirAuthoringDiagnostic ToDiagnostic(LocalPbirMutationDiagnostic diagnostic) =>
+        new(diagnostic.Code, diagnostic.Field, diagnostic.ProjectionStatus == LocalPbirSemanticProjectionStatus.Invalid
+            ? PbirAuthoringDiagnosticSeverity.Error
+            : PbirAuthoringDiagnosticSeverity.Warning, "The authoring pipeline reported a bounded diagnostic.");
+
+    private static PbirAuthoringDiagnostic ToDiagnostic(LocalPbirGenerationDiagnostic diagnostic) =>
+        new(diagnostic.Code, diagnostic.Field, PbirAuthoringDiagnosticSeverity.Error, "The generation provider reported a bounded diagnostic.");
+
+    private static PbirAuthoringDiagnostic ToDiagnostic(PbirDeployableDiagnostic diagnostic) =>
+        new(diagnostic.Code, diagnostic.Path, PbirAuthoringDiagnosticSeverity.Error, "The schema validator reported a bounded diagnostic.");
+
+    private static PbirDeployableSerializerRequest CreateImportedDeployableRequest(
+        PbirIntermediateRepresentationState state,
+        PbirSerializerRequest serializerRequest,
+        LocalPbirMutationRequest request)
+    {
+        var ir = state.Ir!;
+        var bindings = ir.Visuals.SelectMany(visual => (visual.Bindings ?? []).Select(binding => (visual, binding))).ToArray();
+        var entries = bindings
+            .Select(item => new PbirSemanticModelInventoryEntry(
+                $"{item.binding.Kind.ToString().ToLowerInvariant()}:{item.binding.Entity}.{item.binding.Property}",
+                item.binding.Token, item.binding.Entity, item.binding.Property,
+                item.binding.Kind == PbirIntermediateRepresentationBindingKind.Measure ? PbirSemanticModelEntryKind.Measure : PbirSemanticModelEntryKind.Column))
+            .GroupBy(entry => entry.EntryId, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(entry => entry.EntryId, StringComparer.Ordinal)
+            .ToArray();
+        var inventory = new PbirSemanticModelInventory(PbirSemanticModelInventoryContract.SchemaVersionV1, $"modelInventory:{ir.Metadata.IrId}", entries);
+        var canonical = new PbirDeployableSerializerCanonicalJson();
+        var inventoryHash = canonical.ComputeSha256(canonical.SerializeSemanticModelInventory(inventory));
+        var visualBindings = ir.Visuals.OrderBy(visual => visual.VisualId, StringComparer.Ordinal).Select(visual => new PbirVisualBinding(
+            visual.VisualId,
+            (visual.Bindings ?? []).Select((binding, index) => new PbirRoleProjectionBinding(
+                SerializerRole(visual.VisualType, binding), index + 1, binding.Token,
+                $"{binding.Kind.ToString().ToLowerInvariant()}:{binding.Entity}.{binding.Property}",
+                $"{binding.Entity}.{binding.Property}", $"{binding.Entity}.{binding.Property}", "none", null, null)).ToArray())).ToArray();
+        return new(
+            PbirDeployableSerializerRequestContract.SchemaVersionV1,
+            $"pbirDeployableSerializerRequest:{request.MutationId}",
+            serializerRequest.RequestId, serializerRequest.SchemaVersion, ir.Metadata.IrId,
+            ir.Metadata.SchemaVersion, ir.Hashes.ContentHash, "modernPbir",
+            PbirDeployableSchemaLock.DefinitionPropertiesSchemaVersion,
+            PbirDeployableSchemaLock.DefinitionSchemaVersion,
+            new(new(request.DatasetPath ?? "Imported.SemanticModel")),
+            "modern-grid-1280x720/v1", inventory, inventory.InventoryRef, inventoryHash,
+            visualBindings, PbirDeployableExecutionPolicy.NoAuthority);
+    }
+
+    private static PbirIntermediateRepresentation NormalizeImportedIr(PbirIntermediateRepresentation ir)
+    {
+        var orderedPages = ir.Pages.OrderBy(page => page.Order).ThenBy(page => page.PageId, StringComparer.Ordinal)
+            .Select((page, index) => page with
+            {
+                NavigationBehavior = "pageTab",
+                IntendedPurpose = string.IsNullOrWhiteSpace(page.IntendedPurpose) ? page.DisplayName ?? page.PageId : page.IntendedPurpose,
+                Order = index + 1
+            }).ToArray();
+        var pageOrder = orderedPages.Select(page => page.PageId).ToDictionary(page => page, StringComparer.Ordinal);
+        var visuals = ir.Visuals
+            .GroupBy(visual => visual.PageId, StringComparer.Ordinal)
+            .SelectMany(group => group.OrderBy(visual => visual.Order).ThenBy(visual => visual.VisualId, StringComparer.Ordinal)
+                .Select((visual, index) => visual with
+                {
+                    Order = index + 1,
+                    Placement = $"page:{visual.PageId}/slot:{index + 1}"
+                }))
+            .OrderBy(visual => pageOrder[visual.PageId]).ThenBy(visual => visual.Order).ThenBy(visual => visual.VisualId, StringComparer.Ordinal)
+            .ToArray();
+        var navigation = new PbirIntermediateRepresentationNavigation(
+            orderedPages[0].PageId,
+            orderedPages.Zip(orderedPages.Skip(1), (from, to) => new PbirIntermediateRepresentationPageTransition(from.PageId, to.PageId, $"{from.PageId}->{to.PageId}")).ToArray(),
+            orderedPages.Select(page => $"page:{page.PageId}").Append($"landing:{orderedPages[0].PageId}").OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+            []);
+        var layout = new PbirIntermediateRepresentationLayout(
+            orderedPages.Select(page => new PbirIntermediateRepresentationLayoutContainer(
+                $"container:{page.PageId}", page.PageId, "imported report layout",
+                visuals.Where(visual => visual.PageId == page.PageId).Select(visual => visual.VisualId).ToArray())).ToArray(),
+            ["standard-8px-grid"],
+            ["deterministic-grid", "visual-placement-preserved"],
+            ["preserve-page-order", "preserve-visual-intent", "allow-future-serializer-layout-adaptation"]);
+        return ir with { Pages = orderedPages, Visuals = visuals, Navigation = navigation, Layout = layout };
+    }
+
+    private static string SerializerRole(
+        string visualType,
+        PbirIntermediateRepresentationBinding binding) =>
+        visualType switch
+        {
+            "card" => "Fields",
+            "table" => "Values",
+            "clusteredColumnChart" or "barChart" or "pieChart" or "lineChart" when binding.Role == PbirIntermediateRepresentationBindingRole.Value => "Y",
+            "clusteredColumnChart" or "barChart" or "pieChart" or "lineChart" => binding.Role.ToString(),
+            _ => binding.Role.ToString()
+        };
+
+    private static PbirAuthoringFidelity CreateFidelity(
+        PbirLocalReportImportSnapshot snapshot,
+        PbirDeployableArtifact artifact,
+        bool mutationApplied)
+    {
+        var source = ReadFiles(snapshot.SourceDirectory);
+        var output = artifact.Files.ToDictionary(file => file.RelativePath, file => file.Content, StringComparer.Ordinal);
+        var comparison = new PbirRoundTripFidelityService().Compare(source, output);
+        var classification = comparison.UnexpectedPaths.Count > 0
+            ? PbirFidelityClassification.UnexpectedDifference
+            : mutationApplied
+                ? PbirFidelityClassification.ExpectedNormalizedDifference
+                : PbirFidelityClassification.ByteIdentical;
+        return new(classification, comparison.PreservedPaths.Count, comparison.ChangedPaths.Count, comparison.UnexpectedPaths.Count);
+    }
+
+    private static IReadOnlyDictionary<string, string> ReadFiles(string sourceDirectory)
+    {
+        var definition = Path.Combine(sourceDirectory, "definition");
+        if (!Directory.Exists(definition)) return new Dictionary<string, string>(StringComparer.Ordinal);
+        return Directory.GetFiles(definition, "*.json", SearchOption.AllDirectories)
+            .ToDictionary(path => path[(definition.Length + 1)..], File.ReadAllText, StringComparer.Ordinal);
+    }
+
+    private static PbirAuthoringRpcErrorCategory ErrorCategoryFor(IReadOnlyList<LocalPbirGenerationDiagnostic> diagnostics) =>
+        diagnostics.Any(diagnostic => diagnostic.Code.Contains("UNSUPPORTED", StringComparison.OrdinalIgnoreCase))
+            ? PbirAuthoringRpcErrorCategory.UnsupportedAuthoring
+            : PbirAuthoringRpcErrorCategory.ValidationFailed;
+
+    private static string Hash(string value) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    private static PbirAuthoringRpcResponse Failure(
+        PbirAuthoringRpcOperation operation,
+        PbirAuthoringRpcErrorCategory category,
+        string code,
+        string summary) =>
+        new(
+            PbirAuthoringRpcContract.SchemaVersionV1,
+            operation,
+            false,
+            [],
+            new(category, code, summary),
+            null,
+            null,
+            null,
+            new(0, 0, 0, 0));
+
+    private static PbirAuthoringRpcResponse Failure(
+        PbirAuthoringRpcOperation operation,
+        PbirAuthoringRpcErrorCategory category,
+        string code,
+        string summary,
+        IReadOnlyList<PbirAuthoringDiagnostic> diagnostics) =>
+        Failure(operation, category, code, summary) with { Diagnostics = diagnostics };
+}

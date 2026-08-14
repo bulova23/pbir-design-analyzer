@@ -1,5 +1,7 @@
 # Phase 43 Lossless Authoring IR — Reconciled Design
 
+Status: **APPROVED FOR EXECUTION; IMPLEMENTED** on 2026-08-14. The approved design remains the authoritative boundary for the completed Tasks 1–10.
+
 ## Decision
 
 Phase 43 is a backend-only, internal authoring capability for safely editing an existing valid PBIR report through the already-approved Phase 42 mutation foundation. It is not a new generation request version, RPC route, VS Code feature, or general PBIR editor.
