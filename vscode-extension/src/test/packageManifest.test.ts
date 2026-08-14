@@ -64,6 +64,15 @@ describe('extension manifest 0.5.2 runtime posture', () => {
     ]));
   });
 
+  it('declares only the three Phase 46 authoring commands', () => {
+    const commands = packageJson.contributes?.commands ?? [];
+    expect(commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({ command: 'pbirAnalyzer.generateReport' }),
+      expect.objectContaining({ command: 'pbirAnalyzer.importReport' }),
+      expect.objectContaining({ command: 'pbirAnalyzer.analyzeAuthoringReport' }),
+    ]));
+  });
+
   it('declares explicit backend target maintenance scripts for packaged runtime assets', () => {
     expect(packageJson.scripts).toEqual(expect.objectContaining({
       'build:backend': 'node scripts/build-backend.mjs',

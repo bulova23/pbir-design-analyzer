@@ -20,6 +20,34 @@ public sealed class PbirMutationPlannerTests
         Assert.Equal(300, result.IrState.Ir.Visuals.Single().Layout!.Width);
     }
 
+    [Fact]
+    public void Planner_AcceptsRenamePageAndRejectsInvalidDisplayNames()
+    {
+        var snapshot = CreateSnapshot();
+        var planner = new PbirMutationPlanner();
+
+        var valid = planner.Plan(snapshot, CreateRenameRequest(snapshot, "Renamed Page"));
+        var empty = planner.Plan(snapshot, CreateRenameRequest(snapshot, "  "));
+        var unknown = planner.Plan(snapshot, CreateRenameRequest(snapshot, "Renamed Page", "missing-page"));
+
+        Assert.True(valid.IsValid);
+        Assert.Single(valid.Operations);
+        Assert.Contains(empty.Diagnostics, diagnostic => diagnostic.Code == "PBIR46-PAGE-001" && diagnostic.Field == "displayName");
+        Assert.Contains(unknown.Diagnostics, diagnostic => diagnostic.Code == "PBIR42-TARGET-001");
+    }
+
+    private static LocalPbirMutationRequest CreateRenameRequest(
+        PbirLocalReportImportSnapshot snapshot,
+        string displayName,
+        string? pageId = null) =>
+        new(
+            LocalPbirMutationRequestContract.SchemaVersionV1,
+            "rename-page",
+            snapshot.SourceDirectory,
+            "output",
+            "target",
+            [new(LocalPbirMutationOperationKind.RenamePage, new(PageId: pageId ?? "page-1"), DisplayName: displayName)]);
+
     private static PbirLocalReportImportSnapshot CreateSnapshot()
     {
         var visual = new PbirIntermediateRepresentationVisual("visual-1", "page-1", "card", "", "visual-1", [], 0, new(0, 0, 100, 100), []);

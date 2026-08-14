@@ -16,7 +16,7 @@ internal sealed class PbirAuthoringRpcDispatcher
     private readonly LocalPbirGenerationProviderService _generation;
     private readonly LocalPbirMutationProviderService _mutation;
     private readonly Dictionary<string, PbirLocalReportImportSnapshot> _snapshots = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, (PbirDeployableArtifact Artifact, PbirDeployableManifest Manifest)> _artifacts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (PbirDeployableArtifact Artifact, PbirDeployableManifest Manifest, string ReportDirectory)> _artifacts = new(StringComparer.Ordinal);
 
     internal PbirAuthoringRpcDispatcher()
         : this(new LocalPbirGenerationProviderService(), new LocalPbirMutationProviderService())
@@ -88,7 +88,7 @@ internal sealed class PbirAuthoringRpcDispatcher
         operationTimer.Stop();
         var artifact = result.Artifact is null || result.Manifest is null ? null : CreateArtifactHandle(result.Artifact, result.Manifest);
         if (result.Artifact is not null && result.Manifest is not null)
-            _artifacts[artifact!.ArtifactHash] = (result.Artifact, result.Manifest);
+            _artifacts[artifact!.ArtifactHash] = (result.Artifact, result.Manifest, GetGeneratedReportDirectory(request.Generate.Request));
         var analyzer = result.RoundTrip is null ? null : CreateAnalyzerSummary(result.RoundTrip.Score, result.RoundTrip.PageCount, result.RoundTrip.VisualCount);
         var response = new PbirAuthoringRpcResponse(
             PbirAuthoringRpcContract.SchemaVersionV1,
@@ -149,8 +149,12 @@ internal sealed class PbirAuthoringRpcDispatcher
         var operationTimer = Stopwatch.StartNew();
         try
         {
+            var reportDirectory = ResolveAnalyzeDirectory(request.Analyze!);
+            if (reportDirectory is null)
+                return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-001", "The report handle or directory could not be resolved for analysis.");
+
             var location = new PbirProjectService(NullLogger<PbirProjectService>.Instance)
-                .TryGetReportLocation(request.Analyze!.ReportDirectory);
+                .TryGetReportLocation(reportDirectory);
             if (location is null)
                 return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-001", "The report could not be resolved for analysis.");
             var analyzerTimer = Stopwatch.StartNew();
@@ -295,7 +299,7 @@ internal sealed class PbirAuthoringRpcDispatcher
         operationTimer.Stop();
         dispatchTimer.Stop();
         var artifact = CreateArtifactHandle(serialized.Artifact, serialized.Manifest);
-        _artifacts[artifact.ArtifactHash] = (serialized.Artifact, serialized.Manifest);
+        _artifacts[artifact.ArtifactHash] = (serialized.Artifact, serialized.Manifest, outputDirectory);
         var fidelity = CreateFidelity(snapshot, serialized.Artifact, plan.AffectedPages.Count + plan.AffectedVisuals.Count > 0);
         var response = new PbirAuthoringRpcResponse(
             PbirAuthoringRpcContract.SchemaVersionV1, request.Operation, true,
@@ -340,7 +344,10 @@ internal sealed class PbirAuthoringRpcDispatcher
             PbirAuthoringRpcOperation.Import => request.Import is not null && !string.IsNullOrWhiteSpace(request.Import.SourceDirectory),
             PbirAuthoringRpcOperation.Mutate => request.Mutate is not null && request.Mutate.Snapshot is not null && request.Mutate.Request is not null,
             PbirAuthoringRpcOperation.Validate => request.Validate is not null && request.Validate.Artifact is not null,
-            PbirAuthoringRpcOperation.Analyze => request.Analyze is not null && !string.IsNullOrWhiteSpace(request.Analyze.ReportDirectory),
+            PbirAuthoringRpcOperation.Analyze => request.Analyze is not null &&
+                ((!string.IsNullOrWhiteSpace(request.Analyze.ReportDirectory) ? 1 : 0) +
+                 (request.Analyze.Artifact is not null ? 1 : 0) +
+                 (request.Analyze.Snapshot is not null ? 1 : 0) == 1),
             _ => false
         };
 
@@ -356,6 +363,45 @@ internal sealed class PbirAuthoringRpcDispatcher
 
     private static PbirAuthoringAnalyzerSummary CreateAnalyzerSummary(ScoreResult score, int pageCount, int visualCount) =>
         new(score.CompositeScore, pageCount, visualCount, score);
+
+    private string? ResolveAnalyzeDirectory(PbirAuthoringAnalyzeRequest request)
+    {
+        if (request.Artifact is not null)
+        {
+            return _artifacts.TryGetValue(request.Artifact.ArtifactHash, out var stored) &&
+                stored.Artifact.ArtifactId == request.Artifact.ArtifactId &&
+                stored.Manifest.Hashes.ManifestHash == request.Artifact.ManifestHash
+                ? stored.ReportDirectory
+                : null;
+        }
+
+        if (request.Snapshot is not null)
+        {
+            if (!_snapshots.TryGetValue(request.Snapshot.SnapshotId, out var snapshot))
+                return null;
+
+            var contentHash = Hash(string.Join("|", snapshot.FileHashes.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => $"{x.Key}:{x.Value}")));
+            return Path.GetFileName(Path.TrimEndingDirectorySeparator(snapshot.SourceDirectory)) == request.Snapshot.SourceIdentity.SourceDirectoryName &&
+                contentHash == request.Snapshot.SourceIdentity.ContentHash &&
+                snapshot.FileHashes.Count == request.Snapshot.SourceIdentity.FileCount
+                ? snapshot.SourceDirectory
+                : null;
+        }
+
+        return request.ReportDirectory;
+    }
+
+    private static string GetGeneratedReportDirectory(PbirAuthoringGenerationRequest request) => request.Kind switch
+    {
+        PbirAuthoringGenerationRequestKind.V1 => Path.Combine(request.V1!.OutputBaseDirectory, request.V1.TargetDirectoryName),
+        PbirAuthoringGenerationRequestKind.V2 => Path.Combine(request.V2!.OutputBaseDirectory, request.V2.TargetDirectoryName),
+        PbirAuthoringGenerationRequestKind.V3 => Path.Combine(request.V3!.OutputBaseDirectory, request.V3.TargetDirectoryName),
+        PbirAuthoringGenerationRequestKind.V4 => Path.Combine(request.V4!.OutputBaseDirectory, request.V4.TargetDirectoryName),
+        PbirAuthoringGenerationRequestKind.V5 => Path.Combine(request.V5!.OutputBaseDirectory, request.V5.TargetDirectoryName),
+        PbirAuthoringGenerationRequestKind.V6 => Path.Combine(request.V6!.OutputBaseDirectory, request.V6.TargetDirectoryName),
+        PbirAuthoringGenerationRequestKind.V7 => Path.Combine(request.V7!.OutputBaseDirectory, request.V7.TargetDirectoryName),
+        _ => throw new InvalidOperationException("Unsupported generation request version.")
+    };
 
     private static PbirAuthoringDiagnostic ToDiagnostic(LocalPbirMutationDiagnostic diagnostic) =>
         new(diagnostic.Code, diagnostic.Field, diagnostic.ProjectionStatus == LocalPbirSemanticProjectionStatus.Invalid

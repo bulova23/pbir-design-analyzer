@@ -107,9 +107,10 @@ The later repository sequence is provisional planning only and does not authoriz
 19. Repository Phase 42: **Report Mutation Foundation** — imported PBIR discovery, deterministic mutation planning, and structural execution (implemented backend-only; serialized fidelity was intentionally deferred)
 20. Repository Phase 43: **Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity** — bounded hybrid envelope, typed merge precedence, imported identity retention, fidelity/hash classification, and analyzer comparison (COMPLETE; implemented backend-only; semantic-lossless bounded authoring only)
 21. Repository Phase 44: **Semantic Binding Projection and Full Round-Trip Fidelity** — descriptor-based import projection, unsupported-role preservation, shared-IR semantic equivalence, analyzer-before/after evidence, and stage timing observations (implemented backend-only; RPC remains deferred)
-22. Repository Phase 45: **Minimal Direct Typed PBIR Authoring Boundary** — complete as the existing typed backend generation and mutation provider services used directly by backend orchestration and tests. The single merge boundary, pinned schemas, deterministic serialization, stable identities, generation v1–v7 compatibility, fidelity, analyzer separation, JSON-RPC host, and VS Code remain unchanged.
-23. Repository Phase 46: not started; reconsider one narrow cross-process authoring operation only after an approved VS Code workflow demonstrates the need.
-24. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
+22. Repository Phase 45: **Minimal Typed PBIR Authoring Contract** — complete as the transport-independent `pbir-authoring-rpc/v1` dispatcher over generation v1–v7, import, mutation, validation, and analysis. The core contract remains independent of RpcHost and VS Code.
+23. Repository Phase 46: **Minimal VS Code Integration for Generate, Import, and Analyze** — implemented as one thin `pbir/authoring` route and three output-channel commands. Mutation and standalone Validate remain backend-only.
+24. Repository Phase 47: **Imported Page Rename Authoring** — design milestone selected; consider one direct typed backend `RenamePage` operation over mutation v1 after Phase 46 workflow evidence, with RPC/VS Code exposure requiring separate authorization.
+25. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
 
@@ -459,6 +460,24 @@ public RPC, and VS Code exposure remain deferred.
 The report-mutation foundation present in the starting checkout is preserved
 as an adjacent backend-only capability; this Phase 42 slice does not broaden
 or reclassify that work.
+
+### Phase 46 — Imported Page Rename Authoring
+
+Phase 46 is a design-only milestone selected after the Phase 45 direct typed
+backend decision. The smallest supported increment is one imported `RenamePage`
+operation using the existing `LocalPbirMutationRequest/v1` fields. It changes a
+page display name through the existing typed IR and single copy-on-write merge
+boundary while preserving the imported page folder identity, visual identity
+and order, Phase 42 interactions, and unrelated pinned-schema-admitted source
+properties. It must pass the existing deterministic serializer, pinned-schema,
+structural, cross-reference, hash, fidelity, and analyzer boundaries.
+
+Backend orchestration and backend tests are the intended callers. The phase
+does not authorize a new façade, RPC registration, transport adapter, VS Code
+workflow, request version, generic JSON mutation, page folder rename, or any
+other preserved-but-not-authorable mutation domain. Implementation remains
+not started; see the Phase 46 design and implementation plan for the execution
+gate and acceptance criteria.
 
 These roadmap epics should not:
 

@@ -14,6 +14,9 @@ export const PBIR_COMMANDS = {
   uploadScreenshots: 'pbirAnalyzer.uploadScreenshots',
   attachScreenshot: 'pbirAnalyzer.attachScreenshot',
   configureAuditProvider: 'pbirAnalyzer.configureAuditProvider',
+  generateReport: 'pbirAnalyzer.generateReport',
+  importReport: 'pbirAnalyzer.importReport',
+  analyzeAuthoringReport: 'pbirAnalyzer.analyzeAuthoringReport',
 } as const;
 
 export const LEGACY_PBIR_COMMAND_ALIASES: Record<string, string> = {

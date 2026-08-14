@@ -30,6 +30,7 @@ public sealed class RpcHostScopeBoundaryTests
         "model/pbir/governanceCheck",
         "model/pbir/scoreReport",
         "model/ping",
+        "pbir/authoring",
         "pbir/materialization/apply",
         "pbir/materialization/preview",
         "pbir/materialization/recovery/inspect",

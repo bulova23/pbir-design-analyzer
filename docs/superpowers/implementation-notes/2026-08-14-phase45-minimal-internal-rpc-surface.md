@@ -2,7 +2,7 @@
 
 ## Decision and implementation
 
-Phase 45 is implemented as Option B: the existing typed backend authoring services are the direct service boundary for backend orchestration and tests. No additional façade was added because the approved design explicitly identifies these services as sufficient callers and says no new façade is required.
+Phase 45 established the transport-independent `pbir-authoring-rpc/v1` contract and dispatcher over the existing typed backend authoring services. Phase 46 is the first approved external consumer, adding a thin RpcHost adapter for Generate, Import, and Analyze only.
 
 The direct boundary is:
 
@@ -18,7 +18,7 @@ Direct invocation preserves typed/opaque separation, the single copy-on-write me
 
 ## Explicit non-goals
 
-No RPC registration, JSON-RPC method, transport adapter, extension caller, VS Code workflow, Content-Length change, path or snapshot-handle contract, cancellation or cross-process concurrency contract, hosted execution, Desktop/Windows dependency, or generalized Generate/Import/Mutate/Validate/Analyze API was added. The pre-existing untracked `PbirAuthoringRpc` proposal files remain preserved as superseded working-tree material and are not registered or used.
+Phase 45 itself added no RPC registration or VS Code workflow. Those concerns are implemented additively in the Phase 46 adapter and command workflow; Mutation and standalone Validate remain unregistered.
 
 ## Validation evidence
 

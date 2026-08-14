@@ -146,7 +146,9 @@ internal sealed record PbirAuthoringValidateRequest(
     [property: JsonPropertyName("artifact")] PbirAuthoringArtifactHandle Artifact);
 
 internal sealed record PbirAuthoringAnalyzeRequest(
-    [property: JsonPropertyName("reportDirectory")] string ReportDirectory);
+    [property: JsonPropertyName("reportDirectory")] string? ReportDirectory = null,
+    [property: JsonPropertyName("artifact")] PbirAuthoringArtifactHandle? Artifact = null,
+    [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle? Snapshot = null);
 
 internal sealed record PbirAuthoringArtifactIdentity(
     [property: JsonPropertyName("artifactId")] string ArtifactId,

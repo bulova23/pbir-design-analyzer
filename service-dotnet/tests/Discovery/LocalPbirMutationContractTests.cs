@@ -18,6 +18,8 @@ public sealed class LocalPbirMutationContractTests
     public void AuthoringMutationInventory_HasOneTypedMergeBoundary()
     {
         Assert.Equal(PbirAuthoringMutationClassification.TypedAndMergeable,
+            PbirAuthoringMutationInventory.Classify(LocalPbirMutationOperationKind.RenamePage));
+        Assert.Equal(PbirAuthoringMutationClassification.TypedAndMergeable,
             PbirAuthoringMutationInventory.Classify(LocalPbirMutationOperationKind.ResizeVisual));
         Assert.Equal(PbirAuthoringMutationClassification.PreservedButNotAuthorable,
             PbirAuthoringMutationInventory.Classify(LocalPbirMutationOperationKind.UpdateTheme));

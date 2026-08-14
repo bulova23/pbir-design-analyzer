@@ -2,6 +2,17 @@
 
 ## Active Session
 
+- 2026-08-14 Repository Phase 46 — Minimal VS Code Integration for Generate, Import, and Analyze:
+  - implemented one thin `pbir/authoring` JSON-RPC method with exactly Generate, Import, and Analyze admission, plus three output-channel VS Code commands
+  - added typed v1–v7 request conversion, structured response/error presentation, and backend-owned opaque artifact/snapshot handle resolution
+  - full validation is green: backend 977 passed with 11 expected Windows skips; extension 499 passed; webview 68 passed; build/package/diff checks passed; lint remains the unchanged 43-error baseline
+  - preserve Mutation and standalone Validate as backend-only; all changes remain uncommitted and unstaged
+  - next recommendation: run representative manual command workflows and use observed friction to choose Phase 47; do not assume mutation UX is next
+
+- 2026-08-14 Repository Phase 46 milestone-definition review:
+  - the concurrent VS Code/RPC working-tree proposal is protected pre-existing work and is not treated as roadmap authority for this design-only goal
+  - this goal selected a separate backend-local `RenamePage` milestone; its design/current-state/plan documents are authoritative for the roadmap entry and keep RPC/VS Code deferred
+
 - 2026-08-14 Repository Phase 45 — Minimal Direct Typed Backend Service:
   - selected Option B: existing typed generation and mutation providers are the direct backend boundary; no new façade, RPC contract, registration, transport, or VS Code workflow was added
   - focused direct-boundary tests are 5/5; pinned-schema rejection, typed/opaque merge preservation, deterministic hashes, stable identity, fidelity evidence, and boundary enforcement are covered

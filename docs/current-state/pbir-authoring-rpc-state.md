@@ -1,15 +1,18 @@
 # Phase 45 — Direct Typed PBIR Authoring Current State
 
-Phase 45 selects and validates the existing typed backend authoring services as the direct in-process boundary for backend orchestration and tests. No new façade or `pbir-authoring-rpc/v1` production contract is approved. The pre-existing `PbirAuthoringRpc` files remain preserved as superseded working-tree material and are not registered or used.
+Phase 45 established the transport-independent `pbir-authoring-rpc/v1` contract and dispatcher over the existing typed backend authoring services. Phase 46 consumes that contract through the thin `pbir/authoring` JSON-RPC route for Generate, Import, and Analyze only.
 
-## Supported operations
+## Core contract operations
 
-| Direct caller | Typed input | Existing backend path | Result |
+| Operation | Typed input | Existing backend path | Result |
 | --- | --- | --- | --- |
-| Backend orchestration/tests | Existing generation request v1–v7 | `LocalPbirGenerationProviderService`, serializer/validator, round-trip analyzer | Typed artifact, validation, diagnostics, analyzer evidence |
-| Backend orchestration/tests | Imported source directory and mutation request v1 | `LocalPbirMutationProviderService`, reader, planner, executor, merge, serializer, fidelity, analyzer | Typed import snapshot, mutation result, stable identity/fidelity evidence |
+| Generate | Existing generation request v1–v7 | `LocalPbirGenerationProviderService`, serializer/validator, round-trip analyzer | Typed artifact, diagnostics, analyzer evidence |
+| Import | Supported source directory | `LocalPbirMutationProviderService` and reader | Opaque snapshot handle, diagnostics |
+| Mutate | Imported snapshot and mutation request v1 | Existing mutation planner/executor/merge/serializer | Backend-only artifact and fidelity result |
+| Validate | Opaque artifact handle | Existing serializer validator | Backend-only validation result |
+| Analyze | Artifact handle, snapshot handle, or explicit report directory | Existing scoring service | Analyzer summary and timing |
 
-The direct boundary has no generic parameter map, arbitrary JSON field, RPC operation catalog, raw IR caller contract, transport registration, or cross-process response contract.
+The core boundary has no generic parameter map, arbitrary JSON mutation field, raw IR caller contract, or dependency on RpcHost or VS Code.
 
 ## Error categories
 
@@ -19,7 +22,7 @@ Existing typed provider diagnostics and readiness results remain authoritative. 
 
 Existing generation request schemas v1 through v7 and mutation request schema v1 remain unchanged. No generation or mutation schema was added or modified by Phase 45.
 
-Imported authoring state remains typed within the existing backend snapshot and is not exposed through a new process boundary or handle contract.
+Imported authoring state remains typed within the existing backend snapshot. Handles are opaque and session-oriented.
 
 ## Equivalence and timing
 
@@ -27,4 +30,4 @@ Focused tests invoke the providers directly and verify pinned-schema rejection, 
 
 ## Boundaries and limitations
 
-The existing JSON-RPC host and VS Code extension remain unchanged. There is no HTTP/gRPC transport, authentication, authorization, hosted/Windows/Desktop execution, semantic-model/DAX generation, or VS Code mutation flow. Reconsider an RPC adapter only after an approved VS Code workflow demonstrates one narrow cross-process need.
+Phase 46 adds only the `pbir/authoring` JSON-RPC route and the three minimal commands documented in `docs/current-state/phase46-vscode-authoring-integration-state.md`. There is no HTTP/gRPC transport, hosted/Windows/Desktop execution, semantic-model/DAX generation, or VS Code mutation/Validate flow.

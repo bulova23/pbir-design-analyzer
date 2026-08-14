@@ -52,7 +52,10 @@
     "onCommand:pbirAnalyzer.checkGovernance",
     "onCommand:pbirAnalyzer.exportGovernanceReport",
     "onCommand:pbirAnalyzer.uploadScreenshots",
-    "onCommand:pbirAnalyzer.configureAuditProvider"
+    "onCommand:pbirAnalyzer.configureAuditProvider",
+    "onCommand:pbirAnalyzer.generateReport",
+    "onCommand:pbirAnalyzer.importReport",
+    "onCommand:pbirAnalyzer.analyzeAuthoringReport"
   ],
   "contributes": {
     "viewsContainers": {
@@ -124,6 +127,21 @@
         "command": "pbirAnalyzer.configureAuditProvider",
         "title": "PBIR Design Analyzer: Configure Visual Audit Provider",
         "icon": "$(key)"
+      },
+      {
+        "command": "pbirAnalyzer.generateReport",
+        "title": "PBIR Design Analyzer: Generate Report",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "pbirAnalyzer.importReport",
+        "title": "PBIR Design Analyzer: Import Report",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "pbirAnalyzer.analyzeAuthoringReport",
+        "title": "PBIR Design Analyzer: Analyze Report",
+        "icon": "$(graph)"
       }
     ],
     "configuration": {

@@ -48,6 +48,30 @@ public sealed class PbirAuthoringMergeServiceTests
         Assert.Contains("pages/page-1/visuals/visual-1/visual.json/position", result.ChangedPaths);
     }
 
+    [Fact]
+    public void Resolve_RenamePageChangesOnlyDisplayNameAndPreservesImportedIdentityAndContent()
+    {
+        using var source = JsonDocument.Parse("{\"$schema\":\"schema\",\"name\":\"page-folder\",\"displayName\":\"Before\",\"visualInteractions\":[{\"source\":\"visual-1\"}],\"futureProperty\":{\"keep\":true}}");
+        var item = new PbirAuthoringEnvelopeItem(
+            PbirAuthoringOwnerKind.Page, "page-1", "pages/page-folder/page.json", "schema", "1.0.0",
+            PbirAuthoringPreservationClass.TypedSupported, source.RootElement.Clone(), source.RootElement.GetRawText(), "original",
+            ["$schema", "name", "displayName", "visualInteractions", "futureProperty"], new("page-folder", null, null));
+        var ir = CreateIr(new(PbirAuthoringEnvelopeContract.SchemaVersionV1, [item], "definition")) with
+        {
+            Pages = [new("page-1", "page-folder", "", "", 0, "After")]
+        };
+
+        var result = new PbirAuthoringMergeService().Resolve(ir);
+
+        var resolved = Assert.Single(result.Documents);
+        using var document = JsonDocument.Parse(resolved.Content);
+        Assert.Equal("After", document.RootElement.GetProperty("displayName").GetString());
+        Assert.Equal("page-folder", document.RootElement.GetProperty("name").GetString());
+        Assert.True(document.RootElement.GetProperty("futureProperty").GetProperty("keep").GetBoolean());
+        Assert.Equal("pages/page-folder/page.json/displayName", Assert.Single(result.ChangedPaths));
+        Assert.True(resolved.Changed);
+    }
+
     private static PbirIntermediateRepresentation CreateIr(PbirAuthoringEnvelope envelope) => new(
         new("ir", PbirIntermediateRepresentationContract.SchemaVersionV1, DateTime.UnixEpoch), new("manifest", "spec"),
         [], [], [], new("", [], [], []), new([], [], [], []), new([], [], []), new([], []), new("", "", ""), null, envelope);

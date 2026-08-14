@@ -39,6 +39,7 @@ internal static class PbirAuthoringMutationInventory
 {
     internal static PbirAuthoringMutationClassification Classify(LocalPbirMutationOperationKind operation) => operation switch
     {
+        LocalPbirMutationOperationKind.RenamePage or
         LocalPbirMutationOperationKind.ResizeVisual => PbirAuthoringMutationClassification.TypedAndMergeable,
         LocalPbirMutationOperationKind.UpdateBinding or
         LocalPbirMutationOperationKind.UpdateFormatting or

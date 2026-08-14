@@ -27,7 +27,17 @@ internal sealed class PbirMutationPlanner
             diagnostics.Add(new("PBIR42-IMPORT-001", "sourceDirectory", "The imported report is not a valid shared IR snapshot."));
         if (diagnostics.Count > 0) return Empty(snapshot, request.MutationId ?? string.Empty, diagnostics);
 
-        var pages = ir!.Pages.ToDictionary(x => x.PageId, StringComparer.Ordinal);
+        var duplicatePageIds = ir!.Pages
+            .GroupBy(x => x.PageId, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToArray();
+        if (duplicatePageIds.Length > 0)
+        {
+            diagnostics.Add(new("PBIR46-PAGE-003", "pages.pageId", "Imported page identity is duplicated."));
+            return Empty(snapshot, request.MutationId ?? string.Empty, diagnostics);
+        }
+        var pages = ir.Pages.ToDictionary(x => x.PageId, StringComparer.Ordinal);
         var visuals = ir.Visuals.ToDictionary(x => x.VisualId, StringComparer.Ordinal);
         var affectedPages = new HashSet<string>(StringComparer.Ordinal);
         var affectedVisuals = new HashSet<string>(StringComparer.Ordinal);
@@ -67,6 +77,10 @@ internal sealed class PbirMutationPlanner
             {
                 if (string.IsNullOrWhiteSpace(targetPage) || !pages.ContainsKey(targetPage))
                     diagnostics.Add(new("PBIR42-TARGET-001", "target.pageId", "Page target is missing or unknown."));
+                else if (operation.Kind == LocalPbirMutationOperationKind.RenamePage && string.IsNullOrWhiteSpace(operation.DisplayName))
+                    diagnostics.Add(new("PBIR46-PAGE-001", "displayName", "Rename Page requires a non-empty display name."));
+                else if (operation.Kind == LocalPbirMutationOperationKind.RenamePage && ir.AuthoringEnvelope is not null && !HasSupportedPageDisplayNameOwner(ir, targetPage))
+                    diagnostics.Add(new("PBIR46-PAGE-002", "target.pageId", "The imported page has no unambiguous pinned display-name owner."));
                 else { affectedPages.Add(targetPage); accepted.Add(operation); }
                 continue;
             }
@@ -102,4 +116,14 @@ internal sealed class PbirMutationPlanner
     private static PbirMutationPlan Empty(PbirLocalReportImportSnapshot snapshot, string id, List<LocalPbirMutationDiagnostic> diagnostics) => new(id, string.Empty, snapshot, [], [], [], diagnostics);
     internal static string Fingerprint(LocalPbirMutationRequest request) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request)))).ToLowerInvariant();
     private static string TargetKey(LocalPbirMutationTarget? target) => string.Join('|', target?.PageId, target?.VisualId, target?.Section, target?.SlotId, target?.NavigationId, target?.SlicerId);
+
+    private static bool HasSupportedPageDisplayNameOwner(PbirIntermediateRepresentation ir, string pageId)
+    {
+        var owners = ir.AuthoringEnvelope?.Items
+            .Where(item => item.OwnerKind == PbirAuthoringOwnerKind.Page && string.Equals(item.OwnerId, pageId, StringComparison.Ordinal))
+            .ToArray() ?? [];
+        if (owners.Length != 1) return false;
+        var root = owners[0].SourceDocument;
+        return root.TryGetProperty("displayName", out var displayName) && displayName.ValueKind == JsonValueKind.String;
+    }
 }

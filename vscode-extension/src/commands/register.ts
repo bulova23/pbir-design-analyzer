@@ -8,6 +8,7 @@ import { LEGACY_PBIR_COMMAND_ALIASES, PBIR_COMMANDS } from '../platform/extensio
 import { getExtensionOutputChannel } from '../platform/outputChannels';
 import { AnalyzerHandoffService } from '../design-studio/materialization/analyzerHandoffService';
 import type { MaterializedSurfaceCandidate } from '../design-studio/contracts/designStudioModels';
+import { PbirAuthoringWorkflow } from '../services/rpc/PbirAuthoringWorkflow';
 
 export { PBIR_COMMANDS };
 
@@ -70,6 +71,13 @@ export function registerCommands(
   registerPbirCommands(context, getDotnetBridge);
 
   const outputChannel = getExtensionOutputChannel();
+  const authoringWorkflow = new PbirAuthoringWorkflow(getDotnetBridge);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(PBIR_COMMANDS.generateReport, async () => authoringWorkflow.generate()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.importReport, async () => authoringWorkflow.import()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.analyzeAuthoringReport, async () => authoringWorkflow.analyze()),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand(PBIR_COMMANDS.openProject, async () => {

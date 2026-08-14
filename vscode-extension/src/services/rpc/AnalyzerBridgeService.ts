@@ -122,6 +122,10 @@ export class AnalyzerBridgeService extends EventEmitter {
     return this.sendRequest('model/pbir/getTree', { reportPath });
   }
 
+  async executeAuthoringRequest<T = unknown>(params: unknown, cancellationToken?: CancellationToken): Promise<T> {
+    return this.sendRequest<T>('pbir/authoring', params, this.defaultTimeout, cancellationToken);
+  }
+
   async executeRequest<T = unknown>(
     method: string,
     params: unknown = {},

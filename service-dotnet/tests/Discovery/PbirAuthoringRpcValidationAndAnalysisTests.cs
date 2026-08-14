@@ -56,6 +56,61 @@ public sealed class PbirAuthoringRpcValidationAndAnalysisTests
         }
     }
 
+    [Fact]
+    public async Task Analyze_ResolvesTheOpaqueArtifactHandleFromGenerate()
+    {
+        var output = Directory.CreateTempSubdirectory("pbir-rpc-analyze-artifact-");
+        try
+        {
+            var dispatcher = new PbirAuthoringRpcDispatcher();
+            var generated = await dispatcher.DispatchAsync(new(
+                PbirAuthoringRpcContract.SchemaVersionV1, PbirAuthoringRpcOperation.Generate,
+                new(new(CreateRequest(output.FullName)))));
+
+            var analyzed = await dispatcher.DispatchAsync(new(
+                PbirAuthoringRpcContract.SchemaVersionV1, PbirAuthoringRpcOperation.Analyze,
+                Analyze: new(Artifact: generated.GenerateResult!.Artifact)));
+
+            Assert.True(analyzed.Succeeded, analyzed.Error?.Summary);
+            Assert.Equal(generated.Analyzer!.Score, analyzed.Analyzer!.Score);
+        }
+        finally
+        {
+            output.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Analyze_ResolvesTheOpaqueSnapshotHandleFromImport()
+    {
+        var source = Directory.CreateTempSubdirectory("pbir-rpc-analyze-snapshot-");
+        try
+        {
+            var generated = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreateRequest(source.FullName));
+            foreach (var file in generated.Artifact!.Files)
+            {
+                var path = Path.Combine(source.FullName, file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, file.Content);
+            }
+
+            var dispatcher = new PbirAuthoringRpcDispatcher();
+            var imported = await dispatcher.DispatchAsync(new(
+                PbirAuthoringRpcContract.SchemaVersionV1, PbirAuthoringRpcOperation.Import,
+                Import: new(source.FullName)));
+            var analyzed = await dispatcher.DispatchAsync(new(
+                PbirAuthoringRpcContract.SchemaVersionV1, PbirAuthoringRpcOperation.Analyze,
+                Analyze: new(Snapshot: imported.ImportResult!.Snapshot)));
+
+            Assert.True(analyzed.Succeeded, analyzed.Error?.Summary);
+            Assert.NotNull(analyzed.Analyzer);
+        }
+        finally
+        {
+            source.Delete(recursive: true);
+        }
+    }
+
     private static LocalPbirGenerationRequest CreateRequest(string outputBase) => new(
         LocalPbirGenerationRequestContract.SchemaVersionV1, "phase45-rpc-analysis", "Sales", "overview", "Overview",
         "revenue-card", "card", "Sales.SemanticModel", "Revenue", "Sales", "Revenue",

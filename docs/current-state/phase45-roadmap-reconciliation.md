@@ -4,6 +4,8 @@ Date: 2026-08-14
 
 ## Decision
 
+> Phase 46 supersedes the caller-less conclusion below by providing the approved narrow VS Code caller. The Phase 45 reconciliation remains historical evidence for why the original five-operation proposal was not registered wholesale; Phase 46 exposes only Generate, Import, and Analyze through the new thin adapter.
+
 **OPTION B — DIRECT TYPED BACKEND CALLER SELECTED**.
 
 Phase 45 resolves the architecture question without adding an RPC boundary. The existing typed backend services are sufficient for the demonstrated callers: backend orchestration and backend tests. The repository does not demonstrate a VS Code workflow that needs authoring generation, import, typed mutation, authoring validation, or authoring analysis across the existing stdio process boundary. Therefore no authoring RPC method, transport adapter, path contract, snapshot handle, concurrency contract, or response contract is approved or frozen by Phase 45.
@@ -89,7 +91,7 @@ Reconsider Option A only after all of the following evidence exists: an approved
 - Phase 43: COMPLETE
 - Phase 44: COMPLETE
 - Phase 45: DECISION RECORDED — OPTION B, direct typed backend caller; no RPC approved
-- Phase 46: not started
+- Phase 46: design milestone selected — imported page display-name rename through the direct typed backend boundary; implementation not started and RPC/VS Code deferred
 
 ## Non-goals for this gate
 

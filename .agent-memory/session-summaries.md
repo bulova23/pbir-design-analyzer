@@ -1,5 +1,11 @@
 # Session Summaries
 
+# 2026-08-14 Phase 46 authoring milestone definition
+
+- Reconciled Phase 45 Option B and selected the smallest evidence-backed next capability: one direct typed backend `RenamePage` operation for imported PBIR pages.
+- Documented the typed contract, single page-document merge path, failure behavior, identity/fidelity/analyzer boundaries, compatibility requirements, tests, acceptance criteria, risks, and deferred RPC/VS Code decisions.
+- No production behavior, RPC registration, transport adapter, extension workflow, or new façade was added.
+
 # 2026-08-14 Phase 45 direct typed backend boundary
 
 - Implemented the approved Option B interpretation by validating the existing `LocalPbirGenerationProviderService` and `LocalPbirMutationProviderService` as the direct typed backend boundary; no new façade, RPC registration, transport, or VS Code change was added.
@@ -2293,3 +2299,10 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Focused Phase 43/42 backend: 44/44; full backend: 932 passed, 11 expected Windows skips; core Release build 0/0; extension 494/494; webview 68/68; TypeScript, production build, and diff check passed.
 - Remaining gate: the narrow reader's semantic binding projection is not yet sufficient for a complete imported analyzer-before/after run across every generated visual family, and stage-level performance timings remain unmeasured. Keep Phase 44 RPC deferred. All Phase 43 changes remain uncommitted and unstaged, with pre-existing Phase 42 dirt preserved.
 - 2026-08-14: Reconciled pbir-design-analyzer after Phase 43. HEAD `8b109776` proves Phase 44 is complete; Phase 43 uncommitted completion work and protected Phase 44 artifacts were preserved. Existing stdio JSON-RPC serves analyzer/materialization callers only, while the pre-existing Phase 45 proposal is transport-independent in-process code with no real authoring caller. Decision: `NEXT MILESTONE REQUIRES ARCHITECTURE DECISION`; no Phase 45 production behavior was implemented.
+
+# 2026-08-14 Phase 46 — Minimal VS Code authoring integration
+
+- Added one thin `pbir/authoring` JSON-RPC route and exactly three VS Code commands: Generate Report, Import Report, and Analyze Report. The adapter deserializes existing generation v1–v7 requests, invokes the Phase 45 dispatcher, and preserves structured diagnostics, identities, fidelity, analyzer summaries, and timing.
+- Added additive handle-aware Analyze resolution in the backend session for generated artifact and imported snapshot handles. Mutation and standalone Validate remain unregistered and backend-only.
+- Validation: focused backend/RpcHost/handle 13 passed; full backend 977 passed with 11 expected Windows skips; extension 499 passed; webview 68 passed; TypeScript/build/package and `git diff --check` passed. Full lint remains the unchanged 43-error baseline; changed files lint clean.
+- Added Phase 46 design, plan, current-state, implementation note, and session record. All changes remain unstaged and uncommitted; packaging-generated tracked binaries were restored.

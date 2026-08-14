@@ -1,0 +1,82 @@
+extern alias RpcHost;
+using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+using AnalyzerRpcDispatcher = RpcHost::PowerBIModelingService.RpcHost.AnalyzerRpcDispatcher;
+using AnalyzerServices = RpcHost::PowerBIModelingService.RpcHost.AnalyzerServices;
+using PbirAuthoringRpcAdapter = RpcHost::PowerBIModelingService.RpcHost.PbirAuthoringRpcAdapter;
+using PbirAuthoringRpcHostContract = RpcHost::PowerBIModelingService.RpcHost.PbirAuthoringRpcHostContract;
+using PbirGovernanceService = PowerBIModelingService.Services.Pbir.PbirGovernanceService;
+using PbirProjectService = PowerBIModelingService.Services.PbirProjectService;
+using PbirScoringService = PowerBIModelingService.Services.Pbir.PbirScoringService;
+using PbirTreeBuilder = PowerBIModelingService.Services.PbirTreeBuilder;
+
+namespace ServiceDotnet.Tests;
+
+public sealed class PbirAuthoringRpcAdapterTests
+{
+    [Fact]
+    public async Task Adapter_RejectsMutationAndValidateBeforeCoreDispatch()
+    {
+        var adapter = new PbirAuthoringRpcAdapter();
+
+        var mutation = await adapter.HandleAsync(JsonDocument.Parse("{\"operation\":\"mutate\"}").RootElement, null, CancellationToken.None);
+        var validation = await adapter.HandleAsync(JsonDocument.Parse("{\"operation\":\"validate\"}").RootElement, null, CancellationToken.None);
+
+        Assert.Equal("invalidRequest", mutation.GetProperty("error").GetProperty("category").GetString());
+        Assert.Equal("invalidRequest", validation.GetProperty("error").GetProperty("category").GetString());
+    }
+
+    [Fact]
+    public async Task Adapter_DeserializesTypedGenerateAndPreservesStructuredResponseFields()
+    {
+        var output = Directory.CreateTempSubdirectory("pbir-rpc-adapter-");
+        try
+        {
+            var request = JsonSerializer.SerializeToDocument(new
+            {
+                schemaVersion = "pbir-authoring-rpc/v1",
+                operation = "generate",
+                generate = new
+                {
+                    request = new
+                    {
+                        v1 = new
+                        {
+                            schemaVersion = "local-pbir-generation-request/v1",
+                            requestId = "adapter",
+                            reportName = "Sales",
+                            pageId = "overview",
+                            pageDisplayName = "Overview",
+                            visualId = "card",
+                            visualType = "card",
+                            datasetPath = "Sales.SemanticModel",
+                            measureToken = "Revenue",
+                            measureEntity = "Sales",
+                            measureProperty = "Revenue",
+                            generatedUtc = "2026-08-14T00:00:00Z",
+                            outputBaseDirectory = output.FullName,
+                            targetDirectoryName = "report",
+                        },
+                    },
+                },
+            }).RootElement;
+            var response = await new PbirAuthoringRpcAdapter().HandleAsync(request, null, CancellationToken.None);
+
+            Assert.True(response.GetProperty("succeeded").GetBoolean());
+            Assert.True(response.GetProperty("artifactIdentity").GetProperty("artifactHash").GetString()!.Length > 0);
+            Assert.True(response.GetProperty("timing").GetProperty("dispatchMilliseconds").GetInt64() >= 0);
+        }
+        finally
+        {
+            output.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void HostRouteIsOneSharedAuthoringMethod()
+    {
+        Assert.Equal("pbir/authoring", PbirAuthoringRpcHostContract.Operation);
+        Assert.Contains(PbirAuthoringRpcHostContract.Operation, AnalyzerRpcDispatcher.KnownMethods);
+    }
+}

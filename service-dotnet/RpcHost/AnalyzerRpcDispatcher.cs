@@ -51,19 +51,23 @@ internal sealed class AnalyzerRpcDispatcher : IRpcRequestHandler
         PbirMaterializationRpcContract.PreviewOperation,
         PbirMaterializationRpcContract.ApplyOperation,
         PbirMaterializationRpcContract.RecoveryOperation,
+        PbirAuthoringRpcHostContract.Operation,
     };
 
     private readonly AnalyzerServices _services;
     private readonly PbirMaterializationRpcAdapter _materializationAdapter;
+    private readonly PbirAuthoringRpcAdapter _authoringAdapter;
     private int _disposed;
 
     internal AnalyzerRpcDispatcher(
         AnalyzerServices services,
-        PbirMaterializationRpcAdapter? materializationAdapter = null)
+        PbirMaterializationRpcAdapter? materializationAdapter = null,
+        PbirAuthoringRpcAdapter? authoringAdapter = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _materializationAdapter = materializationAdapter ?? new PbirMaterializationRpcAdapter(
             new PowerBIModelingService.Services.Discovery.PbirMaterializationOrchestrationService());
+        _authoringAdapter = authoringAdapter ?? new PbirAuthoringRpcAdapter();
     }
 
     public async Task<RpcHandlerResult> HandleAsync(
@@ -104,6 +108,8 @@ internal sealed class AnalyzerRpcDispatcher : IRpcRequestHandler
             PbirMaterializationRpcContract.ApplyOperation or
             PbirMaterializationRpcContract.RecoveryOperation => RpcHandlerResult.Success(
                 await HandleMaterializationAsync(request.Method, request.Params, request.ParamsUtf8, cancellationToken).ConfigureAwait(false)),
+            PbirAuthoringRpcHostContract.Operation => RpcHandlerResult.Success(
+                await _authoringAdapter.HandleAsync(request.Params, request.ParamsUtf8, cancellationToken).ConfigureAwait(false)),
             _ => RpcHandlerResult.Error(-32601, "Method not found."),
         };
 

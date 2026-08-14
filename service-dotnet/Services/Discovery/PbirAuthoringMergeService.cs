@@ -24,7 +24,16 @@ internal sealed class PbirAuthoringMergeService
         PbirAuthoringEnvelopeItem item)
     {
         var content = item.SourceContent ?? JsonSerializer.Serialize(item.SourceDocument);
-        if (item.OwnerKind == PbirAuthoringOwnerKind.Visual)
+        if (item.OwnerKind == PbirAuthoringOwnerKind.Page)
+        {
+            var page = ir.Pages.FirstOrDefault(value => string.Equals(value.PageId, item.OwnerId, StringComparison.Ordinal));
+            if (page is not null && TryMergeDisplayName(content, page.DisplayName, out var merged))
+            {
+                return new(item.OwnerKind, item.OwnerId, item.OwnedRelativePath, merged,
+                    item.SourceHash, true, $"{item.OwnedRelativePath}/displayName");
+            }
+        }
+        else if (item.OwnerKind == PbirAuthoringOwnerKind.Visual)
         {
             var visual = ir.Visuals.FirstOrDefault(value => string.Equals(value.VisualId, item.OwnerId, StringComparison.Ordinal));
             if (visual?.Layout is not null && TryMergeLayout(content, visual.Layout, out var merged))
@@ -34,6 +43,25 @@ internal sealed class PbirAuthoringMergeService
             }
         }
         return new(item.OwnerKind, item.OwnerId, item.OwnedRelativePath, content, item.SourceHash, false, null);
+    }
+
+    private static bool TryMergeDisplayName(string content, string? displayName, out string merged)
+    {
+        var node = JsonNode.Parse(content)?.AsObject();
+        var property = node?["displayName"];
+        if (node is null || property is null || property.GetValueKind() != JsonValueKind.String || string.IsNullOrWhiteSpace(displayName))
+        {
+            merged = content;
+            return false;
+        }
+        if (string.Equals(property.GetValue<string>(), displayName, StringComparison.Ordinal))
+        {
+            merged = content;
+            return false;
+        }
+        node["displayName"] = displayName;
+        merged = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        return true;
     }
 
     private static bool TryMergeLayout(
