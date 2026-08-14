@@ -1,163 +1,135 @@
 # Phase 43 Lossless Authoring IR Implementation Plan
 
-> **For agentic workers:** Execute this plan task-by-task with test-first checkpoints. Phase 43 must remain uncommitted and unstaged; do not add commit steps.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Do not implement this plan in the planning/reconciliation goal.
 
-**Goal:** Preserve schema-admitted imported PBIR authoring state through typed mutation and deterministic serialization without expanding every PBIR field into typed IR.
+**Goal:** Safely edit an existing valid pinned-schema PBIR report through the existing Phase 42 mutation foundation while preserving unrelated valid content and all v1–v7 generation behavior.
 
-**Architecture:** Add a bounded authoring envelope to the existing shared IR and import snapshot. The reader captures owned JSON documents and typed identity projections; a focused merge service applies validated typed changes to copies of those documents; the serializer emits the resolved representation and continues its existing typed-only generation path when no imported envelope exists. Unsupported schema content fails closed.
+**Architecture:** Use the existing shared IR plus a schema-admitted source-document envelope. Apply a closed typed mutation to a copy of the typed IR, merge only supported fields into owned source documents, serialize through the existing deterministic serializer, and validate before analyzer/materialization evidence. Generation without an imported envelope remains on the existing rebuild path.
 
-**Tech Stack:** .NET 8, C#, System.Text.Json, xUnit, existing PBIR schema lock and deployable serializer.
+**Tech Stack:** .NET 8, C# records, `System.Text.Json`, pinned local PBIR schema lock, existing serializer/materializer/analyzer, xUnit.
 
 ---
 
-### Task 1: Establish the authoring envelope contracts and preservation matrix
+### Task 1: Freeze the reconciled Phase 43 contract
 
-**Files:**
-- Modify: `service-dotnet/Services/Discovery/Models/PbirIntermediateRepresentationModels.cs`
-- Modify: `service-dotnet/Services/Discovery/Models/PbirLocalReportImportModels.cs`
-- Create: `service-dotnet/Services/Discovery/Models/PbirAuthoringEnvelopeModels.cs`
-- Test: `service-dotnet/tests/Discovery/PbirAuthoringEnvelopeContractTests.cs`
-- Modify: `docs/current-state/pbir-intermediate-representation-state.md`
+**Objective:** Make the semantic losslessness, hybrid ownership, typed/opaque boundary, error classes, and acceptance gate unambiguous.
 
-- [ ] Write failing contract tests proving envelope item classifications, imported/generated/override identity fields, owned relative paths, source hashes, and JSON subtree serialization are explicit and do not expose arbitrary patch operations.
-- [ ] Run `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirAuthoringEnvelopeContractTests`; expect compilation failure for missing envelope types.
-- [ ] Add immutable records for envelope ownership, item classification, identity provenance, source ordering, and bounded JSON documents. Use `JsonElement` clones or UTF-8 JSON bytes so documents remain detached from disposed `JsonDocument` instances.
-- [ ] Add optional envelope and fidelity metadata to the IR/import snapshot in a backward-compatible way. Keep existing constructor call sites compiling through optional parameters or targeted updates, and do not change generation-only serialized output.
-- [ ] Add tests for `TypedSupported`, `OpaquePreserved`, and `Unsupported`, for imported identity selection, and for rejection of a raw JSON mutation field/API.
-- [ ] Update the current-state IR document with the preservation matrix and the exact distinction between typed, opaque, and unsupported content.
-- [ ] Run the focused contract tests and the existing IR contract tests; expected result is green.
+**Likely files:** `docs/superpowers/specs/2026-08-14-phase43-lossless-authoring-ir-design.md`, `docs/superpowers/plans/2026-08-14-phase43-lossless-authoring-ir.md`, `docs/ROADMAP.md`, `docs/current-state/pbir-intermediate-representation-state.md`.
 
-### Task 2: Capture the bounded imported authoring envelope
+**Implementation scope:** Record the existing HEAD discrepancy and classify the committed envelope/reader/merge/fidelity work as partial evidence. State that no new request version, RPC, or UI surface is required. Keep Phase 42’s typed operation catalog as the initial mutation boundary.
 
-**Files:**
-- Modify: `service-dotnet/Services/Discovery/PbirLocalReportReader.cs`
-- Modify: `service-dotnet/Services/Discovery/Models/PbirDeployableSerializerModels.cs`
-- Create: `service-dotnet/Services/Discovery/PbirAuthoringEnvelopeReader.cs`
-- Test: `service-dotnet/tests/Discovery/PbirLocalReportReaderTests.cs`
-- Test: `service-dotnet/tests/Discovery/PbirAuthoringEnvelopeReaderTests.cs`
+**Tests/evidence:** Documentation consistency scan; all design/plan contract names match; no production files changed.
 
-- [ ] Add fixture-based failing tests for report, pages metadata, report, page, and visual documents containing formatting, theme, filter, navigation, slicer, and unknown schema-supported properties.
-- [ ] Run only the new reader tests and verify failure because the import snapshot has no populated envelope and no typed imported identity provenance.
-- [ ] Implement `PbirAuthoringEnvelopeReader` with one responsibility: admit only known schema-lock URLs and known owned definition paths, clone the original JSON document, record source hash and property ordering, and emit fail-closed diagnostics for invalid/unsupported schema content.
-- [ ] Update `PbirLocalReportReader` to use that service, reuse captured page/visual folder identities, and avoid synthesizing imported defaults when a source property exists.
-- [ ] Preserve deterministic directory/file traversal ordering while retaining source order metadata; do not store arbitrary non-definition files.
-- [ ] Add tests proving themes, filters, page/visual formatting, navigation metadata, slicer metadata, and schema-supported unknown properties survive import; unsupported schemas and unsupported constructs produce diagnostics and blocked readiness.
-- [ ] Run focused reader tests and the Phase 42 import regression tests.
+**Stop condition:** Stop if the contract requires arbitrary JSON mutation, byte-for-byte guarantees, or a public surface.
 
-### Task 3: Add typed identity provenance and deterministic allocation
+### Task 2: Establish the source-envelope ownership and admission boundary
 
-**Files:**
-- Modify: `service-dotnet/Services/Discovery/Models/PbirIntermediateRepresentationModels.cs`
-- Create: `service-dotnet/Services/Discovery/PbirAuthoringIdentityResolver.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirMutationPlanner.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirMutationExecutor.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirDeployableSerializerService.cs`
-- Test: `service-dotnet/tests/Discovery/PbirAuthoringIdentityTests.cs`
+**Objective:** Ensure every preserved document has one owner, one pinned schema identity, one stable relative path, and detached source content.
 
-- [ ] Write failing tests for unchanged imported page/visual folder identities, explicit typed identity overrides, collision rejection, and deterministic identities for newly added pages/visuals.
-- [ ] Run the identity tests and confirm the current serializer derives identities from the IR ID and fails the imported identity assertions.
-- [ ] Implement a resolver that chooses imported identity, then explicit validated override, then the existing deterministic generated provider identity according to object provenance and mutation state.
-- [ ] Extend typed page/visual identity state without changing existing generation defaults. Validate that identity overrides remain within their owning object and are unique across the resolved report.
-- [ ] Update planner/executor to retain imported ownership for unchanged objects and mark only additions/explicit identity changes as regenerated or changed.
-- [ ] Update serializer path construction and references to consume resolved identities rather than deriving all folder names from `ir.Metadata.IrId`.
-- [ ] Run identity tests, generation determinism tests, and Phase 42 mutation tests.
+**Likely files:** `service-dotnet/Services/Discovery/Models/PbirAuthoringEnvelopeModels.cs`, `PbirIntermediateRepresentationModels.cs`, `PbirLocalReportReader.cs`, `PbirAuthoringEnvelopeReader.cs`, `PbirDeployableSerializerModels.cs`.
 
-### Task 4: Implement the single authoring merge boundary
+**Implementation scope:** Retain the existing envelope records but make admission cover only the pinned owned definition inventory. Clone source JSON, preserve source hashes, reject invalid JSON/schema/owner/path, and ensure unsupported files do not silently become ready output. Keep the envelope optional so generation IR has no source owner.
 
-**Files:**
-- Create: `service-dotnet/Services/Discovery/PbirAuthoringMergeService.cs`
-- Create: `service-dotnet/Services/Discovery/Models/PbirResolvedAuthoringModels.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirMutationExecutor.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirMutationPlanning.cs`
-- Test: `service-dotnet/tests/Discovery/PbirAuthoringMergeServiceTests.cs`
+**Tests/evidence:** Contract tests for typed/opaque/unsupported classifications; reader tests for invalid JSON, unsupported schema, path ownership, detached source content, and deterministic item ordering.
 
-- [ ] Write failing tests for merge precedence: untouched source property wins over synthesized typed default; a typed mutation wins only for its modeled property; unrelated opaque properties remain byte/semantic-equivalent; unsupported ownership blocks the merge.
-- [ ] Run the merge tests and confirm the service does not exist.
-- [ ] Implement resolved authoring models containing the resolved file set, object ownership, selected identity, typed IR, and fidelity change paths.
-- [ ] Implement merge operations for the current typed mutation set: page/visual add/remove/move/resize, binding changes, visual formatting, theme, filter, navigation, and slicer changes only where the existing request models can represent them.
-- [ ] Use `JsonNode`/`JsonObject` or equivalent cloned DOM operations only inside this service; expose no general patch method and accept no caller-supplied JSON paths or replacement subtrees.
-- [ ] Ensure missing typed support produces a diagnostic rather than deleting or replacing the opaque subtree.
-- [ ] Recompute IR content hashes from the resolved typed state and preserve source file hashes separately for fidelity reporting.
-- [ ] Run merge tests and mutation planner/executor tests.
+**Stop condition:** Stop if an admitted document cannot be mapped to a pinned owner or if source content has dual mutable authorities.
 
-### Task 5: Integrate resolved authoring output into the deployable serializer
+### Task 3: Complete typed imported identity and order resolution
 
-**Files:**
-- Modify: `service-dotnet/Services/Discovery/PbirDeployableSerializerService.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirDeployableSerializerValidator.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirDeployableSerializerModels.cs`
-- Test: `service-dotnet/tests/Discovery/PbirDeployableSerializerServiceTests.cs`
-- Test: `service-dotnet/tests/Discovery/PbirDeployableSerializerSchemaTests.cs`
+**Objective:** Preserve existing page/visual folder identities and semantic ordering while retaining deterministic identities for new objects.
 
-- [ ] Add failing round-trip tests that import a representative report, serialize without mutation, and compare source/output identity, formatting, theme, filters, navigation, slicer metadata, layouts, and analyzer-relevant bindings.
-- [ ] Run the focused serializer tests and record the current expected failures caused by regenerated identities and dropped properties.
-- [ ] Make the serializer consume resolved authoring files from the merge service when present. Keep the current writer methods as the generation fallback for IR states with no envelope.
-- [ ] Emit preserved source documents with canonical UTF-8 output only where normalization is required; preserve original bytes when no typed field changed and the artifact contract permits it.
-- [ ] For changed documents, merge typed properties into the original object and preserve unrelated properties/order where safely possible; do not reconstruct untouched pages/visuals from scratch.
-- [ ] Validate the resolved output with the existing schema validator after merge and before `Serialized` readiness.
-- [ ] Add schema tests for the emitted preserved report, page, visual, filter, theme, navigation, and slicer shapes; unsupported shapes must remain blocked.
-- [ ] Run focused serializer/schema tests and the complete existing deployable serializer suite.
+**Likely files:** `PbirLocalReportReader.cs`, `PbirMutationPlanner.cs`, `PbirMutationExecutor.cs`, `PbirDeployableSerializerService.cs`, new focused identity tests.
 
-### Task 6: Extend mutation evidence, fidelity comparison, and analyzer delta
+**Implementation scope:** Resolve imported identity from envelope ownership first and generated identity only for new objects. Validate uniqueness, missing/ambiguous targets, page/visual references, and order. Do not make explicit identity overrides part of the minimum contract; if the existing model retains them, validate them as closed typed values.
 
-**Files:**
-- Create: `service-dotnet/Services/Discovery/PbirRoundTripFidelityService.cs`
-- Modify: `service-dotnet/Services/Discovery/Models/LocalPbirMutationModels.cs`
-- Modify: `service-dotnet/Services/Discovery/LocalPbirMutationProviderService.cs`
-- Modify: `service-dotnet/Services/Discovery/PbirMutationExecutor.cs`
-- Test: `service-dotnet/tests/Discovery/PbirRoundTripFidelityServiceTests.cs`
-- Test: `service-dotnet/tests/Discovery/LocalPbirMutationProviderServiceTests.cs`
+**Tests/evidence:** Imported identity/path assertions, new-object determinism, collision/missing-target failures, page/visual order preservation, and unchanged v1–v7 generation hashes.
 
-- [ ] Write failing tests for byte-identical, semantically identical, expected normalized, and unexpected file differences; test preserved/changed identity and authoring paths.
-- [ ] Run the tests and verify the comparison service is absent and mutation evidence has no fidelity fields.
-- [ ] Implement a read-only fidelity comparer that canonicalizes JSON for semantic comparison, compares source/output hashes, classifies expected normalization, and blocks unexpected unrelated changes.
-- [ ] Extend mutation evidence additively with preserved/changed identity lists, authoring preservation paths, hash delta categories, analyzer-before/after result, and performance timings. Keep existing JSON property names and defaults compatible.
-- [ ] Run the analyzer on imported source and resolved output using the existing analyzer service; keep analyzer output evidence-only and preserve score authority.
-- [ ] Add tests demonstrating an unchanged report has no analyzer delta, a single visual title/format mutation changes only intended findings, and unrelated findings remain preserved.
-- [ ] Run focused fidelity/evidence tests and existing provider tests.
+**Stop condition:** Stop if an imported object’s output path can be regenerated from the IR ID instead of its source identity.
 
-### Task 7: Add representative golden fixtures and unsupported-content coverage
+### Task 4: Define the typed mutation overlay inventory
 
-**Files:**
-- Create: `service-dotnet/tests/Fixtures/Phase43/representative-report/definition/...`
-- Create: `service-dotnet/tests/Fixtures/Phase43/unsupported-.../definition/...`
-- Create: `service-dotnet/tests/Discovery/Phase43RoundTripFixtureTests.cs`
-- Modify: `service-dotnet/tests/Fixtures/PbirSchemas/README.md`
+**Objective:** Connect only supported Phase 42 operations to explicit merge paths.
 
-- [ ] Add small deterministic fixtures covering one report theme, report/page/visual filters, page formatting, card/table/chart formatting, navigation metadata, and slicer metadata without introducing unsupported constructs.
-- [ ] Add an unsupported fixture with a schema URL or construct outside the pinned inventory and assert fail-closed diagnostics.
-- [ ] Write golden tests that compare selected canonical JSON paths and complete file hash classifications rather than asserting brittle whole-file equality where normalization is intentional.
-- [ ] Verify newly added objects use deterministic identities and do not reuse imported folder names.
-- [ ] Run the fixture tests twice and assert deterministic results.
+**Likely files:** `LocalPbirMutationModels.cs`, `PbirMutationPlanner.cs`, `PbirMutationExecutor.cs`, `PbirMutationPlanning.cs`, `LocalPbirMutationProviderService.cs`.
 
-### Task 8: Measure performance and complete documentation
+**Implementation scope:** Inventory each operation as `typed-and-mergeable`, `preserved-but-not-authorable`, or `unsupported`. Initially require end-to-end support for visual move/resize or page rename and preservation of Phase 42 interaction records/bindings. Reject formatting/theme/filter/navigation/slicer operations until their typed merge paths exist; never treat their opaque source as a mutation escape hatch.
 
-**Files:**
-- Create: `docs/current-state/phase43-lossless-authoring-state.md`
-- Create: `docs/superpowers/implementation-notes/2026-08-14-phase43-lossless-authoring.md`
-- Modify: `docs/ROADMAP.md`
-- Modify: `docs/architecture/phase42-report-mutation.md`
-- Modify: `docs/current-state/pbir-modern-serializer-state.md`
-- Modify: `docs/current-state/pbir-intermediate-representation-state.md`
-- Modify: `docs/superpowers/specs/2026-08-14-phase42-report-mutation-design.md`
+**Tests/evidence:** Operation matrix tests proving accepted operations have a merge path, unsupported operations return typed diagnostics, and no operation accepts JSON paths/replacement fragments.
 
-- [ ] Add a deterministic performance harness/test measurement for import, planning, execution, serialization, and analyzer stages, recording observations against the Phase 42 baseline without inventing a threshold.
-- [ ] Document the final preservation matrix, supported PBIR subset, fidelity categories, identity behavior, representative round-trip results, analyzer comparison, hash explanations, performance observations, and remaining limitations.
-- [ ] Update roadmap status to show Phase 43 complete only if the required fidelity gates pass; otherwise document the exact blocked gate and do not recommend Phase 44 RPC.
-- [ ] Record that Phase 44 may evaluate a minimal internal RPC surface only after backend authoring fidelity is demonstrated; do not implement RPC.
-- [ ] Run placeholder/documentation scans and `git diff --check`.
+**Stop condition:** Stop if a request can name an arbitrary property or if planner acceptance does not imply a deterministic merge path.
 
-### Task 9: Full validation and uncommitted closeout
+### Task 5: Implement the single copy-on-write merge boundary
 
-**Files:**
-- Modify: `.agent-memory/current-focus.md`
-- Modify: `.agent-memory/session-summaries.md`
-- Create: `.agent-memory/sessions/2026-08-14-phase43-lossless-authoring.md`
+**Objective:** Apply typed changes to cloned owned documents while preserving every unrelated property.
 
-- [ ] Run focused Phase 43 backend tests.
-- [ ] Run `dotnet test service-dotnet/tests/Tests.csproj -c Release` and record exact counts/skips.
-- [ ] Run `dotnet build service-dotnet/PbirDesignAnalyzer.sln -c Release` or the repository’s authoritative .NET build command and record the result.
-- [ ] Run extension TypeScript compilation, extension Jest tests, webview tests, extension build, and packaging according to `AGENTS.md`; preserve expected Windows skips.
-- [ ] Run `git diff --check`, inspect `git status --short`, and verify every changed file is intentional, unstaged, and uncommitted.
-- [ ] Finalize the session note and update current focus with the next safe step, including any validation that could not run.
+**Likely files:** `PbirAuthoringMergeService.cs`, `PbirResolvedAuthoringModels.cs`, `PbirMutationExecutor.cs`, merge tests.
 
+**Implementation scope:** Extend the existing layout-only merge to the closed typed overlay inventory. For each changed field, replace only the service-owned JSON subtree; leave all other source properties untouched. Return resolved documents, changed semantic paths, preserved source hashes, and typed diagnostics. Do not expose a general JSON DOM service.
+
+**Tests/evidence:** Merge precedence tests for untouched source versus typed mutation, unknown property preservation, interaction preservation, missing-owner conflicts, and deterministic resolved document ordering.
+
+**Stop condition:** Stop on any merge that rebuilds a whole imported page/visual or silently drops an unmodeled property.
+
+### Task 6: Integrate hybrid documents into serializer and schema validation
+
+**Objective:** Serialize resolved imported documents without changing generation-only output and validate the final artifact.
+
+**Likely files:** `PbirDeployableSerializerService.cs`, `PbirDeployableSerializerValidator.cs`, serializer model tests.
+
+**Implementation scope:** Keep generated writer methods as the no-envelope fallback. For imported reports, replace only matching owned files or add/remove files through explicit typed object operations; do not silently ignore missing resolved documents. Recompute file/hash/manifest metadata after merge. Run the existing pinned schema, structural, cross-reference, and hash validation before readiness.
+
+**Tests/evidence:** No-op serializer round trip, bounded mutation serializer round trip, schema validation for report/pages/page/visual/interactions, and v1–v7 generation regression tests.
+
+**Stop condition:** Stop if the serializer accepts a preserved document that the validator rejects, or if generated output changes without an imported envelope.
+
+### Task 7: Add fidelity evidence and analyzer boundary checks
+
+**Objective:** Turn the standalone fidelity helper into a read-only acceptance gate and prove analyzer separation.
+
+**Likely files:** `PbirRoundTripFidelityService.cs`, `PbirRoundTripFidelityModels.cs`, `LocalPbirMutationModels.cs`, `LocalPbirMutationProviderService.cs`, analyzer/mutation tests.
+
+**Implementation scope:** Compare source/output by byte hash, canonical semantic JSON, expected changed paths, missing paths, and unexpected paths. Attach evidence additively to the existing mutation result. Run the existing analyzer before and after; record deltas as evidence only. Do not change scoring authority or analyzer inputs to accommodate opaque content.
+
+**Tests/evidence:** No-op has no unexpected differences and stable score; one bounded mutation has only expected differences; analyzer remains callable; unexpected/missing output blocks readiness.
+
+**Stop condition:** Stop if fidelity comparison can mark an unrelated change expected without a typed mutation path.
+
+### Task 8: Add focused golden fixtures
+
+**Objective:** Prove preservation with small representative documents rather than a generic corpus.
+
+**Likely files:** existing repository PBIR test fixture locations; `service-dotnet/tests/Discovery/Phase43RoundTripFixtureTests.cs`; fixture documentation.
+
+**Implementation scope:** Use an existing generated report as baseline and add focused variants for page/visual layout, bindings, slicer interactions, formatting/theme/filter/navigation metadata, stable identities, and one valid admitted additional property not projected into typed IR. Add one invalid/unsupported schema fixture. Keep fixtures opt-in if they require external PBIR files.
+
+**Tests/evidence:** Canonical no-op equivalence; unknown-property survival through a bounded edit; identity/order/interactions retained; invalid fixture fails closed; repeated runs produce equal canonical output.
+
+**Stop condition:** Stop if a fixture proves only byte equality and not semantic preservation, or if the unknown-content case is not schema-admitted.
+
+### Task 9: Measure bounded performance and document limitations
+
+**Objective:** Record whether retaining source documents creates a material local cost and document the exact supported/unsupported boundary.
+
+**Likely files:** `docs/current-state/phase43-lossless-authoring-state.md`, `docs/superpowers/implementation-notes/2026-08-14-phase43-lossless-authoring.md`, `docs/ROADMAP.md`, phase 42/IR state docs.
+
+**Implementation scope:** Measure import, plan, execute, merge, serialize, schema validation, and analyzer stages on the representative fixture. Report observations only; do not add a threshold without evidence. Mark Phase 43 complete only after the acceptance gate passes; keep Phase 44 RPC deferred.
+
+**Tests/evidence:** Deterministic timing harness or existing test timing output; documentation validation; roadmap/current-state consistency.
+
+**Stop condition:** Stop if performance evidence requires a new storage system, hosted execution, or architectural cache.
+
+### Task 10: Run the approval gate and close documentation
+
+**Objective:** Verify the complete compatibility surface and hand off the plan for approval without implementing it in this goal.
+
+**Likely files:** `.agent-memory/current-focus.md`, `.agent-memory/session-summaries.md`, `.agent-memory/sessions/`, planning documents only.
+
+**Implementation scope:** For the later implementation session, run focused Phase 43 tests, full backend Release, Core Release build, extension Jest/webview Jest/compile/build, schema evidence checks, repository documentation checks, and `git diff --check`. In this planning goal, run only the documentation/schema inspection checks and report the already-run 8/8 targeted test result.
+
+**Tests/evidence:** No production implementation is performed here; the approval gate is a written checklist with exact commands and expected compatibility results.
+
+**Stop condition:** Do not begin Phase 44, public RPC, VS Code, Desktop, Windows, hosted execution, or any production Phase 43 code from this goal.
+
+## Exact first task
+
+Task 1 is the first implementation task: freeze the reconciled semantic losslessness contract and operation matrix in the design/current-state documents, then obtain approval before touching production code.

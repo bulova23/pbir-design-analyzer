@@ -1,5 +1,19 @@
 # Session Summaries
 
+# 2026-08-14 Phase 44 semantic binding projection
+
+- Implemented descriptor-catalog-based import projection for Card, Table, Clustered Column Chart, Line Chart, Bar Chart, Pie Chart, and Slicer into the existing shared IR binding model; Pie Category canonicalizes to Legend and serializer Tooltips canonicalizes to Tooltip.
+- Added fail-closed structured diagnostics and envelope preservation for unsupported roles, invalid field shapes, and descriptor kind conflicts; added IR semantic equivalence and imported shared-IR mutation/analyzer-before-after evidence.
+- Focused Phase 44/reader/descriptor coverage is 23/23; full backend Release is 947 passed with 11 expected Windows skips; core Release build, extension TypeScript, Jest 494/494, webview Jest 68/68, production extension build, timing observation, and `git diff --check` passed.
+- Stage observation: reader 4 ms, semantic projection 1 ms, merge 1 ms, planning 8 ms, execution 0 ms, serialization 2 ms, analyzer 116 ms on the representative seven-visual fixture. No RPC or VS Code surface was added; all changes remain uncommitted and unstaged.
+
+# 2026-08-14 Phase 43 planning/reconciliation
+
+- Reviewed clean HEAD `4797756c`, which contains a committed Phase 43 implementation despite the requested starting-state description that Phase 43 was not started.
+- Protected and classified the committed authoring-envelope, reader, merge, serializer, fidelity, and report-reader work as partial Phase 43 evidence; no production code was changed.
+- Corrected the Phase 43 design and 10-task implementation plan to require semantic losslessness, hybrid source-document ownership, typed-only mutation, pinned-schema validation, identity/order preservation, analyzer separation, and explicit no-op/bounded-mutation acceptance.
+- Targeted committed Phase 43/reader/fidelity tests passed 8/8; end-to-end analyzer fidelity and full acceptance remain implementation-session work.
+
 - 2026-08-14 Repository Phase 42 design gate: reconciled clean HEAD `aeb97984`, `docs/ROADMAP.md`, Phase 41 current-state/implementation evidence, current-focus, and available plans. Phase 41 is complete; the next exact milestone is Phase 42, but no approved design/plan exists. Proposed the smaller backend-only additive v7 explicit same-page slicer-interaction slice and stopped before implementation pending approval. Normal startup memory returned stale Phase 30 metadata; current repository authority was used. (`.agent-memory/sessions/20260814-phase42-design-gate.md`)
 
 - 2026-08-13 Repository Phase 36 — implemented the first backend-only local PBIR generation provider over the existing Phase 29–31 path. Added a narrow deterministic one-page/one-card request contract, typed provider result and round-trip verification, fail-closed validation, exact six-file artifact generation, Phase 31 materialization, analyzer scoring, and repeated-generation byte/hash comparison. Focused Phase 36 tests pass 9/9; full backend passes 866 with 11 expected Windows skips; schema/provider gate passes 13/13; core Release build passes with 0 warnings and 0 errors; extension build and diff checks pass. Observed analyzer composite score is 73.5 and deterministic artifact/manifest/file-set/lineage hashes are recorded in the implementation note. No RPC, VS Code, Windows, hosted, remote, credential, or provider-security changes were made; unrelated Phase 35 worktree changes were preserved. Next step is Phase 37 incremental PBIR authoring.

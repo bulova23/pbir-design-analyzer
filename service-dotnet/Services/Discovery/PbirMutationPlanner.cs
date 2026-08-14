@@ -23,7 +23,7 @@ internal sealed class PbirMutationPlanner
         if (request.Operations is null)
             diagnostics.Add(new("PBIR42-REQUEST-004", "operations", "Operations are required."));
         var ir = snapshot.IrState.Ir;
-        if (ir is null || !snapshot.IrState.Validation.IsValid)
+        if (ir is null || !snapshot.IrState.Validation.IsValid || snapshot.IrState.Readiness == PbirIntermediateRepresentationReadinessState.Blocked)
             diagnostics.Add(new("PBIR42-IMPORT-001", "sourceDirectory", "The imported report is not a valid shared IR snapshot."));
         if (diagnostics.Count > 0) return Empty(snapshot, request.MutationId ?? string.Empty, diagnostics);
 

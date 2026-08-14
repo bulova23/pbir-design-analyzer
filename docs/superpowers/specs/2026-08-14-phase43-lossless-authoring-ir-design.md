@@ -1,94 +1,112 @@
-# Phase 43 Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity
+# Phase 43 Lossless Authoring IR — Reconciled Design
 
-## Objective
+## Decision
 
-Promote the shared PBIR intermediate representation from a generation-oriented projection to a bounded hybrid authoring representation. Imported schema-supported authoring state will remain available through a typed projection plus a validated opaque preservation envelope. Typed mutations will be merged into that envelope before schema validation and serialization.
+Phase 43 is a backend-only, internal authoring capability for safely editing an existing valid PBIR report through the already-approved Phase 42 mutation foundation. It is not a new generation request version, RPC route, VS Code feature, or general PBIR editor.
 
-Phase 43 remains backend-only. It does not expose RPC, add report features, or create a general JSON patch facility.
+The smallest correct architecture is a hybrid: the typed shared IR remains the only authoring authority for fields the provider intentionally supports; an imported, schema-admitted source-document envelope owns untouched valid PBIR content; a single bounded merge boundary applies typed mutations to copies of owned source documents; the existing serializer and schema validator produce the result. Generation-only IRs continue through the existing deterministic rebuild path.
 
-## Current loss matrix
+This design corrects the committed Phase 43 artifacts at `4797756c`: those artifacts are protected evidence and remain unmodified in production code, but their helper implementation is partial. In particular, the current merge service overlays visual layout only, the fidelity comparer is not connected to mutation evidence, and no end-to-end analyzer comparison proves lossless authoring.
 
-The matrix is based on the Phase 42 reader, IR models, mutation executor, and deployable serializer rather than assumptions about PBIR.
+## Meaning of lossless
 
-| Construct | Current import | Current IR | Current serializer | Phase 43 classification |
-| --- | --- | --- | --- | --- |
-| Report definition and dataset reference | Not imported; dataset is supplied to serializer | Synthesized references only | Regenerated | OpaquePreserved for supported report envelope; typed dataset override remains generation-owned |
-| Report identity | Synthesized from IR ID | No explicit imported identity | Derived indirectly | TypedSupported identity plus envelope ownership |
-| Pages and page folders | Page order, folder name, display name | Page ID, page identity, order, display name; navigation fields synthesized empty | Folder identities regenerated | TypedSupported identity/order/name; opaque page properties preserved |
-| Page formatting | Discarded | None | Regenerated/defaulted | OpaquePreserved |
-| Page filters | Discarded | Only semantic filter labels | Regenerated/defaulted | OpaquePreserved; typed mutation only through modeled contract |
-| Visual folders and identities | Folder name captured as logical ID | Visual ID, page ID, type, order | Folder identities derived from IR | TypedSupported identity and ownership |
-| Visual layout | Position imported | Typed layout | Re-emitted from typed layout | TypedSupported |
-| Visual bindings | Query projections imported | Typed bindings | Regenerated from bindings | TypedSupported; original query subtree retained for unrelated properties |
-| Visual formatting | Discarded | None | Regenerated/defaulted | OpaquePreserved |
-| Visual authoring properties | Discarded | Type and semantic intent only | Regenerated/defaulted | OpaquePreserved |
-| Themes | Discarded | None | Not preserved | OpaquePreserved where pinned schema identifies a supported theme object |
-| Report/page/visual filters | Discarded except semantic labels | Partial semantic labels only | Regenerated/defaulted | OpaquePreserved; typed filter operations remain bounded |
-| Navigation and active page | Active page inferred; transitions/bookmarks synthesized | Partial typed navigation | Regenerated | TypedSupported targeted navigation plus opaque navigation metadata |
-| Slicers | Visual type only | No slicer metadata | Regenerated as generic visual | TypedSupported for existing slicer identity/layout/binding; remaining metadata opaque |
-| Unknown schema-supported properties | Discarded | None | Discarded | OpaquePreserved only after schema-lock eligibility check |
-| Unsupported schema or construct | Closed-catalog diagnostic | No usable IR | Not serialized | Unsupported and fail closed |
-| File ordering and JSON property ordering | File hashes only | Not represented | Canonical ordering | Preserved when safe through envelope metadata; canonical normalization reported otherwise |
+Lossless means semantic preservation of every valid, schema-admitted property in the bounded owned PBIR document set that is not intentionally changed by a supported typed mutation. A no-op may retain original bytes for owned documents. A changed document may be canonically serialized; JSON whitespace and property order are not public behavior.
 
-## Authoring model
+The contract is therefore semantic losslessness with opportunistic physical fidelity, not byte-for-byte fidelity. It preserves page and visual folder identities, references, ordering that affects report behavior, layout, bindings, filters, formatting, navigation metadata, slicer metadata, themes, and valid additional properties in admitted owned documents. It does not promise preservation of invalid JSON, unsupported schema versions, files outside the owned definition inventory, or serialization formatting.
 
-Add a bounded `PbirAuthoringEnvelope` to the shared IR state. The envelope models report, page, visual, navigation, theme, filter, slicer, and layout ownership explicitly. Each owned item contains:
+## Current lossiness and evidence
 
-- logical typed identity and imported PBIR identity/folder relationship;
-- relative source file and schema URL/version;
-- the original supported JSON subtree;
-- a classification of `TypedSupported`, `OpaquePreserved`, or `Unsupported`;
-- stable source hash and source ordering metadata where available.
+Phase 42 imports a narrow projection into `PbirIntermediateRepresentation`: page/visual identity, order, display name, supported visual type, layout, and supported bindings. The Phase 42 serializer then rebuilds report, pages, page, and visual documents from typed state. Properties not represented by that IR are dropped or regenerated. Existing identities are captured in maps but the serializer historically derives output folders from generated IR identity. The mutation executor changes typed IR only and does not carry source JSON into serialization.
 
-The envelope is not a filesystem snapshot. It stores only definition JSON objects that are admitted by the pinned schema lock and that belong to known PBIR authoring owners. Unsupported files, schema versions, and structures remain diagnostics and cannot produce a ready authoring state.
+The committed Phase 43 envelope and reader partially address this by retaining source text, source hashes, schema URLs, owner paths, and imported page/visual identities. They do not yet establish complete preservation or mutation coverage.
 
-The typed IR remains authoritative for fields used by validation, analysis, mutation, generation, and identity targeting. The envelope remains authoritative for untouched supported fields. Generated IR has no imported envelope and continues using existing deterministic identities and serializer output.
+## Actual information flow
 
-## Merge precedence
+```text
+existing PBIR directory
+  → PbirLocalReportReader
+  → typed PbirIntermediateRepresentation + PbirAuthoringEnvelope
+  → PbirMutationPlanner
+  → PbirMutationExecutor (copy-on-write typed state)
+  → PbirAuthoringMergeService (typed overlay over owned source documents)
+  → PbirDeployableSerializerService
+  → PbirDeployableSerializerValidator / pinned schema checks
+  → optional Phase 31 materialization
+  → existing analyzer and scoring
+```
 
-Introduce one focused `PbirAuthoringMergeService` between mutation execution and serialization:
+Generation remains separate:
 
-1. Start with the imported envelope and its original subtrees.
-2. Apply typed IR changes recorded by the validated mutation plan.
-3. For each changed typed field, replace only the corresponding property/subtree in the owned JSON object.
-4. Preserve all unrelated properties and their source ownership.
-5. Reject a mutation when its target is not typed-supported or when its merged result cannot satisfy the pinned schema.
-6. Return a resolved authoring representation consumed by the serializer.
+```text
+typed local-pbir-generation-request/v1–v7
+  → existing provider/shared IR
+  → existing deterministic serializer/materializer/analyzer path
+```
 
-The serializer will not contain field-level precedence decisions. It will emit resolved envelope content and generate only objects with no imported owner or objects explicitly added by a mutation.
+The authoring envelope is an internal extension of the existing shared IR, not a third analyzer model. The analyzer continues to consume the narrower semantic model it needs. Opaque preserved properties remain outside scoring unless an existing analyzer reader already understands them.
 
-There is no raw JSON replacement, JSON Pointer, JSON Patch, arbitrary subtree mutation, or opaque override path.
+## Ownership and copy strategy
 
-## Identity policy
+The decision is **HYBRID**.
 
-Each page and visual exposes logical ID, imported PBIR identity, generated identity, and optional explicit override as separate values. Imported identity is selected for unchanged imported objects. New objects receive the existing deterministic provider identity. An explicit typed identity override is validated for uniqueness and ownership before it can be selected. Serializer folder paths and references are resolved from this identity policy, never recomputed from the IR ID for an imported object.
+- The imported source-document envelope owns preserved raw JSON and its source hashes.
+- The typed IR owns supported semantic fields and mutation intent.
+- The mutation plan/executor owns the copy-on-write typed overlay; it never mutates source files or the envelope in place.
+- The merge service owns precedence and produces a resolved document set.
+- The serializer owns final artifact inventory, hashes, lineage, and output validation.
 
-Report identity, navigation identity, slicer identity, binding identity, layout ownership, and formatting ownership follow the same imported-versus-generated distinction where the pinned schema provides an addressable identity. Where PBIR has no independent identity, the envelope records its owning file and property path instead of inventing one.
+Unchanged imported documents are copied from the envelope. Changed owned documents are patched only at typed, service-owned properties. Generated objects with no imported owner are rebuilt by the existing serializer. This follows the existing Phase 42 import/plan/execute separation and avoids rebuilding unrelated valid content.
 
-## Fidelity and diagnostics
+## Typed and opaque boundary
 
-Round-trip validation compares source and output by:
+Typed authoring is limited to mutation operations already represented by the closed Phase 42 request models and to explicitly added typed fields with tests. The initial Phase 43 mutation proof is visual move/resize or page rename, plus preservation of Phase 42 interactions and all unrelated source content. Formatting, theme, filter, navigation, slicer, bookmarks, drillthrough, synchronized slicers, semantic-model changes, and DAX remain preserved-but-not-typed unless a later task adds a closed contract.
 
-- byte-identical file hash;
-- canonical semantic JSON equality;
-- expected normalized difference;
-- unexpected difference.
+Opaque preservation stores a cloned JSON object and metadata for an admitted owner. It is never exposed as JSON Patch, JSON Pointer, arbitrary replacement JSON, or a caller-selected path. Unsupported mutations fail with a typed diagnostic. Opaque content cannot bypass the pinned schema validator.
 
-The result reports preserved, changed, and unsupported paths. Hashes are measured, never manipulated. An unchanged report may have canonical differences caused by serializer formatting or ordering; those differences must be listed explicitly. Any changed path outside the requested mutation is an unexpected difference and blocks a fidelity-ready result.
+## Identity and ordering
 
-Mutation evidence will add identity, authoring-preservation, fidelity, hash-delta, and analyzer-before/after summaries while retaining the existing result contract compatibility. Analyzer comparison remains advisory evidence and does not become mutation authority.
+For imported pages and visuals, the source folder/name identity is retained and used for output paths and references. For newly generated objects, the existing deterministic identity allocation remains authoritative. An explicit identity override is not part of the minimum Phase 43 contract; if retained by the committed envelope model, it must be validated for ownership and uniqueness before selection and cannot rename an imported object implicitly.
 
-## Compatibility and safety
+Page order, visual order, and arrays whose PBIR semantics depend on order are preserved semantically and normalized deterministically. JSON object property order, whitespace, and line endings may be canonicalized. Source order metadata is diagnostic evidence, not a promise of byte order.
 
-Generation requests continue through the current typed-only path and must produce the same canonical artifacts. Existing Phase 42 mutation requests remain valid; operations that still lack a typed mutation contract continue to fail closed. The envelope cannot make unsupported content safe by itself. Schema validation runs after merge and before artifact readiness.
+## Schema boundary and errors
 
-Unknown schema-supported fields are preserved only when their owning file and schema are in the pinned schema inventory. Unknown schema content outside that inventory is unsupported. This is the explicit boundary between preservation and accidental acceptance.
+The pinned `PbirDeployableSchemaLock` inventory is authoritative for admitted files and schema URLs. Admission requires valid JSON, an owned definition path, and the expected pinned schema. Final output still passes the existing serializer validator and materialization schema validator. Schema-admitted additional properties are preserved; schema-invalid content is rejected rather than preserved as a loophole.
 
-## Validation plan
+The bounded failure classes are: invalid source PBIR, unsupported schema or owner, ambiguous identity, missing mutation target, unsupported mutation, preservation conflict, identity collision, resulting schema-invalid document, and unsupported authoring request. They use existing typed diagnostic/result conventions and stable codes; raw JSON exceptions are internal details.
 
-Add fixture and focused tests for reader envelope capture, serializer round trips, imported identity stability, generated identity allocation, formatting/theme/filter/navigation/slicer preservation, single-field mutation isolation, unsupported-content diagnostics, absence of generic JSON mutation APIs, analyzer comparison, and hash categories. Run focused backend tests first, then the complete backend suite, .NET build, extension compile/build/tests, and `git diff --check`. Performance timings will compare import, planning, execution, serialization, and analyzer stages with Phase 42 observations without imposing a numeric regression threshold.
+## Round-trip contract
 
-## Explicit limitations
+1. **No-op:** a valid imported report enters the authoring path and serializes to semantically equivalent owned documents. Unchanged documents may be byte-identical. Missing, schema-invalid, or unexpected differences fail the fidelity gate.
+2. **Bounded mutation:** one supported typed mutation changes only its declared semantic paths; unrelated valid owned content, interactions, identities, and analyzer-relevant bindings remain semantically equivalent.
+3. **Validation:** every ready result passes pinned schema/structural/cross-reference/hash validation and remains analyzable.
+4. **Determinism:** equivalent source plus equivalent typed mutation produces equivalent canonical artifact content and stable hashes.
 
-Phase 43 does not model every PBIR field. Bookmarks, drillthrough, shared slicers, semantic-model generation, DAX generation, Desktop automation, hosted execution, RPC, VS Code commands, and provider security remain out of scope. Unsupported PBIR constructs continue to fail closed.
+## Analyzer boundary
 
+The reader projects imported data into both the typed IR and the envelope, but the analyzer receives only the existing semantic model. Phase 43 compares analyzer-before and analyzer-after results as evidence; it does not let scoring or analyzer output authorize mutations. A known limitation is acceptable where a valid opaque property is preserved but intentionally excluded from scoring.
+
+## Non-goals and compatibility
+
+There is no change to local generation request versions v1–v7, Phase 29–31 boundaries, Phase 41 composition, Phase 42 same-page slicer interactions, RPC, VS Code, extension contracts, Desktop, Windows, hosted execution, provider runtime, scoring formulas, or analyzer authority. No synchronized slicers, bookmarks, drillthrough, arbitrary JSON authoring, or general report-editor surface is added.
+
+The principal compatibility risk is serializer behavior for imported envelopes: identity/path resolution and merge precedence could alter generated output if the envelope is accidentally attached to generation IR. The implementation must guard the imported-envelope path separately and prove byte/hash-equivalent canonical output for v1–v7 generation fixtures.
+
+## Acceptance gate
+
+Phase 43 is ready only when all are objectively demonstrated:
+
+1. Valid pinned-schema PBIR imports into typed IR plus an owned envelope.
+2. No-op round trip is semantically equivalent and reports any normalization explicitly.
+3. A bounded typed mutation changes its intended path and no unrelated owned path.
+4. Imported page/visual identities and order remain stable; new identities remain deterministic.
+5. Unknown-but-valid admitted properties survive the bounded mutation.
+6. Interactions and analyzer-relevant bindings survive the round trip.
+7. Output passes schema, structural, cross-reference, and hash validation.
+8. Output remains analyzable and scoring is unchanged for a no-op.
+9. Repeated equivalent operations produce deterministic canonical output.
+10. v1–v7, Phase 41, Phase 42, analyzer, scoring, provider-runtime, and backend regression suites remain green.
+
+## Fixtures
+
+Use the smallest repository-owned generated PBIR fixture as the baseline, then add focused variants containing: one page and multiple visuals; a slicer with same-page interactions; layout and bindings; report/page/visual formatting; filters; navigation metadata; a theme object; one valid additional property not projected into typed IR; stable identities; and an invalid/unsupported schema case. Compare canonical semantic paths and fidelity classifications, not raw whole-file hashes except for unchanged source documents.

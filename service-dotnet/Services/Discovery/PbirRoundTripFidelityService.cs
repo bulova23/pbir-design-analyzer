@@ -18,6 +18,10 @@ internal sealed class PbirRoundTripFidelityService
         var preserved = new List<string>();
         var changed = new List<string>();
         var unexpected = new List<string>();
+        var authoringIdentical = new List<string>();
+        var semanticEquivalent = new List<string>();
+        var intentionallyChanged = new List<string>();
+        var unsupported = new List<string>();
         foreach (var path in paths)
         {
             sourceFiles.TryGetValue(path, out var source);
@@ -36,11 +40,25 @@ internal sealed class PbirRoundTripFidelityService
                                 ? PbirFidelityClassification.ExpectedNormalizedDifference
                                 : PbirFidelityClassification.UnexpectedDifference;
             files.Add(new(path, classification, sourceHash, outputHash));
-            if (classification is PbirFidelityClassification.ByteIdentical or PbirFidelityClassification.SemanticallyIdentical) preserved.Add(path);
+            if (classification == PbirFidelityClassification.ByteIdentical)
+            {
+                preserved.Add(path);
+                authoringIdentical.Add(path);
+            }
+            else if (classification == PbirFidelityClassification.SemanticallyIdentical)
+            {
+                preserved.Add(path);
+                semanticEquivalent.Add(path);
+            }
+            else if (classification == PbirFidelityClassification.ExpectedNormalizedDifference && expectedChangedPaths.Contains(path))
+            {
+                intentionallyChanged.Add(path);
+            }
             if (classification is not (PbirFidelityClassification.ByteIdentical or PbirFidelityClassification.SemanticallyIdentical)) changed.Add(path);
             if (classification is PbirFidelityClassification.UnexpectedDifference or PbirFidelityClassification.MissingOutput) unexpected.Add(path);
+            if (classification == PbirFidelityClassification.Unsupported) unsupported.Add(path);
         }
-        return new(files, preserved, changed, unexpected);
+        return new(files, preserved, changed, unexpected, authoringIdentical, semanticEquivalent, intentionallyChanged, unsupported);
     }
 
     private static bool SemanticallyEqual(string source, string output)

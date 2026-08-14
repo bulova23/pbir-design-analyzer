@@ -105,9 +105,10 @@ The later repository sequence is provisional planning only and does not authoriz
 17. Repository Phase 39: **Generalized Visual Bindings and Chart Support** — additive v4 role bindings and a backend-only Clustered Column Chart over the shared IR (implemented; Series, Legend, Tooltip, and Axis roles remain reserved for later phases; do not expose RPC or VS Code until the model stabilizes)
 18. Repository Phases 40–41: original Phase 6 refinement loop
 19. Repository Phase 42: **Report Mutation Foundation** — imported PBIR discovery, deterministic mutation planning, and structural execution (implemented backend-only; serialized fidelity was intentionally deferred)
-20. Repository Phase 43: **Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity** — bounded hybrid envelope, typed merge precedence, imported identity retention, fidelity/hash classification, and analyzer comparison (in progress; RPC remains deferred)
-21. Repository Phase 44: evaluate a minimal internal RPC surface only after Phase 43 demonstrates stable, deterministic authoring fidelity; do not treat this as implementation authority
-22. Repository Phase 45: release hardening and packaging
+20. Repository Phase 43: **Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity** — bounded hybrid envelope, typed merge precedence, imported identity retention, fidelity/hash classification, and analyzer comparison (implemented backend-only)
+21. Repository Phase 44: **Semantic Binding Projection and Full Round-Trip Fidelity** — descriptor-based import projection, unsupported-role preservation, shared-IR semantic equivalence, analyzer-before/after evidence, and stage timing observations (implemented backend-only; RPC remains deferred)
+22. Repository Phase 45: evaluate whether the backend authoring and mutation contracts are stable enough for a minimal internal RPC surface, based on demonstrated semantic projection and fidelity evidence; do not implement RPC as part of Phase 44
+23. Repository Phase 46: release hardening and packaging
 23. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.

@@ -28,6 +28,10 @@ Focused Phase 43/42 backend tests passed 44/44. The full backend suite passed 93
 
 The complete imported analyzer-before/after comparison and stage-level import/planning/execution/serialization/analyzer benchmark remain open because the narrow reader semantic binding projection is not yet sufficient to drive the existing strict serializer/analyzer input contract for every generated visual family. Phase 44 RPC is not recommended until that gap is closed.
 
+## Phase 44 follow-up
+
+Phase 44 closes the reader semantic projection gap recorded below for the supported visual families by resolving imported query-state roles through the shared descriptor catalog. It adds shared-IR semantic equivalence, unsupported-role diagnostics, and imported analyzer-before/after evidence while retaining all Phase 43 envelope and mutation boundaries.
+
 ## Known limitations
 
 Formatting, themes, filters, navigation, slicer metadata, and other unsupported typed mutations are preserved but cannot be changed through the opaque envelope. Arbitrary JSON patching remains prohibited. Byte identity is available for preserved source documents, while changed documents are canonicalized and reported as expected differences.

@@ -14,4 +14,9 @@ internal sealed record PbirLocalReportImportSnapshot(
     [property: JsonPropertyName("pageIdentities")] IReadOnlyDictionary<string, string> PageIdentities,
     [property: JsonPropertyName("visualIdentities")] IReadOnlyDictionary<string, string> VisualIdentities,
     [property: JsonPropertyName("fileHashes")] IReadOnlyDictionary<string, string> FileHashes,
-    [property: JsonPropertyName("diagnostics")] IReadOnlyList<LocalPbirMutationDiagnostic> Diagnostics);
+    [property: JsonPropertyName("diagnostics")] IReadOnlyList<LocalPbirMutationDiagnostic> Diagnostics,
+    [property: JsonPropertyName("performance")] PbirLocalReportImportPerformance? Performance = null);
+
+internal sealed record PbirLocalReportImportPerformance(
+    [property: JsonPropertyName("readerMilliseconds")] long ReaderMilliseconds,
+    [property: JsonPropertyName("semanticProjectionMilliseconds")] long SemanticProjectionMilliseconds);

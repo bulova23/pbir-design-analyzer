@@ -222,3 +222,5 @@ Repository Phase 29 implements original roadmap Phase 4A serialization as a sepa
 The preview serializer remains unchanged in authority and artifact type. It never emits definition.pbir, definition/report.json, root-level report.json, page definitions, or visual definitions.
 
 The remaining gap is **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**. It requires a new goal and a separate writer. The repo still has no deployable local artifact writer, PBIP project materialization, Microsoft Skills execution, provider invocation, API or CLI invocation, Desktop automation, deployment, publishing, or Analyzer automation.
+
+Phase 44 does not widen this preview serializer. It adds descriptor-based semantic projection and shared-IR equivalence evidence upstream of the existing serializer/merge boundary. Opaque imported authoring state continues to use the Phase 43 envelope, while only descriptor-supported roles become typed semantic inputs.

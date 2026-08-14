@@ -28,6 +28,29 @@ public sealed class Phase40VisualDescriptorTests
         Assert.Contains(descriptor.SerializerRoles, role => role.SerializerRole == serializerRole && role.BindingRole.ToString() == bindingRole);
     }
 
+    [Theory]
+    [InlineData("card", "Fields", "Value")]
+    [InlineData("table", "Values", "Value")]
+    [InlineData("clusteredColumnChart", "Category", "Category")]
+    [InlineData("lineChart", "Series", "Series")]
+    [InlineData("barChart", "Y", "Value")]
+    [InlineData("pieChart", "Category", "Legend")]
+    [InlineData("slicer", "Category", "Category")]
+    public void Catalog_ResolvesImportedRoleAliasesToTheCanonicalSharedRole(string visualType, string importedRole, string bindingRole)
+    {
+        var projection = Assert.Single(Phase40VisualDescriptorCatalog.ResolveImportedRoles(visualType, importedRole));
+
+        Assert.Equal(bindingRole, projection.BindingRole.ToString());
+    }
+
+    [Fact]
+    public void Catalog_ResolvesSerializerTooltipRoleToTheSharedTooltipRole()
+    {
+        var projection = Assert.Single(Phase40VisualDescriptorCatalog.ResolveImportedRoles("lineChart", "Tooltips"));
+
+        Assert.Equal(LocalPbirGenerationBindingRole.Tooltip, projection.BindingRole);
+    }
+
     [Fact]
     public void TemplateCatalog_UsesStableStronglyTypedDefaults()
     {

@@ -2,12 +2,21 @@
 
 ## Active Session
 
+- 2026-08-14 Repository Phase 43 planning/reconciliation review: HEAD is a clean commit that claims Phase 43 implementation although the requested starting state says Phase 43 was not started. Treat the committed Phase 43 implementation and adjacent report-reader edits as protected evidence; do not extend or delete production code in this goal. Reconcile the existing design/plan against the pinned schema boundary, Phase 42 mutation foundation, and actual serializer integration, then leave an implementation-ready corrected plan only.
+
+- 2026-08-14 Repository Phase 44 — Semantic Binding Projection and Full Round-Trip Fidelity:
+  - authorized scope: project and implement descriptor-based semantic projection for imported PBIR across the existing supported visual families; preserve the Phase 43 envelope, shared IR, mutation, serializer, analyzer, and backend-only boundaries; no RPC, VS Code, new visual families, or semantic-model/DAX generation; leave all changes uncommitted and unstaged
+  - design approval: user approved the recommended single-catalog projection architecture on 2026-08-14
+  - current status: descriptor-based projection, unsupported-role diagnostics, shared-IR semantic equivalence, imported analyzer comparison, and timing evidence implemented and validated
+  - required boundary: imported roles not represented by the existing descriptor catalog remain envelope-preserved, structured-diagnostic, untyped, and non-mutable
+  - closeout: focused Phase 44 is 23/23; full backend is 947 passed with 11 expected Windows skips; core Release build, extension TypeScript/Jest/webview/build, timing observation, and git diff --check passed; all changes remain uncommitted and unstaged; Phase 45 may evaluate minimal internal RPC only after contract review
+
 - 2026-08-14 Repository Phase 43 — Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity:
   - authorized scope: implement the approved hybrid lossless-authoring envelope over the existing shared IR, reader, mutation planner/executor, serializer, analyzer, and validation; preserve generation compatibility; no RPC; leave all changes uncommitted and unstaged
   - design and implementation plan: `docs/superpowers/specs/2026-08-14-phase43-lossless-authoring-ir-design.md` and `docs/superpowers/plans/2026-08-14-phase43-lossless-authoring-ir.md`
-  - current status: design approved and implementation beginning with envelope contracts and reader preservation tests
+  - current status: prior committed artifacts are under reconciliation; helper tests pass, but end-to-end merge, serializer, fidelity, and analyzer acceptance remains unproven
   - required boundary: opaque preservation is bounded by pinned schema ownership and cannot expose arbitrary JSON mutation or bypass typed validation
-  - closeout: hybrid envelope, reader capture, merge boundary, identity provenance, fidelity classification, focused tests, full backend/extension validation, and documentation are complete for this slice; imported analyzer comparison and stage-level performance evidence remain the next Phase 43 gate
+  - closeout: not accepted as Phase 43 completion; the implementation note is retained as provenance and evidence only until the reconciled acceptance gate passes
 
 ## Phase 42 — Explicit Slicer Interaction Closeout
 

@@ -251,3 +251,9 @@ The lossless goal is semantic and authoring fidelity within the pinned supported
 Preserved authoring state is bounded to owned definition JSON documents and source hashes; it is not a filesystem snapshot. Unsupported schema versions and unsupported constructs fail closed. Themes, filters, navigation metadata, slicer metadata, formatting objects, and other schema-supported properties remain in the owned source document even when not yet typed. Mutation operations without a typed merge contract remain rejected.
 
 That phase requires a new goal, must remain downstream from PBIR IR and the Phase 29 manifest, and must not reuse or widen the preview-only writer.
+
+## Phase 44 semantic projection boundary
+
+Imported query-state bindings now resolve through the existing Phase 40/41 descriptor catalogs into the same shared binding records used by generation, mutation, serialization, and analyzer comparison. Supported Card, Table, Clustered Column Chart, Line Chart, Bar Chart, Pie Chart, and Slicer roles are projected with measure/dimension kind, canonical role, source references, and projection order. Unknown roles remain envelope-preserved and produce `PreservedButUntyped` diagnostics; invalid descriptor combinations block imported readiness.
+
+Semantic comparison is IR-based and distinguishes unchanged bindings, intended visual changes, and unexpected semantic changes. Import/projection timings are recorded, and a representative imported layout mutation has analyzer-before/after evidence with unchanged composite score. Bookmarks, drillthrough, shared slicers, semantic-model/DAX generation, and typed mutation of opaque authoring domains remain unsupported.

@@ -30,6 +30,9 @@ public sealed class PbirRoundTripFidelityServiceTests
         Assert.Equal(PbirFidelityClassification.SemanticallyIdentical, result.Files.Single(file => file.RelativePath == "semantic.json").Classification);
         Assert.Equal(PbirFidelityClassification.ExpectedNormalizedDifference, result.Files.Single(file => file.RelativePath == "changed.json").Classification);
         Assert.Equal(PbirFidelityClassification.UnexpectedDifference, result.Files.Single(file => file.RelativePath == "unexpected.json").Classification);
+        Assert.Contains("same.json", result.AuthoringIdentical);
+        Assert.Contains("semantic.json", result.SemanticEquivalent);
+        Assert.Contains("changed.json", result.IntentionallyChanged);
         Assert.Contains("unexpected.json", result.UnexpectedPaths);
         Assert.False(result.IsFidelityReady);
     }

@@ -82,10 +82,22 @@ internal sealed record LocalPbirMutationRequest(
     [property: JsonPropertyName("datasetPath")] string? DatasetPath = null,
     [property: JsonPropertyName("requestId")] string? RequestId = null);
 
+internal enum LocalPbirSemanticProjectionStatus
+{
+    Projected,
+    PreservedButUntyped,
+    Unsupported,
+    Invalid
+}
+
 internal sealed record LocalPbirMutationDiagnostic(
     [property: JsonPropertyName("code")] string Code,
     [property: JsonPropertyName("field")] string Field,
-    [property: JsonPropertyName("message")] string Message);
+    [property: JsonPropertyName("message")] string Message)
+{
+    [JsonPropertyName("projectionStatus")]
+    public LocalPbirSemanticProjectionStatus? ProjectionStatus { get; init; }
+}
 
 internal sealed record LocalPbirMutationIdentityEvidence(
     [property: JsonPropertyName("pageIds")] IReadOnlyList<string> PageIds,
