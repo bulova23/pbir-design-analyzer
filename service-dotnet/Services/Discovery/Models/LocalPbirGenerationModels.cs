@@ -8,13 +8,14 @@ internal static class LocalPbirGenerationRequestContract
     internal const string SchemaVersionV1 = "local-pbir-generation-request/v1";
     internal const string SchemaVersionV2 = "local-pbir-generation-request/v2";
     internal const string SchemaVersionV3 = "local-pbir-generation-request/v3";
+    internal const string SchemaVersionV4 = "local-pbir-generation-request/v4";
 }
 
 internal static class LocalPbirGenerationProviderContract
 {
     internal const string SchemaVersionV1 = "local-pbir-generation-provider/v1";
     internal const string SupportedVisualType = "card";
-    internal static IReadOnlyList<string> SupportedVisualTypes { get; } = ["card", "table"];
+    internal static IReadOnlyList<string> SupportedVisualTypes { get; } = ["card", "table", "clusteredColumnChart"];
 }
 
 internal static class LocalPbirGenerationResultContract
@@ -47,6 +48,16 @@ internal enum LocalPbirGenerationBindingKind
     Dimension
 }
 
+internal enum LocalPbirGenerationBindingRole
+{
+    Value,
+    Category,
+    Series,
+    Axis,
+    Legend,
+    Tooltip
+}
+
 internal sealed record LocalPbirGenerationPage(
     [property: JsonPropertyName("pageId")] string PageId,
     [property: JsonPropertyName("displayName")] string DisplayName,
@@ -66,7 +77,23 @@ internal sealed record LocalPbirGenerationBinding(
     [property: JsonPropertyName("token")] string Token,
     [property: JsonPropertyName("kind")] LocalPbirGenerationBindingKind Kind,
     [property: JsonPropertyName("entity")] string Entity,
-    [property: JsonPropertyName("property")] string Property);
+    [property: JsonPropertyName("property")] string Property)
+{
+    [JsonPropertyName("role")]
+    public LocalPbirGenerationBindingRole Role { get; init; } = LocalPbirGenerationBindingRole.Value;
+
+    internal LocalPbirGenerationBinding(
+        string bindingId,
+        string token,
+        LocalPbirGenerationBindingKind kind,
+        LocalPbirGenerationBindingRole role,
+        string entity,
+        string property)
+        : this(bindingId, token, kind, entity, property)
+    {
+        Role = role;
+    }
+}
 
 internal sealed record LocalPbirGenerationVisual(
     [property: JsonPropertyName("visualId")] string VisualId,
@@ -89,6 +116,22 @@ internal sealed record LocalPbirGenerationRequestV2(
     [property: JsonPropertyName("visuals")] IReadOnlyList<LocalPbirGenerationVisual> Visuals);
 
 internal sealed record LocalPbirGenerationRequestV3(
+    [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
+    [property: JsonPropertyName("requestId")] string RequestId,
+    [property: JsonPropertyName("reportName")] string ReportName,
+    [property: JsonPropertyName("datasetPath")] string DatasetPath,
+    [property: JsonPropertyName("generatedUtc")] DateTime GeneratedUtc,
+    [property: JsonPropertyName("outputBaseDirectory")] string OutputBaseDirectory,
+    [property: JsonPropertyName("targetDirectoryName")] string TargetDirectoryName,
+    [property: JsonPropertyName("pages")] IReadOnlyList<LocalPbirGenerationPage> Pages,
+    [property: JsonPropertyName("visuals")] IReadOnlyList<LocalPbirGenerationVisual> Visuals,
+    [property: JsonPropertyName("theme")] LocalPbirGenerationTheme? Theme = null,
+    [property: JsonPropertyName("reportFilters")] IReadOnlyList<LocalPbirGenerationEqualityFilter>? ReportFilters = null,
+    [property: JsonPropertyName("metadata")] LocalPbirGenerationReportMetadata? Metadata = null,
+    [property: JsonPropertyName("interaction")] LocalPbirGenerationInteractionSettings? Interaction = null,
+    [property: JsonPropertyName("layout")] LocalPbirGenerationLayoutSettings? Layout = null);
+
+internal sealed record LocalPbirGenerationRequestV4(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
     [property: JsonPropertyName("requestId")] string RequestId,
     [property: JsonPropertyName("reportName")] string ReportName,

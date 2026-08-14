@@ -2230,3 +2230,10 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added additive typed v3 PBIR authoring for formatting, themes, equality filters, basic interactions, metadata, and deterministic layout margins/spacing over the existing Card and Table provider.
 - Reused Phase 29 serialization, Phase 31 materialization, pinned schema validation, analyzer round-trip, deterministic hashes, and lineage; v1/v2 remain compatible and no public RPC/VS Code or new visual type was added.
 - Added design/plan/spec/current-state documentation and focused regression coverage. Final full-suite counts are recorded in the dedicated session note after validation.
+
+# 2026-08-14 — Phase 39 generalized visual bindings and chart foundation
+
+- Added additive v4 role-bearing bindings in the local PBIR provider and shared IR, preserving v1–v3 Card/Table contracts and reusing the Phase 29 serializer, Phase 31 materialization, validation, lineage, hashes, and analyzer.
+- Added Clustered Column Chart with Category and Value roles plus schema-safe title, axis-label, legend, background, and deterministic color formatting. Series, Axis, Legend, and Tooltip remain typed but reserved for future visual families.
+- Focused provider suite: 30 passed. Full backend: 887 passed, 11 expected Windows skips, 0 failed. Core build, extension build/TypeScript compilation, extension Jest 494, webview Jest 68, and `git diff --check` passed. Representative score 92.5; timing 2/73/23 ms generation/materialization/analyzer.
+- Added Phase 39 design, plan, implementation note, current-state record, roadmap update, and session note. Changes remain unstaged and uncommitted.

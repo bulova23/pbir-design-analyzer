@@ -3490,8 +3490,8 @@
 
 ## Next Recommended Step
 
-- Run the Phase 35I WindowsIntegration suite on a real certified Windows worker and remediate only evidence-backed failures.
-- Do not activate a real provider, credentials, network isolation, or another architecture layer before Windows containment evidence is complete.
+- Review the Phase 39 generalized binding diff and consider Phase 40 chart-family expansion only after the role semantics remain stable.
+- Keep the binding model backend-only; do not add public RPC, VS Code, hosted execution, Windows execution, or another security layer for Phase 40 without separate authorization.
 
 ## Relevant Files
 
@@ -3514,7 +3514,7 @@
 
 ## Last Updated
 
-- Date: `2026-08-13`
+- Date: `2026-08-14`
 - By: `codex`
 # 2026-08-12 Phase 35D — pre-production provider certification
 

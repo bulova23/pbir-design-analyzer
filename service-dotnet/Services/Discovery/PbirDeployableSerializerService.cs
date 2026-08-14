@@ -630,6 +630,14 @@ internal sealed class PbirDeployableSerializerService
             WriteTitleObject(writer, table.Subtitle, table.Row, "values", null, table.NumberFormat);
             if (table.AlternateRowColor is not null) WriteColorObject(writer, "alternateRows", table.AlternateRowColor.Hex);
         }
+        if (visual.VisualType == "clusteredColumnChart" && authoring.Chart is { } chart)
+        {
+            WriteTitleObject(writer, chart.Title, null, "title", null);
+            if (chart.AxisLabels is not null) WriteBooleanObject(writer, "categoryAxisLabels", chart.AxisLabels.Value);
+            if (chart.LegendVisible is not null) WriteBooleanObject(writer, "legend", chart.LegendVisible.Value);
+            if (chart.Background is not null) WriteColorObject(writer, "background", chart.Background.Hex);
+            if (chart.Colors is { Count: > 0 }) WriteColorObjects(writer, "dataColors", chart.Colors);
+        }
         writer.WriteEndObject();
     }
 
@@ -682,6 +690,35 @@ internal sealed class PbirDeployableSerializerService
         writer.WritePropertyName("properties");
         writer.WriteStartObject();
         writer.WriteString("color", color);
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteEndArray();
+    }
+
+    private static void WriteColorObjects(Utf8JsonWriter writer, string objectName, IReadOnlyList<LocalPbirGenerationColor> colors)
+    {
+        writer.WritePropertyName(objectName);
+        writer.WriteStartArray();
+        foreach (var color in colors)
+        {
+            writer.WriteStartObject();
+            writer.WritePropertyName("properties");
+            writer.WriteStartObject();
+            writer.WriteString("color", color.Hex);
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+    }
+
+    private static void WriteBooleanObject(Utf8JsonWriter writer, string objectName, bool value)
+    {
+        writer.WritePropertyName(objectName);
+        writer.WriteStartArray();
+        writer.WriteStartObject();
+        writer.WritePropertyName("properties");
+        writer.WriteStartObject();
+        writer.WriteBoolean("show", value);
         writer.WriteEndObject();
         writer.WriteEndObject();
         writer.WriteEndArray();

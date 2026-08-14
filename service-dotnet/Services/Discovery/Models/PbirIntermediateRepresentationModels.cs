@@ -99,7 +99,33 @@ internal sealed record PbirIntermediateRepresentationVisual(
     [property: JsonPropertyName("semanticIntent")] string SemanticIntent,
     [property: JsonPropertyName("interactionModel")] IReadOnlyList<string> InteractionModel,
     [property: JsonPropertyName("order")] int Order,
-    [property: JsonPropertyName("layout")] PbirIntermediateRepresentationVisualLayout? Layout = null);
+    [property: JsonPropertyName("layout")] PbirIntermediateRepresentationVisualLayout? Layout = null,
+    [property: JsonPropertyName("bindings")] IReadOnlyList<PbirIntermediateRepresentationBinding>? Bindings = null);
+
+internal enum PbirIntermediateRepresentationBindingRole
+{
+    Value,
+    Category,
+    Series,
+    Axis,
+    Legend,
+    Tooltip
+}
+
+internal enum PbirIntermediateRepresentationBindingKind
+{
+    Measure,
+    Dimension
+}
+
+internal sealed record PbirIntermediateRepresentationBinding(
+    [property: JsonPropertyName("bindingId")] string BindingId,
+    [property: JsonPropertyName("role")] PbirIntermediateRepresentationBindingRole Role,
+    [property: JsonPropertyName("kind")] PbirIntermediateRepresentationBindingKind Kind,
+    [property: JsonPropertyName("token")] string Token,
+    [property: JsonPropertyName("entity")] string Entity,
+    [property: JsonPropertyName("property")] string Property,
+    [property: JsonPropertyName("projectionOrder")] int ProjectionOrder);
 
 internal sealed record PbirIntermediateRepresentationVisualLayout(
     [property: JsonPropertyName("x")] int X,

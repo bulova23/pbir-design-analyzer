@@ -81,9 +81,17 @@ internal sealed record LocalPbirGenerationTableFormatting(
     [property: JsonPropertyName("widthBehavior")] LocalPbirGenerationTableWidthBehavior? WidthBehavior = null,
     [property: JsonPropertyName("box")] LocalPbirGenerationBoxStyle? Box = null);
 
+internal sealed record LocalPbirGenerationChartFormatting(
+    [property: JsonPropertyName("title")] string? Title = null,
+    [property: JsonPropertyName("axisLabels")] bool? AxisLabels = null,
+    [property: JsonPropertyName("legendVisible")] bool? LegendVisible = null,
+    [property: JsonPropertyName("colors")] IReadOnlyList<LocalPbirGenerationColor>? Colors = null,
+    [property: JsonPropertyName("background")] LocalPbirGenerationColor? Background = null);
+
 internal sealed record LocalPbirGenerationVisualAuthoring(
     [property: JsonPropertyName("card")] LocalPbirGenerationCardFormatting? Card = null,
     [property: JsonPropertyName("table")] LocalPbirGenerationTableFormatting? Table = null,
+    [property: JsonPropertyName("chart")] LocalPbirGenerationChartFormatting? Chart = null,
     [property: JsonPropertyName("filters")] IReadOnlyList<LocalPbirGenerationEqualityFilter>? Filters = null,
     [property: JsonPropertyName("interaction")] LocalPbirGenerationInteractionSettings? Interaction = null,
     [property: JsonPropertyName("padding")] LocalPbirGenerationPadding? Padding = null);

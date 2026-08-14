@@ -32,6 +32,103 @@ public sealed class LocalPbirGenerationProviderServiceTests
     }
 
     [Fact]
+    public void Contract_ExposesPhase39GeneralizedBindingContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v4", LocalPbirGenerationRequestContract.SchemaVersionV4);
+        Assert.Contains("clusteredColumnChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Equal(LocalPbirGenerationBindingRole.Category, new LocalPbirGenerationBinding(
+            "region", "Region", LocalPbirGenerationBindingKind.Dimension,
+            LocalPbirGenerationBindingRole.Category, "Sales", "Region").Role);
+    }
+
+    [Fact]
+    public void Generate_Phase39Chart_MapsCategoryAndValueRoles()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreatePhase39Request());
+
+        Assert.True(result.Readiness == LocalPbirGenerationReadinessState.Generated, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}")));
+        Assert.True(result.Validation!.IsValid);
+        var visual = result.Artifact!.Files.Single(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)).Content;
+        Assert.Contains("\"Category\"", visual, StringComparison.Ordinal);
+        Assert.Contains("\"Y\"", visual, StringComparison.Ordinal);
+        Assert.Contains("clusteredColumnChart", visual, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_Phase39DuplicateRole_FailsClosed()
+    {
+        var request = CreatePhase39Request() with
+        {
+            Visuals = [CreateChart() with
+            {
+                Bindings = [
+                    new("region-a", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("region-b", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]
+            }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR39-BINDING-ROLE-001");
+    }
+
+    [Fact]
+    public void Generate_Phase39UnsupportedRoleCombination_FailsClosed()
+    {
+        var request = CreatePhase39Request() with
+        {
+            Visuals = [CreateChart() with
+            {
+                Bindings = [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]
+            }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR39-BINDING-KIND-001");
+    }
+
+    [Fact]
+    public async Task Generate_Phase39Catalog_RoundTripsCardTableAndChart()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase39-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase39CatalogRequest(outputBase.FullName));
+
+            Assert.True(result.Readiness == LocalPbirGenerationReadinessState.RoundTripVerified, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}").Concat(result.Materialization?.Diagnostics.Items.Select(item => $"{item.Code}:{item.Field}:{item.Message}") ?? [])));
+            Assert.Equal(2, result.RoundTrip!.PageCount);
+            Assert.Equal(3, result.RoundTrip.VisualCount);
+            Assert.True(result.Validation!.IsValid);
+            Assert.NotNull(result.Performance);
+            Console.WriteLine($"PHASE39_TIMING generationMs={result.Performance!.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE39_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase39SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var request = CreatePhase39Request();
+        var first = new LocalPbirGenerationProviderService().Generate(request);
+        var second = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+        Assert.Equal(first.Manifest!.Hashes, second.Manifest!.Hashes);
+        Assert.Equal(first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)), second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+        Console.WriteLine($"PHASE39_HASH artifact={first.Artifact.Hashes.ArtifactHash} manifest={first.Manifest.Hashes.ManifestHash} fileSet={first.Artifact.Hashes.FileSetHash} lineage={first.Artifact.Hashes.LineageHash}");
+    }
+
+    [Fact]
     public void Generate_Phase38FormattedReport_EmitsThemesFiltersFormattingAndInteractions()
     {
         var outputBase = Directory.CreateTempSubdirectory("pbir-phase38-");
@@ -440,6 +537,39 @@ public sealed class LocalPbirGenerationProviderServiceTests
             Metadata: new("Codex", "Phase 38 representative formatted report", "Sales Rich Authoring"),
             Interaction: new(LocalPbirGenerationInteractionMode.CrossHighlight),
             Layout: new(24, 16, LocalPbirGenerationTextAlignment.Left, 8));
+
+    private static LocalPbirGenerationRequestV4 CreatePhase39Request(string? outputBase = null) =>
+        new(
+            SchemaVersion: LocalPbirGenerationRequestContract.SchemaVersionV4,
+            RequestId: "phase39-sales-bindings",
+            ReportName: "Sales",
+            DatasetPath: "Sales.SemanticModel",
+            GeneratedUtc: new DateTime(2026, 8, 14, 0, 0, 0, DateTimeKind.Utc),
+            OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
+            TargetDirectoryName: "phase39-output",
+            Pages: [new("overview", "Overview", 0)],
+            Visuals: [
+                new("sales-chart", "overview", "clusteredColumnChart", 0, new(0, 0, 640, 360), [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")
+                ], new(Chart: new(Title: "Revenue by Region", AxisLabels: true, LegendVisible: false, Colors: [new("#123456")], Background: new("#FFFFFF"))))]);
+
+    private static LocalPbirGenerationVisual CreateChart() => CreatePhase39Request().Visuals[0];
+
+    private static LocalPbirGenerationRequestV4 CreatePhase39CatalogRequest(string outputBase) =>
+        CreatePhase39Request(outputBase) with
+        {
+            RequestId = "phase39-sales-catalog",
+            TargetDirectoryName = "phase39-catalog-output",
+            Pages = [new("overview", "Overview", 0), new("detail", "Detail", 1)],
+            Visuals = [
+                new("overview-card", "overview", "card", 0, new(0, 0, 320, 160), [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("overview-table", "overview", "table", 1, new(0, 176, 640, 360), [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Value, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                CreateChart() with { PageId = "detail", Layout = new(0, 0, 640, 360) }
+            ]
+        };
 
     private static LocalPbirGenerationVisual CreateCard(
         string id,

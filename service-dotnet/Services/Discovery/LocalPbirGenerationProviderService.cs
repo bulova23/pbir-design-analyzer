@@ -169,6 +169,17 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    internal LocalPbirGenerationResult Generate(LocalPbirGenerationRequestV4? request)
+    {
+        var diagnostics = Validate(request);
+        if (request is null || diagnostics.Count > 0)
+        {
+            return Rejected(request?.RequestId, diagnostics);
+        }
+
+        return Generate(ToV3(request));
+    }
+
     internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
         LocalPbirGenerationRequest request,
         CancellationToken cancellationToken = default)
@@ -441,6 +452,11 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    internal Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
+        LocalPbirGenerationRequestV4 request,
+        CancellationToken cancellationToken = default) =>
+        GenerateAndVerifyAsync(ToV3(request), cancellationToken);
+
     private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequest? request)
     {
         if (request is null)
@@ -616,6 +632,78 @@ internal sealed class LocalPbirGenerationProviderService
         return diagnostics;
     }
 
+    private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequestV4? request)
+    {
+        if (request is null)
+        {
+            return [new("PBIR39-REQUEST-001", "request", "The generation request is required.")];
+        }
+
+        var compatible = ToV3(request);
+        var diagnostics = Validate(compatible).ToList();
+        if (request.SchemaVersion != LocalPbirGenerationRequestContract.SchemaVersionV4)
+        {
+            diagnostics.Add(new("PBIR39-REQUEST-SCHEMA-001", "schemaVersion", "The request schema version is unsupported."));
+        }
+
+        foreach (var visual in request.Visuals)
+        {
+            if (visual.VisualType is not "card" and not "table" and not "clusteredColumnChart") continue;
+            var roles = visual.Bindings
+                .GroupBy(binding => binding.Role)
+                .ToDictionary(group => group.Key, group => group.ToArray());
+
+            if (roles.Values.Any(bindings => bindings.Length > 1 && visual.VisualType == "card"))
+            {
+                diagnostics.Add(new("PBIR39-BINDING-ROLE-001", $"visuals[{visual.VisualId}].bindings", "Card bindings may contain only one Value role."));
+            }
+
+            if (visual.VisualType == "clusteredColumnChart")
+            {
+                if (!roles.TryGetValue(LocalPbirGenerationBindingRole.Category, out var categories) || categories.Length != 1 ||
+                    !roles.TryGetValue(LocalPbirGenerationBindingRole.Value, out var values) || values.Length < 1)
+                {
+                    diagnostics.Add(new("PBIR39-BINDING-ROLE-001", $"visuals[{visual.VisualId}].bindings", "Clustered column charts require exactly one Category and at least one Value binding."));
+                }
+
+                if (visual.Bindings.Any(binding => binding.Role is not LocalPbirGenerationBindingRole.Category and not LocalPbirGenerationBindingRole.Value))
+                {
+                    diagnostics.Add(new("PBIR39-BINDING-ROLE-002", $"visuals[{visual.VisualId}].bindings", "Clustered column charts support only Category and Value roles in Phase 39."));
+                }
+            }
+
+            foreach (var binding in visual.Bindings)
+            {
+                var expectedKind = binding.Role == LocalPbirGenerationBindingRole.Category
+                    ? LocalPbirGenerationBindingKind.Dimension
+                    : LocalPbirGenerationBindingKind.Measure;
+                if (binding.Kind != expectedKind)
+                {
+                    diagnostics.Add(new("PBIR39-BINDING-KIND-001", $"visuals[{visual.VisualId}].bindings[{binding.BindingId}]", "Category bindings must be dimensions and Value bindings must be measures."));
+                }
+            }
+        }
+
+        return diagnostics;
+    }
+
+    private static LocalPbirGenerationRequestV3 ToV3(LocalPbirGenerationRequestV4 request) =>
+        new(
+            LocalPbirGenerationRequestContract.SchemaVersionV3,
+            request.RequestId,
+            request.ReportName,
+            request.DatasetPath,
+            request.GeneratedUtc,
+            request.OutputBaseDirectory,
+            request.TargetDirectoryName,
+            request.Pages,
+            request.Visuals,
+            request.Theme,
+            request.ReportFilters,
+            request.Metadata,
+            request.Interaction,
+            request.Layout);
+
     private static void ValidateFilters(
         IReadOnlyList<LocalPbirGenerationEqualityFilter> filters,
         string field,
@@ -682,7 +770,10 @@ internal sealed class LocalPbirGenerationProviderService
     {
         var card = visual.Authoring?.Card;
         var table = visual.Authoring?.Table;
-        if (visual.VisualType == "card" && table is not null || visual.VisualType == "table" && card is not null)
+        var chart = visual.Authoring?.Chart;
+        if (visual.VisualType == "card" && (table is not null || chart is not null) ||
+            visual.VisualType == "table" && (card is not null || chart is not null) ||
+            visual.VisualType == "clusteredColumnChart" && (card is not null || table is not null))
         {
             diagnostics.Add(new("PBIR38-FORMAT-UNSUPPORTED-001", $"visuals[{visual.VisualId}].authoring", "Formatting must match the visual type."));
         }
@@ -698,6 +789,14 @@ internal sealed class LocalPbirGenerationProviderService
         }
         ValidateBox(card?.Box, visual.VisualId, diagnostics);
         ValidateBox(table?.Box, visual.VisualId, diagnostics);
+        if (chart is not null)
+        {
+            ValidateColor(chart.Background, $"visuals[{visual.VisualId}].authoring", diagnostics);
+            foreach (var color in chart.Colors ?? [])
+            {
+                ValidateColor(color, $"visuals[{visual.VisualId}].authoring", diagnostics);
+            }
+        }
     }
 
     private static void ValidateBox(LocalPbirGenerationBoxStyle? box, string visualId, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
@@ -981,7 +1080,15 @@ internal sealed class LocalPbirGenerationProviderService
             $"intent:{visual.VisualId}",
             ["none"],
             visual.Order + 1,
-            ResolveLayout(visual))).ToArray();
+            ResolveLayout(visual),
+            visual.Bindings.Select((binding, index) => new PbirIntermediateRepresentationBinding(
+                binding.BindingId,
+                (PbirIntermediateRepresentationBindingRole)binding.Role,
+                (PbirIntermediateRepresentationBindingKind)binding.Kind,
+                binding.Token,
+                binding.Entity,
+                binding.Property,
+                index + 1)).ToArray())).ToArray();
         var inventoryEntries = orderedVisuals
             .SelectMany(visual => visual.Bindings)
             .Select(binding => new
@@ -1053,16 +1160,7 @@ internal sealed class LocalPbirGenerationProviderService
         var inventoryHash = canonicalJson.ComputeSha256(canonicalJson.SerializeSemanticModelInventory(inventory));
         var visualBindings = orderedVisuals.Select(visual => new PbirVisualBinding(
             $"visual:{request.RequestId}:{visual.VisualId}",
-            visual.Bindings.Select((binding, index) => new PbirRoleProjectionBinding(
-                visual.VisualType == "card" ? "Fields" : "Values",
-                index + 1,
-                binding.Token,
-                $"{(binding.Kind == LocalPbirGenerationBindingKind.Measure ? "measure" : "column")}:{binding.Entity}.{binding.Property}",
-                $"{binding.Entity}.{binding.Property}",
-                binding.Property,
-                "none",
-                null,
-                null)).ToArray())).ToArray();
+            CreateProjections(visual))).ToArray();
         var deployableRequest = new PbirDeployableSerializerRequest(
             PbirDeployableSerializerRequestContract.SchemaVersionV1,
             $"pbirDeployableSerializerRequest:{request.RequestId}",
@@ -1082,6 +1180,38 @@ internal sealed class LocalPbirGenerationProviderService
             visualBindings,
             PbirDeployableExecutionPolicy.NoAuthority);
         return new GenerationInputs(irState, serializerRequest, deployableRequest);
+
+        static IReadOnlyList<PbirRoleProjectionBinding> CreateProjections(LocalPbirGenerationVisual visual)
+        {
+            var roleOrders = new Dictionary<string, int>(StringComparer.Ordinal);
+            return visual.Bindings.Select(binding =>
+            {
+                var role = GetSerializerRole(visual, binding);
+                roleOrders[role] = roleOrders.TryGetValue(role, out var current) ? current + 1 : 1;
+                return new PbirRoleProjectionBinding(
+                    role,
+                    roleOrders[role],
+                    binding.Token,
+                    $"{(binding.Kind == LocalPbirGenerationBindingKind.Measure ? "measure" : "column")}:{binding.Entity}.{binding.Property}",
+                    $"{binding.Entity}.{binding.Property}",
+                    binding.Property,
+                    "none",
+                    null,
+                    null);
+            }).ToArray();
+        }
+
+        static string GetSerializerRole(LocalPbirGenerationVisual visual, LocalPbirGenerationBinding binding)
+        {
+            if (visual.VisualType == "card") return "Fields";
+            if (visual.VisualType == "table") return "Values";
+            return binding.Role switch
+            {
+                LocalPbirGenerationBindingRole.Category => "Category",
+                LocalPbirGenerationBindingRole.Value => "Y",
+                _ => throw new InvalidOperationException($"Unsupported Phase 39 binding role: {binding.Role}")
+            };
+        }
 
         static PbirIntermediateRepresentationVisualLayout ResolveLayout(LocalPbirGenerationVisual visual)
         {
