@@ -50,7 +50,7 @@ internal sealed class PbirDeployableSerializerService
         }
 
         var candidate = CreateCandidate(irState.Ir, serializerRequest, request, inputDiagnostics);
-        var validation = _validator.ValidateOutput(candidate.Artifact, candidate.Manifest);
+        var validation = _validator.ValidateOutput(candidate.Artifact, candidate.Manifest, irState.Ir.AuthoringEnvelope is not null);
         if (!validation.IsValid)
         {
             return new PbirDeployableSerializerState(
@@ -87,17 +87,18 @@ internal sealed class PbirDeployableSerializerService
         var pages = ir.Pages.OrderBy(page => page.Order).ToArray();
         var pageIdentities = pages.ToDictionary(
             page => page.PageId,
-            page => _canonicalJson.CreatePageIdentity(ir.Metadata.IrId, page.PageIdentity),
+            page => ResolveIdentity(ir, PbirAuthoringOwnerKind.Page, page.PageId, _canonicalJson.CreatePageIdentity(ir.Metadata.IrId, page.PageIdentity)),
             StringComparer.Ordinal);
         var visualIdentities = ir.Visuals.ToDictionary(
             visual => visual.VisualId,
             visual =>
             {
                 var page = pages.Single(value => value.PageId == visual.PageId);
-                return _canonicalJson.CreateVisualIdentity(
-                    ir.Metadata.IrId,
-                    page.PageIdentity,
-                    visual.VisualId);
+                return ResolveIdentity(
+                    ir,
+                    PbirAuthoringOwnerKind.Visual,
+                    visual.VisualId,
+                    _canonicalJson.CreateVisualIdentity(ir.Metadata.IrId, page.PageIdentity, visual.VisualId));
             },
             StringComparer.Ordinal);
 
@@ -179,7 +180,7 @@ internal sealed class PbirDeployableSerializerService
                 PbirDeployableSchemaLock.PageSchemaUrl,
                 PbirDeployableSchemaLock.DefinitionSchemaVersion,
                 [ir.Metadata.IrId, page.PageIdentity],
-                writer => WritePage(writer, pageIdentity, page, request.Authoring)));
+                writer => WritePage(writer, pageIdentity, page, request.Authoring, ir.VisualInteractions)));
 
             foreach (var visual in ir.Visuals
                          .Where(value => value.PageId == page.PageId)
@@ -209,6 +210,7 @@ internal sealed class PbirDeployableSerializerService
             }
         }
 
+        ApplyPreservedDocuments(files, ir);
         var orderedFiles = files.OrderBy(file => file.RelativePath, StringComparer.Ordinal).ToArray();
         var inputHash = _canonicalJson.ComputeSha256(JsonSerializer.Serialize(new
         {
@@ -365,6 +367,34 @@ internal sealed class PbirDeployableSerializerService
                 .ToArray());
     }
 
+    private void ApplyPreservedDocuments(List<PbirDeployableGeneratedFile> files, PbirIntermediateRepresentation ir)
+    {
+        if (ir.AuthoringEnvelope is null) return;
+        foreach (var document in new PbirAuthoringMergeService().Resolve(ir).Documents)
+        {
+            var relativePath = $"definition/{document.RelativePath}";
+            var index = files.FindIndex(file => string.Equals(file.RelativePath, relativePath, StringComparison.Ordinal));
+            if (index < 0) continue;
+            var content = document.Content;
+            files[index] = files[index] with
+            {
+                Content = content,
+                ByteLength = Encoding.UTF8.GetByteCount(content),
+                HashSha256 = _canonicalJson.ComputeSha256(content)
+            };
+        }
+    }
+
+    private static string ResolveIdentity(
+        PbirIntermediateRepresentation ir,
+        PbirAuthoringOwnerKind ownerKind,
+        string ownerId,
+        string generatedIdentity)
+    {
+        var imported = ir.AuthoringEnvelope?.Find(ownerKind, ownerId)?.Identity;
+        return imported?.PreferredIdentity ?? generatedIdentity;
+    }
+
     private static void WriteVisual(
         Utf8JsonWriter writer,
         PbirIntermediateRepresentationVisual visual,
@@ -465,7 +495,12 @@ internal sealed class PbirDeployableSerializerService
         writer.WriteEndObject();
     }
 
-    private static void WritePage(Utf8JsonWriter writer, string pageIdentity, PbirIntermediateRepresentationPage page, LocalPbirGenerationRequestV3? authoring)
+    private static void WritePage(
+        Utf8JsonWriter writer,
+        string pageIdentity,
+        PbirIntermediateRepresentationPage page,
+        LocalPbirGenerationRequestV3? authoring,
+        IReadOnlyList<PbirIntermediateRepresentationVisualInteraction>? interactions)
     {
         var pageAuthoring = authoring?.Pages.FirstOrDefault(value => value.PageId == page.PageId)?.Authoring;
         writer.WriteStartObject();
@@ -491,7 +526,22 @@ internal sealed class PbirDeployableSerializerService
             writer.WriteEndArray();
             writer.WriteEndObject();
         }
-        if (authoring?.Interaction is { } interaction)
+        var pageInteractions = interactions?.Where(item => item.PageId == page.PageId).ToArray() ?? [];
+        if (pageInteractions.Length > 0)
+        {
+            writer.WritePropertyName("visualInteractions");
+            writer.WriteStartArray();
+            foreach (var interaction in pageInteractions.OrderBy(item => item.SourceVisualId, StringComparer.Ordinal).ThenBy(item => item.TargetVisualId, StringComparer.Ordinal))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("source", interaction.SourceVisualId);
+                writer.WriteString("target", interaction.TargetVisualId);
+                writer.WriteString("type", interaction.Type);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+        }
+        else if (authoring?.Interaction is { } interaction)
         {
             writer.WritePropertyName("visualInteractions");
             writer.WriteStartArray();

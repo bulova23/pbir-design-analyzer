@@ -10,6 +10,8 @@ Generation remains unchanged and continues to own report creation. Import, plann
 
 Phase 42 remains backend-only. It does not add RPC, VS Code commands, Windows or hosted execution, Desktop automation, provider-security changes, semantic-model or DAX generation, bookmarks, drillthrough, shared slicers, custom visuals, or mutation of arbitrary JSON.
 
+Phase 43 extends this foundation with a bounded hybrid authoring envelope. The envelope preserves imported schema-admitted source documents and identity provenance, but it is not a generic mutation mechanism. Typed mutations are merged through one authoring boundary and validated before serialization. Phase 42's fail-closed behavior remains the compatibility default for operations without typed merge support.
+
 ## Import boundary
 
 `PbirLocalReportReader` accepts an explicit local report directory and reads only the known definition files: report metadata, page order, page files, and visual-container files. It validates file presence, pinned schema URLs/versions, page and visual identities, references, supported visual shapes, and target relationships. It projects supported fields into the existing `PbirIntermediateRepresentation`; fields not represented by the IR are retained only when the current serializer can reproduce them deterministically, otherwise import rejects the report rather than silently dropping content.
@@ -41,4 +43,3 @@ The first importer supports only PBIR files emitted by the pinned Phase 29 seria
 ## Testing and performance
 
 Tests cover importer acceptance/rejection, identity projection, every supported operation, conflict detection, no-op reapplication, hash preservation for untouched files, deterministic output, analyzer regression, and materialization integration. A representative benchmark records import, planning, execution, serialization, materialization, and analyzer timings beside the existing full-generation timing; observations are documented without making performance claims beyond measured local runs.
-

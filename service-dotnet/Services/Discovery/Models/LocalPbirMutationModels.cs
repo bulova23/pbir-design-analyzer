@@ -105,6 +105,15 @@ internal sealed record LocalPbirMutationEvidence(
     [property: JsonPropertyName("analyzerResult")] ScoreResult? AnalyzerResult,
     [property: JsonPropertyName("lineage")] PbirDeployableLineage? Lineage);
 
+internal sealed record LocalPbirMutationAuthoringEvidence(
+    [property: JsonPropertyName("preservedIdentityPaths")] IReadOnlyList<string> PreservedIdentityPaths,
+    [property: JsonPropertyName("changedIdentityPaths")] IReadOnlyList<string> ChangedIdentityPaths,
+    [property: JsonPropertyName("preservedAuthoringPaths")] IReadOnlyList<string> PreservedAuthoringPaths,
+    [property: JsonPropertyName("changedAuthoringPaths")] IReadOnlyList<string> ChangedAuthoringPaths,
+    [property: JsonPropertyName("fidelity")] PbirRoundTripFidelityResult? Fidelity,
+    [property: JsonPropertyName("analyzerBefore")] ScoreResult? AnalyzerBefore,
+    [property: JsonPropertyName("analyzerAfter")] ScoreResult? AnalyzerAfter);
+
 internal sealed record LocalPbirMutationPerformance(
     [property: JsonPropertyName("importMilliseconds")] long ImportMilliseconds,
     [property: JsonPropertyName("planningMilliseconds")] long PlanningMilliseconds,

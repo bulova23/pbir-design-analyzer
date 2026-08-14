@@ -11,6 +11,7 @@ internal static class LocalPbirGenerationRequestContract
     internal const string SchemaVersionV4 = "local-pbir-generation-request/v4";
     internal const string SchemaVersionV5 = "local-pbir-generation-request/v5";
     internal const string SchemaVersionV6 = "local-pbir-generation-request/v6";
+    internal const string SchemaVersionV7 = "local-pbir-generation-request/v7";
 }
 
 internal static class LocalPbirGenerationProviderContract
@@ -166,6 +167,23 @@ internal sealed record LocalPbirGenerationRequestV5(
     [property: JsonPropertyName("layout")] LocalPbirGenerationLayoutSettings? Layout = null);
 
 internal sealed record LocalPbirGenerationRequestV6(
+    [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
+    [property: JsonPropertyName("requestId")] string RequestId,
+    [property: JsonPropertyName("reportName")] string ReportName,
+    [property: JsonPropertyName("datasetPath")] string DatasetPath,
+    [property: JsonPropertyName("generatedUtc")] DateTime GeneratedUtc,
+    [property: JsonPropertyName("outputBaseDirectory")] string OutputBaseDirectory,
+    [property: JsonPropertyName("targetDirectoryName")] string TargetDirectoryName,
+    [property: JsonPropertyName("pages")] IReadOnlyList<LocalPbirGenerationPage> Pages,
+    [property: JsonPropertyName("visuals")] IReadOnlyList<LocalPbirGenerationVisual> Visuals,
+    [property: JsonPropertyName("theme")] LocalPbirGenerationTheme? Theme = null,
+    [property: JsonPropertyName("reportFilters")] IReadOnlyList<LocalPbirGenerationEqualityFilter>? ReportFilters = null,
+    [property: JsonPropertyName("metadata")] LocalPbirGenerationReportMetadata? Metadata = null,
+    [property: JsonPropertyName("interaction")] LocalPbirGenerationInteractionSettings? Interaction = null,
+    [property: JsonPropertyName("layout")] LocalPbirGenerationLayoutSettings? Layout = null,
+    [property: JsonPropertyName("compositions")] IReadOnlyList<LocalPbirGenerationPageComposition>? Compositions = null);
+
+internal sealed record LocalPbirGenerationRequestV7(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
     [property: JsonPropertyName("requestId")] string RequestId,
     [property: JsonPropertyName("reportName")] string ReportName,

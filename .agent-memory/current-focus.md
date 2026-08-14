@@ -1,8 +1,17 @@
 # Current Focus
 
-## Phase 42 — Explicit Slicer Interaction Design Gate
+## Active Session
 
-- 2026-08-14: Phase 41 is complete and the exact next roadmap milestone is Repository Phase 42. No approved Phase 42 plan existed. Proposed the smaller backend-only additive v7 explicit same-page slicer-interaction slice in `docs/superpowers/specs/2026-08-14-phase42-explicit-slicer-interactions-design.md` and `docs/superpowers/plans/2026-08-14-phase42-explicit-slicer-interactions.md`; stop for explicit approval before implementation. Preserve V1–v6, Phase 29–31, analyzer/scoring, RPC/VS Code, provider-runtime, and execution boundaries.
+- 2026-08-14 Repository Phase 43 — Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity:
+  - authorized scope: implement the approved hybrid lossless-authoring envelope over the existing shared IR, reader, mutation planner/executor, serializer, analyzer, and validation; preserve generation compatibility; no RPC; leave all changes uncommitted and unstaged
+  - design and implementation plan: `docs/superpowers/specs/2026-08-14-phase43-lossless-authoring-ir-design.md` and `docs/superpowers/plans/2026-08-14-phase43-lossless-authoring-ir.md`
+  - current status: design approved and implementation beginning with envelope contracts and reader preservation tests
+  - required boundary: opaque preservation is bounded by pinned schema ownership and cannot expose arbitrary JSON mutation or bypass typed validation
+  - closeout: hybrid envelope, reader capture, merge boundary, identity provenance, fidelity classification, focused tests, full backend/extension validation, and documentation are complete for this slice; imported analyzer comparison and stage-level performance evidence remain the next Phase 43 gate
+
+## Phase 42 — Explicit Slicer Interaction Closeout
+
+- 2026-08-14: Phase 42 completed as the additive backend-only v7 explicit same-page slicer-interaction slice. The pinned schema correction narrowed modes to `Default`, `DataFilter`, `HighlightFilter`, and `NoFilter`, and removed page-scope targets because the schema requires visual-name targets. Focused Phase 42 is 9/9 with deterministic generation and analyzer/provider round-trip; preserve V1–v6, Phase 29–31, analyzer/scoring, RPC/VS Code, provider-runtime, and execution boundaries.
 
 ## Phase 41 — Report Composition — Closeout
 

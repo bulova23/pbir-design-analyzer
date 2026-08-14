@@ -104,9 +104,11 @@ The later repository sequence is provisional planning only and does not authoriz
 16. Repository Phase 38: **Rich PBIR Authoring** — typed formatting, deterministic themes, equality filters, basic interactions, metadata, and layout enhancements over the existing Card and Table catalog (implemented backend-only)
 17. Repository Phase 39: **Generalized Visual Bindings and Chart Support** — additive v4 role bindings and a backend-only Clustered Column Chart over the shared IR (implemented; Series, Legend, Tooltip, and Axis roles remain reserved for later phases; do not expose RPC or VS Code until the model stabilizes)
 18. Repository Phases 40–41: original Phase 6 refinement loop
-19. Repository Phases 42–44: original Phase 7 Fabric target mapping, generation, review, deployment, and publishing
-20. Repository Phase 45: release hardening and packaging
-21. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
+19. Repository Phase 42: **Report Mutation Foundation** — imported PBIR discovery, deterministic mutation planning, and structural execution (implemented backend-only; serialized fidelity was intentionally deferred)
+20. Repository Phase 43: **Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity** — bounded hybrid envelope, typed merge precedence, imported identity retention, fidelity/hash classification, and analyzer comparison (in progress; RPC remains deferred)
+21. Repository Phase 44: evaluate a minimal internal RPC surface only after Phase 43 demonstrates stable, deterministic authoring fidelity; do not treat this as implementation authority
+22. Repository Phase 45: release hardening and packaging
+23. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
 
@@ -443,7 +445,19 @@ Phase 40 is implemented as a backend-only additive v5 contract over the generali
 
 Phase 41 is implemented as a backend-only additive v6 contract. The provider composes deterministic Executive Summary, Overview, Detail, and Comparison pages from typed sections and slots, validates typed page navigation, and adds a narrow Slicer descriptor with one Category Dimension binding. Composition projects into the existing visual-layout, IR, serializer, materialization, schema-validation, and analyzer path. V1–v5 remain compatibility paths. Shared/synchronized slicers, bookmarks, drillthrough, dedicated tooltip emission, and public RPC/VS Code exposure remain deferred.
 
-Phase 42 should prioritize the smallest remaining typed authoring capability that strengthens the backend contract—richer explicit slicer interactions or report-level reusable composition—before public RPC exposure. The recommendation should be revisited after compatibility and generated-report editing evidence exists.
+### Phase 42 — Explicit Same-Page Slicer Interactions
+
+Phase 42 is complete as the backend-only additive v7 contract for explicit
+slicer-to-visual interactions. It emits the pinned page-level
+`visualInteractions` entries with schema-backed `Default`, `DataFilter`,
+`HighlightFilter`, or `NoFilter` values, validates source/target identity and
+same-page scope, and preserves v1–v6 behavior. Page-scope targets,
+synchronized slicers, bookmarks, drillthrough, cross-page interactions,
+public RPC, and VS Code exposure remain deferred.
+
+The report-mutation foundation present in the starting checkout is preserved
+as an adjacent backend-only capability; this Phase 42 slice does not broaden
+or reclassify that work.
 
 These roadmap epics should not:
 
@@ -460,6 +474,3 @@ The preferred path is:
 - stable findings layer
 - stable deterministic mutation layer
 - richer advisory review, evidence, export, and governance workflows built above them
-# Phase 42 — Report Mutation Foundation
-
-Phase 42 introduces the backend-only typed mutation foundation: local PBIR import into the shared IR, deterministic planning, explicit conflict diagnostics, and immutable execution for identity/layout/binding-safe mutations. Full serialized incremental authoring remains gated on extending the shared IR and serializer with lossless authoring fields and imported identity overrides. RPC and VS Code exposure remain deferred.

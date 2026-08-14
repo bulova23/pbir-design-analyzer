@@ -190,7 +190,9 @@ internal sealed record PbirIntermediateRepresentation(
     [property: JsonPropertyName("layout")] PbirIntermediateRepresentationLayout Layout,
     [property: JsonPropertyName("successCriteria")] PbirIntermediateRepresentationSuccessCriteria SuccessCriteria,
     [property: JsonPropertyName("lineage")] PbirIntermediateRepresentationLineage Lineage,
-    [property: JsonPropertyName("hashes")] PbirIntermediateRepresentationHashes Hashes);
+    [property: JsonPropertyName("hashes")] PbirIntermediateRepresentationHashes Hashes,
+    [property: JsonPropertyName("visualInteractions")] IReadOnlyList<PbirIntermediateRepresentationVisualInteraction>? VisualInteractions = null,
+    [property: JsonPropertyName("authoringEnvelope")] PbirAuthoringEnvelope? AuthoringEnvelope = null);
 
 internal sealed record PbirIntermediateRepresentationValidationDiagnostics(
     IReadOnlyList<string> MissingRequiredSections,

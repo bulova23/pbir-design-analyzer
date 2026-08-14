@@ -241,6 +241,54 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    internal LocalPbirGenerationResult Generate(LocalPbirGenerationRequestV7? request)
+    {
+        var diagnostics = Validate(request);
+        if (request is null || diagnostics.Count > 0)
+        {
+            return Rejected(request?.RequestId, diagnostics);
+        }
+
+        try
+        {
+            var projected = ProjectV7(request, out var projectionDiagnostics, out var interactions);
+            if (projectionDiagnostics.Count > 0)
+                return Rejected(request.RequestId, projectionDiagnostics);
+
+            var inputs = AttachInteractions(CreateInputs(projected), interactions);
+            var serialized = _serializer.CreateArtifacts(inputs.IrState, inputs.SerializerRequest, inputs.DeployableSerializerRequest);
+            if (serialized.Artifact is null || serialized.Manifest is null ||
+                serialized.Readiness != PbirDeployableSerializerReadinessState.Serialized ||
+                !serialized.Validation.IsValid || serialized.Diagnostics.HasFailures)
+            {
+                return Rejected(request.RequestId, ConvertDiagnostics(serialized.Diagnostics), serialized);
+            }
+
+            return new LocalPbirGenerationResult(
+                LocalPbirGenerationResultContract.SchemaVersionV1,
+                request.RequestId,
+                LocalPbirGenerationReadinessState.Generated,
+                serialized.Artifact,
+                serialized.Manifest,
+                serialized.Validation,
+                null,
+                null,
+                [])
+            {
+                GeneratedPageCount = request.Pages.Count,
+                GeneratedVisualCount = request.Visuals.Count
+            };
+        }
+        catch (ArgumentException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR42-GENERATION-001", "request", exception.Message)]);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR42-GENERATION-002", "artifact", exception.Message)]);
+        }
+    }
+
     internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
         LocalPbirGenerationRequest request,
         CancellationToken cancellationToken = default)
@@ -513,6 +561,69 @@ internal sealed class LocalPbirGenerationProviderService
         catch (IOException)
         {
             return RoundTripFailure(generated, new("PBIR41-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
+        }
+    }
+
+    internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
+        LocalPbirGenerationRequestV7 request,
+        CancellationToken cancellationToken = default)
+    {
+        var generationTimer = Stopwatch.StartNew();
+        var generated = Generate(request);
+        generationTimer.Stop();
+        if (generated.Artifact is null || generated.Manifest is null || generated.Readiness != LocalPbirGenerationReadinessState.Generated)
+            return generated;
+
+        try
+        {
+            var projected = ProjectV7(request, out var projectionDiagnostics, out var interactions);
+            if (projectionDiagnostics.Count > 0)
+                return RoundTripFailure(generated, projectionDiagnostics[0]);
+            var inputs = AttachInteractions(CreateInputs(projected), interactions);
+            var orchestration = new PbirMaterializationOrchestrationService();
+            var orchestrationInput = new PbirMaterializationOrchestrationInput(
+                inputs.IrState, inputs.SerializerRequest, inputs.DeployableSerializerRequest,
+                request.OutputBaseDirectory, request.TargetDirectoryName);
+            var materializationTimer = Stopwatch.StartNew();
+            var preview = orchestration.Preview(new(
+                PbirMaterializationOrchestrationPreviewRequestContract.SchemaVersionV1,
+                $"{request.RequestId}-preview", "preview", orchestrationInput), cancellationToken);
+            if (preview.ValidatedPreview is null || preview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
+                return WithMaterializationFailure(generated, preview);
+            var materialization = orchestration.Apply(new(
+                PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
+                request.RequestId, "apply", orchestrationInput, preview.ValidatedPreview,
+                $"phase42-{ComputeSha256(request.RequestId)[..24]}", true), cancellationToken);
+            if (materialization.Outcome is not (PbirMaterializationOrchestrationOutcome.Applied or PbirMaterializationOrchestrationOutcome.ExactMatch))
+                return WithMaterializationFailure(generated, materialization);
+            materializationTimer.Stop();
+
+            var targetPath = Path.Combine(request.OutputBaseDirectory, request.TargetDirectoryName);
+            var projectService = new PbirProjectService(NullLogger<PbirProjectService>.Instance);
+            var location = projectService.TryGetReportLocation(targetPath);
+            if (location is null)
+                return RoundTripFailure(generated, new("PBIR42-ROUNDTRIP-001", "artifact", "The generated PBIR report could not be resolved after materialization."));
+            var analyzerTimer = Stopwatch.StartNew();
+            var score = await new PbirScoringService(projectService, NullLogger<PbirScoringService>.Instance).ScoreAsync(location.ProjectRootPath).ConfigureAwait(false);
+            analyzerTimer.Stop();
+            var pageCount = score.PageScores?.Count ?? 0;
+            if (pageCount != request.Pages.Count || generated.GeneratedVisualCount != request.Visuals.Count)
+                return RoundTripFailure(generated, new("PBIR42-ROUNDTRIP-002", "roundTrip", "The analyzer did not observe the requested generated page and visual counts."), materialization);
+            return generated with
+            {
+                Readiness = LocalPbirGenerationReadinessState.RoundTripVerified,
+                Materialization = materialization,
+                RoundTrip = new LocalPbirGenerationRoundTrip(score, pageCount, request.Visuals.Count),
+                Performance = new LocalPbirGenerationPerformance(generationTimer.ElapsedMilliseconds, materializationTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return RoundTripFailure(generated, new("PBIR42-ROUNDTRIP-CANCELLED-001", "request", "The round-trip was cancelled safely."));
+        }
+        catch (IOException)
+        {
+            return RoundTripFailure(generated, new("PBIR42-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
         }
     }
 
@@ -1001,6 +1112,58 @@ internal sealed class LocalPbirGenerationProviderService
         return diagnostics;
     }
 
+    private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequestV7? request)
+    {
+        if (request is null)
+            return [new("PBIR42-REQUEST-001", "request", "The generation request is required.")];
+
+        var v6 = new LocalPbirGenerationRequestV6(
+            LocalPbirGenerationRequestContract.SchemaVersionV6,
+            request.RequestId,
+            request.ReportName,
+            request.DatasetPath,
+            request.GeneratedUtc,
+            request.OutputBaseDirectory,
+            request.TargetDirectoryName,
+            request.Pages,
+            request.Visuals,
+            request.Theme,
+            request.ReportFilters,
+            request.Metadata,
+            request.Interaction,
+            request.Layout,
+            request.Compositions);
+        var diagnostics = Validate(v6).ToList();
+        if (request.SchemaVersion != LocalPbirGenerationRequestContract.SchemaVersionV7)
+            diagnostics.Add(new("PBIR42-REQUEST-SCHEMA-001", "schemaVersion", "The request schema version is unsupported."));
+
+        var pageVisuals = request.Pages.ToDictionary(
+            page => page.PageId,
+            page => request.Visuals.Where(visual => visual.PageId == page.PageId).ToArray(),
+            StringComparer.Ordinal);
+        foreach (var composition in request.Compositions ?? [])
+        {
+            if (composition.PageId is null || !pageVisuals.TryGetValue(composition.PageId, out var visuals))
+                continue;
+            var otherPageVisualIds = request.Visuals
+                .Where(visual => visual.PageId != composition.PageId)
+                .Select(visual => visual.VisualId)
+                .ToArray();
+            diagnostics.AddRange(Phase42InteractionValidation.Validate(
+                composition.PageId,
+                visuals,
+                composition.Interactions ?? [],
+                otherPageVisualIds).Diagnostics);
+            foreach (var rule in composition.Interactions ?? [])
+            {
+                if (!rule.Enabled && rule.Mode != LocalPbirGenerationSlicerInteractionMode.NoFilter)
+                    diagnostics.Add(new("PBIR42-INTERACTION-MODE-001", $"pages[{composition.PageId}].interactions[{rule.InteractionId}]", "Disabled interactions must use the NoFilter schema mode."));
+            }
+        }
+
+        return diagnostics;
+    }
+
     private static LocalPbirGenerationRequestV3 ToV3(LocalPbirGenerationRequestV4 request) =>
         new(
             LocalPbirGenerationRequestContract.SchemaVersionV3,
@@ -1091,6 +1254,74 @@ internal sealed class LocalPbirGenerationProviderService
             request.Metadata,
             request.Interaction,
             request.Layout);
+    }
+
+    private static LocalPbirGenerationRequestV3 ProjectV7(
+        LocalPbirGenerationRequestV7 request,
+        out IReadOnlyList<LocalPbirGenerationDiagnostic> diagnostics,
+        out IReadOnlyList<PbirIntermediateRepresentationVisualInteraction> interactions)
+    {
+        var v6 = new LocalPbirGenerationRequestV6(
+            LocalPbirGenerationRequestContract.SchemaVersionV6,
+            request.RequestId,
+            request.ReportName,
+            request.DatasetPath,
+            request.GeneratedUtc,
+            request.OutputBaseDirectory,
+            request.TargetDirectoryName,
+            request.Pages,
+            request.Visuals,
+            request.Theme,
+            request.ReportFilters,
+            request.Metadata,
+            request.Interaction,
+            request.Layout,
+            request.Compositions);
+        var projected = ProjectV6(v6, out var projectionDiagnostics);
+        var normalized = new List<PbirIntermediateRepresentationVisualInteraction>();
+        foreach (var composition in request.Compositions ?? [])
+        {
+            var rules = composition.Interactions ?? [];
+            var result = Phase42InteractionValidation.Validate(composition.PageId ?? string.Empty,
+                request.Visuals.Where(visual => visual.PageId == composition.PageId).ToArray(), rules,
+                request.Visuals.Where(visual => visual.PageId != composition.PageId).Select(visual => visual.VisualId).ToArray());
+            projectionDiagnostics = [.. projectionDiagnostics, .. result.Diagnostics];
+            foreach (var rule in result.Rules)
+            foreach (var target in rule.TargetVisualIds)
+                normalized.Add(new(
+                    composition.PageId!,
+                    rule.SourceVisualId,
+                    target,
+                    rule.Enabled ? rule.Mode.ToString() : "NoFilter"));
+        }
+
+        diagnostics = projectionDiagnostics;
+        interactions = normalized
+            .OrderBy(item => item.PageId, StringComparer.Ordinal)
+            .ThenBy(item => item.SourceVisualId, StringComparer.Ordinal)
+            .ThenBy(item => item.TargetVisualId, StringComparer.Ordinal)
+            .ThenBy(item => item.Type, StringComparer.Ordinal)
+            .ToArray();
+        return projected;
+    }
+
+    private static GenerationInputs AttachInteractions(
+        GenerationInputs inputs,
+        IReadOnlyList<PbirIntermediateRepresentationVisualInteraction> interactions)
+    {
+        if (inputs.IrState.Ir is null || interactions.Count == 0)
+            return inputs;
+
+        var ir = inputs.IrState.Ir with { VisualInteractions = interactions };
+        var hashes = ir.Hashes with { ContentHash = PbirIntermediateRepresentationIntegrity.ComputeContentHash(ir) };
+        ir = ir with { Hashes = hashes };
+        var irState = inputs.IrState with { Ir = ir };
+        return inputs with
+        {
+            IrState = irState,
+            SerializerRequest = inputs.SerializerRequest with { PbirIrContentHash = hashes.ContentHash },
+            DeployableSerializerRequest = inputs.DeployableSerializerRequest with { PbirIrContentHash = hashes.ContentHash }
+        };
     }
 
     private static LocalPbirGenerationVisual ApplyTemplate(LocalPbirGenerationVisual visual)

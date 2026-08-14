@@ -70,7 +70,8 @@ internal sealed record LocalPbirGenerationPageComposition(
     [property: JsonPropertyName("slotAssignments")] IReadOnlyList<LocalPbirGenerationSlotAssignment> SlotAssignments,
     [property: JsonPropertyName("navigation")] LocalPbirGenerationNavigationDefinition? Navigation,
     [property: JsonPropertyName("slicer")] LocalPbirGenerationSlicerDefinition? Slicer,
-    [property: JsonPropertyName("pageId")] string? PageId = null);
+    [property: JsonPropertyName("pageId")] string? PageId = null,
+    [property: JsonPropertyName("interactions")] IReadOnlyList<LocalPbirGenerationSlicerInteractionRule>? Interactions = null);
 
 internal sealed record Phase41CompositionProjectionResult(
     IReadOnlyDictionary<string, LocalPbirGenerationVisualLayout> VisualLayouts,

@@ -1,6 +1,6 @@
 # Repository Phase 42 — Explicit Slicer Interaction Authoring Implementation Plan
 
-Status: **PROPOSED — APPROVAL REQUIRED**
+Status: **APPROVED WITH BOUNDED SCHEMA CORRECTIONS**
 
 This plan must not be executed until the Phase 42 design and plan are
 explicitly approved. It is intentionally limited to the smallest next
@@ -27,7 +27,7 @@ synchronized slicers, or report-level composition expansion.
 Add tests first for:
 
 - V7 schema identity and additive request construction;
-- valid slicer-to-visual and slicer-to-page interaction records;
+- valid slicer-to-visual interaction records;
 - unknown/non-slicer/self/duplicate/cross-page target rejection;
 - unsupported mode and conflicting-rule rejection;
 - deterministic normalization and compatibility with V1–v6.
@@ -44,8 +44,8 @@ Likely files:
 - a new `Phase42InteractionModels.cs` if separation improves ownership
 
 Add the V7 request and explicit interaction records without modifying the
-meaning of V1–v6 records. Normalize V6-compatible inputs only at the V7
-adapter boundary and retain stable diagnostic field paths.
+meaning of V1–v6 records. Normalize V7 interaction rules at the V7 adapter
+boundary and retain stable diagnostic field paths.
 
 ## Task 4 — Validation and IR projection
 
@@ -56,7 +56,7 @@ Likely files:
 - `service-dotnet/Services/Discovery/Models/PbirIntermediateRepresentationModels.cs`
 - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationService.cs`
 
-Validate same-page scope, source/target identity, cardinality, mode,
+Validate same-page scope, source/target identity, cardinality, schema-backed mode,
 duplicates, conflicts, and deterministic ordering. Add the narrowest typed IR
 record needed to preserve explicit source/target/type semantics; do not add a
 generic event model.
@@ -77,14 +77,14 @@ interaction shapes before artifact creation and do not change scoring.
 Add focused provider tests for:
 
 - one slicer filtering a selected set of same-page visuals;
-- page-scope interaction expansion;
+- multiple explicit visual targets;
 - disabled interaction;
 - deterministic repeated generation, hashes, materialization, and analyzer
   round-trip;
 - V1–v6 output compatibility.
 
-Record representative hashes, timings, and analyzer results in a new Phase 42
-implementation note only after implementation is approved and complete.
+Record representative hashes, timings, and analyzer results in the Phase 42
+implementation note after implementation evidence exists.
 
 ## Task 7 — Documentation and roadmap closeout
 

@@ -60,15 +60,17 @@ internal sealed class PbirLocalReportReader
                 var layout = new PbirIntermediateRepresentationVisualLayout(layoutNode.GetProperty("x").GetInt32(), layoutNode.GetProperty("y").GetInt32(), layoutNode.GetProperty("width").GetInt32(), layoutNode.GetProperty("height").GetInt32());
                 var bindings = ReadBindings(visualNode, visualIdentity, diagnostics);
                 var semanticIntent = visualIdentity;
-                visuals.Add(new(visualIdentity, pageId, visualType, "", semanticIntent, [], visualOrder++, layout, bindings));
+                visuals.Add(new(visualIdentity, pageId, visualType, $"page:{pageId}/slot:{visualOrder + 1}", semanticIntent, ["none"], visualOrder++, layout, bindings));
                 visualIdentities[visualIdentity] = visualIdentity;
-                semantics.Add(new($"semantic:{visualIdentity}", pageId, bindings.Where(x => x.Kind == PbirIntermediateRepresentationBindingKind.Measure).Select(x => x.Token).ToArray(), bindings.Where(x => x.Kind == PbirIntermediateRepresentationBindingKind.Dimension).Select(x => x.Token).ToArray(), [semanticIntent], [], "", []));
+                semantics.Add(new($"semantic:{visualIdentity}", pageId, bindings.Where(x => x.Kind == PbirIntermediateRepresentationBindingKind.Measure).Select(x => x.Token).ToArray(), bindings.Where(x => x.Kind == PbirIntermediateRepresentationBindingKind.Dimension).Select(x => x.Token).ToArray(), [semanticIntent], [], "none", [$"visual:[{visualIdentity}]->semantic:[{semanticIntent}]"]));
             }
         }
         var ir = new PbirIntermediateRepresentation(
             new($"import:{Path.GetFileName(Path.TrimEndingDirectorySeparator(sourceDirectory))}", PbirIntermediateRepresentationContract.SchemaVersionV1, DateTime.UnixEpoch),
             new("import", "import"), pages, visuals, semantics,
             new(pages.FirstOrDefault()?.PageId ?? string.Empty, [], [], []), new([], [], [], []), new([], [], []), new([], []), new(string.Empty, string.Empty, string.Empty));
+        var envelope = new PbirAuthoringEnvelopeReader().Read(sourceDirectory, files, diagnostics);
+        ir = ir with { AuthoringEnvelope = envelope };
         var contentHash = PbirIntermediateRepresentationIntegrity.ComputeContentHash(ir);
         ir = ir with { Hashes = new PbirIntermediateRepresentationHashes("import", contentHash, string.Empty) };
         var state = new PbirIntermediateRepresentationState(ir, new PbirIntermediateRepresentationValidationResult(PbirIntermediateRepresentationValidationDiagnostics.Empty), PbirIntermediateRepresentationReadinessState.ReadyForSerializer);
@@ -90,7 +92,11 @@ internal sealed class PbirLocalReportReader
                 var expression = kindNode.GetProperty("Expression");
                 var entity = expression.GetProperty("SourceRef").GetProperty("Entity").GetString() ?? string.Empty;
                 var property = kindNode.GetProperty("Property").GetString() ?? string.Empty;
-                var token = projection.TryGetProperty("queryRef", out var queryRef) ? queryRef.GetString() ?? $"{entity}.{property}" : $"{entity}.{property}";
+                var token = projection.TryGetProperty("nativeQueryRef", out var nativeQueryRef)
+                    ? nativeQueryRef.GetString() ?? property
+                    : projection.TryGetProperty("queryRef", out var queryRef)
+                        ? queryRef.GetString() ?? $"{entity}.{property}"
+                        : $"{entity}.{property}";
                 result.Add(new($"{visualId}:{result.Count}", Enum.TryParse<PbirIntermediateRepresentationBindingRole>(role.Name, true, out var parsed) ? parsed : PbirIntermediateRepresentationBindingRole.Value, kind, token, entity, property, result.Count));
             }
         }

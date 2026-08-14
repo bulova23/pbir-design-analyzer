@@ -1,6 +1,6 @@
 # Repository Phase 42 — Explicit Slicer Interaction Authoring Design
 
-Status: **PROPOSED — APPROVAL REQUIRED**
+Status: **APPROVED WITH BOUNDED SCHEMA CORRECTIONS**
 
 ## Starting state and milestone
 
@@ -35,14 +35,14 @@ surface.
 V7 adds a typed interaction collection associated with a page composition:
 
 - source visual ID, which must identify a slicer on that page;
-- ordered target visual IDs, or an explicit page-scope target;
-- typed interaction mode using the existing schema-backed `CrossFilter`,
-  `CrossHighlight`, or `Disabled` semantics;
+- ordered target visual IDs on the same page;
+- typed interaction mode mapped to the pinned schema values `Default`,
+  `DataFilter`, `HighlightFilter`, or `NoFilter`;
 - explicit enabled state and stable interaction identity for diagnostics.
 
-The existing V6 slicer field remains accepted for compatibility. V7
-normalizes it into the new internal representation only when the resulting
-meaning is unambiguous; V6 output and behavior are not changed.
+The existing V6 slicer field remains accepted for compatibility. V7 adds a
+separate explicit interaction collection to the page composition and does not
+reinterpret V6 output or behavior.
 
 The first V7 slice supports same-page targets only. Cross-page interactions,
 synchronized/shared slicers, bookmarks, drillthrough, custom event graphs,
@@ -53,12 +53,13 @@ and arbitrary PBIR objects remain deferred.
 Validation fails closed for unknown sources or targets, non-slicer sources,
 self-targets, duplicate targets, duplicate interaction identities,
 cross-page targets, unsupported modes, conflicting rules, and interactions
-that cannot be represented by the pinned schema.
+that cannot be represented by the pinned schema. Page-scope targets are not
+part of this phase because the pinned schema requires a visual-name target.
 
 Normalization sorts only where the contract declares order non-semantic;
 request order remains meaningful for fields where existing provider behavior
 preserves order. The normalized interaction model is carried into the shared
-IR as explicit source/target/type records. The serializer emits the existing
+IR as explicit page/source/target/type records. The serializer emits the existing
 schema-backed `visualInteractions` entries in deterministic order. Existing
 global interaction behavior remains the fallback for V1–v6 paths.
 

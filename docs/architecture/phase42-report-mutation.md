@@ -23,5 +23,6 @@ The import snapshot preserves source folder identities. Page and visual mutation
 
 ## Phase 43 recommendation
 
-Do not expose this foundation through RPC yet. Before a minimal internal RPC surface, extend the shared IR and serializer request with lossless authoring fields and explicit identity overrides, then add an end-to-end mutation provider that performs serialization, materialization, schema validation, analyzer round-trip, lineage, and hash evidence in one operation. Reassess API stability only after those contracts have targeted compatibility tests.
+Phase 43 is the approved follow-up and adds the bounded hybrid lossless-authoring envelope. It preserves imported owned documents and identity provenance while keeping typed mutation authority and schema validation explicit. Its design and implementation records are in docs/superpowers/specs/2026-08-14-phase43-lossless-authoring-ir-design.md and docs/superpowers/plans/2026-08-14-phase43-lossless-authoring-ir.md.
 
+Do not expose this foundation through RPC yet. Before a minimal internal RPC surface, extend the shared IR and serializer request with lossless authoring fields and explicit identity overrides, then add an end-to-end mutation provider that performs serialization, materialization, schema validation, analyzer round-trip, lineage, and hash evidence in one operation. Reassess API stability only after those contracts have targeted compatibility tests.

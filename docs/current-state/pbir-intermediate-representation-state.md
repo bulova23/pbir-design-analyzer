@@ -8,6 +8,8 @@ The IR contract is pbir-ir/v1.
 
 The serializer boundary contract is pbir-serializer-request/v1.
 
+Phase 43 adds a bounded hybrid authoring envelope to the IR. Imported reports carry typed identity and layout projections alongside source JSON content for pinned-schema report, pages metadata, page, and visual owners. Untouched source content is resolved before serialization; typed layout changes are merged onto preserved visual documents while unrelated properties remain available. The envelope classifies state as TypedSupported, OpaquePreserved, or Unsupported and does not expose arbitrary JSON mutation.
+
 ## Purpose
 
 PBIR IR is the authoritative internal representation between:
@@ -241,5 +243,11 @@ The downstream pbir-preview-package/v1 and pbir-review-handoff/v1 layers preserv
 The serializer implementation gap is closed for the supported modern PBIR subset.
 
 The next separate phase is **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls**.
+
+## Phase 43 authoring fidelity boundary
+
+The lossless goal is semantic and authoring fidelity within the pinned supported subset, with byte identity where source content can be emitted unchanged. Fidelity results distinguish byte-identical, semantically identical, expected normalized, missing, and unexpected differences. Imported identities remain separate from generated identities and explicit overrides; generated objects continue to use deterministic provider identities.
+
+Preserved authoring state is bounded to owned definition JSON documents and source hashes; it is not a filesystem snapshot. Unsupported schema versions and unsupported constructs fail closed. Themes, filters, navigation metadata, slicer metadata, formatting objects, and other schema-supported properties remain in the owned source document even when not yet typed. Mutation operations without a typed merge contract remain rejected.
 
 That phase requires a new goal, must remain downstream from PBIR IR and the Phase 29 manifest, and must not reuse or widen the preview-only writer.
