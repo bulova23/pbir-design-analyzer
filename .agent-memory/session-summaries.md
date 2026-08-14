@@ -2237,3 +2237,9 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added Clustered Column Chart with Category and Value roles plus schema-safe title, axis-label, legend, background, and deterministic color formatting. Series, Axis, Legend, and Tooltip remain typed but reserved for future visual families.
 - Focused provider suite: 30 passed. Full backend: 887 passed, 11 expected Windows skips, 0 failed. Core build, extension build/TypeScript compilation, extension Jest 494, webview Jest 68, and `git diff --check` passed. Representative score 92.5; timing 2/73/23 ms generation/materialization/analyzer.
 - Added Phase 39 design, plan, implementation note, current-state record, roadmap update, and session note. Changes remain unstaged and uncommitted.
+# 2026-08-14 Phase 40 — Advanced Chart Authoring and Reusable Visual Templates
+
+- Implemented additive v5 backend-only chart authoring with a closed typed descriptor catalog for six visuals, deterministic templates, typed axis/legend/tooltip/conditional-formatting inputs, schema-safe serializer projections, analyzer round-trip, lineage, and deterministic hashes.
+- Preserved v1–v4 paths and did not modify RPC, VS Code, Windows/hosted execution, provider security, or `PbirScoringService.cs`.
+- Evidence: focused 74/74; backend 900 passed and 11 expected Windows skips; extension 494/494; webview 68/68; compile/build/diff checks passed. Representative score 88.45; 73/124/97 ms generation/materialization/analyzer.
+- All changes remain uncommitted and unstaged. Phase 41 recommendation: report composition features.

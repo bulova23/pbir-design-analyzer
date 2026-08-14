@@ -180,6 +180,17 @@ internal sealed class LocalPbirGenerationProviderService
         return Generate(ToV3(request));
     }
 
+    internal LocalPbirGenerationResult Generate(LocalPbirGenerationRequestV5? request)
+    {
+        var diagnostics = Validate(request);
+        if (request is null || diagnostics.Count > 0)
+        {
+            return Rejected(request?.RequestId, diagnostics);
+        }
+
+        return Generate(ToV3(request));
+    }
+
     internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
         LocalPbirGenerationRequest request,
         CancellationToken cancellationToken = default)
@@ -374,6 +385,11 @@ internal sealed class LocalPbirGenerationProviderService
             return RoundTripFailure(generated, new("PBIR37-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
         }
     }
+
+    internal Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
+        LocalPbirGenerationRequestV5 request,
+        CancellationToken cancellationToken = default) =>
+        GenerateAndVerifyAsync(ToV3(request), cancellationToken);
 
     internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
         LocalPbirGenerationRequestV3 request,
@@ -687,6 +703,98 @@ internal sealed class LocalPbirGenerationProviderService
         return diagnostics;
     }
 
+    private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequestV5? request)
+    {
+        if (request is null)
+        {
+            return [new("PBIR40-REQUEST-001", "request", "The generation request is required.")];
+        }
+
+        var compatible = ToV3(request);
+        var diagnostics = Validate(compatible).ToList();
+        if (request.SchemaVersion != LocalPbirGenerationRequestContract.SchemaVersionV5)
+        {
+            diagnostics.Add(new("PBIR40-REQUEST-SCHEMA-001", "schemaVersion", "The request schema version is unsupported."));
+        }
+
+        foreach (var visual in request.Visuals)
+        {
+            Phase40VisualDescriptor descriptor;
+            try
+            {
+                descriptor = Phase40VisualDescriptorCatalog.Get(visual.VisualType);
+            }
+            catch (ArgumentException exception)
+            {
+                diagnostics.Add(new("PBIR40-VISUAL-001", $"visuals[{visual.VisualId}].visualType", exception.Message));
+                continue;
+            }
+
+            var grouped = visual.Bindings.GroupBy(binding => binding.Role).ToDictionary(group => group.Key, group => group.ToArray());
+            foreach (var role in descriptor.SerializerRoles.Where(role => role.Required))
+            {
+                if (!grouped.TryGetValue(role.BindingRole, out var bindings) || bindings.Length < role.MinimumCount)
+                {
+                    diagnostics.Add(new("PBIR40-BINDING-REQUIRED-001", $"visuals[{visual.VisualId}].bindings", $"{visual.VisualType} requires {role.MinimumCount} {role.BindingRole} binding(s)."));
+                }
+            }
+
+            foreach (var binding in visual.Bindings)
+            {
+                var role = descriptor.SerializerRoles.SingleOrDefault(value => value.BindingRole == binding.Role);
+                if (role is null)
+                {
+                    diagnostics.Add(new("PBIR40-BINDING-ROLE-001", $"visuals[{visual.VisualId}].bindings[{binding.BindingId}]", $"{binding.Role} is not supported by {visual.VisualType}."));
+                    continue;
+                }
+
+                if (role.Kind is not null && binding.Kind != role.Kind)
+                {
+                    diagnostics.Add(new("PBIR40-BINDING-KIND-001", $"visuals[{visual.VisualId}].bindings[{binding.BindingId}]", $"{binding.Role} bindings must be {role.Kind}."));
+                }
+            }
+
+            var authoring = visual.Authoring;
+            if (authoring?.Axis is not null && !descriptor.SupportsAxis)
+            {
+                diagnostics.Add(new("PBIR40-AUTHORING-AXIS-001", $"visuals[{visual.VisualId}].authoring.axis", "This visual does not support axis configuration."));
+            }
+            if (authoring?.Legend is not null && !descriptor.SupportsLegend)
+            {
+                diagnostics.Add(new("PBIR40-AUTHORING-LEGEND-001", $"visuals[{visual.VisualId}].authoring.legend", "This visual does not support legend configuration."));
+            }
+            if (authoring?.Tooltips is not null && !descriptor.SupportsTooltip)
+            {
+                diagnostics.Add(new("PBIR40-AUTHORING-TOOLTIP-001", $"visuals[{visual.VisualId}].authoring.tooltips", "This visual does not support tooltip bindings."));
+            }
+            if (authoring?.ConditionalFormatting is not null && !descriptor.SupportsConditionalFormatting)
+            {
+                diagnostics.Add(new("PBIR40-AUTHORING-CONDITIONAL-001", $"visuals[{visual.VisualId}].authoring.conditionalFormatting", "This visual does not support conditional formatting."));
+            }
+
+            foreach (var tooltip in authoring?.Tooltips ?? [])
+            {
+                if (tooltip.Role != LocalPbirGenerationBindingRole.Tooltip)
+                {
+                    diagnostics.Add(new("PBIR40-TOOLTIP-ROLE-001", $"visuals[{visual.VisualId}].authoring.tooltips", "Tooltip fields must use the Tooltip binding role."));
+                }
+            }
+
+            if (authoring?.ConditionalFormatting is { } formatting)
+            {
+                ValidateColor(formatting.Color, $"visuals[{visual.VisualId}].authoring.conditionalFormatting", diagnostics);
+                ValidateColor(formatting.NegativeColor, $"visuals[{visual.VisualId}].authoring.conditionalFormatting", diagnostics);
+                ValidateColor(formatting.DefaultColor, $"visuals[{visual.VisualId}].authoring.conditionalFormatting", diagnostics);
+                if (formatting.Kind == LocalPbirGenerationConditionalFormattingKind.Threshold && formatting.Threshold is null)
+                {
+                    diagnostics.Add(new("PBIR40-CONDITIONAL-THRESHOLD-001", $"visuals[{visual.VisualId}].authoring.conditionalFormatting.threshold", "Threshold formatting requires a threshold value."));
+                }
+            }
+        }
+
+        return diagnostics;
+    }
+
     private static LocalPbirGenerationRequestV3 ToV3(LocalPbirGenerationRequestV4 request) =>
         new(
             LocalPbirGenerationRequestContract.SchemaVersionV3,
@@ -703,6 +811,48 @@ internal sealed class LocalPbirGenerationProviderService
             request.Metadata,
             request.Interaction,
             request.Layout);
+
+    private static LocalPbirGenerationRequestV3 ToV3(LocalPbirGenerationRequestV5 request) =>
+        new(
+            LocalPbirGenerationRequestContract.SchemaVersionV3,
+            request.RequestId,
+            request.ReportName,
+            request.DatasetPath,
+            request.GeneratedUtc,
+            request.OutputBaseDirectory,
+            request.TargetDirectoryName,
+            request.Pages,
+            request.Visuals.Select(ApplyTemplate).ToArray(),
+            request.Theme,
+            request.ReportFilters,
+            request.Metadata,
+            request.Interaction,
+            request.Layout);
+
+    private static LocalPbirGenerationVisual ApplyTemplate(LocalPbirGenerationVisual visual)
+    {
+        var authoring = visual.Authoring;
+        if (authoring?.Template is not { } template || !Phase40VisualDescriptorCatalog.Get(visual.VisualType).SupportsChartFormatting)
+        {
+            return visual;
+        }
+
+        var defaults = Phase40VisualTemplateCatalog.Get(template.ToString().ToLowerInvariant());
+        var chart = authoring.Chart ?? new LocalPbirGenerationChartFormatting();
+        return visual with
+        {
+            Authoring = authoring with
+            {
+                Chart = chart with
+                {
+                    Title = chart.Title ?? defaults.Chart.Title,
+                    Background = chart.Background ?? defaults.Chart.Background,
+                    AxisLabels = chart.AxisLabels ?? defaults.Axis.Visible,
+                    LegendVisible = chart.LegendVisible ?? defaults.Legend.Visible
+                }
+            }
+        };
+    }
 
     private static void ValidateFilters(
         IReadOnlyList<LocalPbirGenerationEqualityFilter> filters,
@@ -1090,7 +1240,7 @@ internal sealed class LocalPbirGenerationProviderService
                 binding.Property,
                 index + 1)).ToArray())).ToArray();
         var inventoryEntries = orderedVisuals
-            .SelectMany(visual => visual.Bindings)
+            .SelectMany(AllBindings)
             .Select(binding => new
             {
                 EntryId = $"{(binding.Kind == LocalPbirGenerationBindingKind.Measure ? "measure" : "column")}:{binding.Entity}.{binding.Property}",
@@ -1110,7 +1260,7 @@ internal sealed class LocalPbirGenerationProviderService
         var semantics = orderedPages.Select(page =>
         {
             var pageVisuals = orderedVisuals.Where(visual => visual.PageId == page.PageId).ToArray();
-            var bindings = pageVisuals.SelectMany(visual => visual.Bindings).ToArray();
+            var bindings = pageVisuals.SelectMany(AllBindings).ToArray();
             return new PbirIntermediateRepresentationSemantic(
                 $"semantic:{request.RequestId}:{page.PageId}",
                 page.PageId,
@@ -1184,7 +1334,7 @@ internal sealed class LocalPbirGenerationProviderService
         static IReadOnlyList<PbirRoleProjectionBinding> CreateProjections(LocalPbirGenerationVisual visual)
         {
             var roleOrders = new Dictionary<string, int>(StringComparer.Ordinal);
-            return visual.Bindings.Select(binding =>
+            return AllBindings(visual).Select(binding =>
             {
                 var role = GetSerializerRole(visual, binding);
                 roleOrders[role] = roleOrders.TryGetValue(role, out var current) ? current + 1 : 1;
@@ -1203,15 +1353,14 @@ internal sealed class LocalPbirGenerationProviderService
 
         static string GetSerializerRole(LocalPbirGenerationVisual visual, LocalPbirGenerationBinding binding)
         {
-            if (visual.VisualType == "card") return "Fields";
-            if (visual.VisualType == "table") return "Values";
-            return binding.Role switch
-            {
-                LocalPbirGenerationBindingRole.Category => "Category",
-                LocalPbirGenerationBindingRole.Value => "Y",
-                _ => throw new InvalidOperationException($"Unsupported Phase 39 binding role: {binding.Role}")
-            };
+            var descriptor = Phase40VisualDescriptorCatalog.Get(visual.VisualType);
+            return binding.Role == LocalPbirGenerationBindingRole.Tooltip
+                ? "Tooltips"
+                : descriptor.SerializerRoles.Single(role => role.BindingRole == binding.Role).SerializerRole;
         }
+
+        static IEnumerable<LocalPbirGenerationBinding> AllBindings(LocalPbirGenerationVisual visual) =>
+            visual.Bindings;
 
         static PbirIntermediateRepresentationVisualLayout ResolveLayout(LocalPbirGenerationVisual visual)
         {

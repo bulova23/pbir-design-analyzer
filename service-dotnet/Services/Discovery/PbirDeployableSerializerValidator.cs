@@ -12,7 +12,9 @@ internal sealed class PbirDeployableSerializerValidator
             "card",
             "table",
             "clusteredColumnChart",
-            "lineChart"
+            "lineChart",
+            "barChart",
+            "pieChart"
         };
 
     internal PbirDeployableDiagnostics ValidateInput(
@@ -520,8 +522,14 @@ internal sealed class PbirDeployableSerializerValidator
                       roles[0].Value.GetProperty("projections").GetArrayLength() == 1,
             "table" => roles.Length == 1 && roles[0].Name == "Values" &&
                        roles[0].Value.GetProperty("projections").GetArrayLength() > 0,
-            "clusteredColumnChart" or "lineChart" =>
-                roles.Length == 2 &&
+            "clusteredColumnChart" or "barChart" or "pieChart" =>
+                roles.Length is 2 or 3 &&
+                roles[0].Name == "Category" &&
+                roles[0].Value.GetProperty("projections").GetArrayLength() == 1 &&
+                roles[1].Name == "Y" &&
+                roles[1].Value.GetProperty("projections").GetArrayLength() > 0,
+            "lineChart" =>
+                roles.Length is 2 or 3 or 4 &&
                 roles[0].Name == "Category" &&
                 roles[0].Value.GetProperty("projections").GetArrayLength() == 1 &&
                 roles[1].Name == "Y" &&
@@ -806,12 +814,18 @@ internal sealed class PbirDeployableSerializerValidator
                 roleGroups.Count == 1 &&
                 roleGroups.TryGetValue("Values", out var values) &&
                 values.Length >= 1,
-            "clusteredColumnChart" or "lineChart" =>
+            "clusteredColumnChart" or "barChart" or "pieChart" =>
                 roleGroups.Count == 2 &&
                 roleGroups.TryGetValue("Category", out var category) &&
                 category.Length == 1 &&
                 roleGroups.TryGetValue("Y", out var y) &&
                 y.Length >= 1,
+            "lineChart" =>
+                roleGroups.Count is 2 or 3 &&
+                roleGroups.TryGetValue("Category", out var lineCategory) &&
+                lineCategory.Length == 1 &&
+                roleGroups.TryGetValue("Y", out var lineY) &&
+                lineY.Length >= 1,
             _ => false
         };
 
@@ -852,9 +866,13 @@ internal sealed class PbirDeployableSerializerValidator
             {
                 "card" => projection.Role == "Fields" && entries[0].Kind == PbirSemanticModelEntryKind.Measure,
                 "table" => projection.Role == "Values",
-                "clusteredColumnChart" or "lineChart" =>
+                "clusteredColumnChart" or "barChart" or "pieChart" or "lineChart" =>
                     projection.Role == "Category"
                         ? entries[0].Kind == PbirSemanticModelEntryKind.Column
+                        : projection.Role == "Series"
+                            ? entries[0].Kind == PbirSemanticModelEntryKind.Column
+                        : projection.Role == "Tooltips"
+                            ? entries[0].Kind is PbirSemanticModelEntryKind.Column or PbirSemanticModelEntryKind.Measure
                         : projection.Role == "Y" && entries[0].Kind == PbirSemanticModelEntryKind.Measure,
                 _ => false
             };

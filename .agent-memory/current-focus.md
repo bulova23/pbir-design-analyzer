@@ -58,6 +58,15 @@
 - No provider was executed or activated. Phase 35A/B remain committed; Phase 35C and Phase 35D remain uncommitted and unstaged; unrelated dirty files were preserved.
 - Final checks: Phase 35D boundary and documentation scans passed; `npm run build` and `npm run package` passed with the darwin-arm64 VSIX. Phase 35E should address OS sandbox enforcement before controlled provider execution.
 
+## Phase 40 — Advanced Chart Authoring and Reusable Visual Templates
+
+- 2026-08-14: Added additive `local-pbir-generation-request/v5` authoring over the generalized Phase 39 binding model.
+- Added a closed typed visual descriptor catalog for Card, Table, Clustered Column Chart, Line Chart, Bar Chart, and Pie Chart; provider chart-family mapping now resolves descriptor metadata rather than adding visual-specific provider branches.
+- Added deterministic default/executive/compact templates, typed axis/legend/tooltip/conditional-formatting inputs, schema-safe projections, analyzer round-trip, lineage, hashing, and determinism coverage.
+- Validation is green: focused provider/descriptor/serializer 74/74; backend Release 900 passed with 11 expected Windows skips; extension Jest 494/494; webview Jest 68/68; TypeScript, extension build, backend publish, and `git diff --check` passed.
+- Representative v5 score is 88.45 with 73 ms generation, 124 ms materialization, and 97 ms analyzer time. Tooltip fields are validated and retained in the typed input, but custom tooltip PBIR emission remains deferred because the pinned schema rejects arbitrary visual-container shapes.
+- All Phase 40 changes remain uncommitted and unstaged. Next recommendation is Phase 41 report composition: reusable sections, page templates, navigation, slicers, and richer interactions.
+
 ## Active Session
 
 - 2026-08-13 Repository Architecture Review — Roadmap Correction Around First PBIR Generation:

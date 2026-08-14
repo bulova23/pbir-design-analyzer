@@ -35,6 +35,52 @@ internal enum LocalPbirGenerationTableWidthBehavior
     FitToPage
 }
 
+internal enum LocalPbirGenerationAxisOrientation
+{
+    Horizontal,
+    Vertical
+}
+
+internal enum LocalPbirGenerationLegendPlacement
+{
+    Top,
+    Bottom,
+    Left,
+    Right
+}
+
+internal enum LocalPbirGenerationConditionalFormattingKind
+{
+    Threshold,
+    PositiveNegative,
+    NullDefault
+}
+
+internal enum LocalPbirGenerationVisualTemplate
+{
+    Default,
+    Executive,
+    Compact
+}
+
+internal sealed record LocalPbirGenerationAxisConfiguration(
+    [property: JsonPropertyName("title")] string? Title = null,
+    [property: JsonPropertyName("visible")] bool Visible = true,
+    [property: JsonPropertyName("orientation")] LocalPbirGenerationAxisOrientation Orientation = LocalPbirGenerationAxisOrientation.Horizontal,
+    [property: JsonPropertyName("format")] string? Format = null);
+
+internal sealed record LocalPbirGenerationLegendConfiguration(
+    [property: JsonPropertyName("visible")] bool Visible = true,
+    [property: JsonPropertyName("placement")] LocalPbirGenerationLegendPlacement Placement = LocalPbirGenerationLegendPlacement.Right,
+    [property: JsonPropertyName("title")] string? Title = null);
+
+internal sealed record LocalPbirGenerationConditionalFormatting(
+    [property: JsonPropertyName("kind")] LocalPbirGenerationConditionalFormattingKind Kind,
+    [property: JsonPropertyName("color")] LocalPbirGenerationColor Color,
+    [property: JsonPropertyName("threshold")] decimal? Threshold = null,
+    [property: JsonPropertyName("negativeColor")] LocalPbirGenerationColor? NegativeColor = null,
+    [property: JsonPropertyName("defaultColor")] LocalPbirGenerationColor? DefaultColor = null);
+
 internal sealed record LocalPbirGenerationColor(
     [property: JsonPropertyName("hex")] string Hex);
 
@@ -94,7 +140,12 @@ internal sealed record LocalPbirGenerationVisualAuthoring(
     [property: JsonPropertyName("chart")] LocalPbirGenerationChartFormatting? Chart = null,
     [property: JsonPropertyName("filters")] IReadOnlyList<LocalPbirGenerationEqualityFilter>? Filters = null,
     [property: JsonPropertyName("interaction")] LocalPbirGenerationInteractionSettings? Interaction = null,
-    [property: JsonPropertyName("padding")] LocalPbirGenerationPadding? Padding = null);
+    [property: JsonPropertyName("padding")] LocalPbirGenerationPadding? Padding = null,
+    [property: JsonPropertyName("template")] LocalPbirGenerationVisualTemplate? Template = null,
+    [property: JsonPropertyName("axis")] LocalPbirGenerationAxisConfiguration? Axis = null,
+    [property: JsonPropertyName("legend")] LocalPbirGenerationLegendConfiguration? Legend = null,
+    [property: JsonPropertyName("tooltips")] IReadOnlyList<LocalPbirGenerationBinding>? Tooltips = null,
+    [property: JsonPropertyName("conditionalFormatting")] LocalPbirGenerationConditionalFormatting? ConditionalFormatting = null);
 
 internal sealed record LocalPbirGenerationPageAuthoring(
     [property: JsonPropertyName("background")] LocalPbirGenerationColor? Background = null,

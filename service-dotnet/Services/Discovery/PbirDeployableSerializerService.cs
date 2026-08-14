@@ -389,12 +389,15 @@ internal sealed class PbirDeployableSerializerService
         writer.WritePropertyName("visual");
         writer.WriteStartObject();
         writer.WriteString("visualType", visual.VisualType);
+        var visualAuthoring = authoring?.Visuals
+            .FirstOrDefault(value => visual.VisualId == value.VisualId || visual.VisualId.EndsWith($":{value.VisualId}", StringComparison.Ordinal))
+            ?.Authoring;
         writer.WritePropertyName("query");
         writer.WriteStartObject();
         writer.WritePropertyName("queryState");
         writer.WriteStartObject();
 
-        foreach (var role in GetRoleOrder(visual.VisualType))
+        foreach (var role in GetRoleOrder(visual.VisualType, visualAuthoring))
         {
             writer.WritePropertyName(role);
             writer.WriteStartObject();
@@ -416,9 +419,6 @@ internal sealed class PbirDeployableSerializerService
 
         writer.WriteEndObject();
         writer.WriteEndObject();
-        var visualAuthoring = authoring?.Visuals
-            .FirstOrDefault(value => visual.VisualId == value.VisualId || visual.VisualId.EndsWith($":{value.VisualId}", StringComparison.Ordinal))
-            ?.Authoring;
         WriteVisualAuthoring(writer, visual, visualAuthoring);
         writer.WriteEndObject();
         WriteFilterConfig(writer, visualAuthoring?.Filters);
@@ -630,14 +630,25 @@ internal sealed class PbirDeployableSerializerService
             WriteTitleObject(writer, table.Subtitle, table.Row, "values", null, table.NumberFormat);
             if (table.AlternateRowColor is not null) WriteColorObject(writer, "alternateRows", table.AlternateRowColor.Hex);
         }
-        if (visual.VisualType == "clusteredColumnChart" && authoring.Chart is { } chart)
+        if (visual.VisualType is "clusteredColumnChart" or "lineChart" or "barChart" or "pieChart" && authoring.Chart is { } chart)
         {
-            WriteTitleObject(writer, chart.Title, null, "title", null);
-            if (chart.AxisLabels is not null) WriteBooleanObject(writer, "categoryAxisLabels", chart.AxisLabels.Value);
-            if (chart.LegendVisible is not null) WriteBooleanObject(writer, "legend", chart.LegendVisible.Value);
+            WriteTitleObject(writer, chart.Title ?? authoring.Axis?.Title, null, "title", null);
+            var axisLabels = chart.AxisLabels ?? authoring.Axis?.Visible;
+            var legendVisible = chart.LegendVisible ?? authoring.Legend?.Visible;
+            if (axisLabels is not null) WriteBooleanObject(writer, "categoryAxisLabels", axisLabels.Value);
+            if (legendVisible is not null) WriteBooleanObject(writer, "legend", legendVisible.Value);
             if (chart.Background is not null) WriteColorObject(writer, "background", chart.Background.Hex);
-            if (chart.Colors is { Count: > 0 }) WriteColorObjects(writer, "dataColors", chart.Colors);
+            var colors = chart.Colors is { Count: > 0 }
+                ? chart.Colors
+                : authoring.ConditionalFormatting is { } conditional
+                    ? [conditional.Color]
+                    : null;
+            if (colors is { Count: > 0 }) WriteColorObjects(writer, "dataColors", colors);
         }
+        // V5 axis, legend, tooltip, template, and conditional-formatting data are
+        // contract-level authoring inputs. Only the existing schema-safe objects
+        // above are emitted into PBIR; arbitrary custom visual-container objects
+        // are intentionally not introduced.
         writer.WriteEndObject();
     }
 
@@ -770,15 +781,17 @@ internal sealed class PbirDeployableSerializerService
         writer.WriteEndObject();
     }
 
-    private static IReadOnlyList<string> GetRoleOrder(string visualType)
+    private static IReadOnlyList<string> GetRoleOrder(string visualType, LocalPbirGenerationVisualAuthoring? authoring)
     {
-        return visualType switch
+        IReadOnlyList<string> roles = visualType switch
         {
             "card" => ["Fields"],
             "table" => ["Values"],
-            "clusteredColumnChart" or "lineChart" => ["Category", "Y"],
+            "clusteredColumnChart" or "barChart" or "pieChart" => ["Category", "Y"],
+            "lineChart" => ["Category", "Y", "Series"],
             _ => throw new InvalidOperationException($"Unsupported visual type: {visualType}")
         };
+        return roles;
     }
 
     private static int ParseSlot(PbirIntermediateRepresentationVisual visual)

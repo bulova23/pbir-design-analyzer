@@ -435,6 +435,10 @@ Status:
 
 ## Guardrails
 
+### Phase 40 — Advanced Chart Authoring and Reusable Visual Templates
+
+Phase 40 is implemented as a backend-only additive v5 contract over the generalized binding model. The closed catalog supports Card, Table, Clustered Column Chart, Line Chart, Bar Chart, and Pie Chart with deterministic templates and schema-safe formatting projection. V1–v4 remain backward compatible. Phase 41 should shift to report composition features: reusable report sections, page templates, navigation, slicers, and richer interaction models. Public RPC and VS Code exposure remain deferred.
+
 These roadmap epics should not:
 
 - rewrite the core scoring engine unnecessarily

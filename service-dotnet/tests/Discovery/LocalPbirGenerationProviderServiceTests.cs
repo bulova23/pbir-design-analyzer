@@ -42,6 +42,76 @@ public sealed class LocalPbirGenerationProviderServiceTests
     }
 
     [Fact]
+    public void Contract_ExposesPhase40V5AuthoringContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v5", LocalPbirGenerationRequestContract.SchemaVersionV5);
+        Assert.Contains("lineChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Contains("barChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Contains("pieChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+    }
+
+    [Fact]
+    public void Generate_Phase40Catalog_UsesDescriptorsForAllSixVisuals()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreatePhase40Request());
+
+        Assert.True(result.Readiness == LocalPbirGenerationReadinessState.Generated, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}")));
+        Assert.Equal(6, result.Artifact!.Files.Count(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)));
+        Assert.Contains(result.Artifact.Files, file => file.Content.Contains("barChart", StringComparison.Ordinal));
+        Assert.Contains(result.Artifact.Files, file => file.Content.Contains("pieChart", StringComparison.Ordinal));
+        Assert.Contains(result.Artifact.Files, file => file.Content.Contains("Executive Summary", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Generate_Phase40SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var request = CreatePhase40Request();
+        var first = new LocalPbirGenerationProviderService().Generate(request);
+        var second = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+        Assert.Equal(first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)), second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+    }
+
+    [Fact]
+    public async Task Generate_Phase40Representative_RoundTripsThroughAnalyzer()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase40-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase40Request(outputBase.FullName));
+
+            Assert.True(result.Readiness == LocalPbirGenerationReadinessState.RoundTripVerified, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}").Concat(result.Materialization?.Diagnostics.Items.Select(item => $"{item.Code}:{item.Field}:{item.Message}") ?? [])));
+            Assert.Equal(1, result.RoundTrip!.PageCount);
+            Assert.Equal(6, result.RoundTrip.VisualCount);
+            Assert.NotNull(result.Performance);
+            Console.WriteLine($"PHASE40_TIMING generationMs={result.Performance!.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE40_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase40UnsupportedAxisOnPie_FailsClosed()
+    {
+        var request = CreatePhase40Request() with
+        {
+            Visuals = [CreatePhase40Chart("invalid-pie", "pieChart", 0, LocalPbirGenerationBindingRole.Legend) with
+            {
+                Authoring = new(Axis: new(Title: "Invalid"))
+            }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR40-AUTHORING-AXIS-001");
+    }
+
+    [Fact]
     public void Generate_Phase39Chart_MapsCategoryAndValueRoles()
     {
         var result = new LocalPbirGenerationProviderService().Generate(CreatePhase39Request());
@@ -553,6 +623,42 @@ public sealed class LocalPbirGenerationProviderServiceTests
                     new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
                     new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")
                 ], new(Chart: new(Title: "Revenue by Region", AxisLabels: true, LegendVisible: false, Colors: [new("#123456")], Background: new("#FFFFFF"))))]);
+
+    private static LocalPbirGenerationRequestV5 CreatePhase40Request(string? outputBase = null) =>
+        new(
+            LocalPbirGenerationRequestContract.SchemaVersionV5,
+            "phase40-sales-catalog",
+            "Sales",
+            "Sales.SemanticModel",
+            new DateTime(2026, 8, 14, 0, 0, 0, DateTimeKind.Utc),
+            outputBase ?? Path.GetTempPath(),
+            "phase40-output",
+            [new("overview", "Overview", 0)],
+            [
+                new("card", "overview", "card", 0, new(0, 0, 320, 160), [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("table", "overview", "table", 1, new(336, 0, 640, 160), [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                CreatePhase40Chart("column", "clusteredColumnChart", 2, LocalPbirGenerationBindingRole.Category),
+                CreatePhase40Chart("line", "lineChart", 3, LocalPbirGenerationBindingRole.Category) with { Bindings = [.. CreatePhase40Chart("line-base", "lineChart", 3, LocalPbirGenerationBindingRole.Category).Bindings, new("series", "Segment", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Series, "Sales", "Segment")] },
+                CreatePhase40Chart("bar", "barChart", 4, LocalPbirGenerationBindingRole.Category),
+                CreatePhase40Chart("pie", "pieChart", 5, LocalPbirGenerationBindingRole.Legend)
+            ],
+            Theme: null,
+            ReportFilters: null,
+            Metadata: null,
+            Interaction: null,
+            Layout: null);
+
+    private static LocalPbirGenerationVisual CreatePhase40Chart(string id, string type, int order, LocalPbirGenerationBindingRole categoryRole) =>
+        new(id, "overview", type, order, new(order is 2 or 4 ? 0 : 320, order is <= 3 ? 180 : 360, 300, 160), [
+            new($"{id}-category", "Region", LocalPbirGenerationBindingKind.Dimension, categoryRole, "Sales", "Region"),
+            new($"{id}-value", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")
+        ], new(
+            Chart: new(Title: id == "bar" ? null : id, AxisLabels: true, LegendVisible: true, Background: new("#FFFFFF")),
+            Template: id == "bar" ? LocalPbirGenerationVisualTemplate.Executive : LocalPbirGenerationVisualTemplate.Default,
+            Axis: type == "pieChart" ? null : new(Title: "Revenue", Visible: true, Format: "#,##0"),
+            Legend: new(true, LocalPbirGenerationLegendPlacement.Bottom, "Series"),
+            Tooltips: [new($"{id}-tooltip", "Segment", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Tooltip, "Sales", "Segment")],
+            ConditionalFormatting: new(LocalPbirGenerationConditionalFormattingKind.Threshold, new("#2E7D32"), 0m, DefaultColor: new("#CCCCCC"))));
 
     private static LocalPbirGenerationVisual CreateChart() => CreatePhase39Request().Visuals[0];
 
