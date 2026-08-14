@@ -460,3 +460,6 @@ The preferred path is:
 - stable findings layer
 - stable deterministic mutation layer
 - richer advisory review, evidence, export, and governance workflows built above them
+# Phase 42 — Report Mutation Foundation
+
+Phase 42 introduces the backend-only typed mutation foundation: local PBIR import into the shared IR, deterministic planning, explicit conflict diagnostics, and immutable execution for identity/layout/binding-safe mutations. Full serialized incremental authoring remains gated on extending the shared IR and serializer with lossless authoring fields and imported identity overrides. RPC and VS Code exposure remain deferred.

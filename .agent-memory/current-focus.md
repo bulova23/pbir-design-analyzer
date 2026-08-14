@@ -1,5 +1,9 @@
 # Current Focus
 
+## Phase 42 — Explicit Slicer Interaction Design Gate
+
+- 2026-08-14: Phase 41 is complete and the exact next roadmap milestone is Repository Phase 42. No approved Phase 42 plan existed. Proposed the smaller backend-only additive v7 explicit same-page slicer-interaction slice in `docs/superpowers/specs/2026-08-14-phase42-explicit-slicer-interactions-design.md` and `docs/superpowers/plans/2026-08-14-phase42-explicit-slicer-interactions.md`; stop for explicit approval before implementation. Preserve V1–v6, Phase 29–31, analyzer/scoring, RPC/VS Code, provider-runtime, and execution boundaries.
+
 ## Phase 41 — Report Composition — Closeout
 
 - 2026-08-14: Approved additive `local-pbir-generation-request/v6` for typed page templates, sections, slots, navigation, slicers, and slicer interactions. Preserve v1–v5 unchanged; keep composition contract, projection, and validation separate from the serializer/analyzer.
@@ -3540,3 +3544,9 @@
 - Planned seams: deterministic package identity, signed attestation verification, versioned certification profiles/evidence, lifecycle/record store, exact certification-to-activation binding, and bounded atomic audit/replay persistence.
 - Worktree rule: preserve all existing Phase 35C and unrelated dirty files; do not stage, commit, reset, clean, or restore.
 - Next step: add focused Phase 35D tests first, then implementation, docs, and validation.
+# Phase 42 — Report Mutation — Active Foundation
+
+- 2026-08-14: Added backend-only typed local PBIR import, deterministic mutation planning, and shared-IR execution. Supported now: page operations, visual operations, layout, and direct bindings. Formatting/theme/filter/navigation/slicer operations fail closed until the IR and serializer can preserve them losslessly.
+- The current serializer derives folder identities from IR identity inputs and has no imported identity override; exact untouched-artifact hash preservation is not yet proven.
+- Focused mutation tests: 3/3 passed. Full backend Release: 916 passed, 11 expected Windows skips. Core Release build: 0 warnings/errors. Extension/webview Jest: 494/494 and 68/68; extension build and TypeScript compilation passed; `git diff --check` passed.
+- Keep Phase 42 uncommitted and unstaged. Do not add RPC, VS Code, Windows, hosted execution, or provider-security changes.
