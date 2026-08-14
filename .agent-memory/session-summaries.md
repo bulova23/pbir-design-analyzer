@@ -2224,3 +2224,9 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added the backend-only typed v2 request with multiple pages, card/table visuals, direct measure/dimension bindings, deterministic layout validation, and explicit bounded positions through the shared IR/serializer.
 - Preserved the Phase 36 v1 path and reused Phase 29 serialization/hashes, Phase 31 materialization, and analyzer scoring; no RPC, VS Code, hosted/Windows execution, chart type, or security changes.
 - Focused provider tests: 16 passed. Provider/serializer/analyzer regression filter: 177 passed. Full backend: 884 total, 873 passed, 0 failed, 11 expected Windows skips; core Release build, extension build/TypeScript compilation, and git diff --check passed. All Phase 37 changes are uncommitted and unstaged.
+
+# 2026-08-13 — Phase 38 rich PBIR authoring
+
+- Added additive typed v3 PBIR authoring for formatting, themes, equality filters, basic interactions, metadata, and deterministic layout margins/spacing over the existing Card and Table provider.
+- Reused Phase 29 serialization, Phase 31 materialization, pinned schema validation, analyzer round-trip, deterministic hashes, and lineage; v1/v2 remain compatible and no public RPC/VS Code or new visual type was added.
+- Added design/plan/spec/current-state documentation and focused regression coverage. Final full-suite counts are recorded in the dedicated session note after validation.

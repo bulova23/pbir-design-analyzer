@@ -156,7 +156,8 @@ internal sealed record PbirDeployableSerializerRequest(
     [property: JsonPropertyName("semanticModelInventoryRef")] string SemanticModelInventoryRef,
     [property: JsonPropertyName("semanticModelInventoryContentHash")] string SemanticModelInventoryContentHash,
     [property: JsonPropertyName("visualBindings")] IReadOnlyList<PbirVisualBinding> VisualBindings,
-    [property: JsonPropertyName("executionPolicy")] PbirDeployableExecutionPolicy ExecutionPolicy);
+    [property: JsonPropertyName("executionPolicy")] PbirDeployableExecutionPolicy ExecutionPolicy,
+    [property: JsonPropertyName("authoring")] LocalPbirGenerationRequestV3? Authoring = null);
 
 internal sealed record PbirDeployableDiagnostic(
     [property: JsonPropertyName("code")] string Code,

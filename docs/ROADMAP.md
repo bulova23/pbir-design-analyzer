@@ -101,11 +101,12 @@ The later repository sequence is provisional planning only and does not authoriz
 13. Repository Phase 35L: certified Windows execution of the completed containment suite and measured failure remediation (deferred until a concrete provider establishes the requirement; no provider activation)
 14. Repository Phase 36: **First Local PBIR Generation Provider** using the existing Phase 29–31 local path and a narrow supported subset (implemented; backend-only, one page/one card, immediate analyzer round-trip)
 15. Repository Phase 37: **Incremental PBIR Authoring** over the stabilized Phase 36 path (multiple pages, card and table visuals, typed measure/dimension bindings, bounded deterministic layout, and analyzer round-trip; implemented backend-only)
-16. Repository Phase 38: original Phase 5 Analyzer handoff completion and validation loop
-17. Repository Phases 39–40: original Phase 6 refinement loop
-18. Repository Phases 41–43: original Phase 7 Fabric target mapping, generation, review, deployment, and publishing
-19. Repository Phase 44: release hardening and packaging
-20. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
+16. Repository Phase 38: **Rich PBIR Authoring** — typed formatting, deterministic themes, equality filters, basic interactions, metadata, and layout enhancements over the existing Card and Table catalog (implemented backend-only)
+17. Repository Phase 39: **Generalized Visual Bindings and Chart Support** — category, series, and axis semantics while preserving the Card and Table binding contract (recommended; do not expose RPC or VS Code until the model stabilizes)
+18. Repository Phases 40–41: original Phase 6 refinement loop
+19. Repository Phases 42–44: original Phase 7 Fabric target mapping, generation, review, deployment, and publishing
+20. Repository Phase 45: release hardening and packaging
+21. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
 

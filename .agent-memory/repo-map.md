@@ -28,6 +28,8 @@
 - `service-dotnet/Services/Discovery/Phase35G/`: Phase 35G non-enabling containment architecture decision record; controlled remote execution selected
 - `service-dotnet/Services/Discovery/Phase35H/`: Phase 35H typed authenticated inert remote boundary proof; client/worker protocol, replay/lifecycle ledger, quarantine, and audit correlation
 - `service-dotnet/Services/Discovery/Phase35I/`: Phase 35I portable Windows worker/runner admission, Phase35C resource projection, session path binding, lifecycle/result/evidence contracts, and proof classification
+- `service-dotnet/Services/Discovery/LocalPbirGenerationProviderService.cs`: backend-only Phase 36–38 local PBIR generation provider; v3 adds typed rich authoring over the existing Card/Table catalog
+- `service-dotnet/Services/Discovery/Models/LocalPbirGenerationAuthoringModels.cs`: Phase 38 typed formatting, theme, filter, interaction, metadata, and layout contracts
 - `service-dotnet/Phase35I.Runtime/`: Phase 35I Windows-only native restricted-token, suspended-process, Job Object, assignment, resume, termination, and handle boundary
 - `service-dotnet/Phase35I.InertRunner/`: Phase 35I repository-owned closed inert workload executable
 - `service-dotnet/tests/Discovery/Phase35IWindowsIntegrationTests.cs`: Phase 35K conditional Windows integration suite and disposable runner-staging/evidence harness

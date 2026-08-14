@@ -260,10 +260,10 @@ internal sealed class PbirDeployableSerializerValidator
                 HasExactProperties(root, "$schema", "version") &&
                 root.GetProperty("version").ValueKind == JsonValueKind.String,
             "definition/report.json" =>
-                HasExactProperties(root, "$schema", "layoutOptimization", "themeCollection") &&
+                HasAllowedProperties(root, ["$schema", "layoutOptimization", "themeCollection"], ["filterConfig", "annotations", "objects", "settings"]) &&
                 root.GetProperty("layoutOptimization").ValueKind == JsonValueKind.String &&
                 root.GetProperty("themeCollection").ValueKind == JsonValueKind.Object &&
-                !root.GetProperty("themeCollection").EnumerateObject().Any(),
+                root.GetProperty("themeCollection").EnumerateObject().All(property => property.Name is "baseTheme" or "customTheme"),
             "definition/pages/pages.json" =>
                 HasExactProperties(root, "$schema", "pageOrder", "activePageName") &&
                 root.GetProperty("pageOrder").ValueKind == JsonValueKind.Array &&
@@ -271,16 +271,16 @@ internal sealed class PbirDeployableSerializerValidator
                     .All(value => value.ValueKind == JsonValueKind.String) &&
                 root.GetProperty("activePageName").ValueKind == JsonValueKind.String,
             _ when file.RelativePath.EndsWith("/page.json", StringComparison.Ordinal) =>
-                HasExactProperties(root, "$schema", "name", "displayName", "displayOption", "height", "width") &&
+                HasAllowedProperties(root, ["$schema", "name", "displayName", "displayOption", "height", "width"], ["filterConfig", "objects", "visualInteractions"]) &&
                 root.GetProperty("name").ValueKind == JsonValueKind.String &&
                 root.GetProperty("displayName").ValueKind == JsonValueKind.String &&
                 root.GetProperty("displayOption").GetString() == "FitToPage" &&
                 root.GetProperty("height").TryGetInt32(out var height) && height == 720 &&
                 root.GetProperty("width").TryGetInt32(out var width) && width == 1280,
             _ when file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal) =>
-                HasExactProperties(root, "$schema", "name", "position", "visual") &&
+                HasAllowedProperties(root, ["$schema", "name", "position", "visual"], ["filterConfig"]) &&
                 HasExactProperties(root.GetProperty("position"), "x", "y", "z", "height", "width", "tabOrder") &&
-                HasExactProperties(root.GetProperty("visual"), "visualType", "query") &&
+                HasAllowedProperties(root.GetProperty("visual"), ["visualType", "query"], ["objects", "visualContainerObjects"]) &&
                 HasExactProperties(root.GetProperty("visual").GetProperty("query"), "queryState"),
             _ => false
         };
@@ -305,6 +305,17 @@ internal sealed class PbirDeployableSerializerValidator
             .Select(property => property.Name)
             .OrderBy(value => value, StringComparer.Ordinal)
             .SequenceEqual(expected.OrderBy(value => value, StringComparer.Ordinal), StringComparer.Ordinal);
+    }
+
+    private static bool HasAllowedProperties(JsonElement element, IReadOnlyList<string> required, IReadOnlyList<string> optional)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        var names = element.EnumerateObject().Select(property => property.Name).ToHashSet(StringComparer.Ordinal);
+        return required.All(names.Contains) && names.All(name => required.Contains(name, StringComparer.Ordinal) || optional.Contains(name, StringComparer.Ordinal));
     }
 
     private static void ValidateAggregateHashes(

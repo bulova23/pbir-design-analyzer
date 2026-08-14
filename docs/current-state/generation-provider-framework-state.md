@@ -1,10 +1,16 @@
 # Generation Provider Framework Current State
 
+## Phase 38 Concrete Local Provider
+
+Phase 38 extends the backend-only local provider with the additive typed v3 request. It supports optional report, page, and visual formatting for the existing card and table catalog; deterministic themes and palette metadata; equality filters at report, page, and visual scope; basic cross-highlight, cross-filter, and disabled interaction metadata; report metadata; and deterministic margin/spacing layout defaults. Phase 37 v2 and Phase 36 v1 requests remain supported unchanged.
+
+Formatting is emitted through the existing Phase 29 serializer and remains subject to pinned schema validation, Phase 31 materialization, and analyzer round-trip verification. The v3 request is internal to the backend provider; no RPC, VS Code, hosted execution, semantic-model generation, chart, or mutation surface is added. Theme metadata and palette annotations are deterministic PBIR metadata; arbitrary custom theme JSON and advanced formatting expressions remain unsupported.
+
 ## Phase 37 Concrete Local Provider
 
 Phase 37 extends the backend-only local provider with the additive typed v2 request. It supports ordered page collections, multiple card and table visuals, direct measure/dimension Fields bindings, deterministic 1280x720 layout coordinates, duplicate/reference validation, Phase 29 schema validation, Phase 31 materialization, and immediate analyzer round-trip verification. Phase 36 v1 requests remain supported through the original one-page/one-card path.
 
-The provider does not add charts, category/series/axis semantics, filters, formatting, themes, semantic-model generation, RPC, VS Code, hosted execution, Windows execution, or provider-security changes. Phase 29 remains authoritative for artifact bytes and hashes, Phase 31 remains the filesystem mutation authority, and analyzer scores remain authoritative.
+Phase 37 remains the compatibility foundation. Phase 29 remains authoritative for artifact bytes and hashes, Phase 31 remains the filesystem mutation authority, and analyzer scores remain authoritative.
 
 ## Phase 36 Compatibility Foundation
 

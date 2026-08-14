@@ -1,5 +1,12 @@
 # Current Focus
 
+## Phase 38 — Rich PBIR Authoring
+
+- 2026-08-13: Added the backend-only typed v3 request for Card/Table formatting, deterministic themes, equality filters, basic interactions, report metadata, and deterministic layout margins/spacing while preserving v1/v2 requests.
+- Reused the shared IR, Phase 29 serializer, Phase 31 materialization, pinned schema validation, analyzer round-trip, hashes, and lineage. No RPC, VS Code, chart, semantic-model, DAX, hosted, Windows, Desktop, or provider-security surface was added.
+- Final validation is green: focused provider 23/23; backend Release 881 passed with 11 expected Windows skips; extension Jest 494/494; webview Jest 68/68; TypeScript/build/package and git diff --check passed. Representative round-trip scored 92.5 with 1 ms generation, 109 ms materialization, and 120 ms analyzer time. ESLint remains the unchanged 43-error baseline.
+- All Phase 38 changes remain uncommitted and unstaged. Next recommendation is generalized visual bindings and chart support; defer public surfaces until category/series/axis semantics stabilize.
+
 ## Phase 37 — Incremental PBIR Authoring
 
 - 2026-08-13: Added typed v2 local PBIR generation for multiple pages, card/table visuals, direct measure/dimension bindings, and deterministic bounded layout while preserving Phase 36 v1 requests.

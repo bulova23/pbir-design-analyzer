@@ -125,6 +125,50 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    internal LocalPbirGenerationResult Generate(LocalPbirGenerationRequestV3? request)
+    {
+        var diagnostics = Validate(request);
+        if (request is null || diagnostics.Count > 0)
+        {
+            return Rejected(request?.RequestId, diagnostics);
+        }
+
+        try
+        {
+            var inputs = CreateInputs(request);
+            var serialized = _serializer.CreateArtifacts(inputs.IrState, inputs.SerializerRequest, inputs.DeployableSerializerRequest);
+            if (serialized.Artifact is null || serialized.Manifest is null ||
+                serialized.Readiness != PbirDeployableSerializerReadinessState.Serialized ||
+                !serialized.Validation.IsValid || serialized.Diagnostics.HasFailures)
+            {
+                return Rejected(request.RequestId, ConvertDiagnostics(serialized.Diagnostics), serialized);
+            }
+
+            return new LocalPbirGenerationResult(
+                LocalPbirGenerationResultContract.SchemaVersionV1,
+                request.RequestId,
+                LocalPbirGenerationReadinessState.Generated,
+                serialized.Artifact,
+                serialized.Manifest,
+                serialized.Validation,
+                null,
+                null,
+                [])
+            {
+                GeneratedPageCount = request.Pages.Count,
+                GeneratedVisualCount = request.Visuals.Count
+            };
+        }
+        catch (ArgumentException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR38-GENERATION-001", "request", exception.Message)]);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Rejected(request.RequestId, [new("PBIR38-GENERATION-002", "artifact", exception.Message)]);
+        }
+    }
+
     internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
         LocalPbirGenerationRequest request,
         CancellationToken cancellationToken = default)
@@ -320,6 +364,83 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    internal async Task<LocalPbirGenerationResult> GenerateAndVerifyAsync(
+        LocalPbirGenerationRequestV3 request,
+        CancellationToken cancellationToken = default)
+    {
+        var generationTimer = Stopwatch.StartNew();
+        var generated = Generate(request);
+        generationTimer.Stop();
+        if (generated.Artifact is null || generated.Manifest is null || generated.Readiness != LocalPbirGenerationReadinessState.Generated)
+        {
+            return generated;
+        }
+
+        try
+        {
+            var inputs = CreateInputs(request);
+            var orchestration = new PbirMaterializationOrchestrationService();
+            var orchestrationInput = new PbirMaterializationOrchestrationInput(
+                inputs.IrState, inputs.SerializerRequest, inputs.DeployableSerializerRequest,
+                request.OutputBaseDirectory, request.TargetDirectoryName);
+            var materializationTimer = Stopwatch.StartNew();
+            var preview = orchestration.Preview(
+                new PbirMaterializationOrchestrationPreviewRequest(
+                    PbirMaterializationOrchestrationPreviewRequestContract.SchemaVersionV1,
+                    $"{request.RequestId}-preview", "preview", orchestrationInput), cancellationToken);
+            if (preview.ValidatedPreview is null || preview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
+            {
+                return WithMaterializationFailure(generated, preview);
+            }
+
+            var transactionId = $"phase38-{ComputeSha256(request.RequestId)[..24]}";
+            var materialization = orchestration.Apply(
+                new PbirMaterializationOrchestrationApplyRequest(
+                    PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
+                    request.RequestId, "apply", orchestrationInput, preview.ValidatedPreview, transactionId, true),
+                cancellationToken);
+            if (materialization.Outcome is not (PbirMaterializationOrchestrationOutcome.Applied or PbirMaterializationOrchestrationOutcome.ExactMatch))
+            {
+                return WithMaterializationFailure(generated, materialization);
+            }
+            materializationTimer.Stop();
+
+            var targetPath = Path.Combine(request.OutputBaseDirectory, request.TargetDirectoryName);
+            var projectService = new PbirProjectService(NullLogger<PbirProjectService>.Instance);
+            var location = projectService.TryGetReportLocation(targetPath);
+            if (location is null)
+            {
+                return RoundTripFailure(generated, new("PBIR38-ROUNDTRIP-001", "artifact", "The generated PBIR report could not be resolved after materialization."));
+            }
+
+            var analyzerTimer = Stopwatch.StartNew();
+            var scoring = new PbirScoringService(projectService, NullLogger<PbirScoringService>.Instance);
+            var score = await scoring.ScoreAsync(location.ProjectRootPath).ConfigureAwait(false);
+            analyzerTimer.Stop();
+            var pageCount = score.PageScores?.Count ?? 0;
+            if (pageCount != request.Pages.Count || generated.GeneratedVisualCount != request.Visuals.Count)
+            {
+                return RoundTripFailure(generated, new("PBIR38-ROUNDTRIP-002", "roundTrip", "The analyzer did not observe the requested generated page and visual counts."), materialization);
+            }
+
+            return generated with
+            {
+                Readiness = LocalPbirGenerationReadinessState.RoundTripVerified,
+                Materialization = materialization,
+                RoundTrip = new LocalPbirGenerationRoundTrip(score, pageCount, request.Visuals.Count),
+                Performance = new LocalPbirGenerationPerformance(generationTimer.ElapsedMilliseconds, materializationTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return RoundTripFailure(generated, new("PBIR38-ROUNDTRIP-CANCELLED-001", "request", "The round-trip was cancelled safely."));
+        }
+        catch (IOException)
+        {
+            return RoundTripFailure(generated, new("PBIR38-ROUNDTRIP-IO-001", "destination", "The local round-trip failed safely."));
+        }
+    }
+
     private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequest? request)
     {
         if (request is null)
@@ -457,6 +578,148 @@ internal sealed class LocalPbirGenerationProviderService
 
         ValidateLayout(request, diagnostics);
         return diagnostics;
+    }
+
+    private static IReadOnlyList<LocalPbirGenerationDiagnostic> Validate(LocalPbirGenerationRequestV3? request)
+    {
+        if (request is null)
+        {
+            return [new("PBIR38-REQUEST-001", "request", "The generation request is required.")];
+        }
+
+        var compatible = new LocalPbirGenerationRequestV2(
+            LocalPbirGenerationRequestContract.SchemaVersionV2, request.RequestId, request.ReportName,
+            request.DatasetPath, request.GeneratedUtc, request.OutputBaseDirectory, request.TargetDirectoryName,
+            request.Pages, request.Visuals);
+        var diagnostics = Validate(compatible).ToList();
+        if (request.SchemaVersion != LocalPbirGenerationRequestContract.SchemaVersionV3)
+        {
+            diagnostics.Add(new("PBIR38-REQUEST-SCHEMA-001", "schemaVersion", "The request schema version is unsupported."));
+        }
+
+        ValidateFilters(request.ReportFilters ?? [], "reportFilters", diagnostics);
+        ValidateTheme(request.Theme, diagnostics);
+        ValidateInteraction(request.Interaction, "interaction", diagnostics);
+        ValidateLayoutSettings(request.Layout, diagnostics);
+        foreach (var page in request.Pages)
+        {
+            ValidateFilters(page.Authoring?.Filters ?? [], $"pages[{page.PageId}].authoring.filters", diagnostics);
+        }
+
+        foreach (var visual in request.Visuals)
+        {
+            ValidateFilters(visual.Authoring?.Filters ?? [], $"visuals[{visual.VisualId}].authoring.filters", diagnostics);
+            ValidateInteraction(visual.Authoring?.Interaction, $"visuals[{visual.VisualId}].authoring.interaction", diagnostics);
+            ValidateFormatting(visual, diagnostics);
+        }
+
+        return diagnostics;
+    }
+
+    private static void ValidateFilters(
+        IReadOnlyList<LocalPbirGenerationEqualityFilter> filters,
+        string field,
+        ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        var identities = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var filter in filters)
+        {
+            ValidateIdentifier(filter.FilterId, $"{field}[{filter.FilterId}].filterId", diagnostics, "PBIR38-FILTER-ID-001");
+            ValidateIdentifier(filter.Entity, $"{field}[{filter.FilterId}].entity", diagnostics, "PBIR38-FILTER-REFERENCE-001");
+            ValidateIdentifier(filter.Property, $"{field}[{filter.FilterId}].property", diagnostics, "PBIR38-FILTER-REFERENCE-001");
+            if (string.IsNullOrWhiteSpace(filter.Value))
+            {
+                diagnostics.Add(new("PBIR38-FILTER-VALUE-001", $"{field}[{filter.FilterId}].value", "Equality filter values must be non-empty."));
+            }
+            if (!identities.Add($"{filter.Entity}.{filter.Property}"))
+            {
+                diagnostics.Add(new("PBIR38-FILTER-DUPLICATE-001", field, "A filter scope cannot declare the same field more than once."));
+            }
+        }
+    }
+
+    private static void ValidateTheme(LocalPbirGenerationTheme? theme, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        if (theme is null) return;
+        if (string.IsNullOrWhiteSpace(theme.Name) || theme.Name.Length > 128)
+        {
+            diagnostics.Add(new("PBIR38-THEME-001", "theme.name", "Theme name must be non-empty and at most 128 characters."));
+        }
+        ValidateColor(theme.BackgroundColor, "theme.backgroundColor", diagnostics);
+        ValidateColor(theme.AccentColor, "theme.accentColor", diagnostics);
+        if (theme.FontSize is <= 0 or > 96)
+        {
+            diagnostics.Add(new("PBIR38-THEME-FONT-001", "theme.fontSize", "Theme font size must be between 1 and 96."));
+        }
+        if (theme.Palette is not null)
+        {
+            if (theme.Palette.Count != theme.Palette.Select(color => color.Hex).Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            {
+                diagnostics.Add(new("PBIR38-THEME-DUPLICATE-001", "theme.palette", "Theme palette colors must be unique."));
+            }
+            foreach (var color in theme.Palette) ValidateColor(color, "theme.palette", diagnostics);
+        }
+    }
+
+    private static void ValidateInteraction(LocalPbirGenerationInteractionSettings? interaction, string field, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        if (interaction is not null && !interaction.Enabled && interaction.Mode != LocalPbirGenerationInteractionMode.Disabled)
+        {
+            diagnostics.Add(new("PBIR38-INTERACTION-001", field, "Disabled interactions must use the Disabled mode."));
+        }
+    }
+
+    private static void ValidateLayoutSettings(LocalPbirGenerationLayoutSettings? layout, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        if (layout is null) return;
+        if (layout.Margin < 0 || layout.Spacing < 0 || layout.VisualPadding < 0)
+        {
+            diagnostics.Add(new("PBIR38-LAYOUT-001", "layout", "Margins, spacing, and visual padding must be non-negative."));
+        }
+    }
+
+    private static void ValidateFormatting(LocalPbirGenerationVisual visual, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        var card = visual.Authoring?.Card;
+        var table = visual.Authoring?.Table;
+        if (visual.VisualType == "card" && table is not null || visual.VisualType == "table" && card is not null)
+        {
+            diagnostics.Add(new("PBIR38-FORMAT-UNSUPPORTED-001", $"visuals[{visual.VisualId}].authoring", "Formatting must match the visual type."));
+        }
+        var styles = new[] { card?.Label, table?.Header, table?.Row };
+        foreach (var style in styles)
+        {
+            if (style is null) continue;
+            ValidateColor(style.Color, $"visuals[{visual.VisualId}].authoring", diagnostics);
+            if (style.FontSize is <= 0 or > 96)
+            {
+                diagnostics.Add(new("PBIR38-FORMAT-FONT-001", $"visuals[{visual.VisualId}].authoring", "Font size must be between 1 and 96."));
+            }
+        }
+        ValidateBox(card?.Box, visual.VisualId, diagnostics);
+        ValidateBox(table?.Box, visual.VisualId, diagnostics);
+    }
+
+    private static void ValidateBox(LocalPbirGenerationBoxStyle? box, string visualId, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        if (box is null) return;
+        ValidateColor(box.Background, $"visuals[{visualId}].authoring", diagnostics);
+        ValidateColor(box.BorderColor, $"visuals[{visualId}].authoring", diagnostics);
+        if (box.BorderWidth is < 0 or > 20) diagnostics.Add(new("PBIR38-FORMAT-BORDER-001", $"visuals[{visualId}].authoring", "Border width must be between 0 and 20."));
+        var padding = box.Padding;
+        if (padding is not null && new[] { padding.Top, padding.Right, padding.Bottom, padding.Left }.Any(value => value < 0 || value > 100))
+        {
+            diagnostics.Add(new("PBIR38-FORMAT-PADDING-001", $"visuals[{visualId}].authoring", "Padding must be between 0 and 100."));
+        }
+    }
+
+    private static void ValidateColor(LocalPbirGenerationColor? color, string field, ICollection<LocalPbirGenerationDiagnostic> diagnostics)
+    {
+        if (color is null) return;
+        if (color.Hex.Length != 7 || color.Hex[0] != '#' || color.Hex.Skip(1).Any(character => !Uri.IsHexDigit(character)))
+        {
+            diagnostics.Add(new("PBIR38-FORMAT-COLOR-001", field, "Colors must use #RRGGBB format."));
+        }
     }
 
     private static void ValidateUniqueIdentifiers(
@@ -827,6 +1090,27 @@ internal sealed class LocalPbirGenerationProviderService
         }
     }
 
+    private static GenerationInputs CreateInputs(LocalPbirGenerationRequestV3 request)
+    {
+        var layout = request.Layout ?? new LocalPbirGenerationLayoutSettings();
+        var visuals = request.Visuals.Select(visual => visual.Layout is not null
+            ? visual
+            : visual with
+            {
+                Layout = new LocalPbirGenerationLayout(
+                    layout.Margin + (visual.Order % 3) * (400 + layout.Spacing),
+                    layout.Margin + (visual.Order / 3) * (328 + layout.Spacing),
+                    400,
+                    328)
+            }).ToArray();
+        var compatible = new LocalPbirGenerationRequestV2(
+            LocalPbirGenerationRequestContract.SchemaVersionV2, request.RequestId, request.ReportName,
+            request.DatasetPath, request.GeneratedUtc, request.OutputBaseDirectory, request.TargetDirectoryName,
+            request.Pages, visuals);
+        var inputs = CreateInputs(compatible);
+        return inputs with { DeployableSerializerRequest = inputs.DeployableSerializerRequest with { Authoring = request } };
+    }
+
     private static string ComputeSha256(string value)
     {
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
@@ -885,11 +1169,12 @@ internal sealed class LocalPbirGenerationProviderService
         {
             Readiness = LocalPbirGenerationReadinessState.Rejected,
             Materialization = materialization,
-            Diagnostics =
-            [new(
-                "PBIR36-MATERIALIZATION-001",
-                "destination",
-                "Phase 31 did not materialize the generated artifact.")]
+            Diagnostics = materialization.Diagnostics.Items.Count > 0
+                ? materialization.Diagnostics.Items.Select(item => new LocalPbirGenerationDiagnostic(item.Code, item.Field, item.Message)).ToArray()
+                : [new(
+                    "PBIR36-MATERIALIZATION-001",
+                    "destination",
+                    "Phase 31 did not materialize the generated artifact.")]
         };
 
     private static LocalPbirGenerationResult RoundTripFailure(

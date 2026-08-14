@@ -310,7 +310,15 @@ internal sealed class PbirMaterializationOrchestrationService
                 : diagnostics.Items.Any(item => item.Code == "PBIRMAT-TRANSACTION-002")
                     ? PbirMaterializationOrchestrationOutcome.TransactionReused
                     : PbirMaterializationOrchestrationOutcome.Failure;
-        return Failed(requestId, outcome, "PBIR31-PHASE30-001", "destination", "The local PBIR operation was rejected safely.");
+        var failure = Failed(requestId, outcome, "PBIR31-PHASE30-001", "destination", "The local PBIR operation was rejected safely.");
+        return failure with
+        {
+            Diagnostics = new PbirMaterializationOrchestrationDiagnostics(
+                PbirMaterializationOrchestrationDiagnosticsContract.SchemaVersionV1,
+                diagnostics.Items
+                    .Select(item => new PbirMaterializationOrchestrationDiagnostic(item.Code, item.Path, item.Message))
+                    .ToArray())
+        };
     }
 
     private static PbirMaterializationOrchestrationResult Failed(

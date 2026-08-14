@@ -7,6 +7,7 @@ internal static class LocalPbirGenerationRequestContract
 {
     internal const string SchemaVersionV1 = "local-pbir-generation-request/v1";
     internal const string SchemaVersionV2 = "local-pbir-generation-request/v2";
+    internal const string SchemaVersionV3 = "local-pbir-generation-request/v3";
 }
 
 internal static class LocalPbirGenerationProviderContract
@@ -49,7 +50,8 @@ internal enum LocalPbirGenerationBindingKind
 internal sealed record LocalPbirGenerationPage(
     [property: JsonPropertyName("pageId")] string PageId,
     [property: JsonPropertyName("displayName")] string DisplayName,
-    [property: JsonPropertyName("order")] int Order);
+    [property: JsonPropertyName("order")] int Order,
+    [property: JsonPropertyName("authoring")] LocalPbirGenerationPageAuthoring? Authoring = null);
 
 internal sealed record LocalPbirGenerationLayout(
     [property: JsonPropertyName("x")] int? X,
@@ -72,7 +74,8 @@ internal sealed record LocalPbirGenerationVisual(
     [property: JsonPropertyName("visualType")] string VisualType,
     [property: JsonPropertyName("order")] int Order,
     [property: JsonPropertyName("layout")] LocalPbirGenerationLayout? Layout,
-    [property: JsonPropertyName("bindings")] IReadOnlyList<LocalPbirGenerationBinding> Bindings);
+    [property: JsonPropertyName("bindings")] IReadOnlyList<LocalPbirGenerationBinding> Bindings,
+    [property: JsonPropertyName("authoring")] LocalPbirGenerationVisualAuthoring? Authoring = null);
 
 internal sealed record LocalPbirGenerationRequestV2(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
@@ -84,6 +87,22 @@ internal sealed record LocalPbirGenerationRequestV2(
     [property: JsonPropertyName("targetDirectoryName")] string TargetDirectoryName,
     [property: JsonPropertyName("pages")] IReadOnlyList<LocalPbirGenerationPage> Pages,
     [property: JsonPropertyName("visuals")] IReadOnlyList<LocalPbirGenerationVisual> Visuals);
+
+internal sealed record LocalPbirGenerationRequestV3(
+    [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
+    [property: JsonPropertyName("requestId")] string RequestId,
+    [property: JsonPropertyName("reportName")] string ReportName,
+    [property: JsonPropertyName("datasetPath")] string DatasetPath,
+    [property: JsonPropertyName("generatedUtc")] DateTime GeneratedUtc,
+    [property: JsonPropertyName("outputBaseDirectory")] string OutputBaseDirectory,
+    [property: JsonPropertyName("targetDirectoryName")] string TargetDirectoryName,
+    [property: JsonPropertyName("pages")] IReadOnlyList<LocalPbirGenerationPage> Pages,
+    [property: JsonPropertyName("visuals")] IReadOnlyList<LocalPbirGenerationVisual> Visuals,
+    [property: JsonPropertyName("theme")] LocalPbirGenerationTheme? Theme = null,
+    [property: JsonPropertyName("reportFilters")] IReadOnlyList<LocalPbirGenerationEqualityFilter>? ReportFilters = null,
+    [property: JsonPropertyName("metadata")] LocalPbirGenerationReportMetadata? Metadata = null,
+    [property: JsonPropertyName("interaction")] LocalPbirGenerationInteractionSettings? Interaction = null,
+    [property: JsonPropertyName("layout")] LocalPbirGenerationLayoutSettings? Layout = null);
 
 internal sealed record LocalPbirGenerationRequest(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
