@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using PowerBIModelingService.Services.Discovery.Models;
 using PowerBIModelingService.Services.Pbir.Models;
@@ -163,7 +164,9 @@ internal sealed record PbirAuthoringValidateRequest(
 internal sealed record PbirAuthoringAnalyzeRequest(
     [property: JsonPropertyName("reportDirectory")] string? ReportDirectory = null,
     [property: JsonPropertyName("artifact")] PbirAuthoringArtifactHandle? Artifact = null,
-    [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle? Snapshot = null);
+    [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle? Snapshot = null,
+    [property: JsonPropertyName("config")] JsonElement? Config = null,
+    [property: JsonPropertyName("pageName")] string? PageName = null);
 
 internal sealed record PbirAuthoringArtifactIdentity(
     [property: JsonPropertyName("artifactId")] string ArtifactId,

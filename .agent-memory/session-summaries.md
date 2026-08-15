@@ -1,5 +1,14 @@
 # Session Summaries
 
+# 2026-08-15 — Activity Bar Icon Redesign
+
+- Replaced only the VS Code Activity Bar SVG with a purpose-built monochrome
+  magnifying-glass silhouette containing three ascending rounded bars.
+- Preserved the primary logo PNG, package manifest path, and product palette.
+- Added reproducible before/after source and screenshot under
+  `output/playwright/`; XML/geometry checks and darwin-arm64 packaging passed.
+- All changes remain uncommitted and unstaged.
+
 # 2026-08-15 — Product repositioning strategy
 
 Paused implementation after RC1 and added the uncommitted strategy document
@@ -2360,3 +2369,21 @@ Validation passed: focused tree-item suite 6/6, extension 506/506, webview
 68/68, TypeScript, production build, changed-file ESLint, and `git diff --check`.
 Production build emitted only existing unrelated nullable-reference warnings.
 Changes remain uncommitted alongside the prior strategy work.
+
+# 2026-08-15 — PBIR Optimization Report handle-architecture fix
+
+The Optimization Report still called the legacy `model/pbir/scoreReport`
+route from `PbirScorePanel`, while Phase 46's handle-based `pbir/authoring`
+Analyze route was used only by the separate authoring workflow. The report
+page therefore remained coupled to the legacy `reportPath` requirement.
+
+Changed PBIR scoring to import the report and analyze the returned opaque
+snapshot handle. Added optional Analyze config and stable page-name fields so
+scoring settings and page scoring remain compatible. The legacy path-based
+route remains registered for existing external callers.
+
+Focused authoring/mutation backend tests passed 40/40; extension 506/506;
+webview 68/68; TypeScript, changed-file ESLint, production packaging, and
+`git diff --check` passed. Full backend reached 995 passed with 11 expected
+Windows skips and one unrelated Phase 35E timeout-test flake. Repackaged all
+five 0.6.0 VSIX targets; macOS arm64 was created at 08:03:56.

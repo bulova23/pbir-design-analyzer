@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { getExtensionOutputChannel } from '../../platform/outputChannels';
+import type { ScoreResult } from '../../analyzer/contracts/scorePanel';
 import type { AnalyzerBridgeService } from './AnalyzerBridgeService';
 
 export type PbirAuthoringResponse = {
@@ -9,7 +10,7 @@ export type PbirAuthoringResponse = {
   error?: { category: string; code: string; summary: string };
   artifactIdentity?: { artifactId: string; artifactHash: string; manifestId: string; manifestHash: string };
   fidelity?: { classification: string; preservedPathCount: number; changedPathCount: number; unexpectedPathCount: number };
-  analyzer?: { score: number; pageCount: number; visualCount: number };
+  analyzer?: { score: number; pageCount: number; visualCount: number; result?: ScoreResult };
   mutateResult?: {
     artifact?: { schemaVersion: string; artifactId: string; artifactHash: string; manifestId: string; manifestHash: string };
     changedPageCount?: number;

@@ -2,6 +2,29 @@
 
 ## Active Session
 
+- 2026-08-15 UI Polish — Activity Bar Icon redesign:
+  - replacing the clipped four-bar Activity Bar SVG with a purpose-built
+    monochrome magnifying-glass silhouette containing three ascending bars
+  - primary logo and package icon remain unchanged; SVG geometry checks,
+    packaging, and before/after screenshot evidence are complete
+  - next step: hand off the uncommitted icon and evidence artifacts
+
+- 2026-08-15 PBIR Optimization Report handle-architecture fix:
+  - traced the report page to the legacy `model/pbir/scoreReport` call in
+    `PbirScorePanel`; Phase 46 introduced `pbir/authoring` Analyze, but this
+    page never migrated to it
+  - changed PBIR scoring to Import → Analyze using the opaque snapshot handle;
+    Analyze now accepts optional scoring config and stable page name while
+    retaining path-based scoring for compatibility callers
+  - validation: focused authoring/mutation backend tests 40 passed; extension
+    506 passed; webview 68 passed; TypeScript, changed-file ESLint,
+    `git diff --check`, and package:all passed; full backend had 995 passed,
+    11 expected skips, and one unrelated Phase 35E timeout-test flake
+  - repackaged 0.6.0 for all five targets; macOS arm64 artifact was created at
+    08:03:56 and contains the new authoring RPC call
+  - next step: install the fresh VSIX and manually verify Optimization Report
+    scoring and diagnostics; retain legacy scoreReport for external callers
+
 - 2026-08-15 PBIR score path fix:
   - diagnosed the `Parameter 'reportPath' is required` scoring failure as an
     extension tree-target resolution bug for reports represented by

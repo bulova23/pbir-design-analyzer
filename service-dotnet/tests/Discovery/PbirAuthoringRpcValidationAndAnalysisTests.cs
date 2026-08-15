@@ -98,12 +98,14 @@ public sealed class PbirAuthoringRpcValidationAndAnalysisTests
             var imported = await dispatcher.DispatchAsync(new(
                 PbirAuthoringRpcContract.SchemaVersionV1, PbirAuthoringRpcOperation.Import,
                 Import: new(source.FullName)));
+            var pageId = imported.ImportResult!.Pages.Single().PageId;
             var analyzed = await dispatcher.DispatchAsync(new(
                 PbirAuthoringRpcContract.SchemaVersionV1, PbirAuthoringRpcOperation.Analyze,
-                Analyze: new(Snapshot: imported.ImportResult!.Snapshot)));
+                Analyze: new(Snapshot: imported.ImportResult.Snapshot, PageName: pageId)));
 
             Assert.True(analyzed.Succeeded, analyzed.Error?.Summary);
-            Assert.NotNull(analyzed.Analyzer);
+            Assert.NotNull(analyzed.Analyzer?.Result);
+            Assert.Equal(pageId, analyzed.Analyzer.Result.ScoredPageName);
         }
         finally
         {

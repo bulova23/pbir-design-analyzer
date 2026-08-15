@@ -169,7 +169,7 @@ internal sealed class PbirAuthoringRpcDispatcher
                 return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-001", "The report could not be resolved for analysis.");
             var analyzerTimer = Stopwatch.StartNew();
             var score = await new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance)
-                .ScoreAsync(location.ProjectRootPath);
+                .ScoreAsync(location.ProjectRootPath, request.Analyze!.Config, request.Analyze.PageName);
             analyzerTimer.Stop();
             operationTimer.Stop();
             dispatchTimer.Stop();
