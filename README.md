@@ -132,6 +132,14 @@ Deterministic workflows can:
 - roll back applied changes
 - re-analyze the result
 
+The local PBIR authoring workflow now exposes a curated set of six report
+mutations: Rename Page, Add Page, Remove Page, Move Page, Move Visual, and
+Resize Visual. Every mutation is planned and previewed by the backend before
+confirmation, returns semantic diff and analyzer evidence, and produces a new
+artifact handle while preserving the imported snapshot. Other typed backend
+mutations, capability discovery, public batching, graphical editing, and raw
+JSON editing remain deferred.
+
 Advisory capabilities do not generate freeform report mutations, DAX, or autonomous redesign behavior.
 
 ## Review Modes

@@ -34,7 +34,7 @@ internal sealed class PbirAuthoringRpcAdapter
             operation.ValueKind != JsonValueKind.String ||
             !IsExposedOperation(operation.GetString()))
         {
-            return Failure("invalidRequest", "PBIR-RPC-REQUEST-002", "Only Generate, Import, Analyze, and RenamePage Mutate are exposed through VS Code.");
+            return Failure("invalidRequest", "PBIR-RPC-REQUEST-002", "Only Generate, Import, Analyze, and the curated mutation catalog are exposed through VS Code.");
         }
 
         try
@@ -43,11 +43,17 @@ internal sealed class PbirAuthoringRpcAdapter
             if (request is null)
                 return Failure("invalidRequest", "PBIR-RPC-REQUEST-003", "The authoring request could not be deserialized.");
 
+            var publicOperations = request.Mutate?.Request?.Operations;
             if (request.Operation == PbirAuthoringRpcOperation.Mutate &&
-                (request.Mutate?.Request is not { Operations: { Count: 1 } operations } ||
-                 operations[0].Kind != LocalPbirMutationOperationKind.RenamePage))
+                (publicOperations is null || publicOperations.Count != 1))
             {
-                return Failure("unsupportedAuthoring", "PBIR-RPC-MUTATE-008", "Only one RenamePage operation is exposed through VS Code.");
+                return Failure("unsupportedAuthoring", "PBIR-RPC-MUTATE-009", "Exactly one curated mutation operation is required.");
+            }
+
+            if (request.Operation == PbirAuthoringRpcOperation.Mutate &&
+                !IsCuratedMutation(publicOperations![0].Kind))
+            {
+                return Failure("unsupportedAuthoring", "PBIR-RPC-MUTATE-008", "The requested mutation is backend-only and is not exposed through VS Code.");
             }
 
             var response = await _dispatcher.DispatchAsync(request, cancellationToken).ConfigureAwait(false);
@@ -69,6 +75,14 @@ internal sealed class PbirAuthoringRpcAdapter
          operation.Equals("import", StringComparison.OrdinalIgnoreCase) ||
          operation.Equals("mutate", StringComparison.OrdinalIgnoreCase) ||
          operation.Equals("analyze", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsCuratedMutation(LocalPbirMutationOperationKind kind) =>
+        kind is LocalPbirMutationOperationKind.RenamePage or
+            LocalPbirMutationOperationKind.AddPage or
+            LocalPbirMutationOperationKind.RemovePage or
+            LocalPbirMutationOperationKind.MovePage or
+            LocalPbirMutationOperationKind.MoveVisual or
+            LocalPbirMutationOperationKind.ResizeVisual;
 
     private static JsonElement Failure(string category, string code, string summary) =>
         JsonSerializer.SerializeToElement(new

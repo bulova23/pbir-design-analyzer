@@ -89,6 +89,8 @@ public sealed class PbirAuthoringRpcMutationTests
             Assert.Equal("overview", response.MutateResult.Preview.CurrentDisplayName);
             Assert.Equal("Renamed", response.MutateResult.Preview.ProposedDisplayName);
             Assert.True(response.MutateResult.Preview.ExecutionAdmissible);
+            Assert.Equal(LocalPbirMutationOperationKind.RenamePage, response.MutateResult.Preview.Payload!.Kind);
+            Assert.Contains(response.MutateResult.Preview.Diffs!, diff => diff.Kind == LocalPbirMutationSemanticDiffKind.PageRenamed && diff.ObjectId == pageId);
             Assert.False(Directory.Exists(Path.Combine(output, "mutated")));
             Assert.Null(response.MutateResult.Artifact);
         }
@@ -158,6 +160,7 @@ public sealed class PbirAuthoringRpcMutationTests
                 response.MutateResult.Comparison!.After.Score - response.MutateResult.Comparison.Before.Score,
                 response.MutateResult.Comparison.ScoreDelta,
                 precision: 10);
+            Console.WriteLine($"Phase48 timing dispatch={response.Timing.DispatchMilliseconds} orchestration={response.Timing.OrchestrationMilliseconds} planning={response.Timing.PlanningMilliseconds} preview={response.Timing.PreviewMilliseconds} serialization={response.Timing.SerializationMilliseconds} analyzerBefore={response.Timing.AnalyzerBeforeMilliseconds} analyzerAfter={response.Timing.AnalyzerMilliseconds}");
             Assert.Contains(pageId, response.MutateResult.Preview!.AffectedPageIds);
             Assert.Equal(sourceBefore, File.ReadAllText(Directory.GetFiles(source, "page.json", SearchOption.AllDirectories).Single()));
 

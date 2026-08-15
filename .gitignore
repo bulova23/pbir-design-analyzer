@@ -26,3 +26,5 @@ vscode-extension/backend/rpc/
 Thumbs.db
 *.log
 *.pid
+.claude/.atomic-index/
+tmp/

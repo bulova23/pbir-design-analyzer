@@ -2,6 +2,12 @@
 
 ## Active Session
 
+- 2026-08-15 Repository Phase 48 — Curated Mutation Expansion and Multi-Operation Planning:
+  - approved design: expand the public authoring allowlist to RenamePage, AddPage, RemovePage, MovePage, MoveVisual, and ResizeVisual while preserving pbir-authoring-rpc/v1, immutable snapshots, new artifact handles, backend planning, typed previews/diffs, and no capability discovery
+  - implemented test-first; public multi-operation requests and backend-only mutation kinds remain structured adapter rejections; planner preserves internal order, validates positions/removal/bounds, and emits typed diffs; VS Code has one curated picker
+  - validation: focused backend 21 passed; full backend 996 passed with 11 expected Windows skips; extension 505 passed; webview 68 passed; TypeScript, production build, VSIX packaging, changed-file lint, and git diff --check passed; all changes remain unstaged and uncommitted
+  - plan: `docs/superpowers/plans/2026-08-15-phase48-curated-mutation-expansion.md`
+
 - 2026-08-14 Repository Phase 47 — Interactive Mutation Workflow and Visual Diff Preview:
   - design approved: expose only RenamePage through the existing pbir-authoring-rpc/v1 Mutate operation with backend-generated preview and execute modes
   - preserve the broader internal typed mutation contract; reject non-RenamePage requests at the public adapter and VS Code workflow

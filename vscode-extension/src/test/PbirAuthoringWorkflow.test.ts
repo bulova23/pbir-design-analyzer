@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 import {
   buildGeneratePayload,
   buildRenamePagePayload,
+  buildCuratedMutationPayload,
+  formatCuratedMutationPreview,
   formatMutationPreview,
   formatAuthoringError,
   PbirAuthoringWorkflow,
@@ -89,6 +91,39 @@ describe('PbirAuthoringWorkflow', () => {
     })).toBe('Rename page\n\nCurrent:\nOverview\n\nNew:\nExecutive Summary');
   });
 
+  it('builds typed payloads for every curated mutation without frontend diff fields', () => {
+    expect(buildCuratedMutationPayload('addPage', { pageId: 'page-2', displayName: 'Details', order: 1 }))
+      .toEqual(expect.objectContaining({
+        operation: 'mutate',
+        mutate: expect.objectContaining({
+          request: expect.objectContaining({
+            operations: [{ kind: 'addPage', page: { pageId: 'page-2', displayName: 'Details', order: 1 } }],
+          }),
+        }),
+      }));
+    expect(buildCuratedMutationPayload('resizeVisual', { visualId: 'visual-1', layout: { x: 8, y: 12, width: 320, height: 180 } }))
+      .toEqual(expect.objectContaining({
+        mutate: expect.objectContaining({
+          request: expect.objectContaining({
+            operations: [{ kind: 'resizeVisual', target: { visualId: 'visual-1' }, layout: { x: 8, y: 12, width: 320, height: 180 } }],
+          }),
+        }),
+      }));
+  });
+
+  it('renders operation-specific backend preview payloads', () => {
+    expect(formatCuratedMutationPreview({
+      mutationKind: 'moveVisual',
+      targetPageId: 'page-1',
+      currentDisplayName: '',
+      proposedDisplayName: '',
+      executionAdmissible: true,
+      isNoOp: false,
+      payload: { kind: 'moveVisual', visual: { currentPageId: 'page-1', proposedPageId: 'page-2', currentOrder: 1, proposedOrder: 2 } },
+      diffs: [{ kind: 'visualMoved', objectId: 'visual-1', beforePageId: 'page-1', afterPageId: 'page-2' }],
+    })).toContain('page-1 → page-2');
+  });
+
   it('previews and executes RenamePage only after confirmation, retaining the artifact handle', async () => {
     (vscode.window.showOpenDialog as jest.Mock).mockResolvedValue([{ fsPath: '/reports/sales' }]);
     (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({ label: 'Overview', pageId: 'page-1' });
@@ -136,5 +171,21 @@ describe('PbirAuthoringWorkflow', () => {
       operation: 'mutate',
       mutate: expect.objectContaining({ mode: 'execute', snapshot: expect.objectContaining({ snapshotId: 'snapshot-1' }) }),
     }));
+  });
+
+  it('does not call the backend when the curated mutation picker is cancelled', async () => {
+    (vscode.window.showQuickPick as jest.Mock).mockResolvedValue(undefined);
+    const executeAuthoringRequest = jest.fn();
+    const workflow = new PbirAuthoringWorkflow(() => ({ executeAuthoringRequest }));
+    (workflow as unknown as { snapshot: unknown }).snapshot = {
+      schemaVersion: 'snapshot',
+      snapshotId: 'snapshot-1',
+      sourceIdentity: { sourceDirectoryName: 'sales', contentHash: 'hash', fileCount: 1 },
+    };
+    (workflow as unknown as { pages: unknown }).pages = [{ pageId: 'page-1', displayName: 'Overview' }];
+
+    await workflow.mutate();
+
+    expect(executeAuthoringRequest).not.toHaveBeenCalled();
   });
 });

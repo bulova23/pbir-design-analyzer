@@ -142,7 +142,13 @@ internal sealed class PbirAuthoringRpcDispatcher
                 .OrderBy(page => page.Order)
                 .ThenBy(page => page.PageId, StringComparer.Ordinal)
                 .Select(page => new PbirAuthoringPageMetadata(page.PageId, page.DisplayName ?? page.PageId))
-                .ToArray() ?? []), null, null, null);
+                .ToArray() ?? [],
+                snapshot.IrState.Ir?.Visuals
+                    .OrderBy(visual => visual.PageId, StringComparer.Ordinal)
+                    .ThenBy(visual => visual.Order)
+                    .ThenBy(visual => visual.VisualId, StringComparer.Ordinal)
+                    .Select(visual => new PbirAuthoringVisualMetadata(visual.VisualId, visual.PageId, visual.VisualType, visual.Order, ToLayout(visual.Layout)))
+                    .ToArray() ?? []), null, null, null);
     }
 
     private async Task<PbirAuthoringRpcResponse> AnalyzeAsync(
@@ -217,6 +223,10 @@ internal sealed class PbirAuthoringRpcDispatcher
         CancellationToken cancellationToken)
     {
         var operationTimer = Stopwatch.StartNew();
+        if (request.Mutate!.Request.Operations is null || request.Mutate.Request.Operations.Count == 0)
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-MUTATE-002", "At least one mutation operation is required.");
+        if (request.Mutate.Request.Operations.Count != 1)
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.UnsupportedAuthoring, "PBIR-RPC-MUTATE-009", "Exactly one mutation operation is supported by the public authoring workflow.");
         if (!_snapshots.TryGetValue(request.Mutate!.Snapshot.SnapshotId, out var snapshot) ||
             (!string.IsNullOrWhiteSpace(request.Mutate.Request.SourceDirectory) &&
              snapshot.SourceDirectory != request.Mutate.Request.SourceDirectory))
@@ -248,7 +258,7 @@ internal sealed class PbirAuthoringRpcDispatcher
         }
 
         var previewTimer = Stopwatch.StartNew();
-        var semanticPreview = CreateMutationPreview(plan);
+        var semanticPreview = CreateMutationPreview(plan, effectiveRequest.Operations.Single());
         previewTimer.Stop();
         if (request.Mutate.Mode == PbirAuthoringMutationMode.Preview)
         {
@@ -483,18 +493,39 @@ internal sealed class PbirAuthoringRpcDispatcher
             ? PbirAuthoringDiagnosticSeverity.Error
             : PbirAuthoringDiagnosticSeverity.Warning, "The authoring pipeline reported a bounded diagnostic.");
 
-    private static PbirAuthoringMutationPreview CreateMutationPreview(PbirMutationPlan plan)
+    private static PbirAuthoringMutationPreview CreateMutationPreview(PbirMutationPlan plan, LocalPbirMutationOperation requestedOperation)
     {
-        var operation = plan.Operations.SingleOrDefault(operation => operation.Kind == LocalPbirMutationOperationKind.RenamePage);
-        var pageId = operation?.Target?.PageId ?? string.Empty;
+        var operation = plan.Operations.SingleOrDefault() ?? requestedOperation;
+        var pageId = operation.Target?.PageId ?? operation.Page?.PageId ?? string.Empty;
         var page = plan.Snapshot.IrState.Ir?.Pages.SingleOrDefault(page => page.PageId == pageId);
+        var visual = operation.Target?.VisualId is null ? null : plan.Snapshot.IrState.Ir?.Visuals.SingleOrDefault(item => item.VisualId == operation.Target.VisualId);
         var diagnostics = plan.Diagnostics.Select(ToDiagnostic).ToArray();
+        var payload = new PbirAuthoringMutationPreviewPayload(
+            requestedOperation.Kind,
+            requestedOperation.Kind is LocalPbirMutationOperationKind.AddPage or LocalPbirMutationOperationKind.RemovePage or LocalPbirMutationOperationKind.RenamePage or LocalPbirMutationOperationKind.MovePage
+                ? new(
+                    page?.DisplayName,
+                    requestedOperation.DisplayName,
+                    page?.Order,
+                    requestedOperation.Page?.Order ?? requestedOperation.Order,
+                    requestedOperation.Page?.PageId ?? page?.PageId,
+                    requestedOperation.Kind == LocalPbirMutationOperationKind.RemovePage ? plan.Snapshot.IrState.Ir?.Pages.Where(item => item.PageId != pageId).Select(item => item.PageId).ToArray() ?? [] : [])
+                : null,
+            requestedOperation.Kind is LocalPbirMutationOperationKind.MoveVisual or LocalPbirMutationOperationKind.ResizeVisual
+                ? new(
+                    visual?.PageId,
+                    requestedOperation.Target?.PageId ?? requestedOperation.Visual?.PageId ?? visual?.PageId,
+                    visual?.Order,
+                    requestedOperation.Order,
+                    ToLayout(visual?.Layout),
+                    ToLayout(requestedOperation.Layout, visual?.Layout))
+                : null);
         return new(
             $"preview:{Hash($"{plan.MutationId}:{plan.Fingerprint}")[..24]}",
-            operation?.Kind ?? LocalPbirMutationOperationKind.RenamePage,
+            requestedOperation.Kind,
             pageId,
             page?.DisplayName ?? string.Empty,
-            operation?.DisplayName ?? string.Empty,
+            requestedOperation.DisplayName ?? string.Empty,
             plan.AffectedPages,
             plan.AffectedVisuals,
             plan.Snapshot.IrState.Ir?.Pages.Select(item => item.PageId).Except(plan.AffectedPages, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray() ?? [],
@@ -502,7 +533,24 @@ internal sealed class PbirAuthoringRpcDispatcher
             plan.AffectedPages.Count + plan.AffectedVisuals.Count,
             diagnostics,
             plan.IsValid && !plan.IsNoOp,
-            plan.IsNoOp);
+            plan.IsNoOp,
+            payload,
+            plan.Diffs.Select(diff => new PbirAuthoringSemanticDiff(
+                diff.Kind, diff.ObjectId, diff.BeforePageId, diff.AfterPageId, diff.BeforeDisplayName, diff.AfterDisplayName,
+                diff.BeforeOrder, diff.AfterOrder, diff.BeforeLayout, diff.AfterLayout)).ToArray());
+    }
+
+    private static LocalPbirGenerationVisualLayout? ToLayout(PbirIntermediateRepresentationVisualLayout? layout) =>
+        layout is null ? null : new(layout.X, layout.Y, layout.Width, layout.Height);
+
+    private static LocalPbirGenerationVisualLayout? ToLayout(LocalPbirGenerationLayout? proposed, PbirIntermediateRepresentationVisualLayout? current)
+    {
+        if (proposed is null && current is null) return null;
+        return new(
+            proposed?.X ?? current?.X ?? 0,
+            proposed?.Y ?? current?.Y ?? 0,
+            proposed?.Width ?? current?.Width ?? 1,
+            proposed?.Height ?? current?.Height ?? 1);
     }
 
     private static PbirAuthoringDiagnostic ToDiagnostic(LocalPbirGenerationDiagnostic diagnostic) =>

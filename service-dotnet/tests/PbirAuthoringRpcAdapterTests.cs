@@ -28,7 +28,7 @@ public sealed class PbirAuthoringRpcAdapterTests
     }
 
     [Fact]
-    public async Task Adapter_RejectsPublicMutationKindsOtherThanRenamePage()
+    public async Task Adapter_RejectsPublicMutationKindsOutsideCuratedCatalog()
     {
         var request = JsonDocument.Parse("""
             {
@@ -37,7 +37,7 @@ public sealed class PbirAuthoringRpcAdapterTests
               "mutate":{
                 "mode":"preview",
                 "snapshot":{"schemaVersion":"pbir-authoring-rpc-snapshot/v1","snapshotId":"snapshot","sourceIdentity":{"sourceDirectoryName":"report","contentHash":"hash","fileCount":0}},
-                "request":{"schemaVersion":"local-pbir-mutation-request/v1","mutationId":"mutation","sourceDirectory":"","outputBaseDirectory":"","targetDirectoryName":"","operations":[{"kind":"resizeVisual","target":{"visualId":"visual"},"layout":{"x":8}}]}
+                "request":{"schemaVersion":"local-pbir-mutation-request/v1","mutationId":"mutation","sourceDirectory":"","outputBaseDirectory":"","targetDirectoryName":"","operations":[{"kind":"addVisual","target":{"pageId":"page"}}]}
               }
             }
             """).RootElement;
@@ -46,6 +46,54 @@ public sealed class PbirAuthoringRpcAdapterTests
 
         Assert.Equal("unsupportedAuthoring", response.GetProperty("error").GetProperty("category").GetString());
         Assert.Equal("PBIR-RPC-MUTATE-008", response.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("renamePage")]
+    [InlineData("addPage")]
+    [InlineData("removePage")]
+    [InlineData("movePage")]
+    [InlineData("moveVisual")]
+    [InlineData("resizeVisual")]
+    public async Task Adapter_AllowsEachCuratedMutationKindToReachCore(string kind)
+    {
+        var request = JsonDocument.Parse("""
+            {
+              "schemaVersion":"pbir-authoring-rpc/v1",
+              "operation":"mutate",
+              "mutate":{
+                "mode":"preview",
+                "snapshot":{"schemaVersion":"pbir-authoring-rpc-snapshot/v1","snapshotId":"missing","sourceIdentity":{"sourceDirectoryName":"report","contentHash":"hash","fileCount":0}},
+                "request":{"schemaVersion":"local-pbir-mutation-request/v1","mutationId":"mutation","sourceDirectory":"","outputBaseDirectory":"","targetDirectoryName":"","operations":[{"kind":"REPLACE_KIND","target":{"pageId":"page","visualId":"visual"}}]}
+              }
+            }
+            """).RootElement.Clone();
+        using var normalized = JsonDocument.Parse(request.GetRawText().Replace("REPLACE_KIND", kind, StringComparison.Ordinal));
+
+        var response = await new PbirAuthoringRpcAdapter().HandleAsync(normalized.RootElement, null, CancellationToken.None);
+
+        Assert.NotEqual("PBIR-RPC-MUTATE-008", response.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Adapter_RejectsPublicRequestsContainingMoreThanOneOperation()
+    {
+        var request = JsonDocument.Parse("""
+            {
+              "schemaVersion":"pbir-authoring-rpc/v1",
+              "operation":"mutate",
+              "mutate":{
+                "mode":"preview",
+                "snapshot":{"schemaVersion":"pbir-authoring-rpc-snapshot/v1","snapshotId":"snapshot","sourceIdentity":{"sourceDirectoryName":"report","contentHash":"hash","fileCount":0}},
+                "request":{"schemaVersion":"local-pbir-mutation-request/v1","mutationId":"mutation","sourceDirectory":"","outputBaseDirectory":"","targetDirectoryName":"","operations":[{"kind":"renamePage","target":{"pageId":"page"},"displayName":"One"},{"kind":"renamePage","target":{"pageId":"page"},"displayName":"Two"}]}
+              }
+            }
+            """).RootElement;
+
+        var response = await new PbirAuthoringRpcAdapter().HandleAsync(request, null, CancellationToken.None);
+
+        Assert.Equal("unsupportedAuthoring", response.GetProperty("error").GetProperty("category").GetString());
+        Assert.Equal("PBIR-RPC-MUTATE-009", response.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]

@@ -42,6 +42,28 @@ internal enum LocalPbirMutationOperationKind
     UpdateSlicer
 }
 
+internal enum LocalPbirMutationSemanticDiffKind
+{
+    PageAdded,
+    PageRemoved,
+    PageRenamed,
+    PageMoved,
+    VisualMoved,
+    VisualResized
+}
+
+internal sealed record LocalPbirMutationSemanticDiff(
+    LocalPbirMutationSemanticDiffKind Kind,
+    string ObjectId,
+    string? BeforePageId = null,
+    string? AfterPageId = null,
+    string? BeforeDisplayName = null,
+    string? AfterDisplayName = null,
+    int? BeforeOrder = null,
+    int? AfterOrder = null,
+    LocalPbirGenerationVisualLayout? BeforeLayout = null,
+    LocalPbirGenerationVisualLayout? AfterLayout = null);
+
 internal static class LocalPbirMutationOperationKindCatalog
 {
     internal static IReadOnlyList<LocalPbirMutationOperationKind> All { get; } =

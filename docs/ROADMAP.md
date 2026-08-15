@@ -486,6 +486,23 @@ The public boundary rejects every other mutation kind. Dynamic mutation
 capability discovery, batching, undo/redo, webview editing, and raw JSON remain
 deferred until real Rename Page usage establishes the next stable contract.
 
+### Phase 48 — Curated Mutation Expansion and Multi-Operation Planning
+
+Phase 48 expands the public mutation allowlist to Rename Page, Add Page, Remove
+Page, Move Page, Move Visual, and Resize Visual. Each request still contains
+exactly one operation and follows backend planning, typed preview, standard
+confirmation, authoritative re-planning, copy-on-write execution, analyzer
+comparison, and new artifact-handle return. The planner owns target
+resolution, order/navigation safety, layout validation, no-op detection,
+semantic diffs, and identity evidence.
+
+The public preview carries a common admissibility/identity model plus typed
+page or visual details and semantic diff records. Add Visual, Remove Visual,
+Replace Visual, binding, formatting, theme, filter, navigation, and slicer
+operations remain backend-only. Capability discovery, public batching,
+undo/redo, mutation registries, graphical editing, raw JSON editing, and
+Windows/hosted execution remain deferred.
+
 These roadmap epics should not:
 
 - rewrite the core scoring engine unnecessarily

@@ -1,5 +1,18 @@
 # Session Summaries
 
+# 2026-08-15 — Phase 48 curated mutation expansion
+
+- Expanded the public PBIR authoring allowlist to RenamePage, AddPage,
+  RemovePage, MovePage, MoveVisual, and ResizeVisual under unchanged
+  pbir-authoring-rpc/v1.
+- Added one-operation public enforcement, typed operation-specific previews,
+  semantic diffs, planner validation, backend-owned visual metadata, and one
+  thin VS Code curated mutation picker.
+- Validation: backend 996 passed / 11 expected Windows skips; extension 505
+  passed; webview 68 passed; build/package/lint/diff checks passed.
+- Keep all changes unstaged/uncommitted; assess single-operation contract
+  consistency before considering Phase 49 ordered batches.
+
 # 2026-08-14 Phase 46 authoring milestone definition
 
 - Reconciled Phase 45 Option B and selected the smallest evidence-backed next capability: one direct typed backend `RenamePage` operation for imported PBIR pages.

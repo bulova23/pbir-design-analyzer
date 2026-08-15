@@ -64,12 +64,13 @@ describe('extension manifest 0.5.2 runtime posture', () => {
     ]));
   });
 
-  it('declares only the three Phase 46 authoring commands', () => {
+  it('declares the Phase 46 authoring commands and curated mutation picker', () => {
     const commands = packageJson.contributes?.commands ?? [];
     expect(commands).toEqual(expect.arrayContaining([
       expect.objectContaining({ command: 'pbirAnalyzer.generateReport' }),
       expect.objectContaining({ command: 'pbirAnalyzer.importReport' }),
       expect.objectContaining({ command: 'pbirAnalyzer.analyzeAuthoringReport' }),
+      expect.objectContaining({ command: 'pbirAnalyzer.mutateReport' }),
     ]));
   });
 

@@ -38,7 +38,7 @@ internal sealed class PbirMutationExecutor
                     visuals = visuals.Select(x => x.VisualId == operation.Target!.VisualId ? ToIrVisual(operation.Replacement!, x.VisualId) : x).ToList();
                     break;
                 case LocalPbirMutationOperationKind.MoveVisual:
-                    visuals = visuals.Select(x => x.VisualId == operation.Target!.VisualId ? x with { PageId = operation.Visual?.PageId ?? x.PageId, Order = operation.Order ?? x.Order } : x).ToList();
+                    visuals = visuals.Select(x => x.VisualId == operation.Target!.VisualId ? x with { PageId = operation.Target.PageId ?? operation.Visual?.PageId ?? x.PageId, Order = operation.Order ?? x.Order } : x).ToList();
                     break;
                 case LocalPbirMutationOperationKind.ResizeVisual:
                     visuals = visuals.Select(x => x.VisualId == operation.Target!.VisualId && operation.Layout is not null ? x with { Layout = new(operation.Layout.X ?? x.Layout?.X ?? 0, operation.Layout.Y ?? x.Layout?.Y ?? 0, operation.Layout.Width ?? x.Layout?.Width ?? 1, operation.Layout.Height ?? x.Layout?.Height ?? 1) } : x).ToList();

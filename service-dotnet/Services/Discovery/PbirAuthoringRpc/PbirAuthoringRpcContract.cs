@@ -232,11 +232,19 @@ internal sealed record PbirAuthoringGenerateResult(
 
 internal sealed record PbirAuthoringImportResult(
     [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle Snapshot,
-    [property: JsonPropertyName("pages")] IReadOnlyList<PbirAuthoringPageMetadata> Pages);
+    [property: JsonPropertyName("pages")] IReadOnlyList<PbirAuthoringPageMetadata> Pages,
+    [property: JsonPropertyName("visuals")] IReadOnlyList<PbirAuthoringVisualMetadata> Visuals);
 
 internal sealed record PbirAuthoringPageMetadata(
     [property: JsonPropertyName("pageId")] string PageId,
     [property: JsonPropertyName("displayName")] string DisplayName);
+
+internal sealed record PbirAuthoringVisualMetadata(
+    [property: JsonPropertyName("visualId")] string VisualId,
+    [property: JsonPropertyName("pageId")] string PageId,
+    [property: JsonPropertyName("visualType")] string VisualType,
+    [property: JsonPropertyName("order")] int Order,
+    [property: JsonPropertyName("layout")] LocalPbirGenerationVisualLayout? Layout);
 
 internal sealed record PbirAuthoringMutationPreview(
     [property: JsonPropertyName("previewId")] string PreviewId,
@@ -251,7 +259,42 @@ internal sealed record PbirAuthoringMutationPreview(
     [property: JsonPropertyName("affectedObjectCount")] int AffectedObjectCount,
     [property: JsonPropertyName("diagnostics")] IReadOnlyList<PbirAuthoringDiagnostic> Diagnostics,
     [property: JsonPropertyName("executionAdmissible")] bool ExecutionAdmissible,
-    [property: JsonPropertyName("isNoOp")] bool IsNoOp);
+    [property: JsonPropertyName("isNoOp")] bool IsNoOp,
+    [property: JsonPropertyName("payload")] PbirAuthoringMutationPreviewPayload? Payload = null,
+    [property: JsonPropertyName("diffs")] IReadOnlyList<PbirAuthoringSemanticDiff>? Diffs = null);
+
+internal sealed record PbirAuthoringMutationPreviewPayload(
+    [property: JsonPropertyName("kind")] LocalPbirMutationOperationKind Kind,
+    [property: JsonPropertyName("page")] PbirAuthoringPageMutationPreview? Page = null,
+    [property: JsonPropertyName("visual")] PbirAuthoringVisualMutationPreview? Visual = null);
+
+internal sealed record PbirAuthoringPageMutationPreview(
+    [property: JsonPropertyName("currentDisplayName")] string? CurrentDisplayName,
+    [property: JsonPropertyName("proposedDisplayName")] string? ProposedDisplayName,
+    [property: JsonPropertyName("currentPosition")] int? CurrentPosition,
+    [property: JsonPropertyName("proposedPosition")] int? ProposedPosition,
+    [property: JsonPropertyName("deterministicPageId")] string? DeterministicPageId,
+    [property: JsonPropertyName("navigationAffectedPageIds")] IReadOnlyList<string> NavigationAffectedPageIds);
+
+internal sealed record PbirAuthoringVisualMutationPreview(
+    [property: JsonPropertyName("currentPageId")] string? CurrentPageId,
+    [property: JsonPropertyName("proposedPageId")] string? ProposedPageId,
+    [property: JsonPropertyName("currentOrder")] int? CurrentOrder,
+    [property: JsonPropertyName("proposedOrder")] int? ProposedOrder,
+    [property: JsonPropertyName("currentLayout")] LocalPbirGenerationVisualLayout? CurrentLayout,
+    [property: JsonPropertyName("proposedLayout")] LocalPbirGenerationVisualLayout? ProposedLayout);
+
+internal sealed record PbirAuthoringSemanticDiff(
+    [property: JsonPropertyName("kind")] LocalPbirMutationSemanticDiffKind Kind,
+    [property: JsonPropertyName("objectId")] string ObjectId,
+    [property: JsonPropertyName("beforePageId")] string? BeforePageId,
+    [property: JsonPropertyName("afterPageId")] string? AfterPageId,
+    [property: JsonPropertyName("beforeDisplayName")] string? BeforeDisplayName,
+    [property: JsonPropertyName("afterDisplayName")] string? AfterDisplayName,
+    [property: JsonPropertyName("beforeOrder")] int? BeforeOrder,
+    [property: JsonPropertyName("afterOrder")] int? AfterOrder,
+    [property: JsonPropertyName("beforeLayout")] LocalPbirGenerationVisualLayout? BeforeLayout,
+    [property: JsonPropertyName("afterLayout")] LocalPbirGenerationVisualLayout? AfterLayout);
 
 internal sealed record PbirAuthoringAnalyzerComparison(
     [property: JsonPropertyName("before")] PbirAuthoringAnalyzerSummary Before,

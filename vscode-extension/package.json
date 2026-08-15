@@ -56,7 +56,8 @@
     "onCommand:pbirAnalyzer.generateReport",
     "onCommand:pbirAnalyzer.importReport",
     "onCommand:pbirAnalyzer.analyzeAuthoringReport",
-    "onCommand:pbirAnalyzer.renamePage"
+    "onCommand:pbirAnalyzer.renamePage",
+    "onCommand:pbirAnalyzer.mutateReport"
   ],
   "contributes": {
     "viewsContainers": {
@@ -147,6 +148,11 @@
       {
         "command": "pbirAnalyzer.renamePage",
         "title": "PBIR Design Analyzer: Rename Page",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "pbirAnalyzer.mutateReport",
+        "title": "PBIR Design Analyzer: Curated Mutation",
         "icon": "$(edit)"
       }
     ],
