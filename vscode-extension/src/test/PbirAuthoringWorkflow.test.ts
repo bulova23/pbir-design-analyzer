@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import {
   buildGeneratePayload,
+  buildRenamePagePayload,
+  formatMutationPreview,
   formatAuthoringError,
   PbirAuthoringWorkflow,
   generationVersionForSchema,
@@ -57,5 +59,82 @@ describe('PbirAuthoringWorkflow', () => {
       analyze: { artifact: { artifactId: 'artifact-1', artifactHash: 'hash', manifestId: 'manifest', manifestHash: 'manifest-hash', schemaVersion: 'artifact' } },
     }));
     fs.unlinkSync(filePath);
+  });
+
+  it('builds a RenamePage request without frontend preview fields or output paths', () => {
+    expect(buildRenamePagePayload('page-1', 'Executive Summary')).toEqual(expect.objectContaining({
+      schemaVersion: 'pbir-authoring-rpc/v1',
+      operation: 'mutate',
+      mutate: expect.objectContaining({
+        mode: 'preview',
+        request: expect.objectContaining({
+          schemaVersion: 'local-pbir-mutation-request/v1',
+          sourceDirectory: '',
+          outputBaseDirectory: '',
+          targetDirectoryName: '',
+          operations: [{ kind: 'renamePage', target: { pageId: 'page-1' }, displayName: 'Executive Summary' }],
+        }),
+      }),
+    }));
+  });
+
+  it('formats the backend preview without computing the intended change', () => {
+    expect(formatMutationPreview({
+      mutationKind: 'renamePage',
+      targetPageId: 'page-1',
+      currentDisplayName: 'Overview',
+      proposedDisplayName: 'Executive Summary',
+      executionAdmissible: true,
+      isNoOp: false,
+    })).toBe('Rename page\n\nCurrent:\nOverview\n\nNew:\nExecutive Summary');
+  });
+
+  it('previews and executes RenamePage only after confirmation, retaining the artifact handle', async () => {
+    (vscode.window.showOpenDialog as jest.Mock).mockResolvedValue([{ fsPath: '/reports/sales' }]);
+    (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({ label: 'Overview', pageId: 'page-1' });
+    (vscode.window.showInputBox as jest.Mock).mockResolvedValue('Executive Summary');
+    (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue('Rename Page');
+    const executeAuthoringRequest = jest.fn()
+      .mockResolvedValueOnce({
+        succeeded: true,
+        importResult: {
+          snapshot: { schemaVersion: 'snapshot', snapshotId: 'snapshot-1', sourceIdentity: { sourceDirectoryName: 'sales', contentHash: 'hash', fileCount: 1 } },
+          pages: [{ pageId: 'page-1', displayName: 'Overview' }],
+        },
+      })
+      .mockResolvedValueOnce({
+        succeeded: true,
+        mutateResult: {
+          preview: {
+            mutationKind: 'renamePage',
+            targetPageId: 'page-1',
+            currentDisplayName: 'Overview',
+            proposedDisplayName: 'Executive Summary',
+            executionAdmissible: true,
+            isNoOp: false,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        succeeded: true,
+        artifactIdentity: { artifactId: 'artifact-1', artifactHash: 'hash', manifestId: 'manifest', manifestHash: 'manifest-hash' },
+        mutateResult: {
+          artifact: { schemaVersion: 'artifact', artifactId: 'artifact-1', artifactHash: 'hash', manifestId: 'manifest', manifestHash: 'manifest-hash' },
+          comparison: { before: { score: 80, pageCount: 1, visualCount: 1 }, after: { score: 82, pageCount: 1, visualCount: 1 }, scoreDelta: 2 },
+        },
+        analyzer: { score: 82, pageCount: 1, visualCount: 1 },
+      });
+    const workflow = new PbirAuthoringWorkflow(() => ({ executeAuthoringRequest }));
+    await workflow.import();
+    await workflow.renamePage();
+    expect(executeAuthoringRequest).toHaveBeenCalledTimes(3);
+    expect((executeAuthoringRequest as jest.Mock).mock.calls[1][0]).toEqual(expect.objectContaining({
+      operation: 'mutate',
+      mutate: expect.objectContaining({ mode: 'preview', snapshot: expect.objectContaining({ snapshotId: 'snapshot-1' }) }),
+    }));
+    expect((executeAuthoringRequest as jest.Mock).mock.calls[2][0]).toEqual(expect.objectContaining({
+      operation: 'mutate',
+      mutate: expect.objectContaining({ mode: 'execute', snapshot: expect.objectContaining({ snapshotId: 'snapshot-1' }) }),
+    }));
   });
 });

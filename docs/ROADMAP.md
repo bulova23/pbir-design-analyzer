@@ -109,7 +109,7 @@ The later repository sequence is provisional planning only and does not authoriz
 21. Repository Phase 44: **Semantic Binding Projection and Full Round-Trip Fidelity** — descriptor-based import projection, unsupported-role preservation, shared-IR semantic equivalence, analyzer-before/after evidence, and stage timing observations (implemented backend-only; RPC remains deferred)
 22. Repository Phase 45: **Minimal Typed PBIR Authoring Contract** — complete as the transport-independent `pbir-authoring-rpc/v1` dispatcher over generation v1–v7, import, mutation, validation, and analysis. The core contract remains independent of RpcHost and VS Code.
 23. Repository Phase 46: **Minimal VS Code Integration for Generate, Import, and Analyze** — implemented as one thin `pbir/authoring` route and three output-channel commands. Mutation and standalone Validate remain backend-only.
-24. Repository Phase 47: **Imported Page Rename Authoring** — design milestone selected; consider one direct typed backend `RenamePage` operation over mutation v1 after Phase 46 workflow evidence, with RPC/VS Code exposure requiring separate authorization.
+24. Repository Phase 47: **Interactive Mutation Workflow and Visual Diff Preview** — exactly one public `RenamePage` mutation through the existing authoring RPC, with backend-generated preview, confirmation, deterministic re-planning, analyzer before/after comparison, and opaque artifact-handle return. Other mutation domains remain backend-only.
 25. Deferred milestone after first artifact: Windows Validation / Hosted Execution for a provider that demonstrates a Windows, Desktop, or untrusted-execution requirement
 
 Each later phase requires separate authorization. Phase 32 must not be interpreted as authority for any item in this sequence.
@@ -463,21 +463,28 @@ or reclassify that work.
 
 ### Phase 46 — Imported Page Rename Authoring
 
-Phase 46 is a design-only milestone selected after the Phase 45 direct typed
-backend decision. The smallest supported increment is one imported `RenamePage`
-operation using the existing `LocalPbirMutationRequest/v1` fields. It changes a
-page display name through the existing typed IR and single copy-on-write merge
-boundary while preserving the imported page folder identity, visual identity
-and order, Phase 42 interactions, and unrelated pinned-schema-admitted source
-properties. It must pass the existing deterministic serializer, pinned-schema,
-structural, cross-reference, hash, fidelity, and analyzer boundaries.
+Phase 46 was the direct typed backend milestone selected after the Phase 45
+decision. It implemented one imported `RenamePage` operation using the
+existing `LocalPbirMutationRequest/v1` fields and the single copy-on-write
+merge boundary. It preserves page folder identity, visual identity and order,
+Phase 42 interactions, and unrelated pinned-schema-admitted source properties.
 
-Backend orchestration and backend tests are the intended callers. The phase
-does not authorize a new façade, RPC registration, transport adapter, VS Code
-workflow, request version, generic JSON mutation, page folder rename, or any
-other preserved-but-not-authorable mutation domain. Implementation remains
-not started; see the Phase 46 design and implementation plan for the execution
-gate and acceptance criteria.
+Backend orchestration and backend tests were the intended callers. Phase 47
+now authorizes the separately bounded public workflow described below.
+
+### Phase 47 — Interactive Mutation Workflow and Visual Diff Preview
+
+Phase 47 adds only the Rename Page workflow through the existing
+pbir-authoring-rpc/v1 route. Import returns transport-safe page metadata;
+preview invokes the backend planner without materializing; confirmation gates
+execute; execute re-plans from the immutable snapshot and then uses the
+existing executor, merge, serializer, validator, materializer, and analyzer.
+The result returns a new opaque artifact handle plus analyzer before/after,
+fidelity, identity, diagnostics, and timings.
+
+The public boundary rejects every other mutation kind. Dynamic mutation
+capability discovery, batching, undo/redo, webview editing, and raw JSON remain
+deferred until real Rename Page usage establishes the next stable contract.
 
 These roadmap epics should not:
 

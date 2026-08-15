@@ -81,6 +81,12 @@ internal sealed class PbirMutationPlanner
                     diagnostics.Add(new("PBIR46-PAGE-001", "displayName", "Rename Page requires a non-empty display name."));
                 else if (operation.Kind == LocalPbirMutationOperationKind.RenamePage && ir.AuthoringEnvelope is not null && !HasSupportedPageDisplayNameOwner(ir, targetPage))
                     diagnostics.Add(new("PBIR46-PAGE-002", "target.pageId", "The imported page has no unambiguous pinned display-name owner."));
+                else if (operation.Kind == LocalPbirMutationOperationKind.RenamePage &&
+                         string.Equals(pages[targetPage].DisplayName, operation.DisplayName, StringComparison.Ordinal))
+                {
+                    // A same-name rename is a deterministic no-op. Keep it valid for preview,
+                    // but do not add an executable operation or affected object.
+                }
                 else { affectedPages.Add(targetPage); accepted.Add(operation); }
                 continue;
             }

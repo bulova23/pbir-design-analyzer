@@ -138,7 +138,11 @@ internal sealed class PbirAuthoringRpcDispatcher
             null, null, null,
             new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0, 0),
             null,
-            new(handle), null, null, null);
+            new(handle, snapshot.IrState.Ir?.Pages
+                .OrderBy(page => page.Order)
+                .ThenBy(page => page.PageId, StringComparer.Ordinal)
+                .Select(page => new PbirAuthoringPageMetadata(page.PageId, page.DisplayName ?? page.PageId))
+                .ToArray() ?? []), null, null, null);
     }
 
     private async Task<PbirAuthoringRpcResponse> AnalyzeAsync(
@@ -214,12 +218,25 @@ internal sealed class PbirAuthoringRpcDispatcher
     {
         var operationTimer = Stopwatch.StartNew();
         if (!_snapshots.TryGetValue(request.Mutate!.Snapshot.SnapshotId, out var snapshot) ||
-            snapshot.SourceDirectory != request.Mutate.Request.SourceDirectory)
+            (!string.IsNullOrWhiteSpace(request.Mutate.Request.SourceDirectory) &&
+             snapshot.SourceDirectory != request.Mutate.Request.SourceDirectory))
         {
             return Failure(request.Operation, PbirAuthoringRpcErrorCategory.InvalidRequest, "PBIR-RPC-MUTATE-001", "The imported snapshot handle is unknown or stale.");
         }
 
-        var plan = _mutation.Plan(snapshot, request.Mutate.Request);
+        var effectiveRequest = request.Mutate.Request with
+        {
+            SourceDirectory = snapshot.SourceDirectory,
+            OutputBaseDirectory = string.IsNullOrWhiteSpace(request.Mutate.Request.OutputBaseDirectory)
+                ? Path.Combine(Path.GetTempPath(), "pbir-authoring", request.Mutate.Request.MutationId)
+                : request.Mutate.Request.OutputBaseDirectory,
+            TargetDirectoryName = string.IsNullOrWhiteSpace(request.Mutate.Request.TargetDirectoryName)
+                ? "mutated"
+                : request.Mutate.Request.TargetDirectoryName,
+        };
+        var planningTimer = Stopwatch.StartNew();
+        var plan = _mutation.Plan(snapshot, effectiveRequest);
+        planningTimer.Stop();
         if (!plan.IsValid)
         {
             var category = plan.Diagnostics.Any(diagnostic => diagnostic.Code.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase))
@@ -227,7 +244,52 @@ internal sealed class PbirAuthoringRpcDispatcher
                 : plan.Diagnostics.Any(diagnostic => diagnostic.Code.Contains("UNSUPPORTED", StringComparison.OrdinalIgnoreCase))
                     ? PbirAuthoringRpcErrorCategory.UnsupportedAuthoring
                     : PbirAuthoringRpcErrorCategory.InvalidRequest;
-            return Failure(request.Operation, category, "PBIR-RPC-MUTATE-002", "The mutation request was rejected by the existing planner.");
+            return Failure(request.Operation, category, "PBIR-RPC-MUTATE-002", "The mutation request was rejected by the existing planner.", plan.Diagnostics.Select(ToDiagnostic).ToArray());
+        }
+
+        var previewTimer = Stopwatch.StartNew();
+        var semanticPreview = CreateMutationPreview(plan);
+        previewTimer.Stop();
+        if (request.Mutate.Mode == PbirAuthoringMutationMode.Preview)
+        {
+            dispatchTimer.Stop();
+            operationTimer.Stop();
+            return new(
+                PbirAuthoringRpcContract.SchemaVersionV1,
+                request.Operation,
+                true,
+                semanticPreview.Diagnostics,
+                null,
+                null,
+                null,
+                null,
+                new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0, 0, planningTimer.ElapsedMilliseconds, previewTimer.ElapsedMilliseconds),
+                null,
+                null,
+                new(null, 0, 0, semanticPreview),
+                null,
+                null);
+        }
+
+        if (plan.IsNoOp)
+        {
+            dispatchTimer.Stop();
+            operationTimer.Stop();
+            return new(
+                PbirAuthoringRpcContract.SchemaVersionV1,
+                request.Operation,
+                true,
+                semanticPreview.Diagnostics,
+                null,
+                null,
+                null,
+                null,
+                new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0, 0, planningTimer.ElapsedMilliseconds, previewTimer.ElapsedMilliseconds),
+                null,
+                null,
+                new(null, 0, 0, semanticPreview),
+                null,
+                null);
         }
 
         var execution = _mutation.Execute(plan);
@@ -253,7 +315,7 @@ internal sealed class PbirAuthoringRpcDispatcher
         var resolved = new PbirAuthoringMergeService().Resolve(normalizedIr);
         var irService = new PbirIntermediateRepresentationService();
         var serializerRequest = irService.CreateSerializerRequest(irState);
-        var deployableRequest = CreateImportedDeployableRequest(irState, serializerRequest, request.Mutate.Request);
+        var deployableRequest = CreateImportedDeployableRequest(irState, serializerRequest, effectiveRequest);
         var serializerTimer = Stopwatch.StartNew();
         var serialized = new PbirDeployableSerializerService().CreateArtifacts(irState, serializerRequest, deployableRequest);
         serializerTimer.Stop();
@@ -275,26 +337,33 @@ internal sealed class PbirAuthoringRpcDispatcher
 
         var input = new PbirMaterializationOrchestrationInput(
             irState, serializerRequest, deployableRequest,
-            request.Mutate.Request.OutputBaseDirectory,
-            request.Mutate.Request.TargetDirectoryName);
+            effectiveRequest.OutputBaseDirectory,
+            effectiveRequest.TargetDirectoryName);
         var orchestration = new PbirMaterializationOrchestrationService();
-        var preview = orchestration.Preview(new(
+        var materializationPreview = orchestration.Preview(new(
             PbirMaterializationOrchestrationPreviewRequestContract.SchemaVersionV1,
-            $"{request.Mutate.Request.MutationId}-preview",
+            $"{effectiveRequest.MutationId}-preview",
             "preview", input), cancellationToken);
-        if (preview.ValidatedPreview is null || preview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
+        if (materializationPreview.ValidatedPreview is null || materializationPreview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
             return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-005", "The mutation destination has a materialization conflict.");
         var applied = orchestration.Apply(new(
             PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
-            request.Mutate.Request.MutationId,
-            "apply", input, preview.ValidatedPreview,
-            "phase45-" + Hash(request.Mutate.Request.MutationId)[..24], true), cancellationToken);
+            effectiveRequest.MutationId,
+            "apply", input, materializationPreview.ValidatedPreview,
+            "phase47-" + Hash(effectiveRequest.MutationId)[..24], true), cancellationToken);
         if (applied.Outcome is not (PbirMaterializationOrchestrationOutcome.Applied or PbirMaterializationOrchestrationOutcome.ExactMatch))
-            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-006", "The mutation could not be materialized safely.");
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.ExecutionFailed, "PBIR-RPC-MUTATE-006", "The mutation could not be materialized safely.");
 
-        var outputDirectory = Path.Combine(request.Mutate.Request.OutputBaseDirectory, request.Mutate.Request.TargetDirectoryName);
+        var outputDirectory = Path.Combine(effectiveRequest.OutputBaseDirectory, effectiveRequest.TargetDirectoryName);
+        var scoreService = new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance);
+        var beforeLocation = new PbirProjectService(NullLogger<PbirProjectService>.Instance).TryGetReportLocation(snapshot.SourceDirectory);
+        if (beforeLocation is null)
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-MUTATE-007", "The source report could not be analyzed before mutation.");
+        var analyzerBeforeTimer = Stopwatch.StartNew();
+        var beforeScore = await scoreService.ScoreAsync(beforeLocation.ProjectRootPath);
+        analyzerBeforeTimer.Stop();
         var analyzerTimer = Stopwatch.StartNew();
-        var score = await new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance).ScoreAsync(outputDirectory);
+        var score = await scoreService.ScoreAsync(outputDirectory);
         analyzerTimer.Stop();
         operationTimer.Stop();
         dispatchTimer.Stop();
@@ -305,9 +374,15 @@ internal sealed class PbirAuthoringRpcDispatcher
             PbirAuthoringRpcContract.SchemaVersionV1, request.Operation, true,
             plan.Diagnostics.Select(ToDiagnostic).ToArray(), null, ToArtifactIdentity(artifact), fidelity,
             CreateAnalyzerSummary(score, score.PageScores?.Count ?? 0, score.DataVisualCount),
-            new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, serializerTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds),
+            new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, serializerTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds, planningTimer.ElapsedMilliseconds, previewTimer.ElapsedMilliseconds, analyzerBeforeTimer.ElapsedMilliseconds),
             null, null,
-            new(artifact, plan.AffectedPages.Count, plan.AffectedVisuals.Count), null, null);
+            new(artifact, plan.AffectedPages.Count, plan.AffectedVisuals.Count, semanticPreview,
+                new(
+                    CreateAnalyzerSummary(beforeScore, beforeScore.PageScores?.Count ?? 0, beforeScore.DataVisualCount),
+                    CreateAnalyzerSummary(score, score.PageScores?.Count ?? 0, score.DataVisualCount),
+                    score.CompositeScore - beforeScore.CompositeScore,
+                    snapshot.IrState.Ir!.Pages.Select(page => page.PageId).Except(plan.AffectedPages, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+                    snapshot.IrState.Ir.Visuals.Select(visual => visual.VisualId).Except(plan.AffectedVisuals, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray())), null, null);
         _ = resolved;
         return response;
     }
@@ -407,6 +482,28 @@ internal sealed class PbirAuthoringRpcDispatcher
         new(diagnostic.Code, diagnostic.Field, diagnostic.ProjectionStatus == LocalPbirSemanticProjectionStatus.Invalid
             ? PbirAuthoringDiagnosticSeverity.Error
             : PbirAuthoringDiagnosticSeverity.Warning, "The authoring pipeline reported a bounded diagnostic.");
+
+    private static PbirAuthoringMutationPreview CreateMutationPreview(PbirMutationPlan plan)
+    {
+        var operation = plan.Operations.SingleOrDefault(operation => operation.Kind == LocalPbirMutationOperationKind.RenamePage);
+        var pageId = operation?.Target?.PageId ?? string.Empty;
+        var page = plan.Snapshot.IrState.Ir?.Pages.SingleOrDefault(page => page.PageId == pageId);
+        var diagnostics = plan.Diagnostics.Select(ToDiagnostic).ToArray();
+        return new(
+            $"preview:{Hash($"{plan.MutationId}:{plan.Fingerprint}")[..24]}",
+            operation?.Kind ?? LocalPbirMutationOperationKind.RenamePage,
+            pageId,
+            page?.DisplayName ?? string.Empty,
+            operation?.DisplayName ?? string.Empty,
+            plan.AffectedPages,
+            plan.AffectedVisuals,
+            plan.Snapshot.IrState.Ir?.Pages.Select(item => item.PageId).Except(plan.AffectedPages, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray() ?? [],
+            plan.Snapshot.IrState.Ir?.Visuals.Select(item => item.VisualId).Except(plan.AffectedVisuals, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray() ?? [],
+            plan.AffectedPages.Count + plan.AffectedVisuals.Count,
+            diagnostics,
+            plan.IsValid && !plan.IsNoOp,
+            plan.IsNoOp);
+    }
 
     private static PbirAuthoringDiagnostic ToDiagnostic(LocalPbirGenerationDiagnostic diagnostic) =>
         new(diagnostic.Code, diagnostic.Field, PbirAuthoringDiagnosticSeverity.Error, "The generation provider reported a bounded diagnostic.");

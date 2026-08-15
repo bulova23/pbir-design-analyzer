@@ -2,6 +2,14 @@
 
 ## Active Session
 
+- 2026-08-14 Repository Phase 47 — Interactive Mutation Workflow and Visual Diff Preview:
+  - design approved: expose only RenamePage through the existing pbir-authoring-rpc/v1 Mutate operation with backend-generated preview and execute modes
+  - preserve the broader internal typed mutation contract; reject non-RenamePage requests at the public adapter and VS Code workflow
+  - implemented backend semantic preview, execute re-planning, immutable snapshot/new artifact handle lifecycle, analyzer before/after comparison, import page metadata, and thin Quick Pick/Input Box/confirmation UX
+  - validation: focused backend 16 passed; full backend 986 passed with 11 expected Windows skips; extension 502 passed; webview 68 passed; TypeScript, production build, VSIX packaging, changed-file lint, and git diff --check passed
+  - full ESLint remains the unchanged 43-error repository baseline; all Phase 47 changes remain uncommitted and unstaged
+  - next recommendation: observe Rename Page usage before evaluating a curated mutation catalog versus backend capability discovery; do not add a graphical designer
+
 - 2026-08-14 Repository Phase 46 — Minimal VS Code Integration for Generate, Import, and Analyze:
   - implemented one thin `pbir/authoring` JSON-RPC method with exactly Generate, Import, and Analyze admission, plus three output-channel VS Code commands
   - added typed v1–v7 request conversion, structured response/error presentation, and backend-owned opaque artifact/snapshot handle resolution

@@ -17,6 +17,7 @@ export const PBIR_COMMANDS = {
   generateReport: 'pbirAnalyzer.generateReport',
   importReport: 'pbirAnalyzer.importReport',
   analyzeAuthoringReport: 'pbirAnalyzer.analyzeAuthoringReport',
+  renamePage: 'pbirAnalyzer.renamePage',
 } as const;
 
 export const LEGACY_PBIR_COMMAND_ALIASES: Record<string, string> = {

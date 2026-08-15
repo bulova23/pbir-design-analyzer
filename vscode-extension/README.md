@@ -287,6 +287,21 @@ Keep all five target-specific VSIX files together for the same extension version
 
 PBIR Design Analyzer is built for local analytics experience review, governance review, and migration-readiness assessment. It is not positioned as a general Fabric authoring tool, TMDL editor, or live service-management console.
 
+## Interactive Authoring
+
+The authoring workflow currently supports one user-facing mutation: Rename Page.
+
+Use the following flow:
+
+- Import a supported PBIR report.
+- Run Rename Page from the Command Palette.
+- Select a page and enter its new display name.
+- Review the backend-generated semantic preview.
+- Confirm or cancel the mutation.
+- Review the analyzer score before and after the rename.
+
+The original imported snapshot remains unchanged. A successful mutation returns a new opaque artifact handle. Preview does not materialize a report, and same-name renames are deterministic no-ops. Other mutation kinds, undo/redo, graphical editing, and raw JSON editing are not exposed.
+
 ## Detailed Usage Guide
 
 For setup, workflow details, scoring interpretation, and review guidance, see [How To Use PBIR Design Analyzer](../docs/HOW_TO_USE.md).

@@ -2306,3 +2306,9 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added additive handle-aware Analyze resolution in the backend session for generated artifact and imported snapshot handles. Mutation and standalone Validate remain unregistered and backend-only.
 - Validation: focused backend/RpcHost/handle 13 passed; full backend 977 passed with 11 expected Windows skips; extension 499 passed; webview 68 passed; TypeScript/build/package and `git diff --check` passed. Full lint remains the unchanged 43-error baseline; changed files lint clean.
 - Added Phase 46 design, plan, current-state, implementation note, and session record. All changes remain unstaged and uncommitted; packaging-generated tracked binaries were restored.
+# 2026-08-14 Phase 47 — Interactive Mutation Workflow
+
+- Approved and implemented the narrow RenamePage-only VS Code workflow over pbir-authoring-rpc/v1.
+- Added backend planner preview, execute re-planning, semantic diff data, immutable snapshot/new artifact handle lifecycle, analyzer before/after evidence, and structured execution errors.
+- Added import page metadata, Quick Pick/Input Box/confirmation UX, no-op handling, timing fields, and Phase 47 documentation.
+- Final validation is recorded in the Phase 47 session note; all changes remain uncommitted and unstaged.

@@ -23,8 +23,29 @@ public sealed class PbirAuthoringRpcAdapterTests
         var mutation = await adapter.HandleAsync(JsonDocument.Parse("{\"operation\":\"mutate\"}").RootElement, null, CancellationToken.None);
         var validation = await adapter.HandleAsync(JsonDocument.Parse("{\"operation\":\"validate\"}").RootElement, null, CancellationToken.None);
 
-        Assert.Equal("invalidRequest", mutation.GetProperty("error").GetProperty("category").GetString());
+        Assert.Equal("unsupportedAuthoring", mutation.GetProperty("error").GetProperty("category").GetString());
         Assert.Equal("invalidRequest", validation.GetProperty("error").GetProperty("category").GetString());
+    }
+
+    [Fact]
+    public async Task Adapter_RejectsPublicMutationKindsOtherThanRenamePage()
+    {
+        var request = JsonDocument.Parse("""
+            {
+              "schemaVersion":"pbir-authoring-rpc/v1",
+              "operation":"mutate",
+              "mutate":{
+                "mode":"preview",
+                "snapshot":{"schemaVersion":"pbir-authoring-rpc-snapshot/v1","snapshotId":"snapshot","sourceIdentity":{"sourceDirectoryName":"report","contentHash":"hash","fileCount":0}},
+                "request":{"schemaVersion":"local-pbir-mutation-request/v1","mutationId":"mutation","sourceDirectory":"","outputBaseDirectory":"","targetDirectoryName":"","operations":[{"kind":"resizeVisual","target":{"visualId":"visual"},"layout":{"x":8}}]}
+              }
+            }
+            """).RootElement;
+
+        var response = await new PbirAuthoringRpcAdapter().HandleAsync(request, null, CancellationToken.None);
+
+        Assert.Equal("unsupportedAuthoring", response.GetProperty("error").GetProperty("category").GetString());
+        Assert.Equal("PBIR-RPC-MUTATE-008", response.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]

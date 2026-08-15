@@ -77,6 +77,7 @@ export function registerCommands(
     vscode.commands.registerCommand(PBIR_COMMANDS.generateReport, async () => authoringWorkflow.generate()),
     vscode.commands.registerCommand(PBIR_COMMANDS.importReport, async () => authoringWorkflow.import()),
     vscode.commands.registerCommand(PBIR_COMMANDS.analyzeAuthoringReport, async () => authoringWorkflow.analyze()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.renamePage, async () => authoringWorkflow.renamePage()),
   );
 
   context.subscriptions.push(

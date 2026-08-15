@@ -20,6 +20,18 @@ internal enum PbirAuthoringRpcOperation
     Analyze
 }
 
+internal enum PbirAuthoringMutationMode
+{
+    Preview,
+    Execute
+}
+
+internal static class PbirAuthoringMutationModeCatalog
+{
+    internal static IReadOnlyList<PbirAuthoringMutationMode> All { get; } =
+        [PbirAuthoringMutationMode.Preview, PbirAuthoringMutationMode.Execute];
+}
+
 internal static class PbirAuthoringRpcOperationCatalog
 {
     internal static IReadOnlyList<PbirAuthoringRpcOperation> All { get; } =
@@ -40,6 +52,7 @@ internal enum PbirAuthoringRpcErrorCategory
     MutationConflict,
     ValidationFailed,
     AnalyzerFailed,
+    ExecutionFailed,
     InternalFailure
 }
 
@@ -53,6 +66,7 @@ internal static class PbirAuthoringRpcErrorCategoryCatalog
         PbirAuthoringRpcErrorCategory.MutationConflict,
         PbirAuthoringRpcErrorCategory.ValidationFailed,
         PbirAuthoringRpcErrorCategory.AnalyzerFailed,
+        PbirAuthoringRpcErrorCategory.ExecutionFailed,
         PbirAuthoringRpcErrorCategory.InternalFailure
     ];
 }
@@ -133,7 +147,8 @@ internal sealed record PbirAuthoringSourceIdentity(
 
 internal sealed record PbirAuthoringMutateRequest(
     [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle Snapshot,
-    [property: JsonPropertyName("request")] LocalPbirMutationRequest Request);
+    [property: JsonPropertyName("request")] LocalPbirMutationRequest Request,
+    [property: JsonPropertyName("mode")] PbirAuthoringMutationMode Mode = PbirAuthoringMutationMode.Execute);
 
 internal sealed record PbirAuthoringArtifactHandle(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
@@ -166,7 +181,10 @@ internal sealed record PbirAuthoringTiming(
     [property: JsonPropertyName("dispatchMilliseconds")] long DispatchMilliseconds,
     [property: JsonPropertyName("orchestrationMilliseconds")] long OrchestrationMilliseconds,
     [property: JsonPropertyName("serializationMilliseconds")] long SerializationMilliseconds,
-    [property: JsonPropertyName("analyzerMilliseconds")] long AnalyzerMilliseconds);
+    [property: JsonPropertyName("analyzerMilliseconds")] long AnalyzerMilliseconds,
+    [property: JsonPropertyName("planningMilliseconds")] long PlanningMilliseconds = 0,
+    [property: JsonPropertyName("previewMilliseconds")] long PreviewMilliseconds = 0,
+    [property: JsonPropertyName("analyzerBeforeMilliseconds")] long AnalyzerBeforeMilliseconds = 0);
 
 internal enum PbirAuthoringDiagnosticSeverity
 {
@@ -213,12 +231,41 @@ internal sealed record PbirAuthoringGenerateResult(
     [property: JsonPropertyName("artifact")] PbirAuthoringArtifactHandle? Artifact);
 
 internal sealed record PbirAuthoringImportResult(
-    [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle Snapshot);
+    [property: JsonPropertyName("snapshot")] PbirAuthoringSnapshotHandle Snapshot,
+    [property: JsonPropertyName("pages")] IReadOnlyList<PbirAuthoringPageMetadata> Pages);
+
+internal sealed record PbirAuthoringPageMetadata(
+    [property: JsonPropertyName("pageId")] string PageId,
+    [property: JsonPropertyName("displayName")] string DisplayName);
+
+internal sealed record PbirAuthoringMutationPreview(
+    [property: JsonPropertyName("previewId")] string PreviewId,
+    [property: JsonPropertyName("mutationKind")] LocalPbirMutationOperationKind MutationKind,
+    [property: JsonPropertyName("targetPageId")] string TargetPageId,
+    [property: JsonPropertyName("currentDisplayName")] string CurrentDisplayName,
+    [property: JsonPropertyName("proposedDisplayName")] string ProposedDisplayName,
+    [property: JsonPropertyName("affectedPageIds")] IReadOnlyList<string> AffectedPageIds,
+    [property: JsonPropertyName("affectedVisualIds")] IReadOnlyList<string> AffectedVisualIds,
+    [property: JsonPropertyName("preservedPageIds")] IReadOnlyList<string> PreservedPageIds,
+    [property: JsonPropertyName("preservedVisualIds")] IReadOnlyList<string> PreservedVisualIds,
+    [property: JsonPropertyName("affectedObjectCount")] int AffectedObjectCount,
+    [property: JsonPropertyName("diagnostics")] IReadOnlyList<PbirAuthoringDiagnostic> Diagnostics,
+    [property: JsonPropertyName("executionAdmissible")] bool ExecutionAdmissible,
+    [property: JsonPropertyName("isNoOp")] bool IsNoOp);
+
+internal sealed record PbirAuthoringAnalyzerComparison(
+    [property: JsonPropertyName("before")] PbirAuthoringAnalyzerSummary Before,
+    [property: JsonPropertyName("after")] PbirAuthoringAnalyzerSummary After,
+    [property: JsonPropertyName("scoreDelta")] double ScoreDelta,
+    [property: JsonPropertyName("preservedPageIds")] IReadOnlyList<string> PreservedPageIds,
+    [property: JsonPropertyName("preservedVisualIds")] IReadOnlyList<string> PreservedVisualIds);
 
 internal sealed record PbirAuthoringMutateResult(
     [property: JsonPropertyName("artifact")] PbirAuthoringArtifactHandle? Artifact,
     [property: JsonPropertyName("changedPageCount")] int ChangedPageCount,
-    [property: JsonPropertyName("changedVisualCount")] int ChangedVisualCount);
+    [property: JsonPropertyName("changedVisualCount")] int ChangedVisualCount,
+    [property: JsonPropertyName("preview")] PbirAuthoringMutationPreview? Preview = null,
+    [property: JsonPropertyName("comparison")] PbirAuthoringAnalyzerComparison? Comparison = null);
 
 internal sealed record PbirAuthoringValidateResult(
     [property: JsonPropertyName("isValid")] bool IsValid,

@@ -55,7 +55,8 @@
     "onCommand:pbirAnalyzer.configureAuditProvider",
     "onCommand:pbirAnalyzer.generateReport",
     "onCommand:pbirAnalyzer.importReport",
-    "onCommand:pbirAnalyzer.analyzeAuthoringReport"
+    "onCommand:pbirAnalyzer.analyzeAuthoringReport",
+    "onCommand:pbirAnalyzer.renamePage"
   ],
   "contributes": {
     "viewsContainers": {
@@ -142,6 +143,11 @@
         "command": "pbirAnalyzer.analyzeAuthoringReport",
         "title": "PBIR Design Analyzer: Analyze Report",
         "icon": "$(graph)"
+      },
+      {
+        "command": "pbirAnalyzer.renamePage",
+        "title": "PBIR Design Analyzer: Rename Page",
+        "icon": "$(edit)"
       }
     ],
     "configuration": {

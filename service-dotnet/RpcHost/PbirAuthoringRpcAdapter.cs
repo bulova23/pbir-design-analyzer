@@ -34,7 +34,7 @@ internal sealed class PbirAuthoringRpcAdapter
             operation.ValueKind != JsonValueKind.String ||
             !IsExposedOperation(operation.GetString()))
         {
-            return Failure("invalidRequest", "PBIR-RPC-REQUEST-002", "Only Generate, Import, and Analyze are exposed through VS Code.");
+            return Failure("invalidRequest", "PBIR-RPC-REQUEST-002", "Only Generate, Import, Analyze, and RenamePage Mutate are exposed through VS Code.");
         }
 
         try
@@ -42,6 +42,13 @@ internal sealed class PbirAuthoringRpcAdapter
             var request = JsonSerializer.Deserialize<PbirAuthoringRpcRequest>(parameters.Value.GetRawText(), _jsonOptions);
             if (request is null)
                 return Failure("invalidRequest", "PBIR-RPC-REQUEST-003", "The authoring request could not be deserialized.");
+
+            if (request.Operation == PbirAuthoringRpcOperation.Mutate &&
+                (request.Mutate?.Request is not { Operations: { Count: 1 } operations } ||
+                 operations[0].Kind != LocalPbirMutationOperationKind.RenamePage))
+            {
+                return Failure("unsupportedAuthoring", "PBIR-RPC-MUTATE-008", "Only one RenamePage operation is exposed through VS Code.");
+            }
 
             var response = await _dispatcher.DispatchAsync(request, cancellationToken).ConfigureAwait(false);
             return JsonSerializer.SerializeToElement(response, _jsonOptions);
@@ -60,6 +67,7 @@ internal sealed class PbirAuthoringRpcAdapter
         operation is not null &&
         (operation.Equals("generate", StringComparison.OrdinalIgnoreCase) ||
          operation.Equals("import", StringComparison.OrdinalIgnoreCase) ||
+         operation.Equals("mutate", StringComparison.OrdinalIgnoreCase) ||
          operation.Equals("analyze", StringComparison.OrdinalIgnoreCase));
 
     private static JsonElement Failure(string category, string code, string summary) =>
