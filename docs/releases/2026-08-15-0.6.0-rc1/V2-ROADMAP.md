@@ -1,90 +1,53 @@
-# PBIR Authoring Platform — Next Product Generation Roadmap
+# Power BI Design Governance & Optimization — Version 2 Roadmap
 
-This roadmap replaces phase numbering after Phase 48. It is a product planning
-document, not authorization to implement every recommendation.
+RC1 freezes report authoring as a product boundary. Version 2 is organized
+around governance outcomes, not historical implementation phases. No epic is
+authorized by this document; promotion requires UAT evidence and a reviewed
+contract decision.
 
-## Recommended ordering
+## Epic 1 — Design Policy Engine
 
-1. Platform & contract consolidation
-2. Epic 1 — Advanced Authoring
-3. Epic 2 — AI Authoring
-4. Epic 3 — Enterprise Platform
-5. Epic 4 — Platform & Ecosystem
+Objective: turn the current score, findings, governance, configuration, and
+evidence primitives into versioned Power BI Design Policy checks.
 
-The consolidation step is intentionally small and may be skipped if UAT shows
-the current contracts are sufficient. It protects the public boundary before
-larger capabilities are added.
+Business value: organizations can define a repeatable quality bar and receive
+stable, explainable pass/fail/waiver outcomes.
 
-## Platform & contract consolidation
+Evidence-supported scope: rule identities, severity, provenance, normalized
+findings, scoring profiles, governance export, and policy-backed quality gates.
 
-Objective: turn the RC1 evidence into a deliberately maintained v2 foundation.
-
-Business value: lower regression risk, clearer partner expectations, and less
-AI-generated contract drift.
-
-Dependencies: UAT findings, public/internal admission matrix, descriptor
+Dependencies: UAT findings, the public/internal admission matrix, descriptor
 catalog inventory, and a decision on generated target artifacts.
 
-Estimated complexity: Medium.
+Estimated complexity: Medium to High.
 
-Recommended release ordering: before or alongside the first Advanced Authoring
-release; no user-facing feature is implied.
+## Epic 2 — AI Companion
 
-Candidate outcomes: contract fixture suite, catalog documentation, handle
-lifecycle decision, and lint debt plan.
+Objective: provide provider-neutral advisory explanations, review summaries,
+and remediation proposals without granting AI mutation authority.
 
-## Epic 1 — Advanced Authoring
+Business value: reduce review and remediation effort while preserving
+deterministic preview/apply/rollback as the only execution path.
 
-Objective: expand deterministic authoring from the RC1 curated catalog to the
-most valuable report-authoring operations.
+Evidence-supported scope: current proposal enrichment, reviewer personas,
+finding-linked recommendations, and existing provider capability detection.
 
-Business value: consultants can complete more report design work without manual
-PBIR editing, while preview/validation/fidelity preserve trust.
-
-Candidate scope: bookmarks, drillthrough, shared slicers, advanced
-interactions, richer formatting, additional descriptor-backed mutation types,
-and—only if UAT supports it—carefully designed ordered batches.
-
-Dependencies: stable descriptor catalog, schema fixtures, mutation admission
-matrix, undo/rollback decision, and explicit public contract versioning.
+Dependencies: stable authoring contracts, the policy/evidence model, model and
+provider governance, and strong confirmation UX. Do not build a competing
+generic authoring agent.
 
 Estimated complexity: High.
 
-Recommended order: first user-facing v2 epic after contract consolidation.
+## Epic 3 — Enterprise Governance
 
-## Epic 2 — AI Authoring
+Objective: make policy, findings, exceptions, approvals, ownership, and audit
+usable across controlled teams and delivery processes.
 
-Objective: let users describe report intent and receive safe, explainable
-authoring proposals.
+Business value: support governed review and promotion without turning local
+single-user workflows into an unbounded hosted execution system.
 
-Business value: shorten report creation and remediation time while keeping
-deterministic preview/apply/rollback as the only mutation authority.
-
-Candidate scope: natural-language report creation, report modification by
-intent, layout optimization, automatic dashboard generation, and intelligent
-report review.
-
-Dependencies: stable authoring contracts, richer deterministic operation
-catalog, proposal/evidence model, model/provider governance, and strong
-confirmation UX. AI remains advisory and never receives direct mutation
-authority.
-
-Estimated complexity: Very high.
-
-Recommended order: after Advanced Authoring proves operation semantics and
-evidence quality.
-
-## Epic 3 — Enterprise Platform
-
-Objective: make the authoring platform usable across controlled teams and
-organizational review processes.
-
-Business value: support deployment, collaboration, governance, and audit
-requirements that local single-user workflows cannot satisfy.
-
-Candidate scope: hosted execution, authentication, collaboration, version
-history, governance, auditing, organization profiles, and controlled provider
-execution.
+Candidate scope: organization profiles, policy versions, waivers, approvals,
+audit records, ownership, and controlled delivery gates.
 
 Dependencies: identity/security architecture, persistence, tenancy and audit
 model, provider trust boundaries, hosted operations, and a clear separation of
@@ -92,18 +55,16 @@ advisory AI from execution authority.
 
 Estimated complexity: Very high.
 
-Recommended order: after local contract and authoring semantics stabilize; do
-not use hosted execution to bypass local safety boundaries.
+## Epic 4 — Platform
 
-## Epic 4 — Platform & Ecosystem
+Objective: expose stable governance capabilities to automation and partner
+tooling after the public contract is proven.
 
-Objective: expose stable capabilities to automation and partner tooling.
+Business value: enable CI/CD validation, repeatable review packets, Git-based
+quality gates, and carefully scoped integrations.
 
-Business value: enable CI/CD, repeatable governance, integrations, and a wider
-authoring ecosystem.
-
-Candidate scope: public SDK, versioned APIs, MCP integration, automation,
-CI/CD, Git workflows, and repository-native review tooling.
+Candidate scope: CLI/API, CI/CD validation, Git workflows, review packets, and
+provider-neutral integration surfaces.
 
 Dependencies: stable public contracts, authentication and authorization,
 versioning/deprecation policy, auditability, deterministic artifacts, and
@@ -111,8 +72,20 @@ enterprise operational support.
 
 Estimated complexity: High to Very high.
 
-Recommended order: last, after the platform can promise compatibility and
-security to external consumers.
+## Epic 5 — Rendered Intelligence
+
+Objective: combine bounded rendered evidence with semantic and deterministic
+findings to improve review of visual hierarchy, readability, and accessibility.
+
+Evidence-supported scope: existing Rendered Review Mode, typed screenshot
+evidence, PBI Lens capability-safe integration, and deterministic fallback.
+Visual Intelligence remains a separate future capability and is not implied by
+manual screenshot evidence.
+
+Dependencies: UAT of current rendered review, stable evidence provenance,
+privacy handling, and a demonstrated supported rendered acquisition path.
+
+Estimated complexity: High.
 
 ## Decision rules
 
@@ -123,3 +96,5 @@ security to external consumers.
   and deterministic mutation as the only execution authority.
 - Prefer one vertical slice with fixtures, preview, validation, analyzer
   evidence, and manual UAT over broad speculative capability discovery.
+- Keep generic authoring, semantic-model generation, and DAX generation out of
+  the governance product promise.

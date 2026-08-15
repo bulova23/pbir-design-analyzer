@@ -25,6 +25,10 @@ defects and are tracked in [V2-ROADMAP.md](V2-ROADMAP.md).
 7. The generated Windows ARM64 package is substantially larger than the other
    target packages because it is self-contained. This is packaging behavior,
    not a functional defect.
+8. A historical Phase 35E timeout-test run classified a timeout fixture as
+   `Completed` instead of `TimedOut`. The focused portable Phase 35E suite
+   passes on the current macOS host; Windows containment tests remain skipped
+   here, and Phase 35 execution is not enabled in the RC1 product path.
 
 ## Release handling
 

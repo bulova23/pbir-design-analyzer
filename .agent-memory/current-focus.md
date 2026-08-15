@@ -2,6 +2,20 @@
 
 ## Active Session
 
+- 2026-08-15 RC1 stabilization and product repositioning closeout:
+  - audited frozen HEAD `6a1fe4eb` without adding product functionality
+  - fresh backend validation: 996 passed, 11 expected Windows skips, 0 failed;
+    focused Phase 35E suite: 9 passed; extension: 523 passed; webview: 68
+    passed; RpcHost/build/package:all passed; lint remains 43-error baseline
+  - refreshed RC1 validation evidence, aligned Version 2 roadmap to five
+    governance epics, and added standalone competitive analysis
+  - all changes remain unstaged and uncommitted; ignored 0.6.0 VSIX artifacts
+    remain available for manual UAT
+  - next step: execute the consultant UAT guide and record pass/fail evidence;
+    do not begin Version 2 implementation before UAT and release-owner signoff
+
+## Active Session
+
 - 2026-08-15 Rendered Design Review Integration with PBI Lens:
   - implemented Phase 1 human-in-the-loop rendered-review checklist on the
     existing capability-safe provider foundation

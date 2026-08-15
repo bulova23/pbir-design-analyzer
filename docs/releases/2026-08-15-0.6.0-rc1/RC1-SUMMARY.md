@@ -24,7 +24,7 @@ manual UAT completes and any release-blocking defects are corrected.
 **Ready for UAT. Not yet recommended for limited release.**
 
 The automated gates are strong: 996 backend tests passed with 11 expected
-Windows integration skips, 505 extension tests passed, 68 webview tests
+Windows integration skips, 523 extension tests passed, 68 webview tests
 passed, the production build passed, .NET RpcHost build passed, and all five
 VSIX packages were produced. Limited release should wait for manual UAT and a
 decision on the existing 43-error ESLint baseline.
@@ -62,3 +62,4 @@ RPC operations are not part of RC1.
 - Manual test plan: [UAT-GUIDE.md](UAT-GUIDE.md)
 - Validation record: [VALIDATION-RESULTS.md](VALIDATION-RESULTS.md)
 - Architecture review: [ARCHITECTURE-ASSESSMENT.md](ARCHITECTURE-ASSESSMENT.md)
+- Competitive analysis: [COMPETITIVE-ANALYSIS.md](COMPETITIVE-ANALYSIS.md)
