@@ -1,5 +1,39 @@
 # Current Focus
 
+## Active Session
+
+- 2026-08-15 PBIR score path fix:
+  - diagnosed the `Parameter 'reportPath' is required` scoring failure as an
+    extension tree-target resolution bug for reports represented by
+    `definition/report.json` without a separate `definition.pbir` marker
+  - added a regression test and updated the resolver to recognize both PBIR
+    report-root layouts; backend contracts were unchanged
+  - validation: focused test 6 passed; extension tests 506 passed; webview
+    tests 68 passed; TypeScript and production build passed; changed-file
+    ESLint and `git diff --check` passed; production build retains unrelated
+    pre-existing nullable-reference warnings
+  - next step: manually reload/reinstall the built extension and score the
+    affected report; keep the fix uncommitted with the existing RC1 strategy
+    work until UAT confirms the workflow
+
+- 2026-08-15 Product Repositioning — Power BI Design Governance & Optimization:
+  - paused implementation after RC1; no code, phase, feature, or backend
+    architecture changes were made
+  - researched Microsoft’s current Power BI Agentic, Report Design, Report
+    Authoring, Planner/Management, MCP, Fabric CLI, PBIR, accessibility, and
+    CI/CD surfaces
+  - added the strategy document
+    `docs/strategy/2026-08-15-power-bi-design-governance-optimization-strategy.md`
+    covering identity, market, differentiation, capability map, governance
+    architecture, PDP policy language, analyzer evolution, AI integration,
+    remediation, enterprise scenarios, editions, naming, messaging, debt, and
+    product epics
+  - recommendation: position as the independent policy/evidence/remediation
+    layer above Microsoft and other authoring providers; do not continue a
+    generic authoring roadmap
+  - next step: product-owner review of the strategy before any implementation
+    proposal; keep all strategy work uncommitted unless separately directed
+
 ## Prior Phase History
 
 - 2026-08-15 Release Candidate 1 preparation after Phase 48:

@@ -1,5 +1,17 @@
 # Session Summaries
 
+# 2026-08-15 — Product repositioning strategy
+
+Paused implementation after RC1 and added the uncommitted strategy document
+`docs/strategy/2026-08-15-power-bi-design-governance-optimization-strategy.md`.
+The recommendation is to become the independent Power BI Design Governance &
+Optimization layer above Microsoft’s Report Design/Planner/Authoring, MCP,
+Fabric CLI, and CI/CD ecosystem. The document covers product identity, market
+position, differentiation, capability map, PDP policy language, analyzer
+evolution, AI partnership, deterministic remediation, enterprise workflows,
+editions, naming, messaging, debt, and product epics. No code or implementation
+phase was started.
+
 # 2026-08-15 — Phase 48 curated mutation expansion
 
 - Expanded the public PBIR authoring allowlist to RenamePage, AddPage,
@@ -2335,3 +2347,16 @@ backend 996 with 11 expected Windows skips, extension 505, webview 68,
 TypeScript/build/RpcHost/package:all; full lint remains the known 43-error
 baseline. Five target VSIXes were generated and inspected. Manual UAT and
 sign-off remain before a release commit.
+
+# 2026-08-15 — PBIR score path fix
+
+Diagnosed the `Parameter 'reportPath' is required` error to
+`vscode-extension/src/commands/pbirCommands.ts`: selected tree nodes pointed
+to `definition/report.json`, but report-root discovery only accepted a
+`definition.pbir` marker. Added a report.json-backed regression test and
+accepted both report-root layouts without changing the backend contract.
+
+Validation passed: focused tree-item suite 6/6, extension 506/506, webview
+68/68, TypeScript, production build, changed-file ESLint, and `git diff --check`.
+Production build emitted only existing unrelated nullable-reference warnings.
+Changes remain uncommitted alongside the prior strategy work.

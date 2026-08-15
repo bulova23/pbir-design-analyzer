@@ -67,6 +67,24 @@ describe('pbir.scoreReport tree item targets', () => {
     );
   });
 
+  it('resolves a report.json-backed report when definition.pbir is absent', async () => {
+    fs.rmSync(path.join(reportRoot, 'definition.pbir'));
+    registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+
+    const scoreHandler = getRegisteredHandler(PBIR_COMMANDS.scoreReport);
+    await scoreHandler({
+      kind: 'report',
+      jsonFilePath: reportJsonPath,
+    });
+
+    expect(PbirScorePanel.createOrShow).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      reportRoot,
+      undefined,
+    );
+  });
+
   it('resolves a selected page node to the report root and stable page name', async () => {
     registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
 

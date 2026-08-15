@@ -92,6 +92,13 @@ function resolveReportPathFromNodePath(nodePath: string | undefined): string | u
     let currentPath = nodePath;
     try {
         if (fs.statSync(currentPath).isFile()) {
+            if (
+                path.basename(currentPath).toLowerCase() === 'report.json' &&
+                path.basename(path.dirname(currentPath)).toLowerCase() === 'definition'
+            ) {
+                return path.dirname(path.dirname(currentPath));
+            }
+
             currentPath = path.dirname(currentPath);
         }
     } catch {
@@ -99,7 +106,10 @@ function resolveReportPathFromNodePath(nodePath: string | undefined): string | u
     }
 
     for (;;) {
-        if (fs.existsSync(path.join(currentPath, 'definition.pbir'))) {
+        if (
+            fs.existsSync(path.join(currentPath, 'definition.pbir')) ||
+            fs.existsSync(path.join(currentPath, 'definition', 'report.json'))
+        ) {
             return currentPath;
         }
 
