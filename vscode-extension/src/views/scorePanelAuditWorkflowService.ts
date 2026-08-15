@@ -93,7 +93,7 @@ export function createScorePanelAuditWorkflowService(deps: AuditDeps) {
       deps.setAuditSession(session);
       await this.postAuditState();
     },
-    async attachScreenshot(pageName: string): Promise<void> {
+    async attachScreenshot(pageName: string): Promise<VisualAuditSession['pages'][number]['captures'][number] | undefined> {
       const uris = await showOpenDialog({
         title: `Attach Screenshot to "${pageName}"`,
         canSelectMany: false,
@@ -112,6 +112,7 @@ export function createScorePanelAuditWorkflowService(deps: AuditDeps) {
       await saveSessionImpl(deps.context, session);
       deps.setAuditSession(session);
       await this.postAuditState();
+      return session.pages.find((page) => page.pageName === pageName)?.captures.at(-1);
     },
     async removeScreenshot(captureId: string): Promise<void> {
       const session = await ensureAuditSession();

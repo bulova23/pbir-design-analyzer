@@ -9,6 +9,7 @@ import type {
   ScorePanelWebviewToHostMessagePayload,
   StoryConfidence,
 } from '../analyzer/contracts/scorePanel';
+import type { RenderedReviewStatus } from '../analyzer/renderedReview/types';
 
 export const SCORE_PANEL_PROTOCOL_VERSION = 1;
 export const SCORE_PANEL_SCHEMA_VERSION = 1;
@@ -318,6 +319,7 @@ export function parseScorePanelWebviewMessage(value: unknown):
     'uploadScreenshots',
     'exportReviewWorkflow',
     'openReviewPacketPreview',
+    'attachRenderedScreenshot',
     'previewSelectedFixOpportunities',
     'approveSelectedFixOpportunities',
     'applySelectedFixOpportunities',
@@ -378,6 +380,31 @@ export function parseScorePanelWebviewMessage(value: unknown):
       return pageName
         ? { ok: true, message: { type, pageName } }
         : { ok: false, error: 'Score panel attachScreenshot message is missing pageName.' };
+    }
+    case 'setRenderedReviewStatus': {
+      const itemId = readString(value, 'itemId');
+      const status = readString(value, 'status');
+      const validStatuses: RenderedReviewStatus[] = ['Not Reviewed', 'Reviewed', 'Confirmed', 'Rejected', 'Deferred'];
+      return itemId && status && validStatuses.includes(status as RenderedReviewStatus)
+        ? { ok: true, message: { type, itemId, status: status as RenderedReviewStatus } }
+        : { ok: false, error: 'Score panel rendered review status message is missing required fields.' };
+    }
+    case 'setRenderedReviewNote': {
+      const itemId = readString(value, 'itemId');
+      return itemId
+        ? { ok: true, message: { type, itemId, note: readString(value, 'note') ?? '' } }
+        : { ok: false, error: 'Score panel rendered review note message is missing itemId.' };
+    }
+    case 'openInPbiLens': {
+      const pageName = readString(value, 'pageName');
+      const visualId = readString(value, 'visualId');
+      return { ok: true, message: { type, pageName, visualId } };
+    }
+    case 'attachRenderedScreenshot': {
+      const itemId = readString(value, 'itemId');
+      return itemId
+        ? { ok: true, message: { type, itemId } }
+        : { ok: false, error: 'Score panel rendered screenshot message is missing itemId.' };
     }
     case 'removeScreenshot':
     case 'analyzeCapture': {

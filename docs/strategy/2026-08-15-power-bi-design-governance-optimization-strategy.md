@@ -1,5 +1,21 @@
 # Power BI Design Governance & Optimization Strategy
 
+## Rendered Review Mode
+
+Rendered Review Mode extends Design Governance with evidence-backed human
+observation while preserving a strict provider boundary. PBIR Design Analyzer
+supplies deterministic and semantic design judgment, scoring, governance, and
+deterministic remediation. PBI Lens, when available through a supported
+interface, supplies rendered observation and interactive viewing. Reviewer
+notes and user-supplied screenshots remain separate evidence domains and never
+carry mutation authority.
+
+Phase 1 uses a finding-driven checklist for whitespace balance, visual
+hierarchy, KPI prominence, title wrapping, clipped labels, crowded visuals,
+table readability, visual balance, color harmony, and page readability. It does
+not automate screenshot capture, parse image pixels, or build a competing
+viewer. Deterministic fallback is mandatory when PBI Lens is unavailable.
+
 Date: 2026-08-15
 Status: Strategy proposal after 0.6.0 RC1
 Implementation status: No implementation authorized by this document

@@ -7,6 +7,7 @@ import type {
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
   ScoreResult,
+  RenderedReviewPanelState,
 } from '../analyzer/contracts/scorePanel';
 import {
   buildReviewWorkflowExportData,
@@ -24,6 +25,7 @@ type ExportDeps = {
   getReportPath: () => string;
   getCurrentResult: () => ScoreResult | undefined;
   getReviewPacketPreviewOptions: () => ReviewPacketPreviewOptions;
+  getRenderedReview?: () => RenderedReviewPanelState | undefined;
   showWarningMessage?: typeof vscode.window.showWarningMessage;
   loadIntentFeedbackSession?: typeof loadIntentFeedbackSession;
   buildReviewWorkflowExportData?: typeof buildReviewWorkflowExportData;
@@ -79,7 +81,7 @@ export function createScorePanelExportWorkflowService(deps: ExportDeps) {
       }
 
       const session = await loadIntentFeedbackSessionImpl(deps.context, reportPath);
-      const reviewPacketPreview = buildReviewWorkflowExportDataImpl(currentResult, session.entries);
+      const reviewPacketPreview = buildReviewWorkflowExportDataImpl(currentResult, session.entries, undefined, deps.getRenderedReview?.());
       const html = buildReviewPacketPreviewHtmlImpl(
         reviewPacketPreview,
         reportPath,
@@ -102,7 +104,7 @@ export function createScorePanelExportWorkflowService(deps: ExportDeps) {
       }
 
       const session = await loadIntentFeedbackSessionImpl(deps.context, reportPath);
-      const exportData = buildReviewWorkflowExportDataImpl(currentResult, session.entries);
+      const exportData = buildReviewWorkflowExportDataImpl(currentResult, session.entries, undefined, deps.getRenderedReview?.());
       const formatChoice = await showQuickPick(
         [
           { label: 'Markdown', description: 'Human-readable review summary (.md)' },

@@ -2,6 +2,28 @@
 
 ## Active Session
 
+- 2026-08-15 Rendered Design Review Integration with PBI Lens:
+  - implemented Phase 1 human-in-the-loop rendered-review checklist on the
+    existing capability-safe provider foundation
+  - added finding classifications, ten guided categories, status/note state,
+    manual typed screenshot evidence, protocol handlers, export fields, and
+    deterministic fallback
+  - current installed PBI Lens 0.4.0 has no supported public programmatic VS Code
+    API; CLI and MCP are documented but not installed/exercisable, so no adapter,
+    process runner, interactive command automation, or rendered acquisition will
+    be added
+  - implementation plan:
+    `docs/superpowers/plans/2026-08-15-optional-pbi-lens-capability-safe-provider.md`
+  - focused rendered-review/provider/recommendation/presentation tests: 21 passed;
+    extension suite: 523 passed; webview suite: 68 passed; TypeScript, build,
+    package, changed-file lint, and diff checks passed
+  - backend regression: 995 passed, 11 expected Windows skips, and one known
+    unrelated Phase 35E timeout-test flake; no backend code changed
+  - all work remains unstaged and uncommitted; next step is manual VS Code UAT
+    using `docs/integrations/rendered-review-uat-guide.md`
+
+## Active Session
+
 - 2026-08-15 UI Polish — Activity Bar Icon redesign:
   - replacing the clipped four-bar Activity Bar SVG with a purpose-built
     monochrome magnifying-glass silhouette containing three ascending bars

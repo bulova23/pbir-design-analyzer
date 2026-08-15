@@ -16,6 +16,7 @@ import type {
   ReviewWorkflowRemediationItem,
   ReviewWorkflowStatus,
   ScoreResult,
+  RenderedReviewPanelState,
 } from '../contracts/scorePanel';
 import { renderReviewWorkflowPacketHtml } from './reviewWorkflowHtmlPacket';
 import { renderConsultantReviewPacketMarkdown } from './reviewWorkflowMarkdownPacket';
@@ -323,6 +324,7 @@ export function buildReviewWorkflowExportData(
   result: ScoreResult,
   intentFeedback: IntentFeedbackEntry[],
   exportedAt = new Date().toISOString(),
+  renderedReview?: RenderedReviewPanelState,
 ): ReviewWorkflowExportData {
   const feedbackLookup = new Map<string, IntentFeedbackEntry>();
   const feedbackByPageName = new Map<string, IntentFeedbackEntry>();
@@ -417,6 +419,7 @@ export function buildReviewWorkflowExportData(
         findings: result.reportConsistencySummary.findings,
       }
       : undefined,
+    renderedReview,
   };
 }
 

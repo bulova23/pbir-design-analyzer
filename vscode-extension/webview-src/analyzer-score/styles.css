@@ -145,6 +145,10 @@ button {
   border-color: color-mix(in srgb, var(--score-warn) 48%, var(--score-border));
 }
 
+.rendered-evidence-status {
+  border-color: color-mix(in srgb, var(--score-accent) 42%, var(--score-border));
+}
+
 .tab-row {
   display: flex;
   gap: 10px;

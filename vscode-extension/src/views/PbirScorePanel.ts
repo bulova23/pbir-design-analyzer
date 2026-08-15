@@ -11,7 +11,9 @@ import type {
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
   ScoreResult,
+  RenderedReviewPanelState,
 } from '../analyzer/contracts/scorePanel';
+import type { RenderedReviewStatus } from '../analyzer/renderedReview/types';
 import type { VisualAuditSession } from '../analyzer/audit/types';
 import type { VisualAuditProvider } from '../analyzer/audit/providers/VisualAuditProvider';
 import { createActiveProvider } from '../analyzer/audit/providers/providerSetup';
@@ -55,6 +57,12 @@ import { createScorePanelExportWorkflowService } from './scorePanelExportWorkflo
 import { createScorePanelFixWorkflowService } from './scorePanelFixWorkflowService';
 import { recordAnalyzerWorkspaceReturn } from '../design-studio/state/analyzerWorkspaceReturnStore';
 import type { PbirAuthoringResponse } from '../services/rpc/PbirAuthoringWorkflow';
+import { getEnhancedScoringSettings, getRenderedReviewSettings } from '../platform/settings';
+import {
+  createPbiLensRenderedDesignEvidenceProvider,
+} from '../analyzer/renderedEvidence/renderedEvidenceProvider';
+import { maybeRecommendPbiLens } from '../analyzer/renderedEvidence/recommendation';
+import { buildRenderedReviewChecklist, updateRenderedReviewItem } from '../analyzer/renderedReview/reviewModel';
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -69,6 +77,7 @@ export class PbirScorePanel {
   private readonly auditWorkflow;
   private readonly exportWorkflow;
   private readonly fixWorkflow;
+  private readonly renderedEvidenceProvider;
   private isDisposed = false;
   private isReady = false;
   private reportPath: string;
@@ -181,6 +190,9 @@ export class PbirScorePanel {
     this.reportPath = reportPath;
     this.pageName = pageName;
     this.auditProvider = createActiveProvider(context);
+    this.renderedEvidenceProvider = createPbiLensRenderedDesignEvidenceProvider(
+      (extensionId) => vscode.extensions.getExtension(extensionId),
+    );
     this.messageRouter = createScorePanelMessageRouter({
       getPageCount: () => this.pageNamesFromResult().length,
       onReady: async () => {
@@ -193,7 +205,7 @@ export class PbirScorePanel {
       },
       onSetIntentFeedback: (message) => this.handleSetIntentFeedback(message),
       onUploadScreenshots: () => this.auditWorkflow.uploadScreenshots(),
-      onAttachScreenshot: (pageNameValue) => this.auditWorkflow.attachScreenshot(pageNameValue),
+      onAttachScreenshot: async (pageNameValue) => { await this.auditWorkflow.attachScreenshot(pageNameValue); },
       onRemoveScreenshot: (captureId) => this.auditWorkflow.removeScreenshot(captureId),
       onAssignCapture: (captureId, targetPageName) => this.auditWorkflow.assignCapture(captureId, targetPageName),
       onAnalyzeCapture: (captureId, pageNameValue) => this.auditWorkflow.analyzeCapture(captureId, pageNameValue),
@@ -201,6 +213,10 @@ export class PbirScorePanel {
       onSetReviewPacketPreviewProfile: (profile) => this.handleSetReviewPacketPreviewProfile(profile),
       onSetReviewPacketPreviewTemplateVariant: (templateVariant) => this.handleSetReviewPacketPreviewTemplateVariant(templateVariant),
       onOpenReviewPacketPreview: () => this.exportWorkflow.openReviewPacketPreview(),
+      onSetRenderedReviewStatus: (itemId, status) => this.setRenderedReviewStatus(itemId, status),
+      onSetRenderedReviewNote: (itemId, note) => this.setRenderedReviewNote(itemId, note),
+      onAttachRenderedScreenshot: (itemId) => this.attachRenderedScreenshot(itemId),
+      onOpenInPbiLens: (pageName, visualId) => this.openInPbiLens(pageName, visualId),
       onToggleFixOpportunitySelection: (opportunityId) => this.fixWorkflow.toggleFixOpportunitySelection(opportunityId),
       onPreviewSelectedFixOpportunities: () => this.fixWorkflow.previewSelectedFixOpportunities(),
       onApproveSelectedFixOpportunities: () => this.fixWorkflow.approveSelectedFixOpportunities(),
@@ -230,6 +246,7 @@ export class PbirScorePanel {
       getReportPath: () => this.reportPath,
       getCurrentResult: () => this.scoreState.getCurrentResult(),
       getReviewPacketPreviewOptions: () => this.scoreState.getReviewPacketPreviewOptions(),
+      getRenderedReview: () => this.scoreState.getRenderedReview(),
     });
     this.fixWorkflow = createScorePanelFixWorkflowService({
       getCurrentResult: () => this.scoreState.getCurrentResult(),
@@ -340,7 +357,7 @@ export class PbirScorePanel {
     await saveIntentFeedbackSession(this.context, session);
 
     if (currentResult && savedConfig) {
-      const reviewPacketPreview = buildReviewWorkflowExportData(currentResult, session.entries);
+      const reviewPacketPreview = buildReviewWorkflowExportData(currentResult, session.entries, undefined, this.scoreState.getRenderedReview());
       this.postScoreState(savedConfig, currentResult, session.entries, reviewPacketPreview);
     }
   }
@@ -382,9 +399,81 @@ export class PbirScorePanel {
     const reviewPacketPreview = buildReviewWorkflowExportData(
       currentResult,
       intentFeedbackSession.entries,
+      undefined,
+      this.scoreState.getRenderedReview(),
     );
 
     this.postScoreState(savedConfig, currentResult, intentFeedbackSession.entries, reviewPacketPreview);
+  }
+
+  private renderedReviewState(result: ScoreResult): RenderedReviewPanelState {
+    const existing = this.scoreState.getRenderedReview();
+    const checklist = buildRenderedReviewChecklist(result.normalizedFindings ?? []).map((item) => {
+      const prior = existing?.checklist.find((candidate) => candidate.id === item.id);
+      return prior ? { ...item, ...prior, findingIds: item.findingIds, pageNames: item.pageNames } : item;
+    });
+    const state: RenderedReviewPanelState = {
+      enabled: getRenderedReviewSettings().enabled && getRenderedReviewSettings().showChecklist && checklist.length > 0,
+      checklist,
+      mutationFollowUp: this.fixApplySessions.length > 0 && this.renderedEvidenceProvider.getCapabilityReport().installed
+        ? 'Review rendered output in PBI Lens after mutation and confirm the visual outcome.'
+        : existing?.mutationFollowUp,
+    };
+    this.scoreState.setRenderedReview(state);
+    return state;
+  }
+
+  private async setRenderedReviewStatus(itemId: string, status: RenderedReviewStatus): Promise<void> {
+    const current = this.scoreState.getRenderedReview();
+    if (!current) return;
+    this.scoreState.setRenderedReview({
+      ...current,
+      checklist: current.checklist.map((item) => item.id === itemId ? updateRenderedReviewItem(item, { status }) : item),
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async setRenderedReviewNote(itemId: string, note: string): Promise<void> {
+    const current = this.scoreState.getRenderedReview();
+    if (!current) return;
+    this.scoreState.setRenderedReview({
+      ...current,
+      checklist: current.checklist.map((item) => item.id === itemId ? updateRenderedReviewItem(item, { reviewerNote: note }) : item),
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async attachRenderedScreenshot(itemId: string): Promise<void> {
+    const current = this.scoreState.getRenderedReview();
+    const item = current?.checklist.find((candidate) => candidate.id === itemId);
+    const pageName = item?.pageNames[0];
+    if (!current || !item || !pageName) return;
+    const capture = await this.auditWorkflow.attachScreenshot(pageName);
+    if (!capture) return;
+    this.scoreState.setRenderedReview({
+      ...current,
+      checklist: current.checklist.map((candidate) => candidate.id === itemId
+        ? updateRenderedReviewItem(candidate, {
+            screenshot: {
+              report: this.reportPath,
+              page: pageName,
+              timestamp: capture.capturedAt,
+              provider: 'PBI Lens',
+              fileReference: capture.storedPath,
+            },
+          })
+        : candidate),
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async openInPbiLens(pageName?: string, visualId?: string): Promise<void> {
+    const report = this.renderedEvidenceProvider.getCapabilityReport();
+    if (!report.capabilities.reportContextAvailable) {
+      void vscode.window.showInformationMessage('PBI Lens is installed, but no supported report-opening interface is available in this release.');
+      return;
+    }
+    void vscode.window.showInformationMessage(`Open ${visualId ?? pageName ?? 'the report'} in PBI Lens using its supported provider interface.`);
   }
 
   private postScoreState(
@@ -394,6 +483,8 @@ export class PbirScorePanel {
     reviewPacketPreview: ReturnType<typeof buildReviewWorkflowExportData>,
   ): void {
     const presentationResult = this.buildPresentationResult(result);
+    const renderedReview = this.renderedReviewState(presentationResult);
+    const reviewPacketWithRenderedReview = { ...reviewPacketPreview, renderedReview };
     const fixWorkflow = buildFixWorkflowPayload({
       opportunities: presentationResult.fixOpportunities ?? [],
       selectedOpportunityIds: this.selectedFixOpportunityIds,
@@ -413,7 +504,7 @@ export class PbirScorePanel {
         storyAssessmentLastComparedAt: this.scoreState.getStoryAssessmentLastComparedAt(),
         fixSelection: fixWorkflow.fixSelection,
         fixApplySessions: fixWorkflow.fixApplySessions,
-        reviewPacketPreview,
+        reviewPacketPreview: reviewPacketWithRenderedReview,
         reviewPacketPreviewHtml: buildReviewPacketPreviewHtml(
           reviewPacketPreview,
           this.reportPath,
@@ -421,6 +512,8 @@ export class PbirScorePanel {
         ),
         reviewPacketPreviewProfile: this.scoreState.getReviewPacketPreviewOptions().profile,
         reviewPacketPreviewTemplateVariant: this.scoreState.getReviewPacketPreviewOptions().templateVariant,
+        renderedEvidence: this.renderedEvidenceProvider.getCapabilityReport(),
+        renderedReview,
       }),
     });
   }
@@ -464,6 +557,20 @@ export class PbirScorePanel {
       }
 
       const savedConfig = await loadDesignAnalyzerConfig(this.context);
+      const enhancedScoringSettings = getEnhancedScoringSettings();
+      if (enhancedScoringSettings.suggestPbiLens && getRenderedReviewSettings().suggestPbiLens) {
+        try {
+          await maybeRecommendPbiLens(
+            this.renderedEvidenceProvider.getCapabilityReport(),
+            this.context.globalState,
+            vscode.window.showInformationMessage,
+          );
+        } catch (error) {
+          PbirScorePanel.diagnosticsOutput.appendLine(
+            `[Rendered Evidence] Recommendation unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
       this.scoreState.setSavedConfig(savedConfig);
       this.scoreState.setReviewPacketPreviewOptions(
         await loadReviewPacketPreviewOptions(this.context, this.reportPath),
@@ -519,6 +626,8 @@ export class PbirScorePanel {
         const reviewPacketPreview = buildReviewWorkflowExportData(
           normalizedResult,
           intentFeedbackSession.entries,
+          undefined,
+          this.scoreState.getRenderedReview(),
         );
         this.postScoreState(savedConfig, normalizedResult, intentFeedbackSession.entries, reviewPacketPreview);
         return;
@@ -584,6 +693,8 @@ export class PbirScorePanel {
       const reviewPacketPreview = buildReviewWorkflowExportData(
         normalizedResult,
         intentFeedbackSession.entries,
+        undefined,
+        this.scoreState.getRenderedReview(),
       );
 
       telemetry.sendEvent('scoring.completed', {

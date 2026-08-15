@@ -1,6 +1,8 @@
 import type { DesignAnalyzerConfig } from '../config/types';
 import type { AnalyzerProfileId, AnalyzerType } from '../analyzers/types';
 import type { SurfaceType } from '../surfaces/types';
+import type { RenderedEvidenceCapabilityReport } from '../renderedEvidence/types';
+import type { RenderedReviewCategory, RenderedReviewChecklistItem, RenderedReviewClassification, RenderedReviewStatus } from '../renderedReview/types';
 
 export type FindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
 export type AuditFindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
@@ -11,6 +13,8 @@ export type StoryConfidence = 'high' | 'medium' | 'low';
 export type NormalizedFindingSeverity = 'high' | 'medium' | 'low' | 'info';
 export type NormalizedFindingScope = 'visual' | 'page' | 'crossPage' | 'report';
 export type NormalizedFindingDetectionType = 'deterministic' | 'aiAssisted' | 'mixed';
+export type FindingEvidenceDomain = 'deterministic' | 'semantic' | 'rendered' | 'reviewerNotes';
+export type { RenderedReviewCategory, RenderedReviewClassification } from '../renderedReview/types';
 export type NormalizedFindingImpactArea =
   | 'layout'
   | 'storytelling'
@@ -82,6 +86,9 @@ export interface NormalizedFinding {
   sourceKind: string;
   sourceSection: 'issues' | 'evidence';
   evidence: NormalizedFindingEvidenceReference[];
+  reviewClassification?: RenderedReviewClassification;
+  renderedReviewCategory?: RenderedReviewCategory;
+  evidenceDomains?: FindingEvidenceDomain[];
   navigationTarget?: ScorePanelNavigationTarget;
 }
 
@@ -357,6 +364,7 @@ export interface ReviewWorkflowExportData {
   topRecommendations: string[];
   priorityRecommendations: ReviewWorkflowPriorityRecommendation[];
   crossPageConsistencyRollup?: ReviewWorkflowCrossPageConsistencyRollup;
+  renderedReview?: RenderedReviewPanelState;
   appendix: ReviewWorkflowAppendix;
   pages: ReviewWorkflowExportPage[];
   crossPageConsistency?: {
@@ -1181,6 +1189,8 @@ export interface ScorePanelState extends ScorePanelProtocolEnvelope {
   result: ScoreResult;
   selectedPageIndex: number;
   intentFeedback: IntentFeedbackEntry[];
+  renderedEvidence?: RenderedEvidenceCapabilityReport;
+  renderedReview?: RenderedReviewPanelState;
   storyAssessmentCurrentSnapshot?: StoryAssessmentReportSnapshot;
   storyAssessmentDiffByPage?: Record<string, StoryAssessmentDiffResult>;
   storyAssessmentLastComparedAt?: string;
@@ -1190,6 +1200,12 @@ export interface ScorePanelState extends ScorePanelProtocolEnvelope {
   reviewPacketPreviewHtml?: string;
   reviewPacketPreviewProfile?: ReviewWorkflowExportProfile;
   reviewPacketPreviewTemplateVariant?: ReviewWorkflowMarkdownTemplateVariant;
+}
+
+export interface RenderedReviewPanelState {
+  enabled: boolean;
+  checklist: RenderedReviewChecklistItem[];
+  mutationFollowUp?: string;
 }
 
 export type ScorePanelWebviewToHostMessagePayload =
@@ -1216,6 +1232,10 @@ export type ScorePanelWebviewToHostMessagePayload =
   | { type: 'setReviewPacketPreviewProfile'; profile: ReviewWorkflowExportProfile }
   | { type: 'setReviewPacketPreviewTemplateVariant'; templateVariant: ReviewWorkflowMarkdownTemplateVariant }
   | { type: 'openReviewPacketPreview' }
+  | { type: 'setRenderedReviewStatus'; itemId: string; status: RenderedReviewStatus }
+  | { type: 'setRenderedReviewNote'; itemId: string; note: string }
+  | { type: 'attachRenderedScreenshot'; itemId: string }
+  | { type: 'openInPbiLens'; pageName?: string; visualId?: string }
   | { type: 'toggleFixOpportunitySelection'; opportunityId: string }
   | { type: 'previewSelectedFixOpportunities' }
   | { type: 'approveSelectedFixOpportunities' }

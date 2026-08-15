@@ -60,6 +60,28 @@ Packaging note for the shipped `0.5.0` set:
 
 The next roadmap epics build on that foundation without reopening the scoring architecture.
 
+## Optional Rendered Design Evidence Provider
+
+The current branch contains a capability-safe provider seam for recognizing the
+optional PBI Lens companion. PBI Lens 0.4.0 is detected when installed, but its
+VS Code extension exposes no supported programmatic rendering API. Its CLI and
+MCP surfaces are documented separately but are not installed or connected in
+the current environment.
+
+Automatic rendered scoring, screenshot acquisition, CLI/MCP adapters, and score
+weight changes remain deferred until a supported and exercised provider surface
+exists. See [PBI Lens Rendered Design Evidence Integration](integrations/pbi-lens-rendered-evidence.md).
+
+### Phase 1 Rendered Review
+
+The current branch adds a human-in-the-loop Rendered Review checklist to the
+Optimization Report. It classifies findings, gives category-specific guidance,
+records reviewer status and notes, supports user-supplied screenshot evidence,
+and includes the review summary in downstream exports. PBI Lens remains an
+optional observation companion; no report viewer or undocumented automation is
+implemented. See [Rendered Review Guide](integrations/rendered-review-guide.md)
+and the [Rendered Review UAT Guide](integrations/rendered-review-uat-guide.md).
+
 ## Design Package To Microsoft Skills Roadmap Mapping
 
 The original seven-phase roadmap remains distinct from the release and AI-fix roadmaps elsewhere in this document.

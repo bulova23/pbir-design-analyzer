@@ -13,6 +13,7 @@ import type {
   ScoreResult,
 } from '../contracts/scorePanel';
 import { normalizeFrameworkId } from './presentation';
+import { classifyRenderedReviewFinding } from '../renderedReview/reviewModel';
 
 const FRAMEWORK_LABELS: Record<string, string> = {
   gestalt: 'Gestalt Principles',
@@ -440,11 +441,20 @@ function compareEvidence(
 }
 
 function normalizeFinding(finding: NormalizedFinding): NormalizedFinding {
+  const renderedReview = classifyRenderedReviewFinding(finding);
+  const evidenceDomains = [...new Set(finding.evidence.map((evidence) => {
+    if (evidence.kind === 'semanticModel') return 'semantic' as const;
+    if (evidence.kind === 'screenshot' || evidence.kind === 'audit') return 'rendered' as const;
+    return 'deterministic' as const;
+  }))];
   return {
     ...finding,
     affectedPages: [...finding.affectedPages].sort(compareText),
     frameworkImpact: [...finding.frameworkImpact].sort(compareText),
     evidence: [...finding.evidence].sort(compareEvidence),
+    reviewClassification: renderedReview.classification,
+    renderedReviewCategory: renderedReview.category,
+    evidenceDomains,
   };
 }
 

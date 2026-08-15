@@ -78,6 +78,8 @@ describe('buildNormalizedFindings', () => {
       affectedPages: ['Forecast', 'Intro'],
       impactArea: 'layout',
       recommendation: 'Align title anchors.',
+      reviewClassification: 'deterministic',
+      evidenceDomains: ['deterministic'],
     });
   });
 

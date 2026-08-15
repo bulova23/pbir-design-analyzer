@@ -28,6 +28,7 @@ import type {
   StoryAssessmentDiffResult,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
+  RenderedReviewPanelState,
   ScorePanelWebviewToHostMessagePayload,
   ScoreResult,
   VisualMetadataItem,
@@ -51,6 +52,7 @@ import {
   getProposalEnrichmentSummary,
   hasProposalEnrichmentContent,
 } from './proposalEnrichment';
+import { getRenderedEvidenceStatusMessage, isPbiLensOpenActionAvailable } from '../../src/analyzer/renderedEvidence/presentation';
 
 interface ScoreVsCodeApi {
   postMessage(message: unknown): void;
@@ -1553,47 +1555,6 @@ function getDetectedStoryText(
   return `This page appears to support ${analysis.inferredPurpose.toLowerCase()} decision-making.`;
 }
 
-function splitIntoSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 0);
-}
-
-function deriveDecisionRiskFromGaps(gaps: string[]): string | undefined {
-  const normalized = gaps.map((gap) => gap.toLowerCase());
-  const risks: string[] = [];
-
-  if (normalized.some((gap) => gap.includes('target') || gap.includes('benchmark'))) {
-    risks.push('Users may see performance but cannot determine whether results are good or bad.');
-  }
-
-  if (normalized.some((gap) => gap.includes('prior-period') || gap.includes('delta') || gap.includes('movement over time'))) {
-    risks.push('Users may understand current values but cannot judge movement over time.');
-  }
-
-  if (normalized.some((gap) => gap.includes('exception') || gap.includes('decision trigger') || gap.includes('urgency') || gap.includes('action now'))) {
-    risks.push('Users may not know what requires attention or intervention now.');
-  }
-
-  if (normalized.some((gap) => gap.includes('narrative') || gap.includes('hierarchy') || gap.includes('decision support is weak'))) {
-    risks.push('Users may see supporting visuals without a clear primary takeaway.');
-  }
-
-  return risks.length > 0 ? risks.slice(0, 2).join(' ') : undefined;
-}
-
-function getDecisionRiskText(
-  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
-): string | undefined {
-  const sentences = splitIntoSentences(analysis.whyThisMatters);
-  if (sentences.length > 1) {
-    return sentences.slice(1).join(' ');
-  }
-
-  return deriveDecisionRiskFromGaps(analysis.topGaps);
-}
-
 function getSupportedDecisionText(
   analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
 ): string {
@@ -2415,6 +2376,70 @@ function renderFixPlanSection(
           ))}
         </ol>
       )}
+    </section>
+  );
+}
+
+function renderRenderedReviewSection(
+  review: RenderedReviewPanelState | undefined,
+  provider: ScorePanelState['renderedEvidence'],
+  postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
+): React.ReactNode {
+  if (!review?.enabled) return null;
+  const canOpenInPbiLens = isPbiLensOpenActionAvailable(provider);
+  return (
+    <section aria-label="Rendered review" className="panel-card rendered-review-card">
+      <div className="issues-section-head">
+        <div>
+          <p className="section-kicker">Human observation</p>
+          <h2>Rendered Review Recommended</h2>
+        </div>
+        <p className="issues-section-copy">
+          PBI Lens provides rendered observation; PBIR Design Analyzer remains authoritative for design judgment and scoring.
+        </p>
+      </div>
+      <div className="issue-detail-block">
+        <p className="issue-detail-label">Open in PBI Lens</p>
+        <button
+          className="secondary-button"
+          disabled={!canOpenInPbiLens}
+          onClick={() => postHostMessage({ type: 'openInPbiLens' })}
+          title={canOpenInPbiLens ? 'Open the report in PBI Lens' : 'No supported PBI Lens report-opening interface is available'}
+          type="button"
+        >
+          Open in PBI Lens
+        </button>
+        {!canOpenInPbiLens ? <p className="issues-section-copy">PBI Lens is unavailable through a supported programmatic interface. The checklist remains available for manual review.</p> : null}
+        {review.mutationFollowUp ? <p className="fix-plan-recommendation"><strong>After mutation:</strong> {review.mutationFollowUp}</p> : null}
+      </div>
+      {review.checklist.map((item) => (
+        <article className="issue-detail-block" key={item.id}>
+          <div className="issues-section-head">
+            <div>
+              <p className="issue-detail-label">{item.label}</p>
+              <p className="issues-section-copy">{item.pageNames.join(', ') || 'Report'}</p>
+            </div>
+            <select
+              aria-label={`${item.label} review status`}
+              value={item.status}
+              onChange={(event) => postHostMessage({ type: 'setRenderedReviewStatus', itemId: item.id, status: event.target.value as 'Not Reviewed' | 'Reviewed' | 'Confirmed' | 'Rejected' | 'Deferred' })}
+            >
+              {['Not Reviewed', 'Reviewed', 'Confirmed', 'Rejected', 'Deferred'].map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </div>
+          <p><strong>Why:</strong> {item.guidance.why}</p>
+          <p><strong>Look for:</strong> {item.guidance.lookFor}</p>
+          <p><strong>Expected outcome:</strong> {item.guidance.expectedOutcome}</p>
+          <label className="issues-section-copy">
+            Reviewer note
+            <textarea defaultValue={item.reviewerNote ?? ''} onBlur={(event) => postHostMessage({ type: 'setRenderedReviewNote', itemId: item.id, note: event.target.value })} rows={2} />
+          </label>
+          <button className="secondary-button" onClick={() => postHostMessage({ type: 'attachRenderedScreenshot', itemId: item.id })} type="button">
+            Attach Screenshot
+          </button>
+          {item.screenshotEvidence?.length ? <p className="issues-section-copy">{item.screenshotEvidence.length} screenshot evidence record(s) attached.</p> : null}
+        </article>
+      ))}
     </section>
   );
 }
@@ -4070,6 +4095,12 @@ export default function App(): JSX.Element {
         </section>
       ) : null}
 
+      {getRenderedEvidenceStatusMessage(state.renderedEvidence) ? (
+        <section className="status-card rendered-evidence-status" aria-label="Rendered design evidence status">
+          {getRenderedEvidenceStatusMessage(state.renderedEvidence)}
+        </section>
+      ) : null}
+
       {multiPage ? (
         <nav className="tab-row" aria-label="Score tabs">
           {tabs.map((tab, index) => (
@@ -4262,6 +4293,8 @@ export default function App(): JSX.Element {
           },
         })}
       </section>
+
+      {renderRenderedReviewSection(viewState.state.renderedReview, viewState.state.renderedEvidence, postHostMessage)}
 
       <div ref={fixPlanSectionRef} tabIndex={-1}>
         {renderFixPlanSection(

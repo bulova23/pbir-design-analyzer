@@ -77,6 +77,28 @@ It is designed to help teams answer higher-value review questions:
 
 This enrichment remains advisory and does not bypass deterministic execution boundaries.
 
+### Optional Rendered Design Evidence
+
+PBIR Design Analyzer recognizes PBI Lens as an optional companion for a future
+rendered-design evidence provider. The current PBI Lens VS Code extension does
+not expose a supported programmatic rendering API, so deterministic PBIR
+scoring remains the authoritative path and continues normally without PBI Lens.
+
+Installing PBI Lens alone does not enable enhanced scoring. Automatic rendered
+evidence will be considered only after a supported PBI Lens API, CLI, or MCP
+connection is installed, exercised, and validated.
+
+### Rendered Review
+
+The Optimization Report can recommend a human Rendered Review for concerns
+such as whitespace balance, KPI prominence, title wrapping, crowded visuals,
+table readability, color harmony, and page readability. Reviewers can record a
+status, add notes, and attach user-supplied screenshot evidence. PBI Lens
+provides rendered observation; PBIR Design Analyzer provides design judgment,
+scoring, governance, and deterministic remediation. When no supported PBI Lens
+interface is available, the checklist remains visible and deterministic
+scoring continues normally.
+
 ## 0.6.0 Highlights
 
 ### New
@@ -240,6 +262,9 @@ Manual release flow:
 - [Release Guide](docs/RELEASING.md)
 - [0.5.0 Release Summary](docs/releases/2026-06-05-0-5-0-release-summary.md)
 - [Roadmap](docs/ROADMAP.md)
+- [PBI Lens rendered evidence integration](docs/integrations/pbi-lens-rendered-evidence.md)
+- [Rendered Review guide](docs/integrations/rendered-review-guide.md)
+- [Rendered Review UAT guide](docs/integrations/rendered-review-uat-guide.md)
 
 ## Roadmap Summary
 

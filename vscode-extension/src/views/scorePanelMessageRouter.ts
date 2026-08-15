@@ -24,6 +24,10 @@ export type ScorePanelMessageRouterDependencies = {
   onSetReviewPacketPreviewProfile: (profile: ReviewWorkflowExportProfile) => void | Promise<void>;
   onSetReviewPacketPreviewTemplateVariant: (templateVariant: ReviewWorkflowMarkdownRenderOptions['templateVariant']) => void | Promise<void>;
   onOpenReviewPacketPreview: () => void | Promise<void>;
+  onSetRenderedReviewStatus?: (itemId: string, status: Extract<ScorePanelWebviewToHostMessagePayload, { type: 'setRenderedReviewStatus' }>['status']) => void | Promise<void>;
+  onSetRenderedReviewNote?: (itemId: string, note: string) => void | Promise<void>;
+  onAttachRenderedScreenshot?: (itemId: string) => void | Promise<void>;
+  onOpenInPbiLens?: (pageName?: string, visualId?: string) => void | Promise<void>;
   onToggleFixOpportunitySelection: (opportunityId: string) => void | Promise<void>;
   onPreviewSelectedFixOpportunities: () => void | Promise<void>;
   onApproveSelectedFixOpportunities: () => void | Promise<void>;
@@ -113,6 +117,18 @@ export const createScorePanelMessageRouter: ScorePanelMessageRouterFactory = Obj
           return;
         case 'openReviewPacketPreview':
           await deps.onOpenReviewPacketPreview();
+          return;
+        case 'setRenderedReviewStatus':
+          await deps.onSetRenderedReviewStatus?.(payload.itemId, payload.status);
+          return;
+        case 'setRenderedReviewNote':
+          await deps.onSetRenderedReviewNote?.(payload.itemId, payload.note);
+          return;
+        case 'attachRenderedScreenshot':
+          await deps.onAttachRenderedScreenshot?.(payload.itemId);
+          return;
+        case 'openInPbiLens':
+          await deps.onOpenInPbiLens?.(payload.pageName, payload.visualId);
           return;
         case 'toggleFixOpportunitySelection':
           await deps.onToggleFixOpportunitySelection(payload.opportunityId);

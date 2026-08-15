@@ -2387,3 +2387,25 @@ webview 68/68; TypeScript, changed-file ESLint, production packaging, and
 `git diff --check` passed. Full backend reached 995 passed with 11 expected
 Windows skips and one unrelated Phase 35E timeout-test flake. Repackaged all
 five 0.6.0 VSIX targets; macOS arm64 was created at 08:03:56.
+# 2026-08-15 Optional PBI Lens Capability-Safe Provider
+
+- Approved and began a capability-safe PBI Lens integration seam. Local PBI Lens
+  0.4.0 exposes no supported public VS Code API; CLI/MCP are not installed, so
+  automatic rendered scoring is explicitly deferred.
+- Added typed rendered-evidence contracts, PBI Lens capability detection,
+  bounded no-evidence fallback, safe settings, one-time install recommendation,
+  and additive score-panel status metadata. Focused tests currently pass 10/10.
+- Work remains unstaged and uncommitted; documentation and full validation are
+  next.
+
+# 2026-08-15 Rendered Design Review Integration
+
+Implemented Phase 1 Rendered Review on top of the capability-safe PBI Lens
+provider seam. Added finding classification, ten-category guided checklist,
+review states, reviewer notes, manual typed screenshot evidence, protocol/UI
+integration, export support, minimal settings, and governance/UAT documentation.
+Preserved deterministic scoring and mutation authority; no viewer, screenshot
+automation, pixel analysis, CLI, MCP, or undocumented PBI Lens automation was
+added. Validation: 21 focused tests, extension 523, webview 68, build/package/
+changed-file lint/diff checks passed; backend 995 passed, 11 expected Windows
+skips, and the known unrelated Phase 35E timeout flake.
