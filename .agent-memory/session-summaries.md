@@ -2325,3 +2325,13 @@ Added fail-closed Phase35E identity/policy/capability/evidence contracts, a macO
 - Added backend planner preview, execute re-planning, semantic diff data, immutable snapshot/new artifact handle lifecycle, analyzer before/after evidence, and structured execution errors.
 - Added import page metadata, Quick Pick/Input Box/confirmation UX, no-op handling, timing fields, and Phase 47 documentation.
 - Final validation is recorded in the Phase 47 session note; all changes remain uncommitted and unstaged.
+# 2026-08-15 — RC1 release preparation
+
+Phase 48 was frozen at HEAD `4cbcf391`. Prepared ten uncommitted RC1 documents
+for version 0.6.0: summary, inventory, comprehensive UAT, regression checklist,
+known issues, release notes, validation results, architecture assessment,
+technical debt register, and product-epic v2 roadmap. Fresh validation passed:
+backend 996 with 11 expected Windows skips, extension 505, webview 68,
+TypeScript/build/RpcHost/package:all; full lint remains the known 43-error
+baseline. Five target VSIXes were generated and inspected. Manual UAT and
+sign-off remain before a release commit.

@@ -1,5 +1,26 @@
 # Current Focus
 
+## Prior Phase History
+
+- 2026-08-15 Release Candidate 1 preparation after Phase 48:
+  - froze the Phase 36–48 feature set at HEAD `4cbcf391`; no Phase 49 work or
+    product code changes were started
+  - selected existing extension version `0.6.0` for RC1
+  - created the uncommitted release package under
+    `docs/releases/2026-08-15-0.6.0-rc1/` with summary, functional inventory,
+    UAT guide, regression checklist, known issues, release notes, validation,
+    architecture assessment, technical debt, and product-epic roadmap
+  - fresh validation: backend 996 passed / 11 expected Windows skips,
+    extension 505 passed, webview 68 passed, TypeScript/build/RpcHost passed,
+    package:all produced five target VSIXes; full lint remains the known
+    43-error baseline
+  - generated checked-in target backend changes from packaging were restored;
+    ignored 0.6.0 VSIX artifacts remain available for UAT; all source/docs are
+    unstaged and uncommitted
+  - next step: run final documentation/whitespace/status verification and
+    hand off RC1 for manual UAT; do not create a release commit until UAT is
+    complete
+
 ## Active Session
 
 - 2026-08-15 Repository Phase 48 — Curated Mutation Expansion and Multi-Operation Planning:
