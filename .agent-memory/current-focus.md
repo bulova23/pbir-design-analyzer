@@ -3721,3 +3721,10 @@
 - The current serializer derives folder identities from IR identity inputs and has no imported identity override; exact untouched-artifact hash preservation is not yet proven.
 - Focused mutation tests: 3/3 passed. Full backend Release: 916 passed, 11 expected Windows skips. Core Release build: 0 warnings/errors. Extension/webview Jest: 494/494 and 68/68; extension build and TypeScript compilation passed; `git diff --check` passed.
 - Keep Phase 42 uncommitted and unstaged. Do not add RPC, VS Code, Windows, hosted execution, or provider-security changes.
+## 2026-08-15 — Optimization Report authoring-RPC regression
+
+- Investigating a scoring regression introduced by commit `b31024ff`, which changed the PBIR Optimization Report from `model/pbir/scoreReport` to an `Import` + `Analyze` authoring-RPC sequence.
+- The observed message is emitted by `RpcHost/PbirAuthoringRpcAdapter.cs` before dispatcher validation when JSON-RPC params are absent/non-object; current Phase45 dispatcher Analyze validation is already independent of generation requests.
+- Completed repair: kept `pbir-authoring-rpc/v1` Analyze independent for explicit authoring workflows and restored Optimization Report scoring to the existing `model/pbir/scoreReport` analyzer route.
+- Regression coverage now proves the UI request shape, adapter missing-params boundary, and dispatcher Analyze-specific validation. Focused/full backend and extension tests, production build, VSIX packaging, and `git diff --check` passed.
+- Next: review the diff in the release branch; no additional authoring compatibility layer is needed.

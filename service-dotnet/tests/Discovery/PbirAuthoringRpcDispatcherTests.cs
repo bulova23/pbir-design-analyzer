@@ -55,4 +55,18 @@ public sealed class PbirAuthoringRpcDispatcherTests
         Assert.Equal(PbirAuthoringRpcErrorCategory.InvalidRequest, response.Error?.Category);
         Assert.Equal("PBIR-RPC-REQUEST-003", response.Error?.Code);
     }
+
+    [Fact]
+    public async Task DispatchAsync_AnalyzeRequiresOnlyAnAnalysisInput()
+    {
+        var response = await new PbirAuthoringRpcDispatcher().DispatchAsync(new(
+            PbirAuthoringRpcContract.SchemaVersionV1,
+            PbirAuthoringRpcOperation.Analyze,
+            Analyze: new()));
+
+        Assert.False(response.Succeeded);
+        Assert.Equal(PbirAuthoringRpcErrorCategory.InvalidRequest, response.Error?.Category);
+        Assert.Equal("PBIR-RPC-REQUEST-003", response.Error?.Code);
+        Assert.DoesNotContain("generation", response.Error?.Summary ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
 }

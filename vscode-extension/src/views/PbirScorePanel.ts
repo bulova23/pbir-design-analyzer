@@ -10,6 +10,7 @@ import type {
   ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
+  ScoreRequestPayload,
   ScoreResult,
   RenderedReviewPanelState,
 } from '../analyzer/contracts/scorePanel';
@@ -56,13 +57,24 @@ import { createScorePanelAuditWorkflowService } from './scorePanelAuditWorkflowS
 import { createScorePanelExportWorkflowService } from './scorePanelExportWorkflowService';
 import { createScorePanelFixWorkflowService } from './scorePanelFixWorkflowService';
 import { recordAnalyzerWorkspaceReturn } from '../design-studio/state/analyzerWorkspaceReturnStore';
-import type { PbirAuthoringResponse } from '../services/rpc/PbirAuthoringWorkflow';
 import { getEnhancedScoringSettings, getRenderedReviewSettings } from '../platform/settings';
 import {
   createPbiLensRenderedDesignEvidenceProvider,
 } from '../analyzer/renderedEvidence/renderedEvidenceProvider';
 import { maybeRecommendPbiLens } from '../analyzer/renderedEvidence/recommendation';
 import { buildRenderedReviewChecklist, updateRenderedReviewItem } from '../analyzer/renderedReview/reviewModel';
+
+export function buildPbirScoreRequest(
+  reportPath: string,
+  config: DesignAnalyzerConfig,
+  pageName?: string,
+): ScoreRequestPayload {
+  return {
+    reportPath,
+    config,
+    ...(pageName ? { pageName } : {}),
+  };
+}
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
@@ -646,40 +658,21 @@ export class PbirScorePanel {
         return;
       }
 
-      const importResponse = await this.bridge.executeAuthoringRequest<PbirAuthoringResponse>({
-        schemaVersion: 'pbir-authoring-rpc/v1',
-        operation: 'import',
-        import: { sourceDirectory: this.reportPath },
-      });
-      const snapshot = importResponse.importResult?.snapshot;
-      if (!importResponse.succeeded || !snapshot) {
+      const requestPayload = buildPbirScoreRequest(this.reportPath, savedConfig, this.pageName);
+      const response = (await this.bridge.executeRequest(
+        'model/pbir/scoreReport',
+        requestPayload,
+      )) as { success: boolean; error?: string; data?: ScoreResult };
+      if (!response?.success || !response.data) {
         this.postMessage({
           type: 'error',
-          message: importResponse.error?.summary ?? 'Scoring failed — the report could not be imported.',
-        });
-        return;
-      }
-
-      const response = await this.bridge.executeAuthoringRequest<PbirAuthoringResponse>({
-        schemaVersion: 'pbir-authoring-rpc/v1',
-        operation: 'analyze',
-        analyze: {
-          snapshot,
-          config: savedConfig,
-          ...(this.pageName ? { pageName: this.pageName } : {}),
-        },
-      });
-      const scoreResult = response.analyzer?.result;
-      if (!response.succeeded || !scoreResult) {
-        this.postMessage({
-          type: 'error',
-          message: response.error?.summary ?? 'Scoring failed — no result returned.',
+          message: response?.error ?? 'Scoring failed — no result returned.',
         });
         return;
       }
 
       const normalizedResult = await enrichFixPlanWithAdvisoryContent(
-        normalizeScoreResultPayload(scoreResult),
+        normalizeScoreResultPayload(response.data),
         {
           providerMode: 'disabled',
           enabledEnrichers: ['storytelling', 'executiveReadability'],

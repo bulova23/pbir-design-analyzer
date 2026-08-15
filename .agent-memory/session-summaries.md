@@ -2421,3 +2421,8 @@ skips, and the known unrelated Phase 35E timeout flake.
 - Recommendation: Ready for UAT. All changes are unstaged/uncommitted; next
   step is manual consultant UAT and product-owner signoff before a clean 1.0
   release commit or any Version 2 implementation.
+## 2026-08-15 Optimization Report authoring-RPC regression
+
+- Root cause: `b31024ff` routed ordinary Optimization Report refresh through `pbir/authoring` Import + Analyze. The reported text is emitted by `PbirAuthoringRpcAdapter` for missing/non-object JSON-RPC params before dispatcher validation; Phase45 Analyze validation was not sharing Generate validation.
+- Repair: restored `PbirScorePanel` to `model/pbir/scoreReport`; kept explicit authoring workflows and independent Analyze handle contract unchanged. Added UI, adapter, and dispatcher regression tests.
+- Validation: focused extension 17 passed; full extension 524 passed; webview 68 passed; backend 998 passed with 11 expected Windows skips; production build, VSIX package, and `git diff --check` passed.

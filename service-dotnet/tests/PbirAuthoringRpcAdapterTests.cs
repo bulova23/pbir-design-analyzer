@@ -16,6 +16,16 @@ namespace ServiceDotnet.Tests;
 public sealed class PbirAuthoringRpcAdapterTests
 {
     [Fact]
+    public async Task Adapter_RejectsMissingParamsBeforeOperationDispatch()
+    {
+        var response = await new PbirAuthoringRpcAdapter().HandleAsync(null, null, CancellationToken.None);
+
+        Assert.Equal("invalidRequest", response.GetProperty("error").GetProperty("category").GetString());
+        Assert.Equal("PBIR-RPC-REQUEST-001", response.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal("The authoring request must be a bounded JSON object.", response.GetProperty("error").GetProperty("summary").GetString());
+    }
+
+    [Fact]
     public async Task Adapter_RejectsMutationAndValidateBeforeCoreDispatch()
     {
         var adapter = new PbirAuthoringRpcAdapter();
