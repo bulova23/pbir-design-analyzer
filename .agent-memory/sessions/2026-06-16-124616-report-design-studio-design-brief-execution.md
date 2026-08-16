@@ -1,0 +1,46 @@
+# Session Note
+
+- timestamp: 2026-06-16 12:46:16 America/New_York
+- objective: Implement Report Design Studio MVP Workflow Completion Phase 1 for executable Design Brief workflow inside the main shell.
+- constraints:
+  - preserve existing approval ownership, validation ownership, lineage model, and trust boundaries
+  - stop after Design Brief execution
+  - validate with `cd vscode-extension && npm test`, `cd vscode-extension && npm run compile`, and `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- initial findings:
+  - the persisted Design Brief store already supports save, validation, approval, history, and versioning
+  - Concept Studio gating already depends on approved Design Brief state
+  - the Design Studio protocol already exposes generic `saveArtifact`, `proposeArtifact`, and `approveArtifact` message types
+  - the main shell currently only handles load, analyzer handoff, and refinement proposal actions
+  - the shell does not currently send `currentBrief` to the webview, and the header uses workspace current-stage summary even when the user selects another stage
+- planned implementation:
+  - add failing tests covering shell-based Design Brief editing, save, validation, submit-for-approval, approval, status transitions, and Concept Studio unlock gating
+  - wire Design Brief actions through the existing protocol and store
+  - render the existing Design Brief authoring experience inside the main shell with explicit workflow guidance
+  - update repo memory at closeout with validation results and next step
+- implementation completed:
+  - changed Design Brief persistence semantics so `saveDesignBriefDraft` remains `notSubmitted`
+  - added explicit `submitDesignBriefForApproval`
+  - required explicit pending-approval state before `approveDesignBrief`
+  - exposed `currentBrief` through the Design Studio panel payload
+  - updated workspace stage evaluation so Design Brief shows `notStarted`, `inProgress`, `ready`, and `approved`
+  - rendered the executable Design Brief authoring surface in the shell with:
+    - field editing
+    - field-level validation
+    - save draft
+    - submit for approval
+    - approve brief
+    - next-step guidance
+  - kept Concept Studio blocked in the shell until Design Brief approval, then unlocked it
+  - fixed header/stage selection consistency by driving the header summary from the selected stage and clamping selected stage against incoming workspace stages
+  - updated affected tests and helper fixtures to reflect explicit submission before approval
+- validation:
+  - passed `cd vscode-extension && npx jest --runTestsByPath src/test/designBriefStore.test.ts src/test/designStudioWorkspace.test.ts`
+  - passed `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/DesignBriefView.test.tsx webview-src/design-studio/__tests__/App.test.tsx`
+  - passed `cd vscode-extension && npm test`
+  - passed `cd vscode-extension && npm run compile`
+  - passed `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+- scope stop:
+  - stopped after Design Brief execution as requested
+  - did not start Concept Studio execution, concept approval UX, draft generation UX, workflow completion UX, analyzer return-loop UX, rich comparison, or provider-backed generation
+- next recommended step:
+  - if continuing the MVP workflow completion effort, implement Concept Studio execution using the same explicit stage-local save/select/approve pattern without weakening current trust boundaries

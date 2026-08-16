@@ -8,6 +8,7 @@ import { PbirScorePanel } from '../views/PbirScorePanel';
 jest.mock('../views/PbirScorePanel', () => ({
   PbirScorePanel: {
     createOrShow: jest.fn().mockResolvedValue(undefined),
+    copyCurrentScoreDiagnostics: jest.fn().mockResolvedValue(false),
   },
 }));
 
@@ -66,7 +67,25 @@ describe('pbir.scoreReport tree item targets', () => {
     );
   });
 
-  it('resolves a selected page node to the report root and page display name', async () => {
+  it('resolves a report.json-backed report when definition.pbir is absent', async () => {
+    fs.rmSync(path.join(reportRoot, 'definition.pbir'));
+    registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+
+    const scoreHandler = getRegisteredHandler(PBIR_COMMANDS.scoreReport);
+    await scoreHandler({
+      kind: 'report',
+      jsonFilePath: reportJsonPath,
+    });
+
+    expect(PbirScorePanel.createOrShow).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      reportRoot,
+      undefined,
+    );
+  });
+
+  it('resolves a selected page node to the report root and stable page name', async () => {
     registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
 
     const scoreHandler = getRegisteredHandler(PBIR_COMMANDS.scoreReport);
@@ -84,7 +103,50 @@ describe('pbir.scoreReport tree item targets', () => {
       expect.anything(),
       undefined,
       reportRoot,
-      'Overview',
+      'OverviewPage',
+    );
+  });
+
+  it('syncs the explorer project path when scoring a report chosen from the picker', async () => {
+    const provider = registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+    const setProjectPathSpy = jest.spyOn(provider, 'setProjectPath');
+    (vscode.window.showOpenDialog as jest.Mock).mockResolvedValue([
+      vscode.Uri.file(reportRoot),
+    ]);
+
+    const scoreHandler = getRegisteredHandler(PBIR_COMMANDS.scoreReport);
+    await scoreHandler();
+
+    expect(setProjectPathSpy).toHaveBeenCalledWith(reportRoot);
+    expect(PbirScorePanel.createOrShow).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      reportRoot,
+      undefined,
+    );
+  });
+
+  it('warns when score diagnostics are not available yet', async () => {
+    registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+
+    const diagnosticsHandler = getRegisteredHandler(PBIR_COMMANDS.copyScoreDiagnostics);
+    await diagnosticsHandler();
+
+    expect(PbirScorePanel.copyCurrentScoreDiagnostics).toHaveBeenCalled();
+    expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+      'No score diagnostics are available yet. Run Score Report first.',
+    );
+  });
+
+  it('confirms when score diagnostics are copied', async () => {
+    (PbirScorePanel.copyCurrentScoreDiagnostics as jest.Mock).mockResolvedValueOnce(true);
+    registerPbirCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
+
+    const diagnosticsHandler = getRegisteredHandler(PBIR_COMMANDS.copyScoreDiagnostics);
+    await diagnosticsHandler();
+
+    expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+      'Current score diagnostics copied to the clipboard.',
     );
   });
 });

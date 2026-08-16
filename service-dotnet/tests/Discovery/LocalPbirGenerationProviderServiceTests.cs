@@ -1,0 +1,787 @@
+using PowerBIModelingService.Services.Discovery.Models;
+using PowerBIModelingService.Services.Discovery;
+using PowerBIModelingService.Services.Pbir.Models;
+using Xunit;
+
+namespace PowerBIModelingService.Tests.Discovery;
+
+public sealed class LocalPbirGenerationProviderServiceTests
+{
+    [Fact]
+    public void Contract_ExposesBackendOnlyPhase36V1Shape()
+    {
+        Assert.Equal("local-pbir-generation-request/v1", LocalPbirGenerationRequestContract.SchemaVersionV1);
+        Assert.Equal("card", LocalPbirGenerationProviderContract.SupportedVisualType);
+        Assert.Contains("artifact", LocalPbirGenerationResultContract.RequiredFieldInventory);
+        Assert.Contains("roundTrip.score", LocalPbirGenerationResultContract.RequiredFieldInventory);
+    }
+
+    [Fact]
+    public void Contract_ExposesPhase37TypedAuthoringCatalog()
+    {
+        Assert.Equal("local-pbir-generation-request/v2", LocalPbirGenerationRequestContract.SchemaVersionV2);
+        Assert.Contains("card", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Contains("table", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+    }
+
+    [Fact]
+    public void Contract_ExposesPhase38TypedAuthoringContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v3", LocalPbirGenerationRequestContract.SchemaVersionV3);
+        Assert.Equal(LocalPbirGenerationInteractionMode.CrossFilter, new LocalPbirGenerationInteractionSettings(LocalPbirGenerationInteractionMode.CrossFilter).Mode);
+    }
+
+    [Fact]
+    public void Contract_ExposesPhase39GeneralizedBindingContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v4", LocalPbirGenerationRequestContract.SchemaVersionV4);
+        Assert.Contains("clusteredColumnChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Equal(LocalPbirGenerationBindingRole.Category, new LocalPbirGenerationBinding(
+            "region", "Region", LocalPbirGenerationBindingKind.Dimension,
+            LocalPbirGenerationBindingRole.Category, "Sales", "Region").Role);
+    }
+
+    [Fact]
+    public void Contract_ExposesPhase40V5AuthoringContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v5", LocalPbirGenerationRequestContract.SchemaVersionV5);
+        Assert.Contains("lineChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Contains("barChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+        Assert.Contains("pieChart", LocalPbirGenerationProviderContract.SupportedVisualTypes);
+    }
+
+    [Fact]
+    public void Contract_ExposesPhase41CompositionContract()
+    {
+        Assert.Equal("local-pbir-generation-request/v6", LocalPbirGenerationRequestContract.SchemaVersionV6);
+    }
+
+    [Fact]
+    public void Generate_Phase41ComposedReport_UsesTemplatesNavigationAndSlicer()
+    {
+        var request = CreatePhase41Request();
+        var first = new LocalPbirGenerationProviderService().Generate(request);
+        var second = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.True(first.Readiness == LocalPbirGenerationReadinessState.Generated, string.Join(" | ", first.Diagnostics.Select(diagnostic => $"{diagnostic.Code}:{diagnostic.Field}:{diagnostic.Message}")));
+        Assert.Equal(first.Artifact!.Files.Select(file => (file.RelativePath, file.Content)), second.Artifact!.Files.Select(file => (file.RelativePath, file.Content)));
+        Assert.Equal(first.Manifest!.Hashes.ArtifactHash, second.Manifest!.Hashes.ArtifactHash);
+        Assert.Equal(3, first.GeneratedPageCount);
+        Assert.Equal(7, first.GeneratedVisualCount);
+        Assert.Contains(first.Artifact.Files, file => file.Content.Contains("\"visualType\": \"slicer\"", StringComparison.Ordinal));
+        Assert.Contains(first.Artifact.Files, file => file.Content.Contains("Region filter", StringComparison.Ordinal));
+        Console.WriteLine($"PHASE41_HASHES artifact={first.Manifest.Hashes.ArtifactHash} manifest={first.Manifest.Hashes.ManifestHash} files={first.Manifest.Hashes.FileSetHash} lineage={first.Manifest.Hashes.LineageHash}");
+    }
+
+    [Fact]
+    public async Task GenerateAndVerify_Phase41ComposedReport_RoundTripsThroughAnalyzer()
+    {
+        var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase41Request());
+
+        Assert.Equal(LocalPbirGenerationReadinessState.RoundTripVerified, result.Readiness);
+        Assert.Equal(3, result.RoundTrip!.PageCount);
+        Assert.Equal(7, result.RoundTrip.VisualCount);
+        Assert.NotNull(result.Performance);
+        Console.WriteLine($"PHASE41_SCORE composite={result.RoundTrip.Score.CompositeScore} generation={result.Performance!.GenerationMilliseconds} materialization={result.Performance.MaterializationMilliseconds} analyzer={result.Performance.AnalyzerMilliseconds}");
+    }
+
+    [Fact]
+    public void Generate_Phase40Catalog_UsesDescriptorsForAllSixVisuals()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreatePhase40Request());
+
+        Assert.True(result.Readiness == LocalPbirGenerationReadinessState.Generated, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}")));
+        Assert.Equal(6, result.Artifact!.Files.Count(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)));
+        Assert.Contains(result.Artifact.Files, file => file.Content.Contains("barChart", StringComparison.Ordinal));
+        Assert.Contains(result.Artifact.Files, file => file.Content.Contains("pieChart", StringComparison.Ordinal));
+        Assert.Contains(result.Artifact.Files, file => file.Content.Contains("Executive Summary", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Generate_Phase40SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var request = CreatePhase40Request();
+        var first = new LocalPbirGenerationProviderService().Generate(request);
+        var second = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+        Assert.Equal(first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)), second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+    }
+
+    [Fact]
+    public async Task Generate_Phase40Representative_RoundTripsThroughAnalyzer()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase40-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase40Request(outputBase.FullName));
+
+            Assert.True(result.Readiness == LocalPbirGenerationReadinessState.RoundTripVerified, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}").Concat(result.Materialization?.Diagnostics.Items.Select(item => $"{item.Code}:{item.Field}:{item.Message}") ?? [])));
+            Assert.Equal(1, result.RoundTrip!.PageCount);
+            Assert.Equal(6, result.RoundTrip.VisualCount);
+            Assert.NotNull(result.Performance);
+            Console.WriteLine($"PHASE40_TIMING generationMs={result.Performance!.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE40_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase40UnsupportedAxisOnPie_FailsClosed()
+    {
+        var request = CreatePhase40Request() with
+        {
+            Visuals = [CreatePhase40Chart("invalid-pie", "pieChart", 0, LocalPbirGenerationBindingRole.Legend) with
+            {
+                Authoring = new(Axis: new(Title: "Invalid"))
+            }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR40-AUTHORING-AXIS-001");
+    }
+
+    [Fact]
+    public void Generate_Phase39Chart_MapsCategoryAndValueRoles()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreatePhase39Request());
+
+        Assert.True(result.Readiness == LocalPbirGenerationReadinessState.Generated, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}")));
+        Assert.True(result.Validation!.IsValid);
+        var visual = result.Artifact!.Files.Single(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)).Content;
+        Assert.Contains("\"Category\"", visual, StringComparison.Ordinal);
+        Assert.Contains("\"Y\"", visual, StringComparison.Ordinal);
+        Assert.Contains("clusteredColumnChart", visual, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_Phase39DuplicateRole_FailsClosed()
+    {
+        var request = CreatePhase39Request() with
+        {
+            Visuals = [CreateChart() with
+            {
+                Bindings = [
+                    new("region-a", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("region-b", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]
+            }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR39-BINDING-ROLE-001");
+    }
+
+    [Fact]
+    public void Generate_Phase39UnsupportedRoleCombination_FailsClosed()
+    {
+        var request = CreatePhase39Request() with
+        {
+            Visuals = [CreateChart() with
+            {
+                Bindings = [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]
+            }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR39-BINDING-KIND-001");
+    }
+
+    [Fact]
+    public async Task Generate_Phase39Catalog_RoundTripsCardTableAndChart()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase39-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase39CatalogRequest(outputBase.FullName));
+
+            Assert.True(result.Readiness == LocalPbirGenerationReadinessState.RoundTripVerified, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}").Concat(result.Materialization?.Diagnostics.Items.Select(item => $"{item.Code}:{item.Field}:{item.Message}") ?? [])));
+            Assert.Equal(2, result.RoundTrip!.PageCount);
+            Assert.Equal(3, result.RoundTrip.VisualCount);
+            Assert.True(result.Validation!.IsValid);
+            Assert.NotNull(result.Performance);
+            Console.WriteLine($"PHASE39_TIMING generationMs={result.Performance!.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE39_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase39SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var request = CreatePhase39Request();
+        var first = new LocalPbirGenerationProviderService().Generate(request);
+        var second = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+        Assert.Equal(first.Manifest!.Hashes, second.Manifest!.Hashes);
+        Assert.Equal(first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)), second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+        Console.WriteLine($"PHASE39_HASH artifact={first.Artifact.Hashes.ArtifactHash} manifest={first.Manifest.Hashes.ManifestHash} fileSet={first.Artifact.Hashes.FileSetHash} lineage={first.Artifact.Hashes.LineageHash}");
+    }
+
+    [Fact]
+    public void Generate_Phase38FormattedReport_EmitsThemesFiltersFormattingAndInteractions()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase38-");
+        try
+        {
+            var result = new LocalPbirGenerationProviderService().Generate(CreatePhase38Request(outputBase.FullName));
+
+            Assert.Equal(LocalPbirGenerationReadinessState.Generated, result.Readiness);
+            Assert.True(result.Validation!.IsValid);
+            var report = result.Artifact!.Files.Single(file => file.RelativePath == "definition/report.json").Content;
+            var page = result.Artifact.Files.First(file => file.RelativePath.EndsWith("/page.json", StringComparison.Ordinal) && file.Content.Contains("HighlightFilter", StringComparison.Ordinal)).Content;
+            var visual = result.Artifact.Files.First(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal) && file.Content.Contains("fontSize", StringComparison.Ordinal)).Content;
+            Assert.Contains("customTheme", report, StringComparison.Ordinal);
+            Assert.Contains("filterConfig", report, StringComparison.Ordinal);
+            Assert.Contains("visualInteractions", page, StringComparison.Ordinal);
+            Assert.Contains("fontSize", visual, StringComparison.Ordinal);
+            Assert.Contains("formatString", visual, StringComparison.Ordinal);
+            Assert.Contains("HighlightFilter", page, StringComparison.Ordinal);
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase38SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase38-");
+        try
+        {
+            var request = CreatePhase38Request(outputBase.FullName);
+            var first = new LocalPbirGenerationProviderService().Generate(request);
+            var second = new LocalPbirGenerationProviderService().Generate(request);
+
+            Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+            Assert.Equal(first.Manifest!.Hashes, second.Manifest!.Hashes);
+            Assert.Equal(first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)), second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("red")]
+    [InlineData("#12345")]
+    public void Generate_Phase38InvalidColor_FailsClosed(string color)
+    {
+        var request = CreatePhase38Request() with
+        {
+            Theme = new LocalPbirGenerationTheme("Sales", BackgroundColor: new LocalPbirGenerationColor(color))
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR38-FORMAT-COLOR-001");
+    }
+
+    [Fact]
+    public void Generate_Phase38DuplicateFilterField_FailsClosed()
+    {
+        var request = CreatePhase38Request() with
+        {
+            ReportFilters =
+            [
+                new("region-a", LocalPbirGenerationBindingKind.Dimension, "Sales", "Region", "North"),
+                new("region-b", LocalPbirGenerationBindingKind.Dimension, "Sales", "Region", "South")
+            ]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR38-FILTER-DUPLICATE-001");
+    }
+
+    [Fact]
+    public void Generate_Phase38UnsupportedVisualFormatting_FailsClosed()
+    {
+        var request = CreatePhase38Request() with
+        {
+            Visuals = [CreatePhase38Request().Visuals[0] with { Authoring = new(Table: new()) }]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR38-FORMAT-UNSUPPORTED-001");
+    }
+
+    [Fact]
+    public async Task Generate_Phase38FormattedReport_RoundTripsThroughAnalyzer()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase38-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(CreatePhase38Request(outputBase.FullName));
+            Assert.True(result.Readiness == LocalPbirGenerationReadinessState.RoundTripVerified, string.Join(" | ", result.Diagnostics.Select(item => $"{item.Code}:{item.Field}:{item.Message}").Concat(result.Materialization?.Diagnostics.Items.Select(item => $"{item.Code}:{item.Field}:{item.Message}") ?? [])));
+            Assert.Equal(2, result.RoundTrip!.PageCount);
+            Assert.Equal(3, result.RoundTrip.VisualCount);
+            Assert.NotNull(result.Performance);
+            Console.WriteLine($"PHASE38_TIMING generationMs={result.Performance!.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE38_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase36Request_RemainsCompatibleWithTypedNormalization()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreateRequest());
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Generated, result.Readiness);
+        Assert.Equal(1, result.GeneratedPageCount);
+        Assert.Equal(1, result.GeneratedVisualCount);
+    }
+
+    [Fact]
+    public void Generate_Phase37DuplicateIdentity_FailsClosedWithoutPartialArtifact()
+    {
+        var request = CreatePhase37Request() with
+        {
+            Pages =
+            [
+                CreatePage("overview", "Overview", 0),
+                CreatePage("overview", "Detail", 1)
+            ]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR37-REQUEST-DUPLICATE-ID-001");
+    }
+
+    [Fact]
+    public void Generate_Phase37InvalidLayout_FailsClosedWithoutPartialArtifact()
+    {
+        var request = CreatePhase37Request() with
+        {
+            Visuals =
+            [
+                CreateCard("overview-card", "overview", 0, new(0, 0, 640, 400)),
+                CreateTable("overview-table", "overview", 1, new(320, 200, 640, 400))
+            ]
+        };
+
+        var result = new LocalPbirGenerationProviderService().Generate(request);
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR37-LAYOUT-OVERLAP-001");
+    }
+
+    [Fact]
+    public void Generate_Phase37MultiPageRequest_ProducesTypedCardAndTableArtifact()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase37-");
+        try
+        {
+            var result = new LocalPbirGenerationProviderService().Generate(CreatePhase37Request(outputBase.FullName));
+
+            Assert.Equal(LocalPbirGenerationReadinessState.Generated, result.Readiness);
+            Assert.Equal(2, result.GeneratedPageCount);
+            Assert.Equal(3, result.GeneratedVisualCount);
+            Assert.NotNull(result.Artifact);
+            Assert.True(result.Validation!.IsValid);
+            Assert.Equal(3, result.Artifact!.Files.Count(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)));
+            Assert.Contains(result.Manifest!.SupportedFeatures, feature => feature == "table");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Generate_Phase37MultiPageRequest_MaterializesAndScoresRoundTrip()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase37-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(
+                CreatePhase37Request(outputBase.FullName));
+
+            Assert.Equal(LocalPbirGenerationReadinessState.RoundTripVerified, result.Readiness);
+            Assert.Equal(PbirMaterializationOrchestrationOutcome.Applied, result.Materialization!.Outcome);
+            Assert.Equal(2, result.RoundTrip!.PageCount);
+            Assert.Equal(3, result.RoundTrip.VisualCount);
+            Assert.Equal(2, result.RoundTrip.Score.PageScores!.Count);
+            Assert.NotNull(result.Performance);
+            Assert.True(result.Performance!.GenerationMilliseconds >= 0);
+            Console.WriteLine($"PHASE37_TIMING generationMs={result.Performance.GenerationMilliseconds} materializationMs={result.Performance.MaterializationMilliseconds} analyzerMs={result.Performance.AnalyzerMilliseconds}");
+            Console.WriteLine($"PHASE37_SCORE composite={result.RoundTrip.Score.CompositeScore}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_Phase37SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase37-");
+        try
+        {
+            var request = CreatePhase37Request(outputBase.FullName);
+            var first = new LocalPbirGenerationProviderService().Generate(request);
+            var second = new LocalPbirGenerationProviderService().Generate(request);
+
+            Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+            Assert.Equal(first.Manifest!.Hashes, second.Manifest!.Hashes);
+            Assert.Equal(
+                first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)),
+                second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+            Console.WriteLine($"PHASE37_HASH artifact={first.Artifact.Hashes.ArtifactHash} manifest={first.Manifest.Hashes.ManifestHash} fileSet={first.Artifact.Hashes.FileSetHash} lineage={first.Artifact.Hashes.LineageHash}");
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("../Sales.SemanticModel")]
+    [InlineData("/Sales.SemanticModel")]
+    [InlineData("C:/Sales.SemanticModel")]
+    public void Generate_UnsafeDatasetPath_FailsClosed(string path)
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreateRequest() with { DatasetPath = path });
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR36-REQUEST-PATH-001");
+    }
+
+    [Fact]
+    public void Generate_UnsupportedVisualType_FailsClosed()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreateRequest() with { VisualType = "table" });
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR36-REQUEST-VISUAL-001");
+    }
+
+    [Fact]
+    public void Generate_ValidRequest_ProducesOnePageOneCardArtifact()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreateRequest());
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Generated, result.Readiness);
+        Assert.NotNull(result.Artifact);
+        Assert.True(result.Validation!.IsValid);
+        Assert.Equal(6, result.Artifact!.Files.Count);
+        Assert.Contains(result.Artifact.Files, file => file.RelativePath == "definition/report.json");
+        Assert.Single(result.Artifact.Files.Where(file => file.RelativePath.EndsWith("/visual.json", StringComparison.Ordinal)));
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public async Task Generate_ValidRequest_MaterializesAndScoresRoundTrip()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase36-");
+        try
+        {
+            var result = await new LocalPbirGenerationProviderService().GenerateAndVerifyAsync(
+                CreateRequest(outputBase.FullName));
+
+            Assert.Equal(LocalPbirGenerationReadinessState.RoundTripVerified, result.Readiness);
+            Assert.Equal(PbirMaterializationOrchestrationOutcome.Applied, result.Materialization!.Outcome);
+            Assert.NotNull(result.RoundTrip?.Score);
+            Assert.Single(result.RoundTrip!.Score.PageScores!);
+            Assert.Equal(1, result.RoundTrip.PageCount);
+            Assert.Equal(1, result.RoundTrip.VisualCount);
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_SameRequest_ProducesByteIdenticalArtifactAndHashes()
+    {
+        var outputBase = Directory.CreateTempSubdirectory("pbir-phase36-");
+        try
+        {
+            var request = CreateRequest(outputBase.FullName);
+            var first = new LocalPbirGenerationProviderService().Generate(request);
+            var second = new LocalPbirGenerationProviderService().Generate(request);
+
+            Assert.Equal(first.Artifact!.Hashes, second.Artifact!.Hashes);
+            Assert.Equal(first.Manifest!.Hashes, second.Manifest!.Hashes);
+            Assert.Equal(
+                first.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)),
+                second.Artifact.Files.Select(file => (file.RelativePath, file.Content, file.HashSha256)));
+        }
+        finally
+        {
+            outputBase.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generate_MissingMeasureField_FailsClosedWithoutPartialArtifact()
+    {
+        var result = new LocalPbirGenerationProviderService().Generate(CreateRequest() with { MeasureProperty = string.Empty });
+
+        Assert.Equal(LocalPbirGenerationReadinessState.Rejected, result.Readiness);
+        Assert.Null(result.Artifact);
+        Assert.Null(result.Manifest);
+        Assert.Contains(result.Diagnostics, item => item.Code == "PBIR36-REQUEST-ID-001");
+    }
+
+    private static LocalPbirGenerationRequest CreateRequest(string? outputBase = null) =>
+        new(
+            SchemaVersion: LocalPbirGenerationRequestContract.SchemaVersionV1,
+            RequestId: "phase36-sales-card",
+            ReportName: "Sales",
+            PageId: "Overview",
+            PageDisplayName: "Overview",
+            VisualId: "RevenueCard",
+            VisualType: "card",
+            DatasetPath: "Sales.SemanticModel",
+            MeasureToken: "Revenue",
+            MeasureEntity: "Sales",
+            MeasureProperty: "Revenue",
+            GeneratedUtc: new DateTime(2026, 8, 13, 0, 0, 0, DateTimeKind.Utc),
+            OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
+            TargetDirectoryName: "phase36-output");
+
+    private static LocalPbirGenerationRequestV2 CreatePhase37Request(string? outputBase = null) =>
+        new(
+            SchemaVersion: LocalPbirGenerationRequestContract.SchemaVersionV2,
+            RequestId: "phase37-sales-authoring",
+            ReportName: "Sales",
+            DatasetPath: "Sales.SemanticModel",
+            GeneratedUtc: new DateTime(2026, 8, 13, 0, 0, 0, DateTimeKind.Utc),
+            OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
+            TargetDirectoryName: "phase37-output",
+            Pages:
+            [
+                CreatePage("overview", "Overview", 0),
+                CreatePage("detail", "Detail", 1)
+            ],
+            Visuals:
+            [
+                CreateCard("overview-card", "overview", 0, new(0, 0, 320, 160)),
+                CreateTable("overview-table", "overview", 1, new(0, 176, 640, 360)),
+                CreateTable("detail-table", "detail", 0, new(0, 0, 960, 520))
+            ]);
+
+    private static LocalPbirGenerationPage CreatePage(string id, string displayName, int order) =>
+        new(id, displayName, order);
+
+    private static LocalPbirGenerationRequestV3 CreatePhase38Request(string? outputBase = null) =>
+        new(
+            SchemaVersion: LocalPbirGenerationRequestContract.SchemaVersionV3,
+            RequestId: "phase38-sales-rich-authoring",
+            ReportName: "Sales",
+            DatasetPath: "Sales.SemanticModel",
+            GeneratedUtc: new DateTime(2026, 8, 13, 0, 0, 0, DateTimeKind.Utc),
+            OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
+            TargetDirectoryName: "phase38-output",
+            Pages:
+            [
+                new("overview", "Overview", 0, new(
+                    Background: new("#F7F9FC"),
+                    Filters: [new("page-region", LocalPbirGenerationBindingKind.Dimension, "Sales", "Region", "North")])),
+                CreatePage("detail", "Detail", 1)
+            ],
+            Visuals:
+            [
+                CreateCard("overview-card", "overview", 0, new(0, 0, 320, 160)) with
+                {
+                    Authoring = new(Card: new(
+                        Title: "Revenue",
+                        Label: new(FontFamily: "Aptos", FontSize: 18, FontWeight: LocalPbirGenerationFontWeight.Bold, Color: new("#123456")),
+                        NumberFormat: "#,##0.00",
+                        Box: new(Background: new("#FFFFFF"), BorderColor: new("#123456"), BorderWidth: 1, Padding: new(8, 8, 8, 8))))
+                },
+                CreateTable("overview-table", "overview", 1, new(0, 176, 640, 360)) with
+                {
+                    Authoring = new(Table: new(
+                        Title: "Regional Sales",
+                        Header: new(FontSize: 12, FontWeight: LocalPbirGenerationFontWeight.Bold, Color: new("#FFFFFF")),
+                        Row: new(FontSize: 11),
+                        AlternateRowColor: new("#EEF3F8"),
+                        NumberFormat: "#,##0",
+                        WidthBehavior: LocalPbirGenerationTableWidthBehavior.FitToPage))
+                },
+                CreateTable("detail-table", "detail", 0, new(0, 0, 960, 520))
+            ],
+            Theme: new("Sales Light", "Aptos", 12, new("#F7F9FC"), new("#123456"), [new("#123456"), new("#E67E22")]),
+            ReportFilters: [new("report-year", LocalPbirGenerationBindingKind.Dimension, "Sales", "Year", "2026")],
+            Metadata: new("Codex", "Phase 38 representative formatted report", "Sales Rich Authoring"),
+            Interaction: new(LocalPbirGenerationInteractionMode.CrossHighlight),
+            Layout: new(24, 16, LocalPbirGenerationTextAlignment.Left, 8));
+
+    private static LocalPbirGenerationRequestV4 CreatePhase39Request(string? outputBase = null) =>
+        new(
+            SchemaVersion: LocalPbirGenerationRequestContract.SchemaVersionV4,
+            RequestId: "phase39-sales-bindings",
+            ReportName: "Sales",
+            DatasetPath: "Sales.SemanticModel",
+            GeneratedUtc: new DateTime(2026, 8, 14, 0, 0, 0, DateTimeKind.Utc),
+            OutputBaseDirectory: outputBase ?? Path.GetTempPath(),
+            TargetDirectoryName: "phase39-output",
+            Pages: [new("overview", "Overview", 0)],
+            Visuals: [
+                new("sales-chart", "overview", "clusteredColumnChart", 0, new(0, 0, 640, 360), [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")
+                ], new(Chart: new(Title: "Revenue by Region", AxisLabels: true, LegendVisible: false, Colors: [new("#123456")], Background: new("#FFFFFF"))))]);
+
+    private static LocalPbirGenerationRequestV5 CreatePhase40Request(string? outputBase = null) =>
+        new(
+            LocalPbirGenerationRequestContract.SchemaVersionV5,
+            "phase40-sales-catalog",
+            "Sales",
+            "Sales.SemanticModel",
+            new DateTime(2026, 8, 14, 0, 0, 0, DateTimeKind.Utc),
+            outputBase ?? Path.GetTempPath(),
+            "phase40-output",
+            [new("overview", "Overview", 0)],
+            [
+                new("card", "overview", "card", 0, new(0, 0, 320, 160), [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("table", "overview", "table", 1, new(336, 0, 640, 160), [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                CreatePhase40Chart("column", "clusteredColumnChart", 2, LocalPbirGenerationBindingRole.Category),
+                CreatePhase40Chart("line", "lineChart", 3, LocalPbirGenerationBindingRole.Category) with { Bindings = [.. CreatePhase40Chart("line-base", "lineChart", 3, LocalPbirGenerationBindingRole.Category).Bindings, new("series", "Segment", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Series, "Sales", "Segment")] },
+                CreatePhase40Chart("bar", "barChart", 4, LocalPbirGenerationBindingRole.Category),
+                CreatePhase40Chart("pie", "pieChart", 5, LocalPbirGenerationBindingRole.Legend)
+            ],
+            Theme: null,
+            ReportFilters: null,
+            Metadata: null,
+            Interaction: null,
+            Layout: null);
+
+    private static LocalPbirGenerationRequestV6 CreatePhase41Request(string? outputBase = null) =>
+        new(
+            LocalPbirGenerationRequestContract.SchemaVersionV6,
+            "phase41-sales-composition",
+            "SalesComposition",
+            "Sales.SemanticModel",
+            new DateTime(2026, 8, 14, 0, 0, 0, DateTimeKind.Utc),
+            outputBase ?? Path.GetTempPath(),
+            "phase41-output",
+            [
+                new("summary", "ExecutiveSummary", 0),
+                new("detail", "Detail", 1),
+                new("comparison", "Comparison", 2)
+            ],
+            [
+                new("revenue", "summary", "card", 0, null, [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("summary-chart", "summary", "clusteredColumnChart", 1, null, [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("summary-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("region-slicer", "summary", "slicer", 2, null, [new("slicer-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region")]),
+                new("detail-table", "detail", "table", 0, null, [
+                    new("detail-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Value, "Sales", "Region"),
+                    new("detail-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("detail-slicer", "detail", "slicer", 1, null, [new("detail-slicer-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region")]),
+                new("comparison-bar", "comparison", "barChart", 0, null, [
+                    new("bar-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Category, "Sales", "Region"),
+                    new("bar-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("comparison-pie", "comparison", "pieChart", 1, null, [
+                    new("pie-region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Legend, "Sales", "Region"),
+                    new("pie-revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")])
+            ],
+            Compositions: [
+                new("executiveSummary", [new("Kpi1", "revenue"), new("PrimaryChart", "summary-chart"), new("RegionSlicer", "region-slicer")],
+                    new("summary-navigation", [new("detail-target", LocalPbirGenerationNavigationTargetKind.Page, "detail")]),
+                    new("region-slicer", LocalPbirGenerationAxisOrientation.Vertical, "Region filter")) { PageId = "summary" },
+                new("detail", [new("DetailTable", "detail-table"), new("Filter1", "detail-slicer")],
+                    new("detail-navigation", [new("home-target", LocalPbirGenerationNavigationTargetKind.Home)]),
+                    new("detail-slicer", LocalPbirGenerationAxisOrientation.Vertical, "Region filter")) { PageId = "detail" },
+                new("comparison", [new("PrimaryChart", "comparison-bar"), new("SecondaryChart", "comparison-pie")],
+                    new("comparison-navigation", [new("previous-target", LocalPbirGenerationNavigationTargetKind.Previous)]),
+                    null) { PageId = "comparison" }
+            ]
+        );
+
+    private static LocalPbirGenerationVisual CreatePhase40Chart(string id, string type, int order, LocalPbirGenerationBindingRole categoryRole) =>
+        new(id, "overview", type, order, new(order is 2 or 4 ? 0 : 320, order is <= 3 ? 180 : 360, 300, 160), [
+            new($"{id}-category", "Region", LocalPbirGenerationBindingKind.Dimension, categoryRole, "Sales", "Region"),
+            new($"{id}-value", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")
+        ], new(
+            Chart: new(Title: id == "bar" ? null : id, AxisLabels: true, LegendVisible: true, Background: new("#FFFFFF")),
+            Template: id == "bar" ? LocalPbirGenerationVisualTemplate.Executive : LocalPbirGenerationVisualTemplate.Default,
+            Axis: type == "pieChart" ? null : new(Title: "Revenue", Visible: true, Format: "#,##0"),
+            Legend: new(true, LocalPbirGenerationLegendPlacement.Bottom, "Series"),
+            Tooltips: [new($"{id}-tooltip", "Segment", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Tooltip, "Sales", "Segment")],
+            ConditionalFormatting: new(LocalPbirGenerationConditionalFormattingKind.Threshold, new("#2E7D32"), 0m, DefaultColor: new("#CCCCCC"))));
+
+    private static LocalPbirGenerationVisual CreateChart() => CreatePhase39Request().Visuals[0];
+
+    private static LocalPbirGenerationRequestV4 CreatePhase39CatalogRequest(string outputBase) =>
+        CreatePhase39Request(outputBase) with
+        {
+            RequestId = "phase39-sales-catalog",
+            TargetDirectoryName = "phase39-catalog-output",
+            Pages = [new("overview", "Overview", 0), new("detail", "Detail", 1)],
+            Visuals = [
+                new("overview-card", "overview", "card", 0, new(0, 0, 320, 160), [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                new("overview-table", "overview", "table", 1, new(0, 176, 640, 360), [
+                    new("region", "Region", LocalPbirGenerationBindingKind.Dimension, LocalPbirGenerationBindingRole.Value, "Sales", "Region"),
+                    new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, LocalPbirGenerationBindingRole.Value, "Sales", "Revenue")]),
+                CreateChart() with { PageId = "detail", Layout = new(0, 0, 640, 360) }
+            ]
+        };
+
+    private static LocalPbirGenerationVisual CreateCard(
+        string id,
+        string pageId,
+        int order,
+        LocalPbirGenerationLayout layout) =>
+        new(
+            id,
+            pageId,
+            "card",
+            order,
+            layout,
+            [new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, "Sales", "Revenue")]);
+
+    private static LocalPbirGenerationVisual CreateTable(
+        string id,
+        string pageId,
+        int order,
+        LocalPbirGenerationLayout layout) =>
+        new(
+            id,
+            pageId,
+            "table",
+            order,
+            layout,
+            [
+                new("region", "Region", LocalPbirGenerationBindingKind.Dimension, "Sales", "Region"),
+                new("revenue", "Revenue", LocalPbirGenerationBindingKind.Measure, "Sales", "Revenue")
+            ]);
+}

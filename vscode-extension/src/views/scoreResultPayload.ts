@@ -2,10 +2,19 @@ import type {
   ActionabilityBreakdown,
   AffectedVisualReference,
   BenchmarkComparisonSummary,
+  FixApplySessionRecord,
+  FixOpportunity,
+  FixSelectionApprovalState,
+  FixSelectionState,
+  ProposalEnrichment,
+  ProposalEnrichmentValidationCode,
+  FabricAppReviewSummary,
   ChartIntentConfidence,
   ChartIntentSummary,
   FindingType,
   FrameworkFeedbackItem,
+  GuidedStoryImprovement,
+  GuidedStoryImprovements,
   PageIntentProfile,
   PageStorySummary,
   PageVisualMetadataSummary,
@@ -15,12 +24,63 @@ import type {
   SemanticColorAssignment,
   ScoreResult,
   VisualMetadataItem,
+  NormalizedFinding,
+  NormalizedFindingEvidenceReference,
 } from '../analyzer/contracts/scorePanel';
+import { buildFixBatchPreview } from '../analyzer/fixes/fixBatchPreview';
+import { evaluateFixOpportunityCompatibility } from '../analyzer/fixes/fixCompatibility';
+import { buildFixOpportunities } from '../analyzer/fixes/fixOpportunityBuilder';
+import { getDefaultAnalyzerSelection } from '../analyzer/analyzers/registry';
+import { assessFabricAppReadiness } from '../analyzer/fabric/readiness/readinessAnalyzer';
+import { buildFabricReadinessFindings } from '../analyzer/fabric/readiness/readinessFindings';
+import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { buildCrossPageMatrix } from '../analyzer/score/crossPageMatrix';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
-import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
+import { buildNormalizedFindings, compareNormalizedFindings } from '../analyzer/score/normalizedFindings';
 import { buildOverviewSummary } from '../analyzer/score/overviewSummary';
+import { buildPagePurposeAnalysis } from '../analyzer/score/pagePurposeAnalysis';
 import { getReviewPresentationPersonaProfiles } from '../analyzer/score/personaPresentation';
+
+export const SCORE_RESULT_REQUIRED_FIELDS = [
+  'gestaltScore',
+  'cognitiveLoadScore',
+  'dataInkScore',
+  'accessibilityScore',
+  'visualBestPracticesScore',
+  'stephenFewScore',
+  'enterpriseGovernanceScore',
+  'tufteScore',
+  'graphicalPerceptionScore',
+  'densityScore',
+  'narrativeScore',
+  'compositeScore',
+  'feedback',
+  'pageCount',
+  'recommendations',
+  'reportPath',
+  'scoredAt',
+] as const;
+
+export const SCORE_RESULT_OPTIONAL_FIELDS = [
+  'actionabilityBreakdown',
+  'benchmarkComparison',
+  'dataVisualCount',
+  'frameworkWeights',
+  'guidedStoryImprovements',
+  'governanceScore',
+  'hiddenVisualCount',
+  'inferredStorySummary',
+  'layoutScore',
+  'navigationVisualCount',
+  'pageIntentProfile',
+  'pageScores',
+  'reportConsistencySummary',
+  'scoredPageId',
+  'scoredPageName',
+  'scoringErrors',
+  'themeScore',
+  'visualMetadata',
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -41,6 +101,159 @@ function readProperty(source: Record<string, unknown>, key: string): unknown {
 
   const alternateKey = alternateCaseKey(key);
   return alternateKey in source ? source[alternateKey] : undefined;
+}
+
+function joinFieldPath(parentPath: string, key: string): string {
+  return parentPath ? `${parentPath}.${key}` : key;
+}
+
+function assertRecordValue(value: unknown, path: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(`Malformed object field '${path}'`);
+  }
+
+  return value;
+}
+
+function assertRequiredNumberField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (typeof readProperty(source, key) !== 'number') {
+    throw new Error(`Missing required numeric field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredBooleanField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (typeof readProperty(source, key) !== 'boolean') {
+    throw new Error(`Missing required boolean field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredStringField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (typeof readProperty(source, key) !== 'string') {
+    throw new Error(`Missing required string field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredStringArrayField(source: Record<string, unknown>, key: string, parentPath: string): void {
+  if (!Array.isArray(readProperty(source, key))) {
+    throw new Error(`Missing required array field '${joinFieldPath(parentPath, key)}'`);
+  }
+}
+
+function assertRequiredObjectField(source: Record<string, unknown>, key: string, parentPath: string): Record<string, unknown> {
+  return assertRecordValue(readProperty(source, key), joinFieldPath(parentPath, key));
+}
+
+function validateActionabilityBreakdownShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredNumberField(record, 'score', path);
+  assertRequiredBooleanField(record, 'targetBenchmarkPresent', path);
+  assertRequiredBooleanField(record, 'exceptionVisibility', path);
+  assertRequiredBooleanField(record, 'urgencySignaling', path);
+  assertRequiredBooleanField(record, 'priorPeriodContext', path);
+  assertRequiredBooleanField(record, 'drillPathPresent', path);
+  assertRequiredStringField(record, 'summary', path);
+  assertRequiredStringArrayField(record, 'strengths', path);
+  assertRequiredStringArrayField(record, 'gaps', path);
+}
+
+function validateVisualMetadataItemShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredStringField(record, 'visualId', path);
+  assertRequiredStringField(record, 'visualType', path);
+  assertRequiredNumberField(record, 'x', path);
+  assertRequiredNumberField(record, 'y', path);
+  assertRequiredNumberField(record, 'width', path);
+  assertRequiredNumberField(record, 'height', path);
+  assertRequiredBooleanField(record, 'isHidden', path);
+  assertRequiredBooleanField(record, 'isNavigationElement', path);
+  assertRequiredBooleanField(record, 'isDecorative', path);
+  assertRequiredBooleanField(record, 'isSlicer', path);
+  assertRequiredBooleanField(record, 'hasVisibleTitleIntent', path);
+}
+
+function validatePageVisualMetadataShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredStringField(record, 'pageName', path);
+  assertRequiredNumberField(record, 'visualCount', path);
+  assertRequiredNumberField(record, 'visibleTitleVisualCount', path);
+  assertRequiredNumberField(record, 'textVisualCount', path);
+  assertRequiredNumberField(record, 'slicerCount', path);
+  assertRequiredNumberField(record, 'legendVisualCount', path);
+  assertRequiredNumberField(record, 'axisLabelVisualCount', path);
+  assertRequiredNumberField(record, 'dataLabelVisualCount', path);
+  assertRequiredNumberField(record, 'formattedVisualCount', path);
+
+  const visualsValue = readProperty(record, 'visuals');
+  if (visualsValue !== undefined) {
+    if (!Array.isArray(visualsValue)) {
+      throw new Error(`Malformed array field '${joinFieldPath(path, 'visuals')}'`);
+    }
+
+    visualsValue.forEach((entry, index) => validateVisualMetadataItemShape(entry, `${path}.visuals[${index}]`));
+  }
+}
+
+function validatePageScoreShape(value: unknown, path: string): void {
+  const record = assertRecordValue(value, path);
+  assertRequiredStringField(record, 'pageName', path);
+  assertRequiredNumberField(record, 'gestaltScore', path);
+  assertRequiredNumberField(record, 'cognitiveLoadScore', path);
+  assertRequiredNumberField(record, 'dataInkScore', path);
+  assertRequiredNumberField(record, 'accessibilityScore', path);
+  assertRequiredNumberField(record, 'visualBestPracticesScore', path);
+  assertRequiredNumberField(record, 'stephenFewScore', path);
+  assertRequiredNumberField(record, 'enterpriseGovernanceScore', path);
+  assertRequiredNumberField(record, 'tufteScore', path);
+  assertRequiredNumberField(record, 'graphicalPerceptionScore', path);
+  assertRequiredNumberField(record, 'densityScore', path);
+  assertRequiredNumberField(record, 'narrativeScore', path);
+  assertRequiredNumberField(record, 'compositeScore', path);
+  assertRequiredObjectField(record, 'feedback', path);
+  assertRequiredStringArrayField(record, 'recommendations', path);
+
+  const visualMetadata = readProperty(record, 'visualMetadata');
+  if (visualMetadata !== undefined) {
+    validatePageVisualMetadataShape(visualMetadata, `${path}.visualMetadata`);
+  }
+
+  const actionabilityBreakdown = readProperty(record, 'actionabilityBreakdown');
+  if (actionabilityBreakdown !== undefined) {
+    validateActionabilityBreakdownShape(actionabilityBreakdown, `${path}.actionabilityBreakdown`);
+  }
+}
+
+function assertValidScoreResultPayload(candidate: Record<string, unknown>): void {
+  assertRequiredNumberField(candidate, 'gestaltScore', '');
+  assertRequiredNumberField(candidate, 'cognitiveLoadScore', '');
+  assertRequiredNumberField(candidate, 'dataInkScore', '');
+  assertRequiredNumberField(candidate, 'accessibilityScore', '');
+  assertRequiredNumberField(candidate, 'visualBestPracticesScore', '');
+  assertRequiredNumberField(candidate, 'stephenFewScore', '');
+  assertRequiredNumberField(candidate, 'enterpriseGovernanceScore', '');
+  assertRequiredNumberField(candidate, 'tufteScore', '');
+  assertRequiredNumberField(candidate, 'graphicalPerceptionScore', '');
+  assertRequiredNumberField(candidate, 'densityScore', '');
+  assertRequiredNumberField(candidate, 'narrativeScore', '');
+  assertRequiredNumberField(candidate, 'compositeScore', '');
+  assertRequiredObjectField(candidate, 'feedback', '');
+  assertRequiredNumberField(candidate, 'pageCount', '');
+  assertRequiredStringArrayField(candidate, 'recommendations', '');
+  assertRequiredStringField(candidate, 'reportPath', '');
+  assertRequiredStringField(candidate, 'scoredAt', '');
+
+  const pageScoresValue = readProperty(candidate, 'pageScores');
+  if (pageScoresValue !== undefined) {
+    if (!Array.isArray(pageScoresValue)) {
+      throw new Error("Malformed array field 'pageScores'");
+    }
+
+    pageScoresValue.forEach((entry, index) => validatePageScoreShape(entry, `pageScores[${index}]`));
+  }
+
+  const actionabilityBreakdown = readProperty(candidate, 'actionabilityBreakdown');
+  if (actionabilityBreakdown !== undefined) {
+    validateActionabilityBreakdownShape(actionabilityBreakdown, 'actionabilityBreakdown');
+  }
 }
 
 function readRequiredNumber(source: Record<string, unknown>, key: string): number {
@@ -115,6 +328,202 @@ function normalizeChartIntentSummary(value: unknown): ChartIntentSummary | undef
     evidence: readStringArray(value, 'evidence'),
     fitStatus: readOptionalString(value, 'fitStatus'),
     recommendedAlternatives: readStringArray(value, 'recommendedAlternatives'),
+  };
+}
+
+function normalizeProposalEnrichment(value: unknown): ProposalEnrichment | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const remediationItemId = readOptionalString(value, 'remediationItemId');
+  const status = readOptionalString(value, 'status');
+  const source = readOptionalString(value, 'source');
+  if (!remediationItemId || !status || !source) {
+    return undefined;
+  }
+
+  const titleSuggestionsValue = readProperty(value, 'titleSuggestions');
+  const explanationValue = readProperty(value, 'explanation');
+  const whyThisMattersValue = readProperty(value, 'whyThisMatters');
+  const advisoryPriorityValue = readProperty(value, 'advisoryPriority');
+  const expectedOutcomeValue = readProperty(value, 'expectedOutcome');
+  const advisoryAlternativesValue = readProperty(value, 'advisoryAlternatives');
+  const validationValue = readProperty(value, 'validation');
+  const provenanceValue = readProperty(value, 'provenance');
+
+  return {
+    remediationItemId,
+    status: status as ProposalEnrichment['status'],
+    source: source as ProposalEnrichment['source'],
+    enrichersApplied: readStringArray(value, 'enrichersApplied') as ProposalEnrichment['enrichersApplied'],
+    titleSuggestions: Array.isArray(titleSuggestionsValue)
+      ? titleSuggestionsValue
+        .filter(isRecord)
+        .map((item) => ({
+          title: readOptionalString(item, 'title') ?? '',
+          confidence: readRequiredNumber(item, 'confidence'),
+          rationale: readOptionalString(item, 'rationale') ?? '',
+        }))
+        .filter((item) => item.title.length > 0)
+      : undefined,
+    explanation: isRecord(explanationValue)
+      ? {
+          shortText: readOptionalString(explanationValue, 'shortText') ?? '',
+          expandedText: readOptionalString(explanationValue, 'expandedText'),
+        }
+      : undefined,
+    whyThisMatters: isRecord(whyThisMattersValue)
+      ? {
+          text: readOptionalString(whyThisMattersValue, 'text') ?? '',
+        }
+      : undefined,
+    advisoryPriority: isRecord(advisoryPriorityValue)
+      ? {
+          tier: readOptionalString(advisoryPriorityValue, 'tier') as NonNullable<ProposalEnrichment['advisoryPriority']>['tier'],
+          rationale: readOptionalString(advisoryPriorityValue, 'rationale') ?? '',
+        }
+      : undefined,
+    expectedOutcome: isRecord(expectedOutcomeValue)
+      ? {
+          text: readOptionalString(expectedOutcomeValue, 'text') ?? '',
+          areas: readStringArray(expectedOutcomeValue, 'areas'),
+        }
+      : undefined,
+    advisoryAlternatives: Array.isArray(advisoryAlternativesValue)
+      ? advisoryAlternativesValue
+        .filter(isRecord)
+        .map((item) => ({
+          title: readOptionalString(item, 'title') ?? '',
+          description: readOptionalString(item, 'description') ?? '',
+        }))
+        .filter((item) => item.title.length > 0 && item.description.length > 0)
+      : [],
+    validation: isRecord(validationValue)
+      ? {
+          status: (readOptionalString(validationValue, 'status') as ProposalEnrichment['validation']['status']) ?? 'passed',
+          issues: Array.isArray(readProperty(validationValue, 'issues'))
+            ? (readProperty(validationValue, 'issues') as unknown[])
+              .filter(isRecord)
+              .map((item) => ({
+                code: readOptionalString(item, 'code') as ProposalEnrichmentValidationCode,
+                message: readOptionalString(item, 'message') ?? '',
+                section: readOptionalString(item, 'section') as ProposalEnrichment['validation']['issues'][number]['section'],
+              }))
+              .filter((item) => item.code && item.message)
+            : [],
+        }
+      : {
+          status: 'passed',
+          issues: [],
+        },
+    provenance: isRecord(provenanceValue)
+      ? {
+          providerName: readOptionalString(provenanceValue, 'providerName'),
+          usedFallback: readRequiredBoolean(provenanceValue, 'usedFallback'),
+          enrichedAt: readOptionalString(provenanceValue, 'enrichedAt') ?? '',
+          sourceFindingIds: readStringArray(provenanceValue, 'sourceFindingIds'),
+        }
+      : {
+          usedFallback: false,
+          enrichedAt: '',
+          sourceFindingIds: [],
+        },
+  };
+}
+
+function normalizeEvidenceReference(value: unknown): NormalizedFindingEvidenceReference | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const kind = readOptionalString(value, 'kind');
+  const label = readOptionalString(value, 'label');
+  if (!kind || !label) {
+    return undefined;
+  }
+
+  return {
+    kind: kind as NormalizedFindingEvidenceReference['kind'],
+    label,
+    pageName: readOptionalString(value, 'pageName'),
+    frameworkKey: readOptionalString(value, 'frameworkKey'),
+    visualId: readOptionalString(value, 'visualId'),
+    detail: readOptionalString(value, 'detail'),
+    filePath: readOptionalString(value, 'filePath'),
+  };
+}
+
+function normalizeNormalizedFinding(value: unknown): NormalizedFinding | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const id = readOptionalString(value, 'id');
+  const title = readOptionalString(value, 'title');
+  const summary = readOptionalString(value, 'summary');
+  const severity = readOptionalString(value, 'severity');
+  const detectionType = readOptionalString(value, 'detectionType');
+  const scope = readOptionalString(value, 'scope');
+  const impactArea = readOptionalString(value, 'impactArea');
+  const recommendation = readOptionalString(value, 'recommendation');
+  const sourceKind = readOptionalString(value, 'sourceKind');
+  const sourceSection = readOptionalString(value, 'sourceSection');
+
+  if (!id || !title || !summary || !severity || !detectionType || !scope || !impactArea || !recommendation || !sourceKind || !sourceSection) {
+    return undefined;
+  }
+
+  return {
+    id,
+    title,
+    summary,
+    severity: severity as NormalizedFinding['severity'],
+    confidence: readRequiredNumber(value, 'confidence'),
+    scope: scope as NormalizedFinding['scope'],
+    detectionType: detectionType as NormalizedFinding['detectionType'],
+    affectedPages: readStringArray(value, 'affectedPages'),
+    impactArea: impactArea as NormalizedFinding['impactArea'],
+    frameworkImpact: readStringArray(value, 'frameworkImpact'),
+    recommendation,
+    sourceKind,
+    sourceSection: sourceSection as NormalizedFinding['sourceSection'],
+    evidence: Array.isArray(readProperty(value, 'evidence'))
+      ? (readProperty(value, 'evidence') as unknown[])
+        .map((item) => normalizeEvidenceReference(item))
+        .filter((item): item is NormalizedFindingEvidenceReference => Boolean(item))
+      : [],
+  };
+}
+
+function normalizeFabricAppReviewSummary(value: unknown): FabricAppReviewSummary | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const summary = readOptionalString(value, 'summary');
+  const qualityScore = readOptionalNumber(value, 'qualityScore');
+  if (!summary || qualityScore === undefined) {
+    return undefined;
+  }
+
+  return {
+    qualityScore,
+    summary,
+    remediationGuidance: readStringArray(value, 'remediationGuidance'),
+    evidence: Array.isArray(readProperty(value, 'evidence'))
+      ? (readProperty(value, 'evidence') as unknown[])
+        .filter(isRecord)
+        .map((item) => ({
+          kind: (readOptionalString(item, 'kind') as FabricAppReviewSummary['evidence'][number]['kind']) ?? 'navigation',
+          label: readOptionalString(item, 'label') ?? '',
+          summary: readOptionalString(item, 'summary') ?? '',
+          filePath: readOptionalString(item, 'filePath') ?? '',
+          pageName: readOptionalString(item, 'pageName'),
+          stateName: readOptionalString(item, 'stateName'),
+        }))
+        .filter((item) => item.label.length > 0 && item.summary.length > 0 && item.filePath.length > 0)
+      : [],
   };
 }
 
@@ -305,6 +714,58 @@ function normalizeBenchmarkComparison(value: unknown): BenchmarkComparisonSummar
   };
 }
 
+function normalizeGuidedStoryImprovement(value: unknown): GuidedStoryImprovement | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const id = readOptionalString(value, 'id');
+  const title = readOptionalString(value, 'title');
+  const summary = readOptionalString(value, 'summary');
+  const rationale = readOptionalString(value, 'rationale');
+  const expectedImpact = readOptionalString(value, 'expectedImpact');
+  const priority = readOptionalString(value, 'priority');
+  const relatedImpactArea = readOptionalString(value, 'relatedImpactArea');
+  if (!id || !title || !summary || !rationale || !expectedImpact || !priority || !relatedImpactArea) {
+    return undefined;
+  }
+
+  return {
+    id,
+    title,
+    summary,
+    rationale,
+    expectedImpact,
+    priority: priority as GuidedStoryImprovement['priority'],
+    relatedImpactArea: relatedImpactArea as GuidedStoryImprovement['relatedImpactArea'],
+  };
+}
+
+function normalizeGuidedStoryImprovements(value: unknown): GuidedStoryImprovements | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const storyImprovementRationale = readOptionalString(value, 'storyImprovementRationale');
+  if (storyImprovementRationale === undefined) {
+    return undefined;
+  }
+
+  return {
+    highPriorityImprovements: Array.isArray(readProperty(value, 'highPriorityImprovements'))
+      ? (readProperty(value, 'highPriorityImprovements') as unknown[])
+        .map((item) => normalizeGuidedStoryImprovement(item))
+        .filter((item): item is GuidedStoryImprovement => Boolean(item))
+      : [],
+    mediumPriorityImprovements: Array.isArray(readProperty(value, 'mediumPriorityImprovements'))
+      ? (readProperty(value, 'mediumPriorityImprovements') as unknown[])
+        .map((item) => normalizeGuidedStoryImprovement(item))
+        .filter((item): item is GuidedStoryImprovement => Boolean(item))
+      : [],
+    storyImprovementRationale,
+  };
+}
+
 function normalizeAffectedVisual(value: unknown): AffectedVisualReference | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -490,6 +951,7 @@ function normalizePageScore(value: unknown): PageScore {
   const candidate = isRecord(value) ? value : {};
 
   return {
+    pageId: readOptionalString(candidate, 'pageId'),
     pageName: readOptionalString(candidate, 'pageName') ?? 'Page',
     gestaltScore: readRequiredNumber(candidate, 'gestaltScore'),
     cognitiveLoadScore: readRequiredNumber(candidate, 'cognitiveLoadScore'),
@@ -513,14 +975,17 @@ function normalizePageScore(value: unknown): PageScore {
     pageIntentProfile: normalizePageIntentProfile(readProperty(candidate, 'pageIntentProfile')),
     actionabilityBreakdown: normalizeActionabilityBreakdown(readProperty(candidate, 'actionabilityBreakdown')),
     benchmarkComparison: normalizeBenchmarkComparison(readProperty(candidate, 'benchmarkComparison')),
+    guidedStoryImprovements: normalizeGuidedStoryImprovements(readProperty(candidate, 'guidedStoryImprovements')),
     scoringError: readOptionalString(candidate, 'scoringError'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
+    pagePurposeAnalysis: undefined,
   };
 }
 
 export function normalizeScoreResultPayload(value: unknown): ScoreResult {
-  const candidate = isRecord(value) ? value : {};
+  const candidate = assertRecordValue(value, 'scoreResult');
+  assertValidScoreResultPayload(candidate);
   const pageScoresValue = readProperty(candidate, 'pageScores');
   const normalized: ScoreResult = {
     gestaltScore: readRequiredNumber(candidate, 'gestaltScore'),
@@ -546,6 +1011,7 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     pageScores: Array.isArray(pageScoresValue)
       ? pageScoresValue.map((page) => normalizePageScore(page))
       : undefined,
+    scoredPageId: readOptionalString(candidate, 'scoredPageId'),
     scoredPageName: readOptionalString(candidate, 'scoredPageName'),
     scoringErrors: readStringRecord(candidate, 'scoringErrors'),
     reportConsistencySummary: normalizeReportConsistencySummary(readProperty(candidate, 'reportConsistencySummary')),
@@ -553,15 +1019,68 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     pageIntentProfile: normalizePageIntentProfile(readProperty(candidate, 'pageIntentProfile')),
     actionabilityBreakdown: normalizeActionabilityBreakdown(readProperty(candidate, 'actionabilityBreakdown')),
     benchmarkComparison: normalizeBenchmarkComparison(readProperty(candidate, 'benchmarkComparison')),
+    guidedStoryImprovements: normalizeGuidedStoryImprovements(readProperty(candidate, 'guidedStoryImprovements')),
     layoutScore: readOptionalNumber(candidate, 'layoutScore'),
     themeScore: readOptionalNumber(candidate, 'themeScore'),
     governanceScore: readOptionalNumber(candidate, 'governanceScore'),
     frameworkWeights: readNumberRecord(candidate, 'frameworkWeights'),
     visualMetadata: normalizePageVisualMetadata(readProperty(candidate, 'visualMetadata')),
+    pagePurposeAnalysis: undefined,
+    normalizedFindings: Array.isArray(readProperty(candidate, 'normalizedFindings'))
+      ? (readProperty(candidate, 'normalizedFindings') as unknown[])
+        .map((entry) => normalizeNormalizedFinding(entry))
+        .filter((entry): entry is NormalizedFinding => Boolean(entry))
+      : undefined,
+    fabricAppReview: normalizeFabricAppReviewSummary(readProperty(candidate, 'fabricAppReview')),
+    proposalEnrichments: Array.isArray(readProperty(candidate, 'proposalEnrichments'))
+      ? (readProperty(candidate, 'proposalEnrichments') as unknown[])
+        .map((entry) => normalizeProposalEnrichment(entry))
+        .filter((entry): entry is ProposalEnrichment => Boolean(entry))
+      : [],
   };
 
-  normalized.normalizedFindings = buildNormalizedFindings(normalized);
+  normalized.pageScores = normalized.pageScores?.map((page) => ({
+    ...page,
+    pagePurposeAnalysis: buildPagePurposeAnalysis({
+      storySummary: page.inferredStorySummary,
+      pageIntentProfile: page.pageIntentProfile,
+      actionabilityBreakdown: page.actionabilityBreakdown,
+      benchmarkComparison: page.benchmarkComparison,
+    }),
+  }));
+  normalized.pagePurposeAnalysis = buildPagePurposeAnalysis({
+    storySummary: normalized.inferredStorySummary,
+    pageIntentProfile: normalized.pageIntentProfile,
+    actionabilityBreakdown: normalized.actionabilityBreakdown,
+    benchmarkComparison: normalized.benchmarkComparison,
+  });
+  const surfaceDiscovery = detectAnalyzableSurface(normalized.reportPath);
+  if (surfaceDiscovery.status === 'supported') {
+    const analyzerSelection = getDefaultAnalyzerSelection(surfaceDiscovery.surface);
+    normalized.analysisContext = {
+      surfaceType: surfaceDiscovery.surface.surfaceType,
+      analyzerType: analyzerSelection.analyzerType,
+      analyzerProfile: analyzerSelection.analyzerProfile,
+      surfaceDisplayName: surfaceDiscovery.surface.displayName,
+      sourceLocation: surfaceDiscovery.surface.sourceLocation,
+      availableAnalyzerTypes: [...surfaceDiscovery.surface.availableAnalyzerTypes],
+      availableAnalyzerProfiles: [...surfaceDiscovery.surface.availableAnalyzerProfiles],
+    };
+  }
+
+  normalized.normalizedFindings = normalized.normalizedFindings ?? buildNormalizedFindings(normalized);
+  if (normalized.analysisContext?.analyzerType === 'fabricAppReadiness') {
+    normalized.readinessAssessment = assessFabricAppReadiness(
+      normalized,
+      normalized.analysisContext.analyzerProfile,
+    );
+    normalized.normalizedFindings = [
+      ...(normalized.normalizedFindings ?? []),
+      ...buildFabricReadinessFindings(normalized, normalized.readinessAssessment),
+    ].sort(compareNormalizedFindings);
+  }
   normalized.fixPlan = buildFixPlan(normalized.normalizedFindings);
+  normalized.fixOpportunities = buildFixOpportunities(normalized);
   normalized.overviewSummary = buildOverviewSummary(normalized);
   normalized.crossPageMatrix = buildCrossPageMatrix(normalized.normalizedFindings, normalized.pageScores);
   normalized.personaPresentation = {
@@ -569,4 +1088,31 @@ export function normalizeScoreResultPayload(value: unknown): ScoreResult {
     availablePersonas: getReviewPresentationPersonaProfiles(),
   };
   return normalized;
+}
+
+export function buildFixWorkflowPayload(input: {
+  opportunities: FixOpportunity[];
+  selectedOpportunityIds: string[];
+  approvalState: FixSelectionApprovalState;
+  message?: string;
+  fixApplySessions?: FixApplySessionRecord[];
+}): {
+  fixSelection: FixSelectionState;
+  fixApplySessions: FixApplySessionRecord[];
+} {
+  const selected = input.opportunities.filter((item) => input.selectedOpportunityIds.includes(item.id));
+  const compatibility = evaluateFixOpportunityCompatibility(selected);
+
+  return {
+    fixSelection: {
+      selectedOpportunityIds: selected.map((item) => item.id),
+      compatibility,
+      groupedPreview: input.approvalState === 'NeedsPreview' || !compatibility.isCompatible || selected.length === 0
+        ? undefined
+        : buildFixBatchPreview(selected),
+      approvalState: input.approvalState,
+      message: input.message,
+    },
+    fixApplySessions: input.fixApplySessions ?? [],
+  };
 }

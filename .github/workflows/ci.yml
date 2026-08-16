@@ -7,8 +7,12 @@ on:
     branches: [ main ]
 
 jobs:
-  build-test-package:
-    runs-on: macos-latest
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -36,14 +40,41 @@ jobs:
         working-directory: vscode-extension
         run: npm run build
 
-      - name: Package VSIX
+  package-targets:
+    runs-on: ubuntu-latest
+    needs: build-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
         working-directory: vscode-extension
-        run: npm run package
+        run: npm ci
+
+      - name: Run extension tests
+        working-directory: vscode-extension
+        run: npm test
+
+      - name: Package target VSIX files
+        working-directory: vscode-extension
+        run: npm run package:all
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pbir-design-analyzer-vsix
+          name: pbir-design-analyzer-vsix-targets
           path: vscode-extension/*.vsix
           if-no-files-found: error
           retention-days: 14

@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -10,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="JsonSchema.Net" Version="9.3.0" />
     <PackageReference Include="xunit" Version="2.6.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -23,13 +25,23 @@
 
   <ItemGroup>
     <ProjectReference Include="../PbirDesignAnalyzer.Core.csproj" />
+    <ProjectReference Include="../RpcHost/RpcHost.csproj" Aliases="RpcHost" />
+    <ProjectReference Include="../tools/StoryAssessmentValidationExport/StoryAssessmentValidationExport.csproj" />
+    <ProjectReference Include="../Phase35E/Phase35E.Runtime.csproj" />
+    <ProjectReference Include="../Phase35I.Runtime/Phase35I.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="bin/**/*.cs" />
     <Compile Remove="obj/**/*.cs" />
+    <Compile Remove="Fixtures/Phase35ESandboxFixture/bin/**/*.cs" />
+    <Compile Remove="Fixtures/Phase35ESandboxFixture/obj/**/*.cs" />
+    <Compile Remove="Fixtures/Phase35ESandboxFixture/**/*.cs" />
     <EmbeddedResource Remove="bin/**" />
     <EmbeddedResource Remove="obj/**" />
+    <EmbeddedResource Remove="Fixtures/Phase35ESandboxFixture/bin/**" />
+    <EmbeddedResource Remove="Fixtures/Phase35ESandboxFixture/obj/**" />
+    <Content Include="Fixtures/PbirSchemas/**/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

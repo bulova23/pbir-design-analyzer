@@ -1,4 +1,8 @@
 import type { DesignAnalyzerConfig } from '../config/types';
+import type { AnalyzerProfileId, AnalyzerType } from '../analyzers/types';
+import type { SurfaceType } from '../surfaces/types';
+import type { RenderedEvidenceCapabilityReport } from '../renderedEvidence/types';
+import type { RenderedReviewCategory, RenderedReviewChecklistItem, RenderedReviewClassification, RenderedReviewStatus } from '../renderedReview/types';
 
 export type FindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
 export type AuditFindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
@@ -9,6 +13,8 @@ export type StoryConfidence = 'high' | 'medium' | 'low';
 export type NormalizedFindingSeverity = 'high' | 'medium' | 'low' | 'info';
 export type NormalizedFindingScope = 'visual' | 'page' | 'crossPage' | 'report';
 export type NormalizedFindingDetectionType = 'deterministic' | 'aiAssisted' | 'mixed';
+export type FindingEvidenceDomain = 'deterministic' | 'semantic' | 'rendered' | 'reviewerNotes';
+export type { RenderedReviewCategory, RenderedReviewClassification } from '../renderedReview/types';
 export type NormalizedFindingImpactArea =
   | 'layout'
   | 'storytelling'
@@ -42,12 +48,27 @@ export interface AffectedVisualReference {
 }
 
 export interface NormalizedFindingEvidenceReference {
-  kind: 'framework' | 'audit' | 'metadata' | 'consistency' | 'quickFix' | 'benchmark' | 'actionability';
+  kind:
+    | 'framework'
+    | 'audit'
+    | 'metadata'
+    | 'consistency'
+    | 'quickFix'
+    | 'benchmark'
+    | 'actionability'
+    | 'readiness'
+    | 'typescriptLayout'
+    | 'navigation'
+    | 'designToken'
+    | 'screenshot'
+    | 'semanticModel'
+    | 'storyAssessment';
   label: string;
   pageName?: string;
   frameworkKey?: string;
   visualId?: string;
   detail?: string;
+  filePath?: string;
 }
 
 export interface NormalizedFinding {
@@ -65,6 +86,10 @@ export interface NormalizedFinding {
   sourceKind: string;
   sourceSection: 'issues' | 'evidence';
   evidence: NormalizedFindingEvidenceReference[];
+  reviewClassification?: RenderedReviewClassification;
+  renderedReviewCategory?: RenderedReviewCategory;
+  evidenceDomains?: FindingEvidenceDomain[];
+  navigationTarget?: ScorePanelNavigationTarget;
 }
 
 export interface SemanticColorAssignment {
@@ -141,6 +166,79 @@ export interface BenchmarkComparisonSummary {
   insight: string;
   strengths: string[];
   gaps: string[];
+}
+
+export type GuidedStoryImprovementPriority = 'high' | 'medium' | 'informational';
+export type ScorePanelNavigationTargetKind = 'visual' | 'page' | 'report';
+export type ScorePanelNavigationTargetSupportState = 'direct' | 'fallback' | 'unavailable';
+
+export interface ScorePanelNavigationTarget {
+  kind: ScorePanelNavigationTargetKind;
+  pageName?: string;
+  visualId?: string;
+  reportElement?: 'reportJson' | 'pageJson' | 'themeJson';
+  label: string;
+  reason: string;
+  supportState: ScorePanelNavigationTargetSupportState;
+}
+
+export interface GuidedStoryImprovement {
+  id: string;
+  title: string;
+  summary: string;
+  rationale: string;
+  expectedImpact: string;
+  priority: GuidedStoryImprovementPriority;
+  relatedImpactArea: NormalizedFindingImpactArea;
+  navigationTarget?: ScorePanelNavigationTarget;
+}
+
+export interface GuidedStoryImprovements {
+  highPriorityImprovements: GuidedStoryImprovement[];
+  mediumPriorityImprovements: GuidedStoryImprovement[];
+  storyImprovementRationale: string;
+}
+
+export type StoryAssessmentMaturity = 'Draft' | 'Developing' | 'Strong' | 'Mature';
+export type StoryAssessmentDiffChange = 'improved' | 'regressed' | 'unchanged';
+
+export interface StoryAssessmentRecommendationSnapshot {
+  id: string;
+  title: string;
+  summary: string;
+  rationale: string;
+  expectedImpact: string;
+  priority: GuidedStoryImprovementPriority;
+  relatedImpactArea: NormalizedFindingImpactArea;
+  navigationTarget?: ScorePanelNavigationTarget;
+}
+
+export interface StoryAssessmentPageSnapshot {
+  pageName: string;
+  storyMaturity: StoryAssessmentMaturity;
+  strongSignals: string[];
+  missingSignals: string[];
+  topImprovementIds: string[];
+  recommendations: StoryAssessmentRecommendationSnapshot[];
+}
+
+export interface StoryAssessmentReportSnapshot {
+  reportPath: string;
+  scoredAt: string;
+  pages: StoryAssessmentPageSnapshot[];
+}
+
+export interface StoryAssessmentDiffResult {
+  pageName: string;
+  maturityChange: StoryAssessmentDiffChange;
+  resolvedRecommendations: StoryAssessmentRecommendationSnapshot[];
+  newRecommendations: StoryAssessmentRecommendationSnapshot[];
+  unchangedRecommendations: StoryAssessmentRecommendationSnapshot[];
+  addedStrongSignals: string[];
+  removedStrongSignals: string[];
+  addedMissingSignals: string[];
+  removedMissingSignals: string[];
+  summary: string;
 }
 
 export interface IntentFeedbackEntry {
@@ -238,6 +336,7 @@ export type ReviewWorkflowMarkdownTemplateVariant = 'standard' | 'brandedConsult
 export type OverviewMaturityBand = 'Emerging' | 'Developing' | 'Mature' | 'Advanced';
 export type OverviewRiskBand = 'Low' | 'Moderate' | 'Elevated' | 'High';
 export type FixPlanEffort = 'low' | 'medium' | 'high';
+export type FixPlanImpact = 'low' | 'medium' | 'high';
 
 export interface ReviewWorkflowMarkdownBranding {
   clientName?: string;
@@ -265,6 +364,7 @@ export interface ReviewWorkflowExportData {
   topRecommendations: string[];
   priorityRecommendations: ReviewWorkflowPriorityRecommendation[];
   crossPageConsistencyRollup?: ReviewWorkflowCrossPageConsistencyRollup;
+  renderedReview?: RenderedReviewPanelState;
   appendix: ReviewWorkflowAppendix;
   pages: ReviewWorkflowExportPage[];
   crossPageConsistency?: {
@@ -327,6 +427,7 @@ export interface PageVisualMetadataSummary {
 }
 
 export interface PageScore {
+  pageId?: string;
   pageName: string;
   gestaltScore: number;
   cognitiveLoadScore: number;
@@ -350,9 +451,11 @@ export interface PageScore {
   pageIntentProfile?: PageIntentProfile;
   actionabilityBreakdown?: ActionabilityBreakdown;
   benchmarkComparison?: BenchmarkComparisonSummary;
+  guidedStoryImprovements?: GuidedStoryImprovements;
   scoringError?: string;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
+  pagePurposeAnalysis?: PagePurposeAnalysisSummary;
 }
 
 export interface OverviewInsight {
@@ -430,6 +533,111 @@ export interface OverviewSummary {
   topIssues: OverviewInsight[];
   topActions: OverviewAction[];
   crossPageSummary: CrossPageSummary;
+  readinessSummary?: FabricAppReadinessOverviewSummary;
+}
+
+export interface AnalysisContextMetadata {
+  surfaceType: SurfaceType;
+  analyzerType: AnalyzerType;
+  analyzerProfile: AnalyzerProfileId;
+  surfaceDisplayName: string;
+  sourceLocation: string;
+  availableAnalyzerTypes: AnalyzerType[];
+  availableAnalyzerProfiles: AnalyzerProfileId[];
+}
+
+export type FabricAppReadinessBand =
+  | 'strongCandidate'
+  | 'possibleCandidate'
+  | 'redesignRequired'
+  | 'keepAsReport';
+
+export type FabricAppPageCandidateState = FabricAppReadinessBand;
+export type FabricAppRedesignEffort = 'low' | 'medium' | 'high';
+export type FabricAppReadinessEvidenceKind =
+  | 'pbirMetadata'
+  | 'interaction'
+  | 'navigation'
+  | 'screenshot'
+  | 'semanticModel'
+  | 'portability';
+
+export interface FabricAppReadinessDimensionScores {
+  layoutPortability: number;
+  interactionPortability: number;
+  narrativePortability: number;
+  semanticModelSuitability: number;
+  navigationPortability: number;
+  governancePortability: number;
+  accessibilityPortability: number;
+  visualizationAsCodeOpportunity: number;
+}
+
+export interface FabricAppReadinessEvidence {
+  kind: FabricAppReadinessEvidenceKind;
+  label: string;
+  detail: string;
+  pageName?: string;
+}
+
+export interface AnalyticsGovernanceSignal {
+  category: 'navigation' | 'accessibility' | 'storytelling' | 'semanticModel';
+  severity: 'low' | 'medium' | 'high';
+  summary: string;
+  pageName?: string;
+}
+
+export interface FabricAppPageReadinessAssessment {
+  pageName: string;
+  readinessScore: number;
+  readinessDimensions: FabricAppReadinessDimensionScores;
+  candidateState: FabricAppPageCandidateState;
+  positiveSignals: string[];
+  blockers: string[];
+  unsupportedPatterns: string[];
+  redesignRequiredAreas: string[];
+  migrationNotes: string[];
+  evidence: FabricAppReadinessEvidence[];
+}
+
+export interface FabricAppReadinessOverviewSummary {
+  readinessScore: number;
+  readinessBand: FabricAppReadinessBand;
+  candidatePageCount: number;
+  migrationBlockerCount: number;
+  estimatedRedesignEffort: FabricAppRedesignEffort;
+}
+
+export interface FabricAppReadinessAssessment {
+  overallReadinessScore: number;
+  readinessBand: FabricAppReadinessBand;
+  migrationSummary: string;
+  candidatePages: string[];
+  blockers: string[];
+  unsupportedPatterns: string[];
+  redesignRequiredAreas: string[];
+  recommendedNextActions: string[];
+  estimatedRedesignEffort: FabricAppRedesignEffort;
+  dimensionScores: FabricAppReadinessDimensionScores;
+  pageAssessments: FabricAppPageReadinessAssessment[];
+  evidence: FabricAppReadinessEvidence[];
+  governanceSignals: AnalyticsGovernanceSignal[];
+}
+
+export interface FabricAppReviewEvidence {
+  kind: 'typescriptLayout' | 'navigation' | 'designToken' | 'screenshot' | 'semanticModel';
+  label: string;
+  summary: string;
+  filePath: string;
+  pageName?: string;
+  stateName?: string;
+}
+
+export interface FabricAppReviewSummary {
+  qualityScore: number;
+  summary: string;
+  remediationGuidance: string[];
+  evidence: FabricAppReviewEvidence[];
 }
 
 export interface FixPlanItem {
@@ -438,10 +646,421 @@ export interface FixPlanItem {
   detail: string;
   severity: NormalizedFindingSeverity;
   effort: FixPlanEffort;
+  impact: FixPlanImpact;
+  why: string;
   scope: NormalizedFindingScope;
   affectedPages: string[];
   recommendedAction: string;
+  resolvedOutcomes: string[];
   sourceFindingIds: string[];
+  navigationTarget?: ScorePanelNavigationTarget;
+}
+
+// Phase 3 advisory output is presentation-only. It can improve proposal wording,
+// rationale, and prioritization, but it must never carry executable mutation authority.
+export type ProposalEnricherId =
+  | 'layout'
+  | 'theme'
+  | 'navigation'
+  | 'storytelling'
+  | 'executiveReadability'
+  | 'accessibility';
+
+export interface EnrichedTitleSuggestion {
+  title: string;
+  confidence: number;
+  rationale: string;
+}
+
+export interface EnrichedExplanation {
+  shortText: string;
+  expandedText?: string;
+}
+
+export interface EnrichedImpactSummary {
+  text: string;
+}
+
+export interface AdvisoryPriority {
+  tier: 'highLeverage' | 'quickWin' | 'consistencyCleanup' | 'advisoryOnly';
+  rationale: string;
+}
+
+export interface ExpectedOutcomeNarrative {
+  text: string;
+  areas: string[];
+}
+
+export interface AdvisoryAlternative {
+  title: string;
+  description: string;
+}
+
+export type ProposalEnrichmentValidationCode =
+  | 'unsupportedSurface'
+  | 'inventedArtifact'
+  | 'contradictoryPriority'
+  | 'executionLeak'
+  | 'outcomeOverclaim'
+  | 'semanticRewrite';
+
+export interface ProposalEnrichmentValidationIssue {
+  code: ProposalEnrichmentValidationCode;
+  message: string;
+  section?: 'titleSuggestions' | 'explanation' | 'whyThisMatters' | 'advisoryPriority' | 'expectedOutcome' | 'advisoryAlternatives';
+}
+
+export interface ProposalEnrichmentValidationResult {
+  status: 'passed' | 'degraded' | 'rejected';
+  issues: ProposalEnrichmentValidationIssue[];
+}
+
+export interface ProposalEnrichmentProvenance {
+  providerName?: string;
+  usedFallback: boolean;
+  enrichedAt: string;
+  sourceFindingIds: string[];
+}
+
+export interface ProposalEnrichment {
+  remediationItemId: string;
+  status: 'available' | 'fallback' | 'rejected' | 'skipped';
+  source: 'provider' | 'fallback';
+  enrichersApplied: ProposalEnricherId[];
+  titleSuggestions?: EnrichedTitleSuggestion[];
+  explanation?: EnrichedExplanation;
+  whyThisMatters?: EnrichedImpactSummary;
+  advisoryPriority?: AdvisoryPriority;
+  expectedOutcome?: ExpectedOutcomeNarrative;
+  advisoryAlternatives: AdvisoryAlternative[];
+  validation: ProposalEnrichmentValidationResult;
+  provenance: ProposalEnrichmentProvenance;
+}
+
+// Phase 4 refactoring proposals remain advisory. They can compare bounded design
+// scenarios and signal which concepts may compile into existing deterministic
+// categories later, but they never carry direct mutation authority.
+export type RefactoringDomain =
+  | 'layout'
+  | 'kpiHierarchy'
+  | 'storytelling'
+  | 'navigation'
+  | 'executiveExperience'
+  | 'accessibilityAlignment'
+  | 'governanceAlignment';
+
+export interface RefactoringAffectedScope {
+  scope: NormalizedFindingScope;
+  pageNames: string[];
+}
+
+export interface RefactoringEvidenceLink {
+  findingId?: string;
+  label: string;
+  pageName?: string;
+  detail?: string;
+}
+
+export interface RefactoringTradeoff {
+  title: string;
+  description: string;
+}
+
+// Compilation hints are classification metadata only. They may reference
+// supported deterministic opportunity categories, but they are not executable
+// fix opportunities and they are not mutation plans.
+export interface RefactoringCompilationHint {
+  category: 'alignment' | 'spacing' | 'grid' | 'title' | 'navigation';
+  confidence: number;
+  rationale: string;
+  supportedScopes: NormalizedFindingScope[];
+}
+
+export interface RefactoringOptionCompilation {
+  status: 'compilable' | 'advisoryOnly';
+  coverage?: 'full' | 'partial';
+  hints: RefactoringCompilationHint[];
+}
+
+export interface RefactoringScenarioOption {
+  optionId: string;
+  label: string;
+  title: string;
+  summary: string;
+  proposedChanges: string[];
+  affectedScope: RefactoringAffectedScope;
+  rationale: string;
+  evidenceLinks: RefactoringEvidenceLink[];
+  businessImpact: string;
+  tradeoffs: RefactoringTradeoff[];
+  confidence: number;
+  compilation: RefactoringOptionCompilation;
+}
+
+export interface RefactoringScenario {
+  scenarioId: string;
+  domain: RefactoringDomain;
+  title: string;
+  summary: string;
+  options: RefactoringScenarioOption[];
+}
+
+export type RefactoringValidationCode =
+  | 'inventedArtifact'
+  | 'unsupportedExecutionClaim'
+  | 'contradictoryEvidence'
+  | 'optionDuplication'
+  | 'outcomeOverclaim'
+  | 'scopeEscape';
+
+export interface RefactoringValidationIssue {
+  code: RefactoringValidationCode;
+  message: string;
+  scenarioId?: string;
+  optionId?: string;
+}
+
+export interface RefactoringValidationResult {
+  status: 'passed' | 'degraded' | 'rejected';
+  issues: RefactoringValidationIssue[];
+}
+
+export interface RefactoringProposalProvenance {
+  providerName?: string;
+  usedFallback: boolean;
+  enrichedAt: string;
+  sourceFindingIds: string[];
+}
+
+export interface RefactoringProposal {
+  remediationItemId: string;
+  status: 'available' | 'fallback' | 'rejected' | 'skipped';
+  source: 'provider' | 'fallback';
+  domains: RefactoringDomain[];
+  scenarios: RefactoringScenario[];
+  validation: RefactoringValidationResult;
+  provenance: RefactoringProposalProvenance;
+}
+
+export type FixOpportunityCategory =
+  | 'title'
+  | 'semanticColor'
+  | 'alignment'
+  | 'spacing'
+  | 'grid'
+  | 'navigation'
+  | 'crossPageConsistency';
+
+export type FixMutationType =
+  | 'setTitleText'
+  | 'setPosition'
+  | 'setSize'
+  | 'setSemanticColor'
+  | 'setThemeRole'
+  | 'setNavigationPlacement';
+
+export type FixOpportunityState =
+  | 'Previewed'
+  | 'Approved'
+  | 'Applied'
+  | 'RolledBack'
+  | 'Stale'
+  | 'FailedValidation'
+  | 'AppliedWithUnexpectedOutcome';
+
+export type FixOutcomeStatus = 'Resolved' | 'Improved' | 'Unchanged' | 'Unexpected';
+
+export interface FixFileVersionSnapshot {
+  contentHash: string;
+  size: number;
+  modifiedTimeMs: number;
+}
+
+export interface FixMutation {
+  id: string;
+  pageName?: string;
+  targetObjectId: string;
+  targetFile: string;
+  targetFileVersion?: FixFileVersionSnapshot;
+  propertyPath: string;
+  storagePath?: Array<string | number>;
+  storageValueFormat?: 'plain' | 'pbirStringLiteral';
+  mutationType: FixMutationType;
+  before: unknown;
+  after: unknown;
+}
+
+export interface RollbackFileBackup {
+  targetFile: string;
+  beforeContent: string;
+  beforeVersion?: FixFileVersionSnapshot;
+  appliedVersion?: FixFileVersionSnapshot;
+}
+
+export interface RollbackPlan {
+  id: string;
+  fixOpportunityId: string;
+  fileBackups: RollbackFileBackup[];
+  reverseMutations: FixMutation[];
+}
+
+export interface FixPreviewRow {
+  pageName?: string;
+  objectId: string;
+  property: string;
+  before: unknown;
+  after: unknown;
+}
+
+export interface FixOutcomeEntry {
+  findingId: string;
+  title: string;
+  status: FixOutcomeStatus;
+}
+
+export interface FixGroupedOutcomeStatusSummary {
+  status: FixOutcomeStatus;
+  count: number;
+  opportunityIds: string[];
+}
+
+export interface FixGroupedOutcomeSummary {
+  totalEntries: number;
+  statuses: FixGroupedOutcomeStatusSummary[];
+  appliedWithUnexpectedOutcomeOpportunityIds: string[];
+}
+
+export interface FixOutcomeSummary {
+  entries: FixOutcomeEntry[];
+  groupedSummary?: FixGroupedOutcomeSummary;
+}
+
+export type FixConflictCode =
+  | 'overlappingMutation'
+  | 'incompatibleCategory'
+  | 'staleOpportunity'
+  | 'targetDrifted'
+  | 'missingRollbackCoverage';
+
+export interface FixConflictReason {
+  code: FixConflictCode;
+  message: string;
+  opportunityIds: string[];
+  targetObjectId?: string;
+  propertyPath?: string;
+}
+
+export interface FixCompatibilityResult {
+  isCompatible: boolean;
+  compatibleOpportunityIds: string[];
+  blockingOpportunityIds: string[];
+  blockingReasons: FixConflictReason[];
+}
+
+export interface FixBatchPreviewPropertyChange {
+  opportunityId: string;
+  property: string;
+  before: unknown;
+  after: unknown;
+}
+
+export interface FixBatchPreviewObjectGroup {
+  pageName?: string;
+  objectId: string;
+  propertyChanges: FixBatchPreviewPropertyChange[];
+}
+
+export interface FixBatchPreviewPageGroup {
+  pageName: string;
+  objectGroups: FixBatchPreviewObjectGroup[];
+}
+
+export interface FixBatchPreviewSummary {
+  changedFileCount: number;
+  changedObjectCount: number;
+  expectedOutcomeCount: number;
+  touchedFiles: string[];
+  changedObjects: string[];
+}
+
+export interface FixBatchPreview {
+  opportunityIds: string[];
+  summary: FixBatchPreviewSummary;
+  pageGroups: FixBatchPreviewPageGroup[];
+  mutationFacts: FixPreviewRow[];
+  expectedOutcomes: string[];
+}
+
+export type FixSelectionApprovalState = 'NeedsPreview' | 'Previewed' | 'Approved';
+
+export interface FixSelectionState {
+  selectedOpportunityIds: string[];
+  compatibility: FixCompatibilityResult;
+  groupedPreview?: FixBatchPreview;
+  approvalState: FixSelectionApprovalState;
+  message?: string;
+}
+
+export interface FixSessionRollbackRecord {
+  rolledBackAt: string;
+  state: 'RolledBack' | 'RollbackFailed';
+  validationErrors?: string[];
+}
+
+export interface FixApplySessionRecord {
+  id: string;
+  appliedAt: string;
+  opportunityIds: string[];
+  opportunityTitles: string[];
+  rollbackAvailable: boolean;
+  rollbackHistory: FixSessionRollbackRecord[];
+  groupedOutcomeSummary?: FixGroupedOutcomeSummary;
+  staleOpportunityIds?: string[];
+  regeneratedOpportunityIds?: string[];
+}
+
+export interface FixApplyResult {
+  opportunityId: string;
+  state: FixOpportunityState;
+  appliedMutationCount: number;
+  validationErrors: string[];
+}
+
+export interface FixBatchApplyResult {
+  state: FixOpportunityState;
+  opportunityIds: string[];
+  appliedMutationCount: number;
+  validationErrors: string[];
+  applyOrder: string[];
+  session?: FixApplySessionRecord;
+}
+
+export interface FixOpportunity {
+  id: string;
+  remediationItemId: string;
+  title: string;
+  category: FixOpportunityCategory;
+  summary: string;
+  confidence: number;
+  safetyClass: 'safe';
+  affectedPages: string[];
+  targetObjectIds: string[];
+  sourceFindingIds: string[];
+  expectedResolutions: string[];
+  mutations: FixMutation[];
+  previewRows: FixPreviewRow[];
+  rollbackPlan: RollbackPlan;
+  state: FixOpportunityState;
+  outcome?: FixOutcomeSummary;
+}
+
+export interface PagePurposeAnalysisSummary {
+  inferredPurpose: string;
+  confidence?: StoryConfidence;
+  actionabilityScore?: number;
+  benchmarkStatus?: string;
+  topGaps: string[];
+  whyThisMatters: string;
 }
 
 export interface ReviewPresentationPersonaProfile {
@@ -483,6 +1102,7 @@ export interface ScoreResult {
   navigationVisualCount?: number;
   hiddenVisualCount?: number;
   pageScores?: PageScore[];
+  scoredPageId?: string;
   scoredPageName?: string;
   scoringErrors?: Record<string, string>;
   reportConsistencySummary?: ReportConsistencySummary;
@@ -490,16 +1110,24 @@ export interface ScoreResult {
   pageIntentProfile?: PageIntentProfile;
   actionabilityBreakdown?: ActionabilityBreakdown;
   benchmarkComparison?: BenchmarkComparisonSummary;
+  guidedStoryImprovements?: GuidedStoryImprovements;
   layoutScore?: number;
   themeScore?: number;
   governanceScore?: number;
   frameworkWeights?: Record<string, number>;
   visualMetadata?: PageVisualMetadataSummary;
+  pagePurposeAnalysis?: PagePurposeAnalysisSummary;
   normalizedFindings?: NormalizedFinding[];
   overviewSummary?: OverviewSummary;
   fixPlan?: FixPlanItem[];
+  proposalEnrichments?: ProposalEnrichment[];
+  refactoringProposals?: RefactoringProposal[];
+  fixOpportunities?: FixOpportunity[];
   crossPageMatrix?: CrossPageMatrixSummary;
   personaPresentation?: PersonaPresentationState;
+  analysisContext?: AnalysisContextMetadata;
+  readinessAssessment?: FabricAppReadinessAssessment;
+  fabricAppReview?: FabricAppReviewSummary;
 }
 
 export interface AuditCaptureSummary {
@@ -551,18 +1179,36 @@ export interface ScoreRequestPayload {
   pageName?: string;
 }
 
-export interface ScorePanelState {
+export interface ScorePanelProtocolEnvelope {
+  protocolVersion: number;
+  schemaVersion: number;
+}
+
+export interface ScorePanelState extends ScorePanelProtocolEnvelope {
   config: DesignAnalyzerConfig;
   result: ScoreResult;
   selectedPageIndex: number;
   intentFeedback: IntentFeedbackEntry[];
+  renderedEvidence?: RenderedEvidenceCapabilityReport;
+  renderedReview?: RenderedReviewPanelState;
+  storyAssessmentCurrentSnapshot?: StoryAssessmentReportSnapshot;
+  storyAssessmentDiffByPage?: Record<string, StoryAssessmentDiffResult>;
+  storyAssessmentLastComparedAt?: string;
+  fixSelection?: FixSelectionState;
+  fixApplySessions?: FixApplySessionRecord[];
   reviewPacketPreview?: ReviewWorkflowExportData;
   reviewPacketPreviewHtml?: string;
   reviewPacketPreviewProfile?: ReviewWorkflowExportProfile;
   reviewPacketPreviewTemplateVariant?: ReviewWorkflowMarkdownTemplateVariant;
 }
 
-export type ScorePanelWebviewToHostMessage =
+export interface RenderedReviewPanelState {
+  enabled: boolean;
+  checklist: RenderedReviewChecklistItem[];
+  mutationFollowUp?: string;
+}
+
+export type ScorePanelWebviewToHostMessagePayload =
   | { type: 'webviewReady' }
   | { type: 'refresh' }
   | { type: 'selectTab'; pageIndex: number }
@@ -576,6 +1222,7 @@ export type ScorePanelWebviewToHostMessage =
     note?: string;
   }
   | { type: 'revealVisual'; pageName: string; visualId: string }
+  | { type: 'navigateToTarget'; target: ScorePanelNavigationTarget }
   | { type: 'uploadScreenshots' }
   | { type: 'attachScreenshot'; pageName: string }
   | { type: 'removeScreenshot'; captureId: string }
@@ -585,11 +1232,30 @@ export type ScorePanelWebviewToHostMessage =
   | { type: 'setReviewPacketPreviewProfile'; profile: ReviewWorkflowExportProfile }
   | { type: 'setReviewPacketPreviewTemplateVariant'; templateVariant: ReviewWorkflowMarkdownTemplateVariant }
   | { type: 'openReviewPacketPreview' }
+  | { type: 'setRenderedReviewStatus'; itemId: string; status: RenderedReviewStatus }
+  | { type: 'setRenderedReviewNote'; itemId: string; note: string }
+  | { type: 'attachRenderedScreenshot'; itemId: string }
+  | { type: 'openInPbiLens'; pageName?: string; visualId?: string }
+  | { type: 'toggleFixOpportunitySelection'; opportunityId: string }
+  | { type: 'previewSelectedFixOpportunities' }
+  | { type: 'approveSelectedFixOpportunities' }
+  | { type: 'applySelectedFixOpportunities' }
+  | { type: 'rollbackFixSession'; sessionId: string }
+  | { type: 'regenerateFixOpportunities'; opportunityIds?: string[] }
+  | { type: 'approveFixOpportunity'; opportunityId: string }
+  | { type: 'applyFixOpportunity'; opportunityId: string }
+  | { type: 'rollbackFixOpportunity'; opportunityId: string }
   | { type: 'openSettings' };
 
-export type ScorePanelHostToWebviewMessage =
+export type ScorePanelWebviewToHostMessage =
+  ScorePanelProtocolEnvelope & ScorePanelWebviewToHostMessagePayload;
+
+export type ScorePanelHostToWebviewMessagePayload =
   | { type: 'loading' }
   | { type: 'scoreState'; state: ScorePanelState }
   | { type: 'error'; message: string }
   | { type: 'auditState'; audit: AuditState }
   | { type: 'auditAnalyzing'; captureId: string };
+
+export type ScorePanelHostToWebviewMessage =
+  ScorePanelProtocolEnvelope & ScorePanelHostToWebviewMessagePayload;

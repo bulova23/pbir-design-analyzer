@@ -12,8 +12,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="tests/Fixtures/PbirSchemas/**/*.json" Link="PbirSchemas/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="RpcHost/**" />
     <Compile Remove="tests/**" />
+    <Compile Remove="tools/**" />
+    <Compile Remove="Phase35E/**" />
+    <Compile Remove="Phase35I.Runtime/**" />
+    <Compile Remove="Phase35I.InertRunner/**" />
+    <Compile Remove="Services/Discovery/Phase35E/Phase35ESandboxedProcessRunner.cs" />
+    <Compile Remove="Services/Discovery/Phase35E/Phase35EMacSandboxAdapter.cs" />
   </ItemGroup>
 
 </Project>

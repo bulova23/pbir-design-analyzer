@@ -93,6 +93,27 @@ function renderPriorityRecommendations(lines: string[], data: ReviewWorkflowExpo
   lines.push('');
 }
 
+function renderRenderedReview(lines: string[], data: ReviewWorkflowExportData): void {
+  const review = data.renderedReview;
+  if (!review) return;
+  pushSection(lines, '## Rendered Review');
+  lines.push('PBI Lens provides rendered observation. PBIR Design Analyzer remains authoritative for design judgment and scoring.');
+  lines.push('');
+  lines.push('| Category | Pages | Status | Reviewer note | Screenshots |');
+  lines.push('|----------|-------|--------|---------------|-------------|');
+  for (const item of review.checklist) {
+    lines.push(`| ${item.label} | ${item.pageNames.join(', ') || 'Report'} | ${item.status} | ${item.reviewerNote ?? '—'} | ${item.screenshotEvidence?.length ?? 0} |`);
+  }
+  lines.push('');
+  lines.push('### Evidence classification');
+  lines.push('');
+  lines.push('- Deterministic: analyzer-derived metadata and rule results.');
+  lines.push('- Semantic: analyzer-derived model and usage evidence.');
+  lines.push('- Rendered: user-supplied screenshot records from the rendered review workflow.');
+  lines.push('- Reviewer Notes: human observations kept separate from analyzer findings.');
+  lines.push('');
+}
+
 function renderCrossPageConsistencySummary(lines: string[], data: ReviewWorkflowExportData): void {
   pushSection(lines, '## Cross-Page Consistency Summary');
   lines.push(`- Naming: ${data.crossPageConsistencyRollup?.issuesByCategory.find(([category]) => category.toLowerCase().includes('metric'))?.[1] ?? 0} issue group(s)`);
@@ -132,6 +153,7 @@ function renderConsultantPacket(lines: string[], data: ReviewWorkflowExportData)
   renderReviewStatusSummary(lines, data);
   renderPageIntentValidation(lines, data);
   renderPriorityRecommendations(lines, data);
+  renderRenderedReview(lines, data);
   renderCrossPageConsistencySummary(lines, data);
   renderAppendix(lines, data);
 }

@@ -1,0 +1,1668 @@
+{
+  "reportName": "Sales \u0026 Production",
+  "fixture": "Sales \u0026 Production.pbip",
+  "scoreSummary": {
+    "PageCount": 21,
+    "CompositeScore": 82.89,
+    "GestaltScore": 55,
+    "CognitiveLoadScore": 96.25950439041969,
+    "DataInkScore": 89.83050847457628,
+    "AccessibilityScore": 100,
+    "VisualBestPracticesScore": 93.33333333333334,
+    "EnterpriseGovernanceScore": 70,
+    "GraphicalPerceptionScore": 54.63768115942029,
+    "StephenFewScore": 92.85714285714286,
+    "TufteScore": 81.7231638418079,
+    "DensityScore": 65,
+    "NarrativeScore": 59,
+    "DataVisualCount": 53,
+    "NavigationVisualCount": 59,
+    "HiddenVisualCount": 54
+  },
+  "recommendations": [
+    "[Medium] Cognitive Load: \u0027Market Basket Analysis\u0027 has a weighted visual load of 12.2 (8 data, 5 navigation at 25% weight) (\u003E6 recommended max). Consider simplifying the page or splitting it into sub-pages.",
+    "[Medium] Navigation: \u0027Returns\u0027 uses 13 navigation control(s) and 17 hidden visual(s). Consider consolidating bookmark-driven interaction with button slicers or field parameters.",
+    "[Medium] Cognitive Load: Give \u0027Validation Page\u0027 a clearer upper-left entry point so the first scan lands on the main evidence before secondary controls.",
+    "[Medium] Visual Best Practices: Add a clustered bar or column comparison visual to \u0027Allows users to identify relationships                   between the items that               people buy.\u0027 so the KPI layer has categorical evidence.",
+    "[Low] Visual Best Practices: Keep title alignment and filter-band conventions stable across repeated report pages unless the layout change serves a clear user purpose.",
+    "[Medium] Density: \u0027Intro\u0027 reads like a long page. Move the lower visual cluster to a separate page or shorten the canvas so the main story fits one screen.",
+    "[Medium] Density: Add more vertical separation between the KPI overview band and detail visuals on \u0027Return Rate\u0027 so the page reads in layers.",
+    "[Medium] Narrative: \u0027Net Sales\u0027 needs a visible title or question anchor so users understand the page purpose in the first scan.",
+    "[Medium] Narrative: \u0027Duplicate of Validation Page\u0027 needs a clearer primary outcome before the detail visuals.",
+    "[Medium] Narrative: \u0027Allows users to identify relationships                   between the items that               people buy.\u0027 KPI cards need a target, variance, or prior-period comparison.",
+    "[Medium] Narrative: \u0027Returns Tooltip\u0027 needs at least one supporting chart or table behind the KPI layer."
+  ],
+  "topLevelGuidedStoryImprovements": {
+    "highPriorityIds": [],
+    "mediumPriorityIds": [],
+    "rationale": ""
+  },
+  "reportConsistency": {
+    "IssueCount": 4,
+    "OverallFinding": "4 cross-page consistency issue(s) detected across layout, navigation.",
+    "affectedPages": [
+      "CathegoryBreackdown",
+      "Duplicate of Validation Page",
+      "Forecast",
+      "Intro",
+      "KeyInfluencers",
+      "Legal",
+      "Market Basket Analysis",
+      "Net Sales",
+      "Net Sales Tooltip",
+      "NetSales",
+      "Q\u0026A1",
+      "Q\u0026A2",
+      "RetCategory",
+      "RetKeyInf",
+      "RetStoreBre",
+      "Return Rate",
+      "Returns",
+      "Returns Tooltip",
+      "StoreBreackdown",
+      "Validation Page",
+      "WhatIf"
+    ],
+    "issues": [
+      {
+        "Category": "layout",
+        "IssueCategory": "titleHeader",
+        "Severity": "medium",
+        "Confidence": "high",
+        "AffectedPages": [
+          "Legal",
+          "Return Rate"
+        ]
+      },
+      {
+        "Category": "layout",
+        "IssueCategory": "kpiPlacement",
+        "Severity": "medium",
+        "Confidence": "high",
+        "AffectedPages": [
+          "Net Sales",
+          "Net Sales Tooltip"
+        ]
+      },
+      {
+        "Category": "layout",
+        "IssueCategory": "layoutPattern",
+        "Severity": "medium",
+        "Confidence": "high",
+        "AffectedPages": [
+          "Duplicate of Validation Page",
+          "Forecast",
+          "Intro",
+          "Legal",
+          "Market Basket Analysis",
+          "Net Sales",
+          "Net Sales Tooltip",
+          "Return Rate",
+          "Returns",
+          "Returns Tooltip",
+          "Validation Page"
+        ]
+      },
+      {
+        "Category": "navigation",
+        "IssueCategory": "navigationPattern",
+        "Severity": "medium",
+        "Confidence": "medium",
+        "AffectedPages": [
+          "CathegoryBreackdown",
+          "Duplicate of Validation Page",
+          "Forecast",
+          "KeyInfluencers",
+          "Legal",
+          "Net Sales Tooltip",
+          "NetSales",
+          "Q\u0026A1",
+          "Q\u0026A2",
+          "RetCategory",
+          "RetKeyInf",
+          "RetStoreBre",
+          "StoreBreackdown",
+          "Validation Page",
+          "WhatIf"
+        ]
+      }
+    ]
+  },
+  "pageSummaries": [
+    {
+      "PageName": "Legal",
+      "CompositeScore": 0,
+      "detectedStory": null,
+      "storyArchetype": null,
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 0,
+      "benchmarkArchetype": null,
+      "actionabilityScore": null
+    },
+    {
+      "PageName": "Intro",
+      "CompositeScore": 67,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 1,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Net Sales",
+      "CompositeScore": 85.33,
+      "detectedStory": "This page appears to summarize headline performance for quick executive review.",
+      "storyArchetype": "executive overview \u002B comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "executive scorecard",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "Forecast",
+      "CompositeScore": 80.5,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context",
+        "scattered-filters"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Validation Page",
+      "CompositeScore": 74.5,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Returns",
+      "CompositeScore": 80.63,
+      "detectedStory": "This page appears to summarize headline performance for quick executive review.",
+      "storyArchetype": "executive overview \u002B comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "executive scorecard",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "Return Rate",
+      "CompositeScore": 82.02,
+      "detectedStory": "This page appears to summarize headline performance for quick executive review.",
+      "storyArchetype": "executive overview \u002B comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 1,
+      "benchmarkArchetype": "executive scorecard",
+      "actionabilityScore": 40
+    },
+    {
+      "PageName": "Market Basket Analysis",
+      "CompositeScore": 71.32,
+      "detectedStory": "This page appears to summarize headline performance for quick executive review.",
+      "storyArchetype": "executive overview \u002B comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 2,
+      "benchmarkArchetype": "executive scorecard",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Net Sales Tooltip",
+      "CompositeScore": 81.5,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Returns Tooltip",
+      "CompositeScore": 81.32,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 4,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 0
+    },
+    {
+      "PageName": "CathegoryBreackdown",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "KeyInfluencers",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "StoreBreackdown",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "NetSales",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "WhatIf",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "RetCategory",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "RetKeyInf",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "RetStoreBre",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [
+        "missing-title-question-anchor",
+        "missing-benchmark-target",
+        "missing-primary-metric",
+        "missing-primary-dimension"
+      ],
+      "mediumPriorityGuidedStoryImprovementIds": [
+        "missing-prior-period-context"
+      ],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Q\u0026A1",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Q\u0026A2",
+      "CompositeScore": 80,
+      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 20
+    },
+    {
+      "PageName": "Duplicate of Validation Page",
+      "CompositeScore": 78.5,
+      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+      "storyArchetype": "comparison",
+      "highPriorityGuidedStoryImprovementIds": [],
+      "mediumPriorityGuidedStoryImprovementIds": [],
+      "recommendationCount": 3,
+      "benchmarkArchetype": "analytical deep dive",
+      "actionabilityScore": 40
+    }
+  ],
+  "validationExport": {
+    "pages": [
+      {
+        "PageName": "Legal",
+        "DetectedStory": "No public story detected.",
+        "SpecialPageResult": "PageType=ReferenceLegal; Confidence=High; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Split; DominantConcept=referencelegal; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "WeakDiagnosticOnly",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [],
+        "futureContractCandidateGapIds": [],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Intro",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Net Sales",
+        "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Ranking; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=1; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Forecast",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=2; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.topology.scatteredFilters"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Validation Page",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=ValidationSandbox; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=3; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [],
+        "futureContractCandidateGapIds": [],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Returns",
+        "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Ranking; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=2; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Return Rate",
+        "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=1; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Market Basket Analysis",
+        "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
+        "SpecialPageResult": "PageType=MarketBasket; Confidence=Medium; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=DowngradedBySpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Split; DominantConcept=marketbasket; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "WeakDiagnosticOnly",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric",
+          "gap.semantic.competingStoryMetadata",
+          "gap.semantic.competingStoryRestructure"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Strong"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Net Sales Tooltip",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.layout.meaningfulVisibleTitle"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.layout.meaningfulVisibleTitle"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Returns Tooltip",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.supportingEvidenceFlow"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.layout.meaningfulVisibleTitle"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "CathegoryBreackdown",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "KeyInfluencers",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=KeyInfluencers; Confidence=Medium; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=DowngradedBySpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "StoreBreackdown",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "NetSales",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "WhatIf",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=WhatIf; Confidence=Medium; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=DowngradedBySpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "RetCategory",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "RetKeyInf",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "RetStoreBre",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
+        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Q\u0026A1",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Qna; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Q\u0026A2",
+        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "SpecialPageResult": "PageType=Qna; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=0; PageFilters=1; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.layout.topScanKpiCount",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "futureContractCandidateGapIds": [
+          "gap.missing.context.priorPeriodContext",
+          "gap.missing.context.targetBenchmarkPresent",
+          "gap.missing.layout.meaningfulVisibleTitle",
+          "gap.missing.semantic.primaryDimension",
+          "gap.missing.semantic.primaryMetric"
+        ],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Mixed"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      },
+      {
+        "PageName": "Duplicate of Validation Page",
+        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "SpecialPageResult": "PageType=ValidationSandbox; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
+        "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=DiagnosticSpecialPage",
+        "CompetingStoryStatus": "None",
+        "FilterTopologyResult": "Slicers=3; PageFilters=0; ReportFilters=0; SurfaceScope=CrossSurfaceCandidate; PromotionState=Internal",
+        "storyGapIds": [],
+        "futureContractCandidateGapIds": [],
+        "confidenceRatings": [
+          {
+            "DimensionId": "Accuracy",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Consistency",
+            "Rating": "Weak"
+          },
+          {
+            "DimensionId": "Explainability",
+            "Rating": "Mixed"
+          },
+          {
+            "DimensionId": "Actionability",
+            "Rating": "Weak"
+          }
+        ],
+        "PromotionStates": [
+          "Internal"
+        ],
+        "SurfaceScopes": [
+          "CrossSurfaceCandidate",
+          "PbirSpecific"
+        ]
+      }
+    ],
+    "crossPageNarrative": {
+      "DominantReportObjective": "diagnostic investigation",
+      "MainNarrativePath": [
+        "CathegoryBreackdown",
+        "KeyInfluencers",
+        "StoreBreackdown",
+        "NetSales",
+        "WhatIf",
+        "RetCategory",
+        "RetKeyInf",
+        "RetStoreBre"
+      ],
+      "pageRoles": [
+        {
+          "PageName": "Legal",
+          "Role": "ReferenceLegal",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Intro",
+          "Role": "DetailDrill",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Net Sales",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "Forecast",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "Validation Page",
+          "Role": "ValidationSandbox",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Returns",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "Return Rate",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "Market Basket Analysis",
+          "Role": "SupportingContext",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Net Sales Tooltip",
+          "Role": "Tooltip",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Returns Tooltip",
+          "Role": "Tooltip",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "CathegoryBreackdown",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "KeyInfluencers",
+          "Role": "SupportingContext",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "StoreBreackdown",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "NetSales",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "WhatIf",
+          "Role": "SupportingContext",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "RetCategory",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "RetKeyInf",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "RetStoreBre",
+          "Role": "DetailDrill",
+          "Confidence": "Medium"
+        },
+        {
+          "PageName": "Q\u0026A1",
+          "Role": "Qna",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Q\u0026A2",
+          "Role": "Qna",
+          "Confidence": "High"
+        },
+        {
+          "PageName": "Duplicate of Validation Page",
+          "Role": "ValidationSandbox",
+          "Confidence": "High"
+        }
+      ],
+      "orphanDecisions": [
+        {
+          "PageName": "Legal",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Intro",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Net Sales",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Forecast",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Validation Page",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Returns",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Return Rate",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Market Basket Analysis",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Net Sales Tooltip",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Returns Tooltip",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "CathegoryBreackdown",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "KeyInfluencers",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "StoreBreackdown",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "NetSales",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "WhatIf",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "RetCategory",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "RetKeyInf",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "RetStoreBre",
+          "OrphanState": "Connected"
+        },
+        {
+          "PageName": "Q\u0026A1",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Q\u0026A2",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        },
+        {
+          "PageName": "Duplicate of Validation Page",
+          "OrphanState": "AdvisoryDisconnectedSpecialPage"
+        }
+      ],
+      "dimensionScores": [
+        {
+          "DimensionId": "Flow",
+          "Score": 60,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Consistency",
+          "Score": 100,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Continuity",
+          "Score": 100,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Navigation",
+          "Score": 55,
+          "Confidence": "Medium"
+        },
+        {
+          "DimensionId": "Actionability",
+          "Score": 55,
+          "Confidence": "Medium"
+        }
+      ],
+      "reportLevelGapStableIds": [
+        "gap.report.missing-executive-entry-point"
+      ]
+    }
+  }
+}

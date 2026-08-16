@@ -23,8 +23,6 @@ export interface TelemetryProperties {
  */
 class TelemetryReporter {
   private static instance: TelemetryReporter | undefined;
-  private extensionId = '';
-  private extensionVersion = '';
   private initialized = false;
 
   static getInstance(): TelemetryReporter {
@@ -35,21 +33,16 @@ class TelemetryReporter {
   }
 
   initialize(context: vscode.ExtensionContext): void {
-    this.extensionId = context.extension.id;
-    this.extensionVersion = context.extension.packageJSON?.version as string ?? 'unknown';
+    void context;
     this.initialized = true;
   }
 
   sendEvent(name: TelemetryEventName, properties?: TelemetryProperties): void {
-    if (!this.initialized || !vscode.env.isTelemetryEnabled) {
+    void name;
+    void properties;
+    void vscode.env.isTelemetryEnabled;
+    if (!this.initialized) {
       return;
-    }
-
-    // In a production release, forward to Application Insights or similar.
-    // For now we log to the extension output channel in debug mode only.
-    if (process.env['NODE_ENV'] === 'development') {
-      const propsStr = properties ? JSON.stringify(properties) : '';
-      console.log(`[Telemetry] ${name} ${propsStr}`);
     }
   }
 

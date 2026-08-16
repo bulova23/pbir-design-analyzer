@@ -165,6 +165,48 @@ public sealed class BenchmarkComparisonSummary
 }
 
 /// <summary>
+/// Safe public recommendation promoted from validated Story Assessment gaps.
+/// </summary>
+public sealed class GuidedStoryImprovement
+{
+    /// <summary>Gets or sets the stable user-facing recommendation identifier.</summary>
+    public required string Id { get; init; }
+
+    /// <summary>Gets or sets the short user-facing recommendation title.</summary>
+    public required string Title { get; init; }
+
+    /// <summary>Gets or sets the concise explanation of what is weaker today.</summary>
+    public required string Summary { get; init; }
+
+    /// <summary>Gets or sets the consultant-friendly explanation of why the change matters.</summary>
+    public required string Rationale { get; init; }
+
+    /// <summary>Gets or sets the expected user-facing impact after the improvement is made.</summary>
+    public required string ExpectedImpact { get; init; }
+
+    /// <summary>Gets or sets the public priority label for the recommendation.</summary>
+    public required string Priority { get; init; }
+
+    /// <summary>Gets or sets the related issue impact area used by downstream presentation layers.</summary>
+    public required string RelatedImpactArea { get; init; }
+}
+
+/// <summary>
+/// Safe public container for Guided Story Improvements.
+/// </summary>
+public sealed class GuidedStoryImprovements
+{
+    /// <summary>Gets or sets the highest-priority validated story improvements.</summary>
+    public List<GuidedStoryImprovement> HighPriorityImprovements { get; init; } = [];
+
+    /// <summary>Gets or sets the medium-priority validated story improvements.</summary>
+    public List<GuidedStoryImprovement> MediumPriorityImprovements { get; init; } = [];
+
+    /// <summary>Gets or sets the compact rationale shown below the recommendation lists.</summary>
+    public string StoryImprovementRationale { get; init; } = string.Empty;
+}
+
+/// <summary>
 /// Summarizes cross-page consistency findings for a scored report.
 /// </summary>
 public sealed class ReportConsistencySummary
@@ -374,8 +416,59 @@ public sealed class ScoreResult
     /// <summary>Gets or sets the archetype and benchmark comparison for single-page scoring.</summary>
     public BenchmarkComparisonSummary? BenchmarkComparison { get; set; }
 
+    /// <summary>Gets or sets the safe public Guided Story Improvements promoted from validated Story Assessment gaps.</summary>
+    public GuidedStoryImprovements GuidedStoryImprovements { get; set; } = new();
+
     /// <summary>Gets or sets the report-level cross-page consistency summary when full-report scoring is used.</summary>
     public ReportConsistencySummary? ReportConsistencySummary { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment signal registry captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StorySignalRegistry? InternalStorySignalRegistry { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment archetype classification captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StoryAssessmentArchetypeClassification? InternalStoryAssessmentArchetypeClassification { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment special-page assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StorySpecialPageAssessment? InternalStorySpecialPageAssessment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment semantic coherence assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StorySemanticCoherenceAssessment? InternalStorySemanticCoherenceAssessment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment filter topology assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StoryFilterTopologyAssessment? InternalStoryFilterTopologyAssessment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment story gap assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StoryGapAssessment? InternalStoryGapAssessment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only Story Assessment confidence breakdown captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal StoryConfidenceBreakdownAssessment? InternalStoryConfidenceBreakdownAssessment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the internal-only report-level Cross-Page Narrative assessment captured during scoring.
+    /// This remains out of the public score-panel contract until validation promotion occurs.
+    /// </summary>
+    internal CrossPageNarrativeAssessment? InternalCrossPageNarrativeAssessment { get; set; }
 
     // ── Per-Page Scores (Feature 003: Per-Page Scoring) ───────────────────────
 
@@ -386,6 +479,12 @@ public sealed class ScoreResult
     /// This list enables per-page breakdown display (tabbed UI) and page-level iteration.
     /// </summary>
     public List<PageScore>? PageScores { get; set; }
+
+    /// <summary>
+    /// Gets or sets the stable PBIR page identifier of the specific page scored (if single-page mode).
+    /// <c>null</c> when scoring the entire report.
+    /// </summary>
+    public string? ScoredPageId { get; set; }
 
     /// <summary>
     /// Gets or sets the name of the specific page scored (if single-page mode).

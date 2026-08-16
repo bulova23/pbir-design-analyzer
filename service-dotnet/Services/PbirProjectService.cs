@@ -88,7 +88,8 @@ public sealed class PbirProjectService
             return projectRoot;
         }
 
-        var reportFolders = Directory.GetDirectories(projectRoot, "*.Report", SearchOption.TopDirectoryOnly);
+        var reportFolders = Directory.GetDirectories(projectRoot, "*.Report", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal);
         foreach (var reportFolder in reportFolders)
         {
             var reportJsonPath = Path.Combine(reportFolder, "definition", "report.json");

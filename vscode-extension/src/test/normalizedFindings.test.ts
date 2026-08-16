@@ -75,9 +75,11 @@ describe('buildNormalizedFindings', () => {
       severity: 'high',
       scope: 'crossPage',
       detectionType: 'deterministic',
-      affectedPages: ['Intro', 'Forecast'],
+      affectedPages: ['Forecast', 'Intro'],
       impactArea: 'layout',
       recommendation: 'Align title anchors.',
+      reviewClassification: 'deterministic',
+      evidenceDomains: ['deterministic'],
     });
   });
 
@@ -161,5 +163,63 @@ describe('buildNormalizedFindings', () => {
       severity: 'high',
       affectedPages: ['Overview'],
     });
+  });
+
+  it('sorts findings deterministically when severities tie', () => {
+    const findings = buildNormalizedFindings({
+      gestaltScore: 0,
+      cognitiveLoadScore: 0,
+      dataInkScore: 0,
+      accessibilityScore: 0,
+      visualBestPracticesScore: 0,
+      stephenFewScore: 0,
+      enterpriseGovernanceScore: 0,
+      tufteScore: 0,
+      graphicalPerceptionScore: 0,
+      densityScore: 0,
+      narrativeScore: 0,
+      compositeScore: 0,
+      feedback: {},
+      pageCount: 1,
+      recommendations: [],
+      reportPath: '/tmp/report',
+      scoredAt: '2026-05-30T00:00:00.000Z',
+      pageScores: [
+        {
+          pageName: 'Overview',
+          gestaltScore: 0,
+          cognitiveLoadScore: 0,
+          dataInkScore: 0,
+          accessibilityScore: 0,
+          visualBestPracticesScore: 0,
+          stephenFewScore: 0,
+          enterpriseGovernanceScore: 0,
+          tufteScore: 0,
+          graphicalPerceptionScore: 0,
+          densityScore: 0,
+          narrativeScore: 0,
+          compositeScore: 0,
+          feedback: {
+            visualBestPractices: [
+              {
+                ok: false,
+                text: 'Z issue: Later in the alphabet.',
+                findingType: 'strongHeuristic',
+              },
+            ],
+            accessibility: [
+              {
+                ok: false,
+                text: 'A issue: Earlier in the alphabet.',
+                findingType: 'strongHeuristic',
+              },
+            ],
+          },
+          recommendations: [],
+        },
+      ],
+    } as ScoreResult);
+
+    expect(findings.map((finding) => finding.title)).toEqual(['A issue', 'Z issue']);
   });
 });

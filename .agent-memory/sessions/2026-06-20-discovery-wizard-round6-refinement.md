@@ -1,0 +1,32 @@
+# 2026-06-20 Discovery Wizard Refinement Round 6 downstream artifact quality
+
+- objective:
+  - implement only the approved Round 6 Discovery Wizard refinement for:
+    - Design Studio seeding quality
+    - Design Package provider readiness
+    - recommendation diversity propagation
+  - improve Design Brief rationale quality, concept candidate diversity, draft seed specificity, and provider-grade package language
+  - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+- started:
+  - read `AGENTS.md`, `.agent-memory/current-focus.md`, `.agent-memory/repo-map.md`, `.agent-memory/do-not-do-this.md`, and `.agent-memory/failure-patterns.md`
+  - read `docs/report-discovery-wizard-validation-review-round6.md`
+  - inspected the current discovery blueprint, Design Studio adapter, design package services, and their existing xUnit coverage
+- working hypotheses:
+  - executive blueprint reuse is still too generic for forecasting versus revenue planning scenarios
+  - Design Studio brief, concept, and draft artifacts are flattening recommendation intent back into generic dashboard scaffolding
+  - Design Package rationale and provider guidance need stronger why-language without adding provider-specific execution fields
+- delivered:
+  - differentiated executive blueprint shaping across forecasting, revenue, and customer-oriented executive scenarios
+  - strengthened Design Brief intended-story, navigation, cadence, and report-type seeding so app-oriented and investigative recommendations keep their downstream posture
+  - expanded seeded concept candidates into experience-specific alternate concept portfolios instead of two generic variants
+  - differentiated draft seed structure summaries, layout types, titles, and zones by recommendation type
+  - strengthened Design Package page purpose, success criteria, rationale sections, and provider guidance with provider-neutral why/what/success language plus filter-scope preservation
+  - added targeted xUnit coverage for executive blueprint divergence, brief specificity, concept diversity, draft-seed divergence, provider-readiness language, and downstream diversity propagation
+- validation:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- notes:
+  - an early parallel filtered `dotnet test` attempt hit a transient build-output file lock; reran sequentially and used the sequential run as the authoritative validation result
+- next:
+  - stop after Round 6 refinement as requested

@@ -1,0 +1,34 @@
+# 2026-06-20 Discovery Wizard Refinement Round 7 opportunity depth is in progress
+
+- objective:
+  - implement only the approved Round 7 Discovery Wizard refinement for:
+    - opportunity depth
+    - recommendation diversity
+  - expand the Opportunity Catalog so discovery produces multiple defensible opportunity families when the semantic model supports them
+  - enrich opportunity evidence so the recommendation engine receives clearer audience, semantic-support, and business-outcome context
+  - preserve existing downstream architecture and stop before Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, and Design Package contract changes
+- started:
+  - read `AGENTS.md`, repo memory files, the Round 7 validation review, and the current discovery opportunity, recommendation, blueprint, and design-package code/tests
+  - identified the primary gap as shallow upstream opportunity generation in inventory, service, and investigation scenarios, with downstream diversity loss driven by thin candidate sets rather than ranking alone
+- current focus:
+  - completed
+- delivered:
+  - expanded the backend-internal opportunity substrate with explicit opportunity family, workflow orientation, decision pattern, why-this-exists rationale, and evidence narrative fields without widening public contracts
+  - broadened opportunity identification so revenue, inventory, service, forecasting, and investigation-capable models can emit materially different candidate families instead of collapsing to one dominant opportunity
+  - added richer semantic evidence and opportunity rationale so the recommendation engine now receives family/workflow/decision metadata in candidate-supporting signals
+  - strengthened recommendation diversity inputs without starting Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, or Design Package contract changes
+  - added targeted xUnit coverage for:
+    - revenue opportunity-family breadth
+    - inventory opportunity-family breadth
+    - service opportunity-family breadth
+    - forecasting planning and operational breadth
+    - investigative and non-investigative coexistence
+    - materially different catalog candidates
+    - recommendation-engine propagation of opportunity metadata
+- validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~OpportunityIdentificationServiceTests|FullyQualifiedName~OpportunityCatalogBoundaryTests|FullyQualifiedName~RecommendationEngineServiceTests"`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- notes:
+  - the working tree already contained unrelated modifications in downstream discovery and memory files; this session preserved them and limited product-code edits to the Round 7 scope

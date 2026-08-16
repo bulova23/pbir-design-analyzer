@@ -1,15 +1,39 @@
 # Repository Guidelines
 
+Review this repository as if you were performing a pre-release architecture review before a v1.0 launch.
+
+Focus heavily on:
+- Architectural consistency
+- Future maintainability
+- AI-agent generated code quality
+- Overengineering
+- Unnecessary abstractions
+- Public contract stability
+- Backward compatibility risks
+- Testability
+- Technical debt accumulation
+
+Identify:
+- Areas that will become difficult to maintain in 6-12 months
+- Places where the architecture does not match the stated design documents
+- Features that should be refactored before adding new functionality
+- Any violation of existing architectural patterns used elsewhere in the repository
+
+Rank all findings by long-term risk.
+
 ## Project Structure & Module Organization
 `vscode-extension/` contains the shipped VS Code extension. Put extension runtime code in `src/`, React webviews in `webview-src/`, static assets in `resources/`, and Jest mocks in `tests/__mocks__/`. `service-dotnet/` contains the .NET 8 backend: `RpcHost/` is the packaged entrypoint, `Services/Pbir/` holds scoring, governance, and tree logic, and `tests/` holds xUnit coverage. Long-form specs, release notes, and troubleshooting live in `docs/`.
 
 ## Current Product Architecture
 
-The `0.2.0` release centers on a modernized score-panel workspace:
+The `0.7.0` release centers on a modernized score-panel workspace. `Overview` stays expanded by default; every other section is collapsed behind a Show/Hide toggle until opened, in this order:
 
 - `Overview`
 - `Issues`
 - `Fix Plan`
+- `Review Summary`
+- `Story Assessment`
+- `Rendered Review`
 - `Evidence`
 - secondary `Export`
 
@@ -22,13 +46,30 @@ Key architecture layers:
 ### Important Boundaries
 
 - normalized findings are the shared issue model
+- analyzable surface, analyzer, and analyzer profile are separate concepts:
+  - surface = thing being reviewed
+  - analyzer = review engine operating on that surface
+  - profile = emphasis lens for that analyzer
+- PBIR `Fabric App Readiness Assessment` is an analyzer operating on a PBIR surface, not a separate surface or workspace
+- Fabric App Review Mode foundations validate `Fabric App` as a second real surface type through the same workspace
+- Fabric App Review remains advisory-only unless the repo explicitly adds a future deterministic execution path; do not invent one
+- bounded screenshot evidence and semantic-model usage evidence are valid Fabric App Review evidence domains
+- screenshot evidence in Fabric App Review must reuse the existing screenshot evidence primitives and must not be treated as Visual Intelligence
 - workspace personas are separate from reviewer-comment personas
 - cross-page matrix navigation is presentation-only and finding-driven
 - review/export workflows remain downstream from scoring
+- AI proposal enrichment is advisory-only and must never carry mutation authority
+- deterministic preview/apply/rollback remains the only report-edit execution path
+- shared repository snapshots should stay analyzer-independent and should be reused across evidence domains instead of layering ad hoc repo rescans or analyzer-local memoization
+- score-panel host/webview messages are now a versioned protocol boundary and must be validated before state is consumed or rendered
+- selected page state must always be clamped against the current score payload page count; stale page references are a correctness bug
+- Fabric review and Fabric readiness scoring constants now live in explicit configuration with provenance; preserve default outputs unless an override is intentionally introduced and documented
+- external Power BI agent skills or prompts may be used as research input only; do not import external skill code, prompts, or autonomous execution patterns into this repo
+- `PbirScorePanel.handleMessage` must keep its try/catch around webview message routing; `webview.onDidReceiveMessage` is fire-and-forget in VS Code, so an unhandled exception anywhere in the router chain becomes a silent no-op click for the user instead of a visible error
 
 ## Roadmap References
 
-Deferred next-epic roadmap after `0.2.0`:
+Deferred next-epic roadmap after `0.7.0`:
 
 1. Consultant Deliverables & Export Platform
 2. Visual Intelligence & Screenshot Analysis
@@ -85,3 +126,17 @@ Extension tests use Jest with `ts-jest`; backend tests use xUnit. Add or update 
 
 ## Commit & Pull Request Guidelines
 Recent history follows Conventional Commit style with optional scopes, for example `feat(governance): ...` or `docs: ...`. Keep commits focused and imperative. PRs should use the template in `.github/PULL_REQUEST_TEMPLATE.md`: include a short summary, link the issue with `Fixes #...`, list validation performed, and add screenshots or doc updates when behavior or UI changes.
+
+## Rule
+For README.md, CHANGELOG.md, marketplace descriptions, release notes,
+and user-facing documentation:
+
+Prefer:
+- normal text
+- bold text
+- headings
+- bullet lists
+
+Avoid:
+- inline code formatting for feature names, UI labels, workflows,
+  concepts, personas, analyzers, readiness states, and roadmap items.

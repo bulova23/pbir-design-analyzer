@@ -2,11 +2,14 @@ import React from 'react';
 import type {
   AffectedVisualReference,
   ActionabilityBreakdown,
-  AuditCaptureSummary,
   AuditFindingDisplay,
   AuditPageState,
   AuditState,
   BenchmarkComparisonSummary,
+  FixOpportunity,
+  FixOpportunityCategory,
+  FixOpportunityState,
+  FixOutcomeStatus,
   FindingType,
   FrameworkFeedbackItem,
   IntentFeedbackConfirmation,
@@ -21,12 +24,16 @@ import type {
   ReviewPresentationPersona,
   ReviewPresentationPersonaProfile,
   ReviewerPersona,
+  ScorePanelNavigationTarget,
+  StoryAssessmentDiffResult,
   ScorePanelHostToWebviewMessage,
   ScorePanelState,
-  ScorePanelWebviewToHostMessage,
+  RenderedReviewPanelState,
+  ScorePanelWebviewToHostMessagePayload,
   ScoreResult,
   VisualMetadataItem,
 } from '../../src/analyzer/contracts/scorePanel';
+import { getStoryMaturityLabel } from '../../src/analyzer/score/storyAssessmentPresentation';
 import {
   basename,
   getEnabledFrameworks,
@@ -35,9 +42,20 @@ import {
 } from '../../src/analyzer/score/presentation';
 import { applyPersonaPresentation, getReviewPresentationPersonaProfiles } from '../../src/analyzer/score/personaPresentation';
 import { buildReviewerComments } from '../../src/analyzer/score/reviewerComments';
+import {
+  parseScorePanelHostMessage,
+  withScorePanelEnvelope,
+} from '../../src/views/scorePanelProtocol';
+import { buildContextAwareRemediationQueue, type ContextAwareRemediationQueue } from './remediationQueue';
+import {
+  getAdvisoryPriorityLabel,
+  getProposalEnrichmentSummary,
+  hasProposalEnrichmentContent,
+} from './proposalEnrichment';
+import { getRenderedEvidenceStatusMessage, isPbiLensOpenActionAvailable } from '../../src/analyzer/renderedEvidence/presentation';
 
 interface ScoreVsCodeApi {
-  postMessage(message: ScorePanelWebviewToHostMessage): void;
+  postMessage(message: unknown): void;
 }
 
 declare function acquireVsCodeApi(): ScoreVsCodeApi;
@@ -68,6 +86,30 @@ interface IssueFilterState {
   impactArea: NormalizedFinding['impactArea'] | 'all';
   scope: NormalizedFinding['scope'] | 'all';
   detectionType: NormalizedFinding['detectionType'] | 'all';
+  readinessRole: 'all' | 'hidden' | 'candidateSignal' | 'blocker' | 'unsupportedPattern' | 'redesignRequired' | 'visualizationOpportunity';
+}
+
+type ReadinessAssessment = NonNullable<ScoreResult['readinessAssessment']>;
+type ReadinessPageAssessment = ReadinessAssessment['pageAssessments'][number];
+type ReadinessOverviewCallout =
+  | {
+    mode: 'report';
+    heading: string;
+    badgeLabel: string;
+    metrics: Array<{ label: string; value: string | number }>;
+  }
+  | {
+    mode: 'page';
+    heading: string;
+    badgeLabel: string;
+    metrics: Array<{ label: string; value: string | number }>;
+  };
+
+interface OverviewCardContent {
+  topStrengths: OverviewSummary['topStrengths'];
+  topWeaknesses: OverviewSummary['topWeaknesses'];
+  topIssues: OverviewSummary['topIssues'];
+  topActions: OverviewSummary['topActions'];
 }
 
 function isZeroScore(result: ScoreResult): boolean {
@@ -248,6 +290,299 @@ function getNormalizedFindingSeverityClassName(severity: NormalizedFindingSeveri
   }
 }
 
+function getReadinessBandLabel(band: NonNullable<ScoreResult['readinessAssessment']>['readinessBand']): string {
+  switch (band) {
+    case 'strongCandidate':
+      return 'Strong Candidate';
+    case 'possibleCandidate':
+      return 'Possible Candidate';
+    case 'redesignRequired':
+      return 'Redesign Required';
+    default:
+      return 'Keep As Report';
+  }
+}
+
+function getReadinessEffortLabel(effort: ReadinessAssessment['estimatedRedesignEffort'] | undefined): string {
+  if (!effort) {
+    return 'Unknown';
+  }
+
+  return effort[0].toUpperCase() + effort.slice(1);
+}
+
+function buildReadinessPageSummary(pageAssessment: ReadinessPageAssessment): string {
+  switch (pageAssessment.candidateState) {
+    case 'strongCandidate':
+      return `This page is a strong migration candidate with limited redesign pressure.`;
+    case 'possibleCandidate':
+      return `This page can inform a future Fabric App, but some redesign work is still needed first.`;
+    case 'redesignRequired':
+      return `This page can contribute to a Fabric App, but it needs substantive redesign before migration.`;
+    default:
+      return `This page should remain a report experience unless the interaction model is substantially reworked.`;
+  }
+}
+
+function renderReadinessDetailList(label: string, items: string[], keyPrefix: string): React.ReactNode {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="issue-detail-block">
+      <p className="issue-detail-label">{label}</p>
+      <ul className="issue-evidence-list">
+        {items.map((item, index) => (
+          <li className="issue-evidence-item" key={`${keyPrefix}-${index}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function renderReadinessEvidenceList(evidence: ReadinessAssessment['evidence'], keyPrefix: string): React.ReactNode {
+  if (evidence.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="issue-detail-block">
+      <p className="issue-detail-label">Evidence references</p>
+      <ul className="issue-evidence-list">
+        {evidence.map((item, index) => (
+          <li className="issue-evidence-item" key={`${keyPrefix}-${index}`}>
+            <strong>{item.label}</strong>
+            {item.pageName ? ` · ${item.pageName}` : ''}
+            {item.detail ? ` — ${item.detail}` : ''}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function toOverviewInsight(finding: NormalizedFinding): OverviewSummary['topIssues'][number] {
+  return {
+    id: finding.id,
+    title: finding.title,
+    detail: finding.summary,
+    severity: finding.severity,
+    affectedPages: finding.affectedPages,
+    sourceFindingIds: [finding.id],
+  };
+}
+
+function toOverviewAction(finding: NormalizedFinding): OverviewSummary['topActions'][number] {
+  return {
+    id: `action-${finding.id}`,
+    title: finding.title,
+    detail: finding.recommendation,
+    severity: finding.severity,
+    affectedPages: finding.affectedPages,
+    sourceFindingIds: [finding.id],
+  };
+}
+
+function buildPageOverviewCardContent(
+  selectedPage: PageScore,
+  visibleFindings: NormalizedFinding[],
+  readinessAssessment: ScoreResult['readinessAssessment'],
+): OverviewCardContent {
+  const sortedFindings = [...visibleFindings].sort((left, right) => {
+    const severityDiff = getNormalizedFindingSeverityOrder(left.severity) - getNormalizedFindingSeverityOrder(right.severity);
+    if (severityDiff !== 0) {
+      return severityDiff;
+    }
+
+    return right.confidence - left.confidence;
+  });
+
+  const pageReadiness = readinessAssessment?.pageAssessments.find((item) => item.pageName === selectedPage.pageName);
+  const strengths: OverviewSummary['topStrengths'] = [];
+
+  if (selectedPage.benchmarkComparison?.strengths?.length) {
+    strengths.push(...selectedPage.benchmarkComparison.strengths.map((item, index) => ({
+      id: `strength-benchmark-${selectedPage.pageName}-${index}`,
+      title: item,
+      detail: selectedPage.benchmarkComparison?.insight ?? '',
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    })));
+  }
+
+  if (selectedPage.actionabilityBreakdown?.strengths?.length) {
+    strengths.push(...selectedPage.actionabilityBreakdown.strengths.map((item, index) => ({
+      id: `strength-actionability-${selectedPage.pageName}-${index}`,
+      title: item,
+      detail: selectedPage.actionabilityBreakdown?.summary ?? '',
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    })));
+  }
+
+  if (pageReadiness?.positiveSignals?.length) {
+    strengths.push(...pageReadiness.positiveSignals.map((item, index) => ({
+      id: `strength-readiness-${selectedPage.pageName}-${index}`,
+      title: 'Migration-positive signal',
+      detail: item,
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    })));
+  }
+
+  if (strengths.length === 0 && selectedPage.compositeScore >= 75) {
+    strengths.push({
+      id: `strength-score-${selectedPage.pageName}`,
+      title: `Page design quality is above the working threshold`,
+      detail: `The current page composite score is ${Math.round(selectedPage.compositeScore)} / 100.`,
+      affectedPages: [selectedPage.pageName],
+      sourceFindingIds: [],
+    });
+  }
+
+  return {
+    topStrengths: strengths.slice(0, 3),
+    topWeaknesses: sortedFindings.slice(0, 3).map(toOverviewInsight),
+    topIssues: sortedFindings.slice(0, 3).map(toOverviewInsight),
+    topActions: sortedFindings.slice(0, 3).map(toOverviewAction),
+  };
+}
+
+function buildReportReadinessOverviewCallout(readinessSummary: NonNullable<OverviewSummary['readinessSummary']>): ReadinessOverviewCallout {
+  return {
+    mode: 'report',
+    heading: 'Fabric App migration readiness',
+    badgeLabel: getReadinessBandLabel(readinessSummary.readinessBand),
+    metrics: [
+      { label: 'Readiness score', value: readinessSummary.readinessScore },
+      { label: 'Candidate pages', value: readinessSummary.candidatePageCount },
+      { label: 'Migration blockers', value: readinessSummary.migrationBlockerCount },
+      { label: 'Redesign effort', value: getReadinessEffortLabel(readinessSummary.estimatedRedesignEffort) },
+    ],
+  };
+}
+
+function buildPageReadinessOverviewCallout(pageAssessment: ReadinessPageAssessment): ReadinessOverviewCallout {
+  return {
+    mode: 'page',
+    heading: `Fabric App readiness for ${pageAssessment.pageName}`,
+    badgeLabel: getReadinessBandLabel(pageAssessment.candidateState),
+    metrics: [
+      { label: 'Readiness score', value: pageAssessment.readinessScore },
+      { label: 'Blockers', value: pageAssessment.blockers.length },
+      { label: 'Unsupported patterns', value: pageAssessment.unsupportedPatterns.length },
+      { label: 'Redesign areas', value: pageAssessment.redesignRequiredAreas.length },
+    ],
+  };
+}
+
+function renderReadinessOverviewCallout(callout: ReadinessOverviewCallout): React.ReactNode {
+  return (
+    <section className="overview-readiness-callout" aria-label="Fabric App migration readiness">
+      <div className="overview-readiness-head">
+        <div>
+          <p className="section-kicker">Fabric App readiness</p>
+          <h3>{callout.heading}</h3>
+        </div>
+        <span className="overview-badge overview-badge-emphasis">
+          {callout.badgeLabel}
+        </span>
+      </div>
+      <dl className="overview-readiness-grid">
+        {callout.metrics.map((metric) => (
+          <div key={metric.label}>
+            <dt>{metric.label}</dt>
+            <dd>{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function getFixOpportunityCategoryLabel(category: FixOpportunityCategory): string {
+  switch (category) {
+    case 'title':
+      return 'Title';
+    case 'semanticColor':
+      return 'Semantic color';
+    case 'alignment':
+      return 'Alignment';
+    case 'spacing':
+      return 'Spacing';
+    case 'grid':
+      return 'Grid';
+    case 'navigation':
+      return 'Navigation';
+    default:
+      return 'Cross-page consistency';
+  }
+}
+
+function getFixOpportunityStateLabel(state: FixOpportunityState): string {
+  switch (state) {
+    case 'Previewed':
+      return 'Previewed';
+    case 'Approved':
+      return 'Approved';
+    case 'Applied':
+      return 'Applied';
+    case 'RolledBack':
+      return 'Rolled back';
+    case 'Stale':
+      return 'Stale';
+    case 'FailedValidation':
+      return 'Failed validation';
+    default:
+      return 'Applied with unexpected outcome';
+  }
+}
+
+function getFixOutcomeStatusLabel(status: FixOutcomeStatus): string {
+  switch (status) {
+    case 'Resolved':
+      return 'Resolved';
+    case 'Improved':
+      return 'Improved';
+    case 'Unchanged':
+      return 'Unchanged';
+    default:
+      return 'Unexpected';
+  }
+}
+
+function remediationMatchesOpportunity(
+  item: ContextAwareRemediationQueue['items'][number],
+  opportunity: FixOpportunity,
+): boolean {
+  if (opportunity.remediationItemId === item.id) {
+    return true;
+  }
+
+  return opportunity.sourceFindingIds.some((findingId) => item.sourceFindingIds.includes(findingId));
+}
+
+function remediationMatchesProposalEnrichment(
+  item: ContextAwareRemediationQueue['items'][number],
+  enrichment: NonNullable<ScoreResult['proposalEnrichments']>[number],
+): boolean {
+  if (enrichment.remediationItemId === item.id) {
+    return true;
+  }
+
+  if (enrichment.provenance.sourceFindingIds.some((findingId) => item.sourceFindingIds.includes(findingId))) {
+    return true;
+  }
+
+  const firstAffectedPage = item.affectedPages[0];
+  if (!firstAffectedPage) {
+    return false;
+  }
+
+  return (enrichment.titleSuggestions ?? []).some((suggestion) => suggestion.title.includes(firstAffectedPage));
+}
+
 function getDetectionTypeLabel(detectionType: NormalizedFinding['detectionType']): string {
   switch (detectionType) {
     case 'aiAssisted':
@@ -285,6 +620,44 @@ function getDimensionLabel(dimension: IssueFilterState['dimension']): string {
   return dimension[0].toUpperCase() + dimension.slice(1);
 }
 
+function getReadinessRoleForFinding(finding: NormalizedFinding): Exclude<IssueFilterState['readinessRole'], 'all' | 'hidden'> | undefined {
+  if (finding.sourceKind !== 'fabricAppReadiness') {
+    return undefined;
+  }
+
+  switch (finding.title) {
+    case 'Good Fabric App Candidate':
+      return 'candidateSignal';
+    case 'Migration Blocker':
+      return 'blocker';
+    case 'Unsupported Pattern':
+      return 'unsupportedPattern';
+    case 'Redesign Required':
+      return 'redesignRequired';
+    case 'Visualization Opportunity':
+      return 'visualizationOpportunity';
+    default:
+      return undefined;
+  }
+}
+
+function getReadinessRoleLabel(role: Exclude<IssueFilterState['readinessRole'], 'all'>): string {
+  switch (role) {
+    case 'hidden':
+      return 'Hidden';
+    case 'candidateSignal':
+      return 'Candidate signal';
+    case 'blocker':
+      return 'Blocker';
+    case 'unsupportedPattern':
+      return 'Unsupported pattern';
+    case 'redesignRequired':
+      return 'Redesign required';
+    default:
+      return 'Visualization opportunity';
+  }
+}
+
 function getMatrixStatusClassName(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
   switch (status) {
     case 'weak':
@@ -296,6 +669,10 @@ function getMatrixStatusClassName(status: NonNullable<ScoreResult['crossPageMatr
     default:
       return 'matrix-status-unknown';
   }
+}
+
+function getMatrixStatusLabel(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
+  return status[0].toUpperCase() + status.slice(1);
 }
 
 function mapDimensionToImpactAreas(dimension: Exclude<IssueFilterState['dimension'], 'all'>): NormalizedFinding['impactArea'][] {
@@ -320,6 +697,7 @@ function buildPersonaDefaultFilters(profile: ReviewPresentationPersonaProfile | 
       impactArea: 'all',
       scope: 'all',
       detectionType: 'all',
+      readinessRole: 'all',
     };
   }
 
@@ -343,7 +721,16 @@ function buildPersonaDefaultFilters(profile: ReviewPresentationPersonaProfile | 
     impactArea,
     scope: profile.id === 'governance' ? 'crossPage' : 'all',
     detectionType: profile.defaultDetectionTypes?.[0] ?? 'all',
+    readinessRole: 'all',
   };
+}
+
+function getIssueFilterPageForTab(pageScores: PageScore[], activeTab: number): string | 'all' {
+  if (activeTab <= 0) {
+    return 'all';
+  }
+
+  return pageScores[activeTab - 1]?.pageName ?? 'all';
 }
 
 function summarizeActiveIssueFilters(filters: IssueFilterState): string[] {
@@ -365,6 +752,9 @@ function summarizeActiveIssueFilters(filters: IssueFilterState): string[] {
   }
   if (filters.detectionType !== 'all') {
     items.push(`Detection: ${getDetectionTypeLabel(filters.detectionType)}`);
+  }
+  if (filters.readinessRole !== 'all') {
+    items.push(`Fabric App Readiness: ${getReadinessRoleLabel(filters.readinessRole)}`);
   }
   return items;
 }
@@ -420,6 +810,18 @@ function applyIssueFilters(
     }
 
     if (filters.detectionType !== 'all' && finding.detectionType !== filters.detectionType) {
+      return false;
+    }
+
+    if (filters.readinessRole === 'hidden' && finding.sourceKind === 'fabricAppReadiness') {
+      return false;
+    }
+
+    if (
+      filters.readinessRole !== 'all'
+      && filters.readinessRole !== 'hidden'
+      && getReadinessRoleForFinding(finding) !== filters.readinessRole
+    ) {
       return false;
     }
 
@@ -489,6 +891,8 @@ function renderIssuesWorkspace(
     onGroupingModeChange: (value: IssueGroupingMode) => void;
     onClearFilters: () => void;
     onResetToPersonaDefaults: () => void;
+    expanded: boolean;
+    onToggleExpanded: () => void;
   },
 ): React.ReactNode {
   const {
@@ -501,16 +905,12 @@ function renderIssuesWorkspace(
     onGroupingModeChange,
     onClearFilters,
     onResetToPersonaDefaults,
+    expanded,
+    onToggleExpanded,
   } = props;
   if (findings.length === 0) {
     return (
       <section aria-label="Issues workspace" className="panel-card issues-card">
-        <div className="issues-section-head">
-          <div>
-            <p className="section-kicker">Primary review surface</p>
-            <h2>Issues</h2>
-          </div>
-        </div>
         <p className="empty-text">No normalized issues were generated for this view.</p>
       </section>
     );
@@ -522,14 +922,19 @@ function renderIssuesWorkspace(
   return (
     <section aria-label="Issues workspace" className="panel-card issues-card">
       <div className="issues-section-head">
-        <div>
+        <div className="issues-section-title-group">
           <p className="section-kicker">Primary review surface</p>
           <h2>Issues</h2>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Issues' : 'Show Issues'}
+          </button>
         </div>
         <p className="issues-section-copy">
           Review the highest-priority problems first, then expand evidence only when needed.
         </p>
       </div>
+      {expanded ? (
+      <>
       <div className="issues-toolbar">
         <label>
           Severity
@@ -595,6 +1000,18 @@ function renderIssuesWorkspace(
             <option value="deterministic">Deterministic</option>
             <option value="aiAssisted">AI-assisted</option>
             <option value="mixed">Mixed</option>
+          </select>
+        </label>
+        <label>
+          Fabric App Readiness
+          <select aria-label="Issue fabric app readiness filter" onChange={(event) => onFilterChange('readinessRole', event.target.value)} value={filters.readinessRole}>
+            <option value="all">All</option>
+            <option value="hidden">Hide readiness issues</option>
+            <option value="candidateSignal">Candidate signal</option>
+            <option value="blocker">Blocker</option>
+            <option value="unsupportedPattern">Unsupported pattern</option>
+            <option value="redesignRequired">Redesign required</option>
+            <option value="visualizationOpportunity">Visualization opportunity</option>
           </select>
         </label>
         <label>
@@ -693,6 +1110,8 @@ function renderIssuesWorkspace(
           </details>
         ))}
       </div>
+      </>
+      ) : null}
     </section>
   );
 }
@@ -736,20 +1155,130 @@ function renderEvidence(
   );
 }
 
+function renderFabricAppReviewEvidence(
+  review: NonNullable<ScoreResult['fabricAppReview']>,
+  analysisContext: ScoreResult['analysisContext'],
+): React.ReactNode {
+  const categories: Array<{
+    title: string;
+    kinds: NonNullable<ScoreResult['fabricAppReview']>['evidence'][number]['kind'][];
+    emptyMessage: string;
+  }> = [
+    {
+      title: 'TypeScript Evidence',
+      kinds: ['typescriptLayout'],
+      emptyMessage: 'No TypeScript evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Navigation Evidence',
+      kinds: ['navigation'],
+      emptyMessage: 'No navigation evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Design Token Evidence',
+      kinds: ['designToken'],
+      emptyMessage: 'No design-token evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Screenshot Evidence',
+      kinds: ['screenshot'],
+      emptyMessage: 'No screenshot evidence is available for this Fabric App review.',
+    },
+    {
+      title: 'Semantic Model Evidence',
+      kinds: ['semanticModel'],
+      emptyMessage: 'No semantic model evidence is available for this Fabric App review.',
+    },
+  ];
+
+  return (
+    <details className="evidence-subsection">
+      <summary className="collapsible-summary">
+        <span>Fabric App Review Evidence</span>
+        <span className="collapsible-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div className="collapsible-body">
+        <section className="panel-card">
+          <div className="issues-section-head">
+            <div>
+              <p className="section-kicker">Fabric App surface</p>
+              <h2>Fabric App Review Evidence</h2>
+            </div>
+            <p className="issues-section-copy">{review.summary}</p>
+          </div>
+          <div className="overview-badges">
+            <span className="overview-badge">Quality score: {review.qualityScore}</span>
+            {analysisContext ? <span className="overview-badge">Analyzer: {analysisContext.analyzerType}</span> : null}
+            {analysisContext ? <span className="overview-badge">Profile: {analysisContext.analyzerProfile}</span> : null}
+          </div>
+          {categories.map((category) => {
+            const items = review.evidence.filter((item) => category.kinds.includes(item.kind));
+
+            return (
+              <section key={category.title}>
+                <h3>{category.title}</h3>
+                {items.length > 0 ? (
+                  <ul className="issue-evidence-list">
+                    {items.map((item, index) => (
+                      <li className="issue-evidence-item" key={`${category.title}-${item.filePath}-${index}`}>
+                        <strong>{item.label}</strong> — {item.summary}
+                        <div>{item.filePath}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{category.emptyMessage}</p>
+                )}
+              </section>
+            );
+          })}
+        </section>
+      </div>
+    </details>
+  );
+}
+
 function renderOverviewWorkspace(
   overviewSummary: OverviewSummary | undefined,
+  analysisContext: ScoreResult['analysisContext'],
+  fabricAppReview: ScoreResult['fabricAppReview'],
+  readinessAssessment: ScoreResult['readinessAssessment'],
+  selectedPage: PageScore | undefined,
+  visibleFindings: NormalizedFinding[],
   frameworkValues: Array<{ key: string; label: string; score: number; weightLabel: string }>,
   scoreValue: number,
   visualMix: { data?: number; navigation?: number; hidden?: number },
   crossPageMatrix: ScoreResult['crossPageMatrix'],
+  selectedPageName: string | undefined,
   workspacePersona: ReviewPresentationPersona,
   personaProfiles: ReviewPresentationPersonaProfile[],
   onWorkspacePersonaChange: (persona: ReviewPresentationPersona) => void,
   onMatrixCellClick: (pageName: string, dimension: Exclude<IssueFilterState['dimension'], 'all'>) => void,
+  onReturnToReportContext: () => void,
 ): React.ReactNode {
   if (!overviewSummary) {
     return null;
   }
+
+  const visibleRows = selectedPageName
+    ? crossPageMatrix?.rows.filter((row) => row.pageName === selectedPageName)
+    : crossPageMatrix?.rows;
+  const selectedPageReadiness = selectedPageName
+    ? readinessAssessment?.pageAssessments.find((item) => item.pageName === selectedPageName)
+    : undefined;
+  const overviewCardContent = selectedPage
+    ? buildPageOverviewCardContent(selectedPage, visibleFindings, readinessAssessment)
+    : {
+        topStrengths: overviewSummary.topStrengths,
+        topWeaknesses: overviewSummary.topWeaknesses,
+        topIssues: overviewSummary.topIssues,
+        topActions: overviewSummary.topActions,
+      };
+  const readinessCallout = selectedPageReadiness
+    ? buildPageReadinessOverviewCallout(selectedPageReadiness)
+    : overviewSummary.readinessSummary
+      ? buildReportReadinessOverviewCallout(overviewSummary.readinessSummary)
+      : undefined;
 
   return (
     <section aria-label="Overview workspace" className="panel-card overview-card">
@@ -785,7 +1314,17 @@ function renderOverviewWorkspace(
         <span className="overview-badge">Risk: {overviewSummary.riskBand}</span>
         <span className="overview-badge">High issues: {overviewSummary.severityDistribution.high}</span>
         <span className="overview-badge">Medium issues: {overviewSummary.severityDistribution.medium}</span>
+        {analysisContext ? <span className="overview-badge">Analyzer: {analysisContext.analyzerType}</span> : null}
+        {analysisContext ? <span className="overview-badge">Profile: {analysisContext.analyzerProfile}</span> : null}
       </div>
+      {fabricAppReview ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Fabric App quality summary</p>
+          <p>{fabricAppReview.summary}</p>
+          <p className="issues-section-copy">Advisory only. No deterministic repo mutations or automatic fixes are available for this surface.</p>
+        </div>
+      ) : null}
+      {readinessCallout ? renderReadinessOverviewCallout(readinessCallout) : null}
       <p className="overview-copy">
         Benchmark summary: {overviewSummary.benchmarkSummary}
       </p>
@@ -821,7 +1360,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top strengths</h3>
           <ul>
-            {overviewSummary.topStrengths.map((item) => (
+            {overviewCardContent.topStrengths.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ul>
@@ -829,7 +1368,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top weaknesses</h3>
           <ul>
-            {overviewSummary.topWeaknesses.map((item) => (
+            {overviewCardContent.topWeaknesses.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ul>
@@ -837,7 +1376,7 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top issues</h3>
           <ul>
-            {overviewSummary.topIssues.map((item) => (
+            {overviewCardContent.topIssues.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ul>
@@ -845,15 +1384,22 @@ function renderOverviewWorkspace(
         <div className="overview-list-card">
           <h3>Top actions</h3>
           <ol>
-            {overviewSummary.topActions.map((item) => (
+            {overviewCardContent.topActions.map((item) => (
               <li key={item.id}><strong>{item.title}</strong> {item.detail}</li>
             ))}
           </ol>
         </div>
       </div>
-      {crossPageMatrix ? (
+      {crossPageMatrix && visibleRows && visibleRows.length > 0 ? (
         <div className="overview-matrix">
-          <h3>Cross-page matrix</h3>
+          <div className="overview-matrix-head">
+            <h3>Cross-page matrix</h3>
+            {selectedPageName ? (
+              <button className="link-button" onClick={onReturnToReportContext} type="button">
+                Back to full matrix
+              </button>
+            ) : null}
+          </div>
           <div className="matrix-scroll">
             <table>
               <thead>
@@ -865,7 +1411,7 @@ function renderOverviewWorkspace(
                 </tr>
               </thead>
               <tbody>
-                {crossPageMatrix.rows.map((row) => (
+                {visibleRows.map((row) => (
                   <tr key={row.pageName}>
                     <th>{row.pageName}</th>
                     {row.cells.map((cell) => (
@@ -877,8 +1423,8 @@ function renderOverviewWorkspace(
                           title={cell.summary}
                           type="button"
                         >
-                          <strong>{cell.findingCount}</strong>
-                          <span>{cell.status}</span>
+                          <strong>{getMatrixStatusLabel(cell.status)}</strong>
+                          <span>{cell.findingCount} finding{cell.findingCount === 1 ? '' : 's'}</span>
                           {cell.highSeverityCount > 0 ? <small>{cell.highSeverityCount} high</small> : null}
                         </button>
                       </td>
@@ -894,54 +1440,1044 @@ function renderOverviewWorkspace(
   );
 }
 
-function renderFixPlanSection(
-  fixPlan: ScoreResult['fixPlan'],
+function renderReadinessAssessment(
+  readinessAssessment: ScoreResult['readinessAssessment'],
+  selectedPageName?: string,
 ): React.ReactNode {
-  if (!fixPlan || fixPlan.length === 0) {
+  if (!readinessAssessment) {
+    return null;
+  }
+
+  if (selectedPageName) {
+    const pageAssessment = readinessAssessment.pageAssessments.find((item) => item.pageName === selectedPageName);
+    if (!pageAssessment) {
+      return (
+        <div className="issue-card-list readiness-card-list">
+          <div className="issue-card readiness-card">
+            <div className="readiness-card-head">
+              <div>
+                <h3>Fabric App readiness for {selectedPageName}</h3>
+                <p className="issue-card-copy">No page-specific readiness assessment was generated for this page. Use the Overall tab for report-wide readiness context.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="issue-card-list readiness-card-list">
+        <div className="issue-card readiness-card">
+          <div className="readiness-card-head">
+            <div>
+              <h3>Fabric App readiness for {pageAssessment.pageName}</h3>
+              <p className="issue-card-copy">{buildReadinessPageSummary(pageAssessment)}</p>
+            </div>
+            <span className="issue-severity-badge issue-severity-info readiness-badge">
+              {getReadinessBandLabel(pageAssessment.candidateState)}
+            </span>
+          </div>
+          <dl className="issue-meta-grid readiness-card-meta">
+            <div>
+              <dt>Readiness score</dt>
+              <dd>{pageAssessment.readinessScore}</dd>
+            </div>
+            <div>
+              <dt>Blockers</dt>
+              <dd>{pageAssessment.blockers.length}</dd>
+            </div>
+            <div>
+              <dt>Unsupported patterns</dt>
+              <dd>{pageAssessment.unsupportedPatterns.length}</dd>
+            </div>
+            <div>
+              <dt>Redesign areas</dt>
+              <dd>{pageAssessment.redesignRequiredAreas.length}</dd>
+            </div>
+          </dl>
+          <div className="issue-card-body readiness-card-body">
+            {renderReadinessDetailList('Positive signals', pageAssessment.positiveSignals, 'page-readiness-positive')}
+            {renderReadinessDetailList('Blockers', pageAssessment.blockers, 'page-readiness-blockers')}
+            {renderReadinessDetailList('Unsupported patterns', pageAssessment.unsupportedPatterns, 'page-readiness-unsupported')}
+            {renderReadinessDetailList('Migration notes', pageAssessment.migrationNotes, 'page-readiness-notes')}
+            {renderReadinessEvidenceList(pageAssessment.evidence, 'page-readiness-evidence')}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="issue-card-list readiness-card-list">
+      <div className="issue-card readiness-card">
+        <div className="readiness-card-head">
+          <div>
+            <h3>Fabric App readiness summary</h3>
+            <p className="issue-card-copy">{readinessAssessment.migrationSummary}</p>
+          </div>
+          <span className="issue-severity-badge issue-severity-info readiness-badge">
+            {getReadinessBandLabel(readinessAssessment.readinessBand)}
+          </span>
+        </div>
+        <dl className="issue-meta-grid readiness-card-meta">
+          <div>
+            <dt>Readiness score</dt>
+            <dd>{readinessAssessment.overallReadinessScore}</dd>
+          </div>
+          <div>
+            <dt>Candidate pages</dt>
+            <dd>{readinessAssessment.candidatePages.length}</dd>
+          </div>
+          <div>
+            <dt>Blockers</dt>
+            <dd>{readinessAssessment.blockers.length}</dd>
+          </div>
+          <div>
+            <dt>Redesign effort</dt>
+            <dd>{getReadinessEffortLabel(readinessAssessment.estimatedRedesignEffort)}</dd>
+          </div>
+        </dl>
+        <div className="issue-card-body readiness-card-body">
+          {renderReadinessDetailList('Recommended next actions', readinessAssessment.recommendedNextActions, 'readiness-action')}
+          {renderReadinessDetailList('Blockers', readinessAssessment.blockers, 'readiness-blockers')}
+          {renderReadinessDetailList('Unsupported patterns', readinessAssessment.unsupportedPatterns, 'readiness-unsupported')}
+          {renderReadinessDetailList('Redesign required areas', readinessAssessment.redesignRequiredAreas, 'readiness-redesign')}
+          {renderReadinessEvidenceList(readinessAssessment.evidence, 'readiness-evidence')}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getDetectedStoryText(
+  storySummary: ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary'],
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
+): string {
+  if (storySummary?.inferredStory?.trim()) {
+    return storySummary.inferredStory.trim();
+  }
+
+  return `This page appears to support ${analysis.inferredPurpose.toLowerCase()} decision-making.`;
+}
+
+function getSupportedDecisionText(
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>,
+): string {
+  switch (analysis.inferredPurpose.toLowerCase()) {
+    case 'executive':
+      return 'This page should help leaders judge performance against expectations and decide whether intervention is needed.';
+    case 'operational':
+      return 'This page should help operators judge current performance and decide where intervention is needed now.';
+    case 'analytical':
+      return 'This page should help reviewers investigate drivers, compare outcomes, and decide which questions need deeper follow-up.';
+    default:
+      return 'This page should help readers understand the main takeaway and decide what to review next.';
+  }
+}
+
+function normalizeStorySignal(text: string): string {
+  return text.trim().replace(/[.]+$/u, '');
+}
+
+function dedupeStorySignals(items: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+
+  for (const item of items) {
+    const normalized = item ? normalizeStorySignal(item) : '';
+    if (!normalized) {
+      continue;
+    }
+
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(normalized);
+  }
+
+  return deduped;
+}
+
+function getStoryTypeLabel(props: {
+  storySummary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>;
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>;
+}): string {
+  const { storySummary, analysis } = props;
+  const normalizedProfile = normalizeLegacyIntentProfile(storySummary.intentProfile);
+  const narrative = `${storySummary.inferredStory} ${analysis.whyThisMatters}`.toLowerCase();
+
+  if (normalizedProfile === 'executive') {
+    return 'Executive Overview';
+  }
+
+  if (normalizedProfile === 'operational') {
+    return 'Operational Performance Monitoring';
+  }
+
+  if (narrative.includes('trend') || narrative.includes('over time') || narrative.includes('prior-period')) {
+    return 'Trend Monitoring';
+  }
+
+  if (narrative.includes('compare') || narrative.includes('comparison')) {
+    return 'Comparative Analysis';
+  }
+
+  if (normalizedProfile === 'appendix') {
+    return 'Diagnostic Investigation';
+  }
+
+  return 'Diagnostic Investigation';
+}
+
+function buildStoryAssessmentNarrative(props: {
+  detectedStory: string;
+  supportedDecision: string;
+  whyThisMatters: string;
+}): string {
+  const { detectedStory, supportedDecision, whyThisMatters } = props;
+  return `${detectedStory} ${supportedDecision} ${whyThisMatters}`.trim();
+}
+
+function getStrongSignals(props: {
+  actionabilityBreakdown: ActionabilityBreakdown | undefined;
+  benchmarkComparison: BenchmarkComparisonSummary | undefined;
+  pageIntentProfile: PageIntentProfile | undefined;
+}): string[] {
+  const { actionabilityBreakdown, benchmarkComparison, pageIntentProfile } = props;
+  const signals = dedupeStorySignals([
+    ...(actionabilityBreakdown?.strengths ?? []),
+    ...(benchmarkComparison?.strengths ?? []),
+    ...(pageIntentProfile?.evidence ?? []).map((evidence) => evidence.length > 80 ? evidence.slice(0, 80).trim() : evidence.trim()),
+  ]);
+
+  return signals.slice(0, 4);
+}
+
+function getMissingSignals(props: {
+  analysis: NonNullable<ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis']>;
+  guidedStoryImprovements: ScoreResult['guidedStoryImprovements'] | PageScore['guidedStoryImprovements'];
+  actionabilityBreakdown: ActionabilityBreakdown | undefined;
+  benchmarkComparison: BenchmarkComparisonSummary | undefined;
+}): string[] {
+  const { analysis, guidedStoryImprovements, actionabilityBreakdown, benchmarkComparison } = props;
+  const improvementAbsences = [
+    ...(guidedStoryImprovements?.highPriorityImprovements ?? []),
+    ...(guidedStoryImprovements?.mediumPriorityImprovements ?? []),
+  ].map((improvement) => {
+    const title = improvement.title.toLowerCase();
+    if (title.includes('question') || title.includes('title')) {
+      return 'No clear headline question';
+    }
+
+    if (title.includes('benchmark') || title.includes('target')) {
+      return 'No visible benchmark or target';
+    }
+
+    if (title.includes('prior-period') || title.includes('trend')) {
+      return 'No prior-period context';
+    }
+
+    if (title.includes('primary metric')) {
+      return 'No clear primary metric';
+    }
+
+    if (title.includes('primary dimension')) {
+      return 'No clear primary comparison anchor';
+    }
+
+    if (title.includes('filter')) {
+      return 'No focused filter path reinforcing one main takeaway';
+    }
+
+    return undefined;
+  });
+
+  const gapAbsences = [
+    ...analysis.topGaps,
+    ...(actionabilityBreakdown?.gaps ?? []),
+    ...(benchmarkComparison?.gaps ?? []),
+  ].map((gap) => {
+    const normalized = gap.toLowerCase();
+    if (normalized.includes('exception')) {
+      return 'No clear exception callout';
+    }
+
+    if (normalized.includes('target') || normalized.includes('benchmark')) {
+      return 'No visible benchmark or target';
+    }
+
+    if (normalized.includes('prior-period') || normalized.includes('movement over time')) {
+      return 'No prior-period context';
+    }
+
+    return undefined;
+  });
+
+  const gapLabels = dedupeStorySignals([
+    ...gapAbsences,
+    ...improvementAbsences,
+  ]);
+
+  return gapLabels.slice(0, 5);
+}
+
+function renderNavigationTargetAction(
+  target: ScorePanelNavigationTarget | undefined,
+  onNavigateToTarget: (target: ScorePanelNavigationTarget) => void,
+): React.ReactNode {
+  if (!target) {
+    return null;
+  }
+
+  const buttonLabel = target.supportState === 'unavailable' ? 'Target unavailable' : 'Open target';
+
+  return (
+    <div className="story-navigation-action">
+      <button
+        className="secondary-button story-navigation-button"
+        disabled={target.supportState === 'unavailable'}
+        onClick={() => onNavigateToTarget(target)}
+        type="button"
+      >
+        {buttonLabel}
+      </button>
+      <div className="story-navigation-copy">
+        <p className="story-navigation-label">{target.label}</p>
+        <p className="story-navigation-reason">{target.reason}</p>
+      </div>
+    </div>
+  );
+}
+
+function renderStoryAssessmentDiffBlock(
+  diff: StoryAssessmentDiffResult | undefined,
+  onNavigateToTarget: (target: ScorePanelNavigationTarget) => void,
+): React.ReactNode {
+  if (!diff) {
     return null;
   }
 
   return (
-    <section aria-label="Fix plan" className="panel-card fix-plan-card">
+    <div className="page-purpose-block story-diff-block">
+      <h3>What Changed</h3>
+      <p className="story-diff-summary">{diff.summary}</p>
+      <div className="story-diff-list">
+        {diff.resolvedRecommendations.map((item) => (
+          <p className="story-diff-row" key={`resolved-${item.id}`}>Resolved: {item.title}</p>
+        ))}
+        {diff.newRecommendations.map((item) => (
+          <div className="story-diff-action-row" key={`new-${item.id}`}>
+            <p className="story-diff-row">New: {item.title}</p>
+            {renderNavigationTargetAction(item.navigationTarget, onNavigateToTarget)}
+          </div>
+        ))}
+        {diff.unchangedRecommendations.map((item) => (
+          <div className="story-diff-action-row" key={`unchanged-${item.id}`}>
+            <p className="story-diff-row">Still open: {item.title}</p>
+            {renderNavigationTargetAction(item.navigationTarget, onNavigateToTarget)}
+          </div>
+        ))}
+        {diff.addedStrongSignals.map((item) => (
+          <p className="story-diff-row" key={`added-strong-${item}`}>Added strong signal: {item}</p>
+        ))}
+        {diff.removedStrongSignals.map((item) => (
+          <p className="story-diff-row" key={`removed-strong-${item}`}>Removed strong signal: {item}</p>
+        ))}
+        {diff.addedMissingSignals.map((item) => (
+          <p className="story-diff-row" key={`added-missing-${item}`}>Added missing signal: {item}</p>
+        ))}
+        {diff.removedMissingSignals.map((item) => (
+          <p className="story-diff-row" key={`removed-missing-${item}`}>Removed missing signal: {item}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderPagePurposeAnalysisSection(props: {
+  analysis: ScoreResult['pagePurposeAnalysis'] | PageScore['pagePurposeAnalysis'];
+  storySummary: NonNullable<ScoreResult['inferredStorySummary'] | PageScore['inferredStorySummary']>;
+  guidedStoryImprovements: ScoreResult['guidedStoryImprovements'] | PageScore['guidedStoryImprovements'];
+  pageIntentProfile: PageIntentProfile | undefined;
+  selectedProfile: PageIntentProfileType;
+  onProfileChange: (next: PageIntentProfileType) => void;
+  actionabilityBreakdown: ActionabilityBreakdown | undefined;
+  benchmarkComparison: BenchmarkComparisonSummary | undefined;
+  confirmation: IntentFeedbackConfirmation | undefined;
+  note: string;
+  onConfirm: (next: IntentFeedbackConfirmation) => void;
+  onNoteChange: (next: string) => void;
+  onSaveNote: () => void;
+  onNavigateToTarget: (target: ScorePanelNavigationTarget) => void;
+  storyAssessmentDiff?: StoryAssessmentDiffResult;
+  noteSaved: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  sectionExpanded: boolean;
+  onToggleSectionExpanded: () => void;
+}): React.ReactNode {
+  const {
+    analysis,
+    storySummary,
+    guidedStoryImprovements,
+    pageIntentProfile,
+    selectedProfile,
+    onProfileChange,
+    actionabilityBreakdown,
+    benchmarkComparison,
+    confirmation,
+    note,
+    onConfirm,
+    onNoteChange,
+    onSaveNote,
+    onNavigateToTarget,
+    storyAssessmentDiff,
+    noteSaved,
+    expanded,
+    onToggleExpanded,
+    sectionExpanded,
+    onToggleSectionExpanded,
+  } = props;
+
+  if (!analysis) {
+    return null;
+  }
+
+  const detectedStory = getDetectedStoryText(storySummary, analysis);
+  const supportedDecision = getSupportedDecisionText(analysis);
+  const storyType = getStoryTypeLabel({ storySummary, analysis });
+  const storyMaturity = getStoryMaturityLabel({ analysis, guidedStoryImprovements });
+  const storyNarrative = buildStoryAssessmentNarrative({
+    detectedStory,
+    supportedDecision,
+    whyThisMatters: analysis.whyThisMatters,
+  });
+  const strongSignals = getStrongSignals({
+    actionabilityBreakdown,
+    benchmarkComparison,
+    pageIntentProfile,
+  });
+  const missingSignals = getMissingSignals({
+    analysis,
+    guidedStoryImprovements,
+    actionabilityBreakdown,
+    benchmarkComparison,
+  });
+  const topStoryImprovements = guidedStoryImprovements
+    ? [
+        ...guidedStoryImprovements.highPriorityImprovements,
+        ...guidedStoryImprovements.mediumPriorityImprovements,
+      ].slice(0, 3)
+    : [];
+
+  return (
+    <section className="panel-card page-purpose-card">
       <div className="issues-section-head">
-        <div>
-          <p className="section-kicker">Consultant workflow</p>
-          <h2>Fix Plan</h2>
+        <div className="issues-section-title-group">
+          <p className="section-kicker">Story assessment</p>
+          <h2>Story Assessment</h2>
+          <button className="secondary-button" onClick={onToggleSectionExpanded} type="button">
+            {sectionExpanded ? 'Hide Story Assessment' : 'Show Story Assessment'}
+          </button>
         </div>
         <p className="issues-section-copy">
-          Convert the highest-priority findings into a sequenced remediation queue.
+          Read the page like a consultant: what it appears to say, what supports that story, what weakens it, and what should change first.
         </p>
       </div>
-      <ol className="fix-plan-list">
-        {fixPlan.map((item) => (
-          <li className="fix-plan-item" key={item.id}>
-            <div className="fix-plan-head">
-              <h3>{item.title}</h3>
-              <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(item.severity)}`}>{item.severity}</span>
+      {sectionExpanded ? (
+      <>
+      <div className="page-purpose-summary">
+        <div className="page-purpose-block">
+          <h3>What We Believe This Page Is Trying To Say</h3>
+          <p className="page-purpose-lead">{storyNarrative}</p>
+        </div>
+        <div className="page-purpose-block">
+          <h3>Story Type</h3>
+          <p className="overview-copy">{storyType}</p>
+        </div>
+        <div className="page-purpose-block">
+          <h3>Story Maturity</h3>
+          <div className="story-strength-row">
+            <span className={`story-strength-badge story-strength-${storyMaturity.toLowerCase()}`}>{storyMaturity}</span>
+            <p className="overview-copy">
+              {storyMaturity === 'Mature'
+                ? 'The page story is already well framed and reads like a finished decision surface.'
+                : storyMaturity === 'Strong'
+                  ? 'The page already has a strong narrative frame and only needs minor reinforcement.'
+                  : storyMaturity === 'Developing'
+                    ? 'The page has useful content and a visible direction, but it still needs stronger decision context.'
+                    : 'The page is still forming its story and needs clearer anchors before readers can trust the takeaway.'}
+            </p>
+          </div>
+        </div>
+        <div className="page-purpose-block">
+          <h3>Strong Signals</h3>
+          {strongSignals.length > 0 ? (
+            <ul className="story-gap-list">
+              {strongSignals.map((signal) => (
+                <li key={signal}>{signal}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="overview-copy">No strong supporting story signals were clear enough to promote on this page.</p>
+          )}
+        </div>
+        {missingSignals.length > 0 ? (
+          <div className="page-purpose-block">
+            <h3>Missing Signals</h3>
+            <ul className="story-gap-list">
+              {missingSignals.map((gap) => (
+                <li key={gap}>{gap}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {topStoryImprovements.length > 0 ? (
+          <div className="page-purpose-block">
+            <h3>Top Story Improvements</h3>
+            <div className="guided-story-layout guided-story-layout-embedded">
+              <ul className="guided-story-list">
+                {topStoryImprovements.map((improvement) => (
+                  <li className="guided-story-item" key={improvement.id}>
+                    <p className="guided-story-item-problem">{improvement.summary}</p>
+                    <h4 className="guided-story-item-title">{improvement.title}</h4>
+                    <p className="guided-story-item-summary">{improvement.rationale}</p>
+                    <p className="guided-story-item-impact">
+                      <strong>Expected impact:</strong> {improvement.expectedImpact}
+                    </p>
+                    {renderNavigationTargetAction(improvement.navigationTarget, onNavigateToTarget)}
+                  </li>
+                ))}
+              </ul>
+              {guidedStoryImprovements?.storyImprovementRationale.trim() ? (
+                <div className="guided-story-group guided-story-rationale">
+                  <p className="guided-story-rationale-label">Story Improvement Rationale</p>
+                  <p>{guidedStoryImprovements.storyImprovementRationale}</p>
+                </div>
+              ) : null}
             </div>
-            <p>{item.detail}</p>
-            <p className="fix-plan-recommendation"><strong>Recommended action:</strong> {item.recommendedAction}</p>
-            <dl className="issue-meta-grid">
-              <div>
-                <dt>Effort</dt>
-                <dd>{item.effort}</dd>
+          </div>
+        ) : null}
+        {renderStoryAssessmentDiffBlock(storyAssessmentDiff, onNavigateToTarget)}
+        <button className="secondary-button" onClick={onToggleExpanded} type="button">
+          {expanded ? 'Hide Full Reasoning' : 'Show Full Reasoning'}
+        </button>
+      </div>
+      {expanded ? (
+        <div className="page-purpose-details">
+          {renderPageStorySummary(storySummary)}
+          {renderPageIntentProfileSummary(
+            pageIntentProfile,
+            selectedProfile,
+            onProfileChange,
+          )}
+          {renderActionabilityBreakdown(actionabilityBreakdown)}
+          {renderBenchmarkComparison(benchmarkComparison)}
+          <section className="panel-card story-review-card">
+            {renderStoryIntentReview(
+              storySummary,
+              confirmation,
+              note,
+              onConfirm,
+              onNoteChange,
+              onSaveNote,
+              noteSaved,
+            )}
+          </section>
+        </div>
+      ) : null}
+      </>
+      ) : null}
+    </section>
+  );
+}
+
+function renderFixPlanSection(
+  queue: ContextAwareRemediationQueue,
+  fixOpportunities: FixOpportunity[] | undefined,
+  proposalEnrichments: ScoreResult['proposalEnrichments'] | undefined,
+  fixSelection: ScorePanelState['fixSelection'],
+  fixApplySessions: NonNullable<ScorePanelState['fixApplySessions']>,
+  expandedOpportunityIds: string[],
+  onToggleOpportunity: (opportunityId: string) => void,
+  onToggleOpportunitySelection: (opportunityId: string) => void,
+  onPreviewSelected: () => void,
+  onApproveSelected: () => void,
+  onApplySelected: () => void,
+  onRollbackSession: (sessionId: string) => void,
+  onRegenerate: (opportunityIds?: string[]) => void,
+  expanded: boolean,
+  onToggleExpanded: () => void,
+): React.ReactNode {
+  const fixPlan = queue.items;
+  const currentContextOpportunities = (fixOpportunities ?? []).filter((opportunity) => (
+    opportunity.state !== 'Applied' &&
+    opportunity.state !== 'RolledBack' &&
+    fixPlan.some((item) => remediationMatchesOpportunity(item, opportunity))
+  ));
+  const hasDeterministicOpportunities = currentContextOpportunities.length > 0;
+  const selectedIds = new Set(fixSelection?.selectedOpportunityIds ?? []);
+  const selectionBlocked = (fixSelection?.compatibility.blockingReasons.length ?? 0) > 0;
+  const selectedCount = fixSelection?.selectedOpportunityIds.length ?? 0;
+
+  return (
+    <section aria-label="Fix plan" className="panel-card fix-plan-card">
+      <div className="issues-section-head">
+        <div className="issues-section-title-group">
+          <p className="section-kicker">Consultant workflow</p>
+          <h2>Fix Plan</h2>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Fix Plan' : 'Show Fix Plan'}
+          </button>
+        </div>
+        <p className="issues-section-copy">
+          Convert the selected problem area into a sequenced remediation queue.
+        </p>
+      </div>
+      {expanded ? (
+      <>
+      <div className="issue-detail-block">
+        <p className="issue-detail-label">Remediation Focus</p>
+        <p>{queue.focus.label}</p>
+        <p className="issues-section-copy">{queue.focus.helperText}</p>
+      </div>
+      {hasDeterministicOpportunities ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Batch workflow</p>
+          <p className="issues-section-copy">
+            Select compatible deterministic opportunities, preview them together, approve the preview, then apply and re-analyze as one batch.
+          </p>
+          <p className="fix-plan-recommendation">
+            <strong>Selected opportunities:</strong> {selectedCount}
+          </p>
+          {fixSelection?.message ? (
+            <p className="fix-plan-recommendation">{fixSelection.message}</p>
+          ) : null}
+          <div className="export-actions">
+            <button className="secondary-button" disabled={selectedCount === 0} onClick={onPreviewSelected} type="button">
+              Preview selected
+            </button>
+            <button
+              className="secondary-button"
+              disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Previewed'}
+              onClick={onApproveSelected}
+              type="button"
+            >
+              Approve selected
+            </button>
+            <button
+              className="primary-button"
+              disabled={selectedCount === 0 || selectionBlocked || fixSelection?.approvalState !== 'Approved'}
+              onClick={onApplySelected}
+              type="button"
+            >
+              Apply selected
+            </button>
+            <button className="secondary-button" onClick={() => onRegenerate(fixSelection?.selectedOpportunityIds)} type="button">
+              Regenerate stale
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {!hasDeterministicOpportunities ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Advisory Recommendations Only</p>
+          <p className="issues-section-copy">
+            No deterministic opportunities are available in the current context.
+          </p>
+        </div>
+      ) : null}
+      {hasDeterministicOpportunities && selectionBlocked ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Compatibility</p>
+          <ul className="issue-evidence-list">
+            {fixSelection?.compatibility.blockingReasons.map((reason, index) => (
+              <li className="issue-evidence-item" key={`${reason.code}-${index}`}>
+                {reason.message} ({reason.code})
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {fixSelection?.groupedPreview ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Grouped preview</p>
+          <p className="fix-plan-recommendation">
+            <strong>Changed files:</strong> {fixSelection.groupedPreview.summary.changedFileCount} · <strong>Changed objects:</strong> {fixSelection.groupedPreview.summary.changedObjectCount}
+          </p>
+          <p className="fix-plan-recommendation">
+            <strong>Expected outcomes:</strong> {fixSelection.groupedPreview.expectedOutcomes.join(' · ')}
+          </p>
+          <div className="issue-detail-block">
+            <p className="issue-detail-label">Mutation facts</p>
+            <table>
+              <thead>
+                <tr>
+                  <th align="left">Page</th>
+                  <th align="left">Object</th>
+                  <th align="left">Property</th>
+                  <th align="left">Before</th>
+                  <th align="left">After</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fixSelection.groupedPreview.mutationFacts.map((row, index) => (
+                  <tr key={`${row.objectId}-${row.property}-${index}`}>
+                    <td>{row.pageName ?? 'Report-wide'}</td>
+                    <td>{row.objectId}</td>
+                    <td>{row.property}</td>
+                    <td>{String(row.before)}</td>
+                    <td>{String(row.after)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="issue-detail-block">
+            <p className="issue-detail-label">Grouped by page / object / property</p>
+            <ul className="issue-evidence-list">
+              {fixSelection.groupedPreview.pageGroups.map((pageGroup) => (
+                <li className="issue-evidence-item" key={pageGroup.pageName}>
+                  <strong>{pageGroup.pageName}</strong>
+                  <ul className="issue-evidence-list">
+                    {pageGroup.objectGroups.map((objectGroup) => (
+                      <li className="issue-evidence-item" key={`${pageGroup.pageName}-${objectGroup.objectId}`}>
+                        {objectGroup.objectId}: {objectGroup.propertyChanges.map((change) => change.property).join(' · ')}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
+      {fixApplySessions.length > 0 ? (
+        <div className="issue-detail-block">
+          <p className="issue-detail-label">Session history</p>
+          <ul className="issue-evidence-list">
+            {fixApplySessions.map((session) => (
+              <li className="issue-evidence-item" key={session.id}>
+                <strong>{session.opportunityTitles.join(' · ')}</strong>
+                <p className="issues-section-copy">
+                  Applied {session.appliedAt} · Rollback {session.rollbackAvailable ? 'available' : 'unavailable'}
+                </p>
+                {session.groupedOutcomeSummary ? (
+                  <p className="issues-section-copy">
+                    {session.groupedOutcomeSummary.statuses.map((status) => `${getFixOutcomeStatusLabel(status.status)} ${status.count}`).join(' · ')}
+                  </p>
+                ) : null}
+                {session.staleOpportunityIds?.length ? (
+                  <p className="issues-section-copy">
+                    Stale: {session.staleOpportunityIds.join(' · ')}
+                  </p>
+                ) : null}
+                {session.regeneratedOpportunityIds?.length ? (
+                  <p className="issues-section-copy">
+                    Regenerated: {session.regeneratedOpportunityIds.join(' · ')}
+                  </p>
+                ) : null}
+                <div className="export-actions">
+                  <button
+                    className="secondary-button"
+                    disabled={!session.rollbackAvailable}
+                    onClick={() => onRollbackSession(session.id)}
+                    type="button"
+                  >
+                    Roll back session
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {fixPlan.length === 0 ? (
+        <p className="empty-text">No remediation actions were generated for this problem area.</p>
+      ) : (
+        <ol className="fix-plan-list">
+          {fixPlan.map((item) => (
+            <li className="fix-plan-item" key={item.id}>
+              {(() => {
+                const relatedOpportunities = (fixOpportunities ?? []).filter((opportunity) => remediationMatchesOpportunity(item, opportunity));
+
+                return (
+                  <>
+              <div className="fix-plan-head">
+                <h3>{item.title}</h3>
+                <span className={`issue-severity-badge ${getNormalizedFindingSeverityClassName(item.severity)}`}>{item.severity}</span>
               </div>
-              <div>
-                <dt>Scope</dt>
-                <dd>{getScopeLabel(item.scope)}</dd>
+              <p>{item.detail}</p>
+              <dl className="issue-meta-grid">
+                <div>
+                  <dt>Impact</dt>
+                  <dd>{item.impact}</dd>
+                </div>
+                <div>
+                  <dt>Effort</dt>
+                  <dd>{item.effort}</dd>
+                </div>
+                <div>
+                  <dt>Scope</dt>
+                  <dd>{getScopeLabel(item.scope)}</dd>
+                </div>
+                <div>
+                  <dt>Affected pages</dt>
+                  <dd>{item.affectedPages.length > 0 ? item.affectedPages.join(', ') : 'Report-wide'}</dd>
+                </div>
+              </dl>
+              <p className="fix-plan-recommendation"><strong>Why:</strong> {item.why}</p>
+              <p className="fix-plan-recommendation"><strong>Recommended action:</strong> {item.recommendedAction}</p>
+              {item.findingCoverageLabel ? (
+                <p className="fix-plan-recommendation"><strong>Finding Coverage:</strong> {item.findingCoverageLabel}</p>
+              ) : null}
+              {item.resolvedOutcomes.length > 0 ? (
+                <div className="issue-detail-block">
+                  <p className="issue-detail-label">Resolves</p>
+                  <ul className="issue-evidence-list">
+                    {item.resolvedOutcomes.map((outcome) => (
+                      <li className="issue-evidence-item" key={`${item.id}-${outcome}`}>{outcome}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="issue-detail-block">
+                <p className="issue-detail-label">Source findings</p>
+                <ul className="issue-evidence-list">
+                  {item.sourceFindings.map((finding) => (
+                    <li className="issue-evidence-item" key={`${item.id}-${finding.id}`}>
+                      {finding.title} ({getNormalizedFindingSeverityLabel(finding.severity)})
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div>
-                <dt>Affected pages</dt>
-                <dd>{item.affectedPages.length > 0 ? item.affectedPages.join(', ') : 'Report-wide'}</dd>
+              {(() => {
+                const enrichment = proposalEnrichments?.find((entry) => remediationMatchesProposalEnrichment(item, entry));
+                if (!hasProposalEnrichmentContent(enrichment)) {
+                  return null;
+                }
+
+                return (
+                  <div className="issue-detail-block">
+                    <p className="issue-detail-label">AI-enriched guidance</p>
+                    {enrichment?.source === 'fallback' ? (
+                      <p className="issues-section-copy">{getProposalEnrichmentSummary(enrichment)}</p>
+                    ) : null}
+                    <p className="fix-plan-recommendation"><strong>Expected resolutions:</strong></p>
+                    {enrichment?.titleSuggestions?.length ? (
+                      <p className="fix-plan-recommendation">
+                        <strong>Suggested title:</strong> {enrichment.titleSuggestions[0].title}
+                      </p>
+                    ) : null}
+                    {enrichment?.explanation ? (
+                      <p className="fix-plan-recommendation">{enrichment.explanation.shortText}</p>
+                    ) : null}
+                    {enrichment?.whyThisMatters ? (
+                      <p className="fix-plan-recommendation">{enrichment.whyThisMatters.text}</p>
+                    ) : null}
+                    {enrichment?.advisoryPriority ? (
+                      <p className="fix-plan-recommendation">
+                        <strong>{getAdvisoryPriorityLabel(enrichment.advisoryPriority.tier)}</strong>: {enrichment.advisoryPriority.rationale}
+                      </p>
+                    ) : null}
+                    {enrichment?.expectedOutcome ? (
+                      <p className="fix-plan-recommendation">{enrichment.expectedOutcome.text}</p>
+                    ) : null}
+                    {enrichment?.advisoryAlternatives?.length ? (
+                      <ul className="issue-evidence-list">
+                        {enrichment.advisoryAlternatives.map((alternative) => (
+                          <li className="issue-evidence-item" key={`${item.id}-${alternative.title}`}>
+                            <strong>{alternative.title}</strong>: {alternative.description}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })()}
+              <div className="issue-detail-block">
+                <p className="issue-detail-label">Fix opportunities</p>
+                {relatedOpportunities.length ? (
+                  <ul className="issue-evidence-list">
+                    {relatedOpportunities.map((opportunity) => {
+                      const expanded = expandedOpportunityIds.includes(opportunity.id);
+                      const selected = selectedIds.has(opportunity.id);
+
+                      return (
+                        <li className="issue-evidence-item" key={opportunity.id}>
+                          <div className="fix-plan-head">
+                            <div>
+                              <strong>{opportunity.title}</strong>
+                              <p className="issues-section-copy">
+                                {getFixOpportunityCategoryLabel(opportunity.category)} · {opportunity.summary}
+                              </p>
+                            </div>
+                            <span className="overview-badge">{getFixOpportunityStateLabel(opportunity.state)}</span>
+                          </div>
+                          <label className="issues-section-copy">
+                            <input
+                              aria-label={`Select ${opportunity.title}`}
+                              checked={selected}
+                              onChange={() => onToggleOpportunitySelection(opportunity.id)}
+                              type="checkbox"
+                            />
+                            {' '}
+                            Select for grouped preview/apply
+                          </label>
+                          <p className="fix-plan-recommendation">
+                            <strong>Opportunity resolutions:</strong> {opportunity.expectedResolutions.join(' · ')}
+                          </p>
+                          <p className="fix-plan-recommendation">
+                            <strong>Confidence:</strong> {opportunity.confidence}/100
+                          </p>
+                          <p className="fix-plan-recommendation">
+                            <strong>Rollback:</strong> {opportunity.rollbackPlan.fileBackups.length > 0 ? 'Available' : 'Unavailable'}
+                          </p>
+                          <div className="export-actions">
+                            <button
+                              className="secondary-button"
+                              onClick={() => onToggleOpportunity(opportunity.id)}
+                              type="button"
+                            >
+                              {expanded ? 'Hide Preview' : 'Show Preview'}
+                            </button>
+                          </div>
+                          {expanded ? (
+                            <div className="issue-detail-block">
+                              <p className="issue-detail-label">Mutation preview</p>
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th align="left">Object</th>
+                                    <th align="left">Property</th>
+                                    <th align="left">Before</th>
+                                    <th align="left">After</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {opportunity.previewRows.map((row, index) => (
+                                    <tr key={`${opportunity.id}-${row.objectId}-${row.property}-${index}`}>
+                                      <td>{row.pageName ? `${row.pageName} · ${row.objectId}` : row.objectId}</td>
+                                      <td>{row.property}</td>
+                                      <td>{String(row.before)}</td>
+                                      <td>{String(row.after)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : null}
+                          {opportunity.outcome?.entries.length ? (
+                            <div className="issue-detail-block">
+                              <p className="issue-detail-label">Outcome after re-analysis</p>
+                              <ul className="issue-evidence-list">
+                                {opportunity.outcome.entries.map((entry) => (
+                                  <li className="issue-evidence-item" key={`${opportunity.id}-${entry.findingId}`}>
+                                    {getFixOutcomeStatusLabel(entry.status)}: {entry.title}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="issues-section-copy">
+                    Advisory only: no safe metadata-only fix is currently available for this remediation.
+                  </p>
+                )}
               </div>
-              <div>
-                <dt>Source findings</dt>
-                <dd>{item.sourceFindingIds.join(', ')}</dd>
-              </div>
-            </dl>
-          </li>
-        ))}
-      </ol>
+                  </>
+                );
+              })()}
+            </li>
+          ))}
+        </ol>
+      )}
+      </>
+      ) : null}
+    </section>
+  );
+}
+
+function renderRenderedReviewSection(
+  review: RenderedReviewPanelState | undefined,
+  provider: ScorePanelState['renderedEvidence'],
+  postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
+  expanded: boolean,
+  onToggleExpanded: () => void,
+): React.ReactNode {
+  if (!review?.enabled) return null;
+  const canOpenInPbiLens = isPbiLensOpenActionAvailable(provider);
+  return (
+    <section aria-label="Rendered review" className="panel-card rendered-review-card">
+      <div className="issues-section-head">
+        <div className="issues-section-title-group">
+          <p className="section-kicker">Human observation</p>
+          <h2>Rendered Review Recommended</h2>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Rendered Review' : 'Show Rendered Review'}
+          </button>
+        </div>
+        <p className="issues-section-copy">
+          PBI Lens provides rendered observation; PBIR Design Analyzer remains authoritative for design judgment and scoring.
+        </p>
+      </div>
+      {expanded ? (
+      <>
+      {canOpenInPbiLens || review.mutationFollowUp ? (
+        <div className="issue-detail-block">
+          {canOpenInPbiLens ? (
+            <>
+              <p className="issue-detail-label">Open in PBI Lens</p>
+              <button
+                className="secondary-button"
+                onClick={() => postHostMessage({ type: 'openInPbiLens' })}
+                title="Open the report in PBI Lens"
+                type="button"
+              >
+                Open in PBI Lens
+              </button>
+            </>
+          ) : null}
+          {review.mutationFollowUp ? <p className="fix-plan-recommendation"><strong>After mutation:</strong> {review.mutationFollowUp}</p> : null}
+        </div>
+      ) : null}
+      {review.checklist.map((item) => (
+        <article className="issue-detail-block" key={item.id}>
+          <div className="issues-section-head">
+            <div>
+              <p className="issue-detail-label">{item.label}</p>
+              <p className="issues-section-copy">{item.pageNames.join(', ') || 'Report'}</p>
+            </div>
+            <select
+              aria-label={`${item.label} review status`}
+              value={item.status}
+              onChange={(event) => postHostMessage({ type: 'setRenderedReviewStatus', itemId: item.id, status: event.target.value as 'Not Reviewed' | 'Reviewed' | 'Confirmed' | 'Rejected' | 'Deferred' })}
+            >
+              {['Not Reviewed', 'Reviewed', 'Confirmed', 'Rejected', 'Deferred'].map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </div>
+          <p><strong>Why:</strong> {item.guidance.why}</p>
+          <p><strong>Look for:</strong> {item.guidance.lookFor}</p>
+          <p><strong>Expected outcome:</strong> {item.guidance.expectedOutcome}</p>
+          <label className="issues-section-copy">
+            Reviewer note
+            <textarea defaultValue={item.reviewerNote ?? ''} onBlur={(event) => postHostMessage({ type: 'setRenderedReviewNote', itemId: item.id, note: event.target.value })} rows={2} />
+          </label>
+          <button className="secondary-button" onClick={() => postHostMessage({ type: 'attachRenderedScreenshot', itemId: item.id })} type="button">
+            Attach Screenshot
+          </button>
+          {item.screenshotEvidence?.length ? <p className="issues-section-copy">{item.screenshotEvidence.length} screenshot evidence record(s) attached.</p> : null}
+        </article>
+      ))}
+      </>
+      ) : null}
     </section>
   );
 }
@@ -1271,7 +2807,7 @@ function renderBenchmarkComparison(summary: BenchmarkComparisonSummary | undefin
   );
 }
 
-function renderReviewerCommentGenerator(
+function renderReviewCommentary(
   page: PageScore,
   selectedProfile: PageIntentProfileType,
   persona: ReviewerPersona,
@@ -1280,8 +2816,10 @@ function renderReviewerCommentGenerator(
   const generated = buildReviewerComments(page, { selectedProfile, persona });
 
   return (
-    <section className="panel-card story-review-card">
-      <h2>Reviewer Comment Generator</h2>
+    <section className="story-review-card">
+      <p className="issues-section-copy">
+        Derived commentary that adapts to the selected reviewer persona. This supports the evidence trail and does not replace the primary findings or fix workflow.
+      </p>
       <label className="story-note-label" htmlFor="reviewer-persona">Persona</label>
       <select
         aria-label="Reviewer persona"
@@ -1352,19 +2890,6 @@ function getReviewStatusLabel(status: ReviewStatus): string {
   }
 }
 
-function getReviewStatusShortLabel(status: ReviewStatus): string {
-  switch (status) {
-    case 'confirmed':
-      return 'Confirmed';
-    case 'partial':
-      return 'Partial';
-    case 'mismatch':
-      return 'Mismatch';
-    default:
-      return 'Unreviewed';
-  }
-}
-
 function getReviewStatusClassName(status: ReviewStatus): string {
   switch (status) {
     case 'confirmed':
@@ -1417,8 +2942,10 @@ function renderReviewSummary(props: {
   onFilterChange: (next: ReviewStatus | 'all') => void;
   onSelectPage: (pageName: string) => void;
   onExport: () => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }): React.ReactNode {
-  const { entries, activeFilter, onFilterChange, onSelectPage, onExport } = props;
+  const { entries, activeFilter, onFilterChange, onSelectPage, onExport, expanded, onToggleExpanded } = props;
   if (entries.length === 0) {
     return null;
   }
@@ -1456,7 +2983,11 @@ function renderReviewSummary(props: {
           >
             Export Review Summary
           </button>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Review Summary' : 'Show Review Summary'}
+          </button>
         </div>
+        {expanded ? (
         <div className="review-summary-stats">
           <div className="review-stat-card">
             <strong>{entries.length}</strong>
@@ -1483,7 +3014,10 @@ function renderReviewSummary(props: {
             <span>Unreviewed</span>
           </div>
         </div>
+        ) : null}
       </div>
+      {expanded ? (
+      <>
       <div aria-label="Review status filters" className="review-filter-row" role="group">
         {filters.map((filter) => (
           <button
@@ -1536,6 +3070,8 @@ function renderReviewSummary(props: {
           );
         })}
       </div>
+      </>
+      ) : null}
     </section>
   );
 }
@@ -2123,6 +3659,7 @@ function renderAuditCoverageCard(
   audit: AuditState,
   pageNames: string[],
   vscode: ScoreVsCodeApi,
+  postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
 ): React.ReactNode {
   const { coverage, unmatchedCaptures, providerConfigured, providerName } = audit;
   const missingPages = coverage.totalPages - coverage.pagesWithCaptures;
@@ -2134,14 +3671,14 @@ function renderAuditCoverageCard(
         <div className="audit-coverage-actions">
           <button
             className="secondary-button"
-            onClick={() => vscode.postMessage({ type: 'uploadScreenshots' })}
+            onClick={() => postHostMessage({ type: 'uploadScreenshots' })}
             type="button"
           >
             Upload Screenshots
           </button>
           <button
             className="secondary-button"
-            onClick={() => vscode.postMessage({ type: 'openSettings' })}
+            onClick={() => postHostMessage({ type: 'openSettings' })}
             title="Open Design Analyzer Configuration to set up an AI provider"
             type="button"
           >
@@ -2185,7 +3722,7 @@ function renderAuditCoverageCard(
                   defaultValue=""
                   onChange={(e) => {
                     if (e.target.value) {
-                      vscode.postMessage({
+                      postHostMessage({
                         type: 'assignCapture',
                         captureId: capture.captureId,
                         targetPageName: e.target.value,
@@ -2200,7 +3737,7 @@ function renderAuditCoverageCard(
                 </select>
                 <button
                   className="audit-remove-button"
-                  onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                  onClick={() => postHostMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
                   title="Remove screenshot"
                   type="button"
                 >
@@ -2231,6 +3768,7 @@ function renderAuditPageSection(
   analyzingCaptureId: string | undefined,
   providerConfigured: boolean,
   vscode: ScoreVsCodeApi,
+  postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
 ): React.ReactNode {
   return (
     <section className="panel-card audit-page-section">
@@ -2238,7 +3776,7 @@ function renderAuditPageSection(
         <h2>Visual Audit — {pageName}</h2>
         <button
           className="secondary-button"
-          onClick={() => vscode.postMessage({ type: 'attachScreenshot', pageName })}
+          onClick={() => postHostMessage({ type: 'attachScreenshot', pageName })}
           type="button"
         >
           {auditPageState?.captures.length ? 'Replace / Add Screenshot' : 'Attach Screenshot'}
@@ -2264,7 +3802,7 @@ function renderAuditPageSection(
                         <button
                           className="primary-button audit-analyze-button"
                           disabled={isAnalyzing}
-                          onClick={() => vscode.postMessage({ type: 'analyzeCapture', captureId: capture.captureId, pageName })}
+                          onClick={() => postHostMessage({ type: 'analyzeCapture', captureId: capture.captureId, pageName })}
                           type="button"
                         >
                           {isAnalyzing ? 'Analyzing…' : 'Analyze'}
@@ -2272,7 +3810,7 @@ function renderAuditPageSection(
                       ) : null}
                       <button
                         className="audit-remove-button"
-                        onClick={() => vscode.postMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
+                        onClick={() => postHostMessage({ type: 'removeScreenshot', captureId: capture.captureId })}
                         title="Remove screenshot"
                         type="button"
                       >
@@ -2333,6 +3871,12 @@ export default function App(): JSX.Element {
   const [intentProfileOverrides, setIntentProfileOverrides] = React.useState<Record<string, PageIntentProfileType>>({});
   const [reviewerPersonaByPage, setReviewerPersonaByPage] = React.useState<Record<string, ReviewerPersona>>({});
   const [workspacePersona, setWorkspacePersona] = React.useState<ReviewPresentationPersona>('default');
+  const [pagePurposeExpanded, setPagePurposeExpanded] = React.useState(false);
+  const [storyAssessmentSectionExpanded, setStoryAssessmentSectionExpanded] = React.useState(false);
+  const [issuesExpanded, setIssuesExpanded] = React.useState(false);
+  const [fixPlanExpanded, setFixPlanExpanded] = React.useState(false);
+  const [reviewSummaryExpanded, setReviewSummaryExpanded] = React.useState(false);
+  const [renderedReviewExpanded, setRenderedReviewExpanded] = React.useState(false);
   const [reviewStatusFilter, setReviewStatusFilter] = React.useState<ReviewStatus | 'all'>('all');
   const [issueFilters, setIssueFilters] = React.useState<IssueFilterState>({
     severity: 'all',
@@ -2341,9 +3885,11 @@ export default function App(): JSX.Element {
     impactArea: 'all',
     scope: 'all',
     detectionType: 'all',
+    readinessRole: 'all',
   });
   const [issueFiltersDirty, setIssueFiltersDirty] = React.useState(false);
   const [issueGroupingMode, setIssueGroupingMode] = React.useState<IssueGroupingMode>('severity');
+  const [expandedOpportunityIds, setExpandedOpportunityIds] = React.useState<string[]>([]);
   const vscodeApiRef = React.useRef<ScoreVsCodeApi | null>(null);
   const issuesSectionRef = React.useRef<HTMLElement | null>(null);
   const fixPlanSectionRef = React.useRef<HTMLDivElement | null>(null);
@@ -2352,16 +3898,22 @@ export default function App(): JSX.Element {
     vscodeApiRef.current = acquireVsCodeApi();
   }
 
+  const postHostMessage = (message: ScorePanelWebviewToHostMessagePayload): void => {
+    vscodeApiRef.current?.postMessage(withScorePanelEnvelope(message));
+  };
+
   React.useEffect(() => {
     const handleMessage = (event: MessageEvent<ScorePanelHostToWebviewMessage>) => {
-      const message = event.data;
-      if (!message || typeof message !== 'object' || !('type' in message)) {
+      const parsedMessage = parseScorePanelHostMessage(event.data);
+      if (!parsedMessage.ok) {
+        setViewState({ kind: 'error', message: parsedMessage.error });
         return;
       }
 
+      const message = parsedMessage.message;
+
       if (message.type === 'loading') {
         setViewState({ kind: 'loading' });
-        setActiveTab(0);
         setReviewStatusFilter('all');
         setStoryIntentFeedback({});
         setSavedStoryNoteKey(undefined);
@@ -2375,9 +3927,11 @@ export default function App(): JSX.Element {
           impactArea: 'all',
           scope: 'all',
           detectionType: 'all',
+          readinessRole: 'all',
         });
         setIssueFiltersDirty(false);
         setIssueGroupingMode('severity');
+        setExpandedOpportunityIds([]);
         return;
       }
 
@@ -2395,7 +3949,12 @@ export default function App(): JSX.Element {
         const availableProfiles = message.state.result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
         const nextPersona = message.state.result.personaPresentation?.activePersona ?? 'default';
         setWorkspacePersona(nextPersona);
-        setIssueFilters(buildPersonaDefaultFilters(availableProfiles.find((profile) => profile.id === nextPersona)));
+        setPagePurposeExpanded(false);
+        const personaDefaults = buildPersonaDefaultFilters(availableProfiles.find((profile) => profile.id === nextPersona));
+        setIssueFilters({
+          ...personaDefaults,
+          pageName: getIssueFilterPageForTab(message.state.result.pageScores ?? [], message.state.selectedPageIndex),
+        });
         setIssueFiltersDirty(false);
         return;
       }
@@ -2415,7 +3974,7 @@ export default function App(): JSX.Element {
     };
 
     window.addEventListener('message', handleMessage);
-    vscodeApiRef.current?.postMessage({ type: 'webviewReady' });
+    postHostMessage({ type: 'webviewReady' });
 
     return () => {
       window.removeEventListener('message', handleMessage);
@@ -2441,7 +4000,7 @@ export default function App(): JSX.Element {
           <p>{viewState.message}</p>
           <button
             className="primary-button"
-            onClick={() => vscodeApiRef.current?.postMessage({ type: 'refresh' })}
+            onClick={() => postHostMessage({ type: 'refresh' })}
             type="button"
           >
             Retry
@@ -2489,6 +4048,13 @@ export default function App(): JSX.Element {
   const storyNote = storyFeedback?.note ?? '';
   const pageMetadata = selectedPage?.visualMetadata
     ?? (!multiPage ? (result.visualMetadata ?? pageScores[0]?.visualMetadata) : undefined);
+  const pagePurposeAnalysis = selectedPage?.pagePurposeAnalysis
+    ?? (!multiPage ? (result.pagePurposeAnalysis ?? pageScores[0]?.pagePurposeAnalysis) : undefined);
+  const guidedStoryImprovements = selectedPage?.guidedStoryImprovements
+    ?? (!multiPage ? (result.guidedStoryImprovements ?? pageScores[0]?.guidedStoryImprovements) : undefined);
+  const storyAssessmentDiff = viewState.state.storyAssessmentDiffByPage?.[
+    selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? ''
+  ];
   const reviewEntries = buildPageReviewEntries(pageScores, result, storyIntentFeedback);
   const personaProfiles = result.personaPresentation?.availablePersonas ?? getReviewPresentationPersonaProfiles();
   const personaPresentation = result.overviewSummary
@@ -2500,12 +4066,10 @@ export default function App(): JSX.Element {
       })
     : undefined;
   const visibleFindings = buildVisibleFindings(personaPresentation?.findings ?? result.normalizedFindings, selectedPage?.pageName);
-  const filteredFixPlan = (personaPresentation?.fixPlan ?? result.fixPlan ?? []).filter((item) => {
-    if (!selectedPage) {
-      return true;
-    }
-
-    return item.affectedPages.length === 0 || item.affectedPages.includes(selectedPage.pageName);
+  const remediationQueue = buildContextAwareRemediationQueue({
+    findings: personaPresentation?.findings ?? result.normalizedFindings,
+    selectedPageName: selectedPage?.pageName,
+    filters: issueFilters,
   });
   const visualMix = selectedPage
     ? {
@@ -2523,17 +4087,25 @@ export default function App(): JSX.Element {
       ? selectedPage.feedback?.[normalizedKey]
       : result.feedback?.[normalizedKey];
   const revealVisual = (visual: AffectedVisualReference) => {
-    vscodeApiRef.current?.postMessage({
+    postHostMessage({
       type: 'revealVisual',
       pageName: visual.pageName,
       visualId: visual.visualId,
     });
   };
+  const navigateToTarget = (target: ScorePanelNavigationTarget) => {
+    postHostMessage({
+      type: 'navigateToTarget',
+      target,
+    });
+  };
   const focusRecommendations = () => {
+    setFixPlanExpanded(true);
     fixPlanSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     fixPlanSectionRef.current?.focus({ preventScroll: true });
   };
   const focusIssues = () => {
+    setIssuesExpanded(true);
     issuesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     issuesSectionRef.current?.focus({ preventScroll: true });
   };
@@ -2556,18 +4128,18 @@ export default function App(): JSX.Element {
         <div className="hero-actions">
           <button
             className="secondary-button"
-            onClick={() => vscodeApiRef.current?.postMessage({ type: 'refresh' })}
+            onClick={() => postHostMessage({ type: 'refresh' })}
             type="button"
           >
             Refresh
           </button>
-          {filteredFixPlan.length > 0 ? (
+          {remediationQueue.items.length > 0 ? (
             <button
               className="primary-button"
               onClick={focusRecommendations}
               type="button"
             >
-              Review Fix Plan ({filteredFixPlan.length})
+              Review Fix Plan ({remediationQueue.items.length})
             </button>
           ) : null}
         </div>
@@ -2579,6 +4151,12 @@ export default function App(): JSX.Element {
         </section>
       ) : null}
 
+      {getRenderedEvidenceStatusMessage(state.renderedEvidence) ? (
+        <section className="status-card rendered-evidence-status" aria-label="Rendered design evidence status">
+          {getRenderedEvidenceStatusMessage(state.renderedEvidence)}
+        </section>
+      ) : null}
+
       {multiPage ? (
         <nav className="tab-row" aria-label="Score tabs">
           {tabs.map((tab, index) => (
@@ -2587,7 +4165,12 @@ export default function App(): JSX.Element {
               key={tab}
               onClick={() => {
                 setActiveTab(index);
-                vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: index });
+                setPagePurposeExpanded(false);
+                setIssueFilters((prev) => ({
+                  ...prev,
+                  pageName: getIssueFilterPageForTab(pageScores, index),
+                }));
+                postHostMessage({ type: 'selectTab', pageIndex: index });
               }}
               type="button"
             >
@@ -2597,12 +4180,18 @@ export default function App(): JSX.Element {
         </nav>
       ) : null}
 
-      {renderOverviewWorkspace(
-        personaPresentation?.overviewSummary ?? result.overviewSummary,
+        {renderOverviewWorkspace(
+          personaPresentation?.overviewSummary ?? result.overviewSummary,
+          result.analysisContext,
+          result.fabricAppReview,
+          result.readinessAssessment,
+          selectedPage,
+          visibleFindings,
         frameworkValues,
         scoreValue,
         visualMix,
         result.crossPageMatrix,
+        selectedPage?.pageName,
         workspacePersona,
         personaProfiles,
         (nextPersona) => {
@@ -2622,104 +4211,21 @@ export default function App(): JSX.Element {
           setIssueFiltersDirty(true);
           focusIssues();
         },
+        () => {
+          setActiveTab(0);
+          setPagePurposeExpanded(false);
+          setIssueFilters((prev) => ({
+            ...prev,
+            pageName: 'all',
+          }));
+          postHostMessage({ type: 'selectTab', pageIndex: 0 });
+        },
       )}
 
       {selectedPage?.scoringError ? (
         <section className="status-card status-card-warn">{selectedPage.scoringError}</section>
       ) : null}
 
-      {overallView && multiPage ? renderReviewSummary({
-        entries: reviewEntries,
-        activeFilter: reviewStatusFilter,
-        onFilterChange: setReviewStatusFilter,
-        onSelectPage: (pageName) => {
-          const pageIndex = pageScores.findIndex((page) => page.pageName === pageName);
-          if (pageIndex < 0) {
-            return;
-          }
-
-          const nextTab = pageIndex + 1;
-          setActiveTab(nextTab);
-          vscodeApiRef.current?.postMessage({ type: 'selectTab', pageIndex: nextTab });
-        },
-        onExport: () => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' }),
-      }) : null}
-
-      {storySummary ? (
-        <>
-          {renderPageStorySummary(storySummary)}
-          {renderPageIntentProfileSummary(
-            selectedPage?.pageIntentProfile ?? result.pageIntentProfile,
-            selectedIntentProfile,
-            (next) => setIntentProfileOverrides((prev) => ({ ...prev, [intentProfileKey]: next })),
-          )}
-          {renderActionabilityBreakdown(selectedPage?.actionabilityBreakdown ?? result.actionabilityBreakdown)}
-          {renderBenchmarkComparison(selectedPage?.benchmarkComparison ?? result.benchmarkComparison)}
-          <section className="panel-card story-review-card">
-            {renderStoryIntentReview(
-              storySummary,
-              storyConfirmation,
-              storyNote,
-              (next) => {
-                if (!storyConfirmationKey) {
-                  return;
-                }
-
-                setStoryIntentFeedback((prev) => ({
-                  ...prev,
-                  [storyConfirmationKey]: {
-                    confirmation: next,
-                    note: prev[storyConfirmationKey]?.note ?? '',
-                  },
-                }));
-                setSavedStoryNoteKey(undefined);
-                const note = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
-                vscodeApiRef.current?.postMessage({
-                  type: 'setIntentFeedback',
-                  pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
-                  inferredIntent: storySummary.intentProfile,
-                  storyArchetype: storySummary.storyArchetype,
-                  userConfirmation: next,
-                  inferenceConfidence: storySummary.confidence,
-                  note: note ? note : undefined,
-                });
-              },
-              (nextNote) => {
-                if (!storyConfirmationKey) {
-                  return;
-                }
-
-                setStoryIntentFeedback((prev) => ({
-                  ...prev,
-                  [storyConfirmationKey]: {
-                    confirmation: prev[storyConfirmationKey]?.confirmation,
-                    note: nextNote,
-                  },
-                }));
-                setSavedStoryNoteKey(undefined);
-              },
-              () => {
-                if (!storyConfirmationKey || !storyConfirmation) {
-                  return;
-                }
-
-                const noteToSave = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
-                vscodeApiRef.current?.postMessage({
-                  type: 'setIntentFeedback',
-                  pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
-                  inferredIntent: storySummary.intentProfile,
-                  storyArchetype: storySummary.storyArchetype,
-                  userConfirmation: storyConfirmation,
-                  inferenceConfidence: storySummary.confidence,
-                  note: noteToSave ? noteToSave : undefined,
-                });
-                setSavedStoryNoteKey(storyConfirmationKey);
-              },
-              savedStoryNoteKey === storyConfirmationKey,
-            )}
-          </section>
-        </>
-      ) : null}
       <section ref={issuesSectionRef} tabIndex={-1}>
         {renderIssuesWorkspace({
           findings: visibleFindings,
@@ -2741,24 +4247,147 @@ export default function App(): JSX.Element {
               impactArea: 'all',
               scope: 'all',
               detectionType: 'all',
+              readinessRole: 'all',
             });
           },
           onResetToPersonaDefaults: () => {
             setIssueFiltersDirty(false);
             setIssueFilters(personaDefaults);
           },
+          expanded: issuesExpanded,
+          onToggleExpanded: () => setIssuesExpanded((prev) => !prev),
         })}
       </section>
 
       <div ref={fixPlanSectionRef} tabIndex={-1}>
-        {renderFixPlanSection(filteredFixPlan)}
+        {renderFixPlanSection(
+          remediationQueue,
+          result.fixOpportunities,
+          result.proposalEnrichments,
+          viewState.state.fixSelection,
+          viewState.state.fixApplySessions ?? [],
+          expandedOpportunityIds,
+          (opportunityId) => setExpandedOpportunityIds((prev) => (
+            prev.includes(opportunityId)
+              ? prev.filter((id) => id !== opportunityId)
+              : [...prev, opportunityId]
+          )),
+          (opportunityId) => postHostMessage({ type: 'toggleFixOpportunitySelection', opportunityId }),
+          () => postHostMessage({ type: 'previewSelectedFixOpportunities' }),
+          () => postHostMessage({ type: 'approveSelectedFixOpportunities' }),
+          () => postHostMessage({ type: 'applySelectedFixOpportunities' }),
+          (sessionId) => postHostMessage({ type: 'rollbackFixSession', sessionId }),
+          (opportunityIds) => postHostMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
+          fixPlanExpanded,
+          () => setFixPlanExpanded((prev) => !prev),
+        )}
       </div>
-      {selectedPage ? renderReviewerCommentGenerator(
-        selectedPage,
-        selectedIntentProfile,
-        selectedReviewerPersona,
-        (next) => setReviewerPersonaByPage((prev) => ({ ...prev, [intentProfileKey]: next })),
-      ) : null}
+
+      {overallView && multiPage ? renderReviewSummary({
+        entries: reviewEntries,
+        activeFilter: reviewStatusFilter,
+        onFilterChange: setReviewStatusFilter,
+        onSelectPage: (pageName) => {
+          const pageIndex = pageScores.findIndex((page) => page.pageName === pageName);
+          if (pageIndex < 0) {
+            return;
+          }
+
+          const nextTab = pageIndex + 1;
+          setActiveTab(nextTab);
+          setIssueFilters((prev) => ({
+            ...prev,
+            pageName: getIssueFilterPageForTab(pageScores, nextTab),
+          }));
+          postHostMessage({ type: 'selectTab', pageIndex: nextTab });
+        },
+        onExport: () => postHostMessage({ type: 'exportReviewWorkflow' }),
+        expanded: reviewSummaryExpanded,
+        onToggleExpanded: () => setReviewSummaryExpanded((prev) => !prev),
+      }) : null}
+
+      {storySummary && pagePurposeAnalysis ? renderPagePurposeAnalysisSection({
+        analysis: pagePurposeAnalysis,
+        storySummary,
+        guidedStoryImprovements,
+        pageIntentProfile: selectedPage?.pageIntentProfile ?? result.pageIntentProfile,
+        selectedProfile: selectedIntentProfile,
+        onProfileChange: (next) => setIntentProfileOverrides((prev) => ({ ...prev, [intentProfileKey]: next })),
+        actionabilityBreakdown: selectedPage?.actionabilityBreakdown ?? result.actionabilityBreakdown,
+        benchmarkComparison: selectedPage?.benchmarkComparison ?? result.benchmarkComparison,
+        confirmation: storyConfirmation,
+        note: storyNote,
+        onConfirm: (next) => {
+          if (!storyConfirmationKey) {
+            return;
+          }
+
+          setStoryIntentFeedback((prev) => ({
+            ...prev,
+            [storyConfirmationKey]: {
+              confirmation: next,
+              note: prev[storyConfirmationKey]?.note ?? '',
+            },
+          }));
+          setSavedStoryNoteKey(undefined);
+          const note = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
+          postHostMessage({
+            type: 'setIntentFeedback',
+            pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
+            inferredIntent: storySummary.intentProfile,
+            storyArchetype: storySummary.storyArchetype,
+            userConfirmation: next,
+            inferenceConfidence: storySummary.confidence,
+            note: note ? note : undefined,
+          });
+        },
+        onNoteChange: (nextNote) => {
+          if (!storyConfirmationKey) {
+            return;
+          }
+
+          setStoryIntentFeedback((prev) => ({
+            ...prev,
+            [storyConfirmationKey]: {
+              confirmation: prev[storyConfirmationKey]?.confirmation,
+              note: nextNote,
+            },
+          }));
+          setSavedStoryNoteKey(undefined);
+        },
+        onSaveNote: () => {
+          if (!storyConfirmationKey || !storyConfirmation) {
+            return;
+          }
+
+          const noteToSave = storyIntentFeedback[storyConfirmationKey]?.note?.trim();
+          postHostMessage({
+            type: 'setIntentFeedback',
+            pageName: selectedPage?.pageName ?? result.scoredPageName ?? pageScores[0]?.pageName ?? 'Report',
+            inferredIntent: storySummary.intentProfile,
+            storyArchetype: storySummary.storyArchetype,
+            userConfirmation: storyConfirmation,
+            inferenceConfidence: storySummary.confidence,
+            note: noteToSave ? noteToSave : undefined,
+          });
+          setSavedStoryNoteKey(storyConfirmationKey);
+        },
+        onNavigateToTarget: navigateToTarget,
+        storyAssessmentDiff,
+        noteSaved: savedStoryNoteKey === storyConfirmationKey,
+        expanded: pagePurposeExpanded,
+        onToggleExpanded: () => setPagePurposeExpanded((prev) => !prev),
+        sectionExpanded: storyAssessmentSectionExpanded,
+        onToggleSectionExpanded: () => setStoryAssessmentSectionExpanded((prev) => !prev),
+      }) : null}
+
+      {renderRenderedReviewSection(
+        viewState.state.renderedReview,
+        viewState.state.renderedEvidence,
+        postHostMessage,
+        renderedReviewExpanded,
+        () => setRenderedReviewExpanded((prev) => !prev),
+      )}
 
       <details className="panel-card evidence-section">
         <summary className="collapsible-summary">
@@ -2766,6 +4395,8 @@ export default function App(): JSX.Element {
           <span className="collapsible-caret" aria-hidden="true">▾</span>
         </summary>
         <div className="collapsible-body evidence-stack">
+          {result.fabricAppReview ? renderFabricAppReviewEvidence(result.fabricAppReview, result.analysisContext) : null}
+
           {overallView && multiPage ? (
             <details className="evidence-subsection">
               <summary className="collapsible-summary">
@@ -2778,9 +4409,9 @@ export default function App(): JSX.Element {
                   state.reviewPacketPreviewHtml,
                   state.reviewPacketPreviewProfile ?? 'consultant',
                   state.reviewPacketPreviewTemplateVariant ?? 'brandedConsultant',
-                  (profile) => vscodeApiRef.current?.postMessage({ type: 'setReviewPacketPreviewProfile', profile }),
-                  (templateVariant) => vscodeApiRef.current?.postMessage({ type: 'setReviewPacketPreviewTemplateVariant', templateVariant }),
-                  () => vscodeApiRef.current?.postMessage({ type: 'openReviewPacketPreview' }),
+                  (profile) => postHostMessage({ type: 'setReviewPacketPreviewProfile', profile }),
+                  (templateVariant) => postHostMessage({ type: 'setReviewPacketPreviewTemplateVariant', templateVariant }),
+                  () => postHostMessage({ type: 'openReviewPacketPreview' }),
                 )}
               </div>
             </details>
@@ -2870,6 +4501,35 @@ export default function App(): JSX.Element {
             </details>
           ) : null}
 
+          {result.readinessAssessment ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Fabric App Readiness</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderReadinessAssessment(result.readinessAssessment, selectedPage?.pageName)}
+              </div>
+            </details>
+          ) : null}
+
+          {selectedPage ? (
+            <details className="evidence-subsection">
+              <summary className="collapsible-summary">
+                <span>Review Commentary</span>
+                <span className="collapsible-caret" aria-hidden="true">▾</span>
+              </summary>
+              <div className="collapsible-body">
+                {renderReviewCommentary(
+                  selectedPage,
+                  selectedIntentProfile,
+                  selectedReviewerPersona,
+                  (next) => setReviewerPersonaByPage((prev) => ({ ...prev, [intentProfileKey]: next })),
+                )}
+              </div>
+            </details>
+          ) : null}
+
           {audit && overallView ? (
             <details className="evidence-subsection">
               <summary className="collapsible-summary">
@@ -2877,7 +4537,7 @@ export default function App(): JSX.Element {
                 <span className="collapsible-caret" aria-hidden="true">▾</span>
               </summary>
               <div className="collapsible-body">
-                {renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!)}
+                {renderAuditCoverageCard(audit, tabs.slice(1), vscodeApiRef.current!, postHostMessage)}
               </div>
             </details>
           ) : null}
@@ -2895,6 +4555,7 @@ export default function App(): JSX.Element {
                   analyzingCaptureId,
                   audit.providerConfigured,
                   vscodeApiRef.current!,
+                  postHostMessage,
                 )}
               </div>
             </details>
@@ -2914,7 +4575,7 @@ export default function App(): JSX.Element {
         <div className="export-actions">
           <button
             className="primary-button"
-            onClick={() => vscodeApiRef.current?.postMessage({ type: 'exportReviewWorkflow' })}
+            onClick={() => postHostMessage({ type: 'exportReviewWorkflow' })}
             type="button"
           >
             Export Review Summary
@@ -2922,7 +4583,7 @@ export default function App(): JSX.Element {
           {state.reviewPacketPreviewHtml ? (
             <button
               className="secondary-button"
-              onClick={() => vscodeApiRef.current?.postMessage({ type: 'openReviewPacketPreview' })}
+              onClick={() => postHostMessage({ type: 'openReviewPacketPreview' })}
               type="button"
             >
               Open Packet Preview

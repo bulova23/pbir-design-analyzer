@@ -1,38 +1,4107 @@
 # Current Focus
 
+## Active Session
+
+- 2026-08-16 Version bump to 0.7.0 and documentation refresh:
+  - bumped `vscode-extension/package.json` and `package-lock.json` from 0.6.0
+    to 0.7.0 (the lockfile's top-level version had already drifted to a stale
+    0.5.0 before this session; corrected while here)
+  - finalized `docs/CHANGELOG.md`'s Unreleased section (Story Assessment 2.2,
+    Guided Story Improvements — carried over from an earlier session, not
+    this one) into a 0.7.0 — 2026-08-16 entry, added new subsections for this
+    session's fixes (Optimization Report scoring reliability, Rendered
+    Review, Story Assessment navigation, workspace layout), corrected one
+    stale ordering claim ("between Story Assessment and Issues" — no longer
+    true post-reorder), and added a fresh empty Unreleased placeholder
+  - updated `vscode-extension/README.md` (the packaged extension's Details
+    tab) and root `README.md`: version bump throughout, rewrote the What's
+    New / Highlights sections for 0.7.0, added Rendered Review + PBI Lens
+    optionality + collapsible-layout coverage to the extension README's
+    feature list (previously undocumented there), reordered
+    Quick-Start/Review-Workspace prose to match the new Issues/Fix-Plan-first
+    section order
+  - substantially refreshed `docs/HOW_TO_USE.md`, which had drifted to
+    describe a 5-section 0.2.0-era workspace with no mention of Story
+    Assessment, Fabric App Readiness/Review, Guided Story Improvements,
+    Rendered Review, or PBI Lens at all; now documents all 8 current sections
+    in actual UI order with the collapsible-by-default behavior
+  - updated `AGENTS.md`: fixed the stale "0.2.0" current-architecture and
+    roadmap references, added Review Summary/Story Assessment/Rendered
+    Review to the documented section list, and added a new architectural
+    boundary rule about `PbirScorePanel.handleMessage` needing its try/catch
+    (the fail-loud fix from earlier this session) since VS Code's
+    `webview.onDidReceiveMessage` is fire-and-forget
+  - did not find anything to update in root `CLAUDE.md` (it only contains
+    `@`-includes, no version-specific content) or a separate "Features"
+    file — VS Code's Extensions view Features tab is standard, auto-
+    generated from `package.json` `contributes` metadata, which this session
+    didn't change, so nothing there needed a hand edit
+  - backend's internal `BackendVersion` constant (`RpcHost/Program.cs`,
+    currently "0.1.11") was left untouched — it's versioned independently
+    from the extension and the user's request was scoped to "the extension"
+  - full validation before packaging: extension Jest 535 passed, webview
+    Jest 70 passed, TypeScript compile clean, backend Release 1000 passed /
+    11 expected skips
+  - ran `npm run package:all`; all five target VSIXes built and verified at
+    0.7.0 (win32-x64, win32-arm64, linux-x64, darwin-x64, darwin-arm64);
+    confirmed the packaged package.json version and bundled readme.md content
+    inside the darwin-arm64 artifact directly by unzipping it
+  - reinstalled the darwin-arm64 0.7.0 build locally via the VS Code
+    Insiders CLI; old 0.6.0-and-earlier VSIX files were left in place
+    (untouched, not deleted) since removing them wasn't requested
+  - next step: user should reload the window and spot-check the Extensions
+    view Details tab renders the updated 0.7.0 content correctly, then decide
+    whether to commit this release-prep work (everything remains uncommitted
+    per this session's established pattern) and whether to hand the other
+    four platform VSIXes to the release owner for manual Marketplace upload
+
+- 2026-08-16 Collapsible section header layout fix:
+  - user flagged that "Show X" toggle buttons landed inconsistently — some
+    directly under the title (Issues, Story Assessment), some floated to the
+    right on the same row as the description (Fix Plan, Rendered Review)
+  - root cause: `.issues-section-head` is `display:flex;
+    justify-content:space-between; flex-wrap:wrap` with THREE flex items
+    (title div, description paragraph, button) as siblings. Whether the
+    button wrapped to its own line (left-aligned) or stayed on the same row
+    (pushed right by space-between) depended entirely on each section's
+    combined title+description text width at the current viewport — an
+    incidental, content-length-driven layout, not a deliberate one
+  - fix: moved the toggle button to be a child of the title `<div>` itself
+    (grouped with the kicker + h2 in a new `.issues-section-title-group`
+    flex column), for Issues, Fix Plan, Story Assessment, and Rendered
+    Review — leaving only two flex items (title-group, description) in
+    `.issues-section-head`, making the button's position under the title
+    deterministic regardless of text length. Review Summary already grouped
+    its button this way and needed no change
+  - full validation: extension Jest 535 passed, webview Jest 70 passed,
+    TypeScript clean
+  - rebuilt and reinstalled `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
+
+- 2026-08-16 "Open target" silent failure + collapsible/reordered panel sections:
+  - user reported Story Assessment's "Open target" buttons doing absolutely
+    nothing (no toast, no sidebar change) — traced via user confirmation that
+    the button visibly received focus (real click occurred) with zero
+    downstream effect, ruling out a click-never-registers CSS bug and pointing
+    at something after the click silently failing
+  - root cause: `PbirScorePanel.handleMessage` awaited
+    `this.messageRouter.route(message)` with no try/catch, and VS Code's
+    `webview.onDidReceiveMessage` callback is fire-and-forget — nothing awaits
+    it host-side. Any exception thrown anywhere in the router chain
+    (navigateToTarget's tree traversal, RPC calls, opening a moved file, etc.)
+    became an unhandled promise rejection visible only in the extension
+    host's own console, never to the user. This is a systemic gap affecting
+    every action routed through handleMessage, not just this one button
+  - fix: wrapped the router call in try/catch; failures now log to the
+    diagnostics output channel and show `vscode.window.showErrorMessage`
+    with the real error detail, converting future silent failures into
+    actionable ones instead of guessing further
+  - added a router-level regression test proving a thrown/rejected handler
+    exception propagates out of `route()` uncaught (the precondition that
+    makes the new catch load-bearing) — full integration through the private
+    `handleMessage` wasn't unit-tested (constructing a full `PbirScorePanel`
+    harness was disproportionate to the fix)
+  - separately implemented the user's approved collapsible-panel design:
+    every section below Overview (Issues, Fix Plan, Review Summary, Story
+    Assessment, Rendered Review) is now collapsed by default behind a
+    "Show X"/"Hide X" toggle button, matching the pre-existing "Show/Hide
+    Full Reasoning" convention already used inside Story Assessment; Issues
+    and Fix Plan were also reordered to sit directly under Overview (ahead of
+    Review Summary/Story Assessment/Rendered Review) per the user's explicit
+    request. Evidence was already a native `<details>` collapsible and was
+    left untouched; Export stays always-visible as a short call-to-action
+  - implementation went through two false starts worth remembering: (1)
+    wrapping each section in an EXTERNAL `<details>`/`<summary>` with a new
+    title duplicated the section's existing internal `<h2>`, breaking both
+    visual redundancy and `heading.closest('section')`-based test queries
+    once the heading moved outside the section; (2) removing the internal
+    `<h2>` broke `getByRole('heading', ...)` assertions app-wide. Landed on
+    boolean `expanded`/`onToggleExpanded` state per section (no new
+    `<details>`), keeping every `<section>`/`<h2>` exactly where it always
+    was and only conditionally rendering the body beneath the header —
+    zero structural risk to existing DOM-navigation patterns
+  - `focusIssues`/`focusRecommendations` (the "Review Fix Plan (N)" jump
+    button and issue-filter deep links) now also force their section's
+    `expanded` state true before scrolling, so jumping to a collapsed
+    section actually reveals content instead of scrolling to an empty header
+  - updated ~30 existing webview tests to click the relevant "Show X" button
+    before asserting on now-collapsed content; one test's document-order
+    assertion was flipped deliberately (Issues now precedes Story Assessment
+    per the reorder, not the reverse)
+  - full validation: extension Jest 535 passed, webview Jest 70 passed,
+    TypeScript compile clean, production webview build (vite) clean; backend
+    untouched this round
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload and confirm both fixes live — "Open target" should now
+    either navigate correctly or show a specific error toast (not silence),
+    and the panel should open with only Overview expanded, Issues/Fix Plan
+    directly beneath it
+
+- 2026-08-16 Rendered Review panel — hid the "Open in PBI Lens" action:
+  - user asked to hide it (not disable-with-explanation) since the
+    programmatic open capability doesn't exist yet and the disabled button
+    plus its explanatory text were adding confusion for no benefit
+  - `renderRenderedReviewSection` (webview-src/analyzer-score/App.tsx) now
+    only renders the "Open in PBI Lens" label/button block when
+    `isPbiLensOpenActionAvailable` is true; the "PBI Lens is unavailable..."
+    explanatory paragraph was removed entirely rather than kept for a hidden
+    control. The `mutationFollowUp` guidance text is independent of the
+    button (it's a manual-checking tip, not tied to a missing API) and still
+    renders on its own if present
+  - added two webview tests: one proving the button+label are absent when
+    `reportContextAvailable` is false (verified fails pre-fix — old code
+    rendered a disabled button — passes post-fix), one proving the button
+    renders and posts `{ type: 'openInPbiLens' }` when the capability is
+    true. This whole area had zero test coverage before today's session
+  - full validation: extension Jest 534 passed, webview Jest 70 passed,
+    TypeScript clean; backend untouched
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload and confirm the Rendered Review section no longer
+    shows the PBI Lens button/explanation, while the checklist (status,
+    notes, Attach Screenshot) still works
+
+- 2026-08-16 Rendered Review panel — "none of the buttons work" triage:
+  - "Attach Screenshot" was a genuine, confirmed bug: `scorePanelProtocol.ts`'s
+    `parseScorePanelWebviewMessage` listed `'attachRenderedScreenshot'` in its
+    payload-free fast-path list (alongside webviewReady/refresh/etc.), which
+    returned early with `{ type }` before the switch statement's own correct
+    `case 'attachRenderedScreenshot'` (which extracts `itemId`) ever ran — dead
+    code, masked by an `as ScorePanelWebviewToHostMessagePayload` cast. Every
+    click silently dropped `itemId`, so the host's `find(item => item.id ===
+    undefined)` never matched and the handler no-opped with no error shown.
+    Fixed by removing it from the fast-path list; added two regression tests
+    (verified fail pre-fix/pass post-fix) proving itemId survives and that a
+    missing itemId is still rejected with a real error
+  - "Open in PBI Lens" is NOT a bug — it's correctly disabled because
+    `capabilities.reportContextAvailable` is hardcoded false everywhere in
+    `pbiLensCapabilityDetector.ts` (no adapter exists yet); the UI already
+    explains this inline ("PBI Lens is unavailable through a supported
+    programmatic interface")
+  - the status dropdown/select for checklist items is a controlled React
+    component (`<select value={item.status}>`) fed only by state pushed from
+    the host — traced the webview code and found no local/optimistic state
+    path, so its displaying "Reviewed" in the user's own screenshot is direct
+    proof the round trip does work; no bug found there despite the user's
+    "none of the buttons work" framing covering it too
+  - full validation: extension Jest 534 passed, webview Jest 68 passed,
+    TypeScript clean; backend untouched
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload and confirm Attach Screenshot now works; the reviewer
+    note textarea is uncontrolled (`defaultValue` + onBlur-only send) and
+    wasn't specifically verified — if notes still don't seem to save, check
+    whether blur is firing before whatever the user clicks next
+
+- 2026-08-15 Optimization Report scoring — unrelated crash from optional PBI
+  Lens integration, after the architectural fix above got real reports
+  scoring again:
+  - `detectPbiLensCapabilities` (analyzer/renderedEvidence/pbiLensCapabilityDetector.ts)
+    read `extension.exports` immediately after an installed PBI Lens extension
+    was found, outside its only try/catch. VS Code's real `Extension.exports`
+    getter throws `Extension '<id>' is not known or not activated` for an
+    installed-but-not-yet-active extension rather than returning undefined —
+    confirmed by grepping the exact string out of
+    extensionHostProcess.js/extensionHostWorkerMain.js in the installed VS
+    Code Insiders build. PBI Lens (`duckduck-beps.pbi-lens-vscode`, confirmed
+    correctly installed at 0.4.0 — valid manifest, main entry present,
+    contributes `pbiLens.capturePage`/`openReport`/etc., `activationEvents: []`
+    meaning it only activates lazily via its own contributions) was installed
+    but not yet active in the user's session, so this unguarded read threw
+    and killed the entire `refresh()` scoring flow via its outer catch —
+    exactly contradicting the intent that PBI Lens is an optional
+    better-visual-scoring enhancement, never a scoring requirement
+  - fix: check `isActive` before ever touching `.exports`; only probe exports
+    when active, and still catch (defense-in-depth) since some VS Code builds
+    may throw even with `isActive` racily true. Reuses the existing
+    (already-correct) "Misconfigured"/"installed but not activated" status
+    path instead of a new one
+  - also removed the provider's permanent capability-report memoization
+    (`capabilityReport ??= ...`) — it cached the first detection forever, so
+    even a later activation would never be reflected — and added a
+    fire-and-forget best-effort `extension.activate()` call whenever the
+    report comes back installed-but-inactive, so PBI Lens self-activates
+    during normal scoring use without requiring the user to manually run one
+    of its commands first
+  - added regression tests reproducing the exact throwing-`.exports` crash
+    (verified fails pre-fix, passes post-fix) plus tests for the new
+    background-activation behavior (fire-and-forget, non-throwing, skipped
+    once already active)
+  - full validation: extension Jest 532 passed, webview Jest 68 passed,
+    TypeScript compile clean; backend untouched this round
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - could not directly trigger PBI Lens's activation inside the user's live
+    VS Code window (no UI-automation tool reaches a native Electron app, no
+    CLI flag runs a command in an already-open window) — the background
+    activate() call added above is the durable fix; the user can also
+    activate it immediately by running any PBI Lens command once
+  - next step: reload the window and re-score; capability report should now
+    read Misconfigured→(activating)→InstalledNoProgrammaticSurface across a
+    couple of refreshes instead of crashing scoring entirely
+
+- 2026-08-15 Optimization Report scoring — architectural root cause: stopped
+  patching after the third distinct failure surfaced from the same design
+  choice (per systematic-debugging Phase 4.5, 3+ fixes revealing new problems
+  in the same place means question the architecture, not add a 4th patch).
+  - the "single authoritative Import → Analyze(snapshot) contract" adopted in
+    an earlier session routes ALL Optimization Report scoring through
+    `PbirAuthoringEnvelopeReader` (Services/Discovery/PbirAuthoringEnvelopeReader.cs),
+    which hard-rejects any report.json/pages.json/page.json/visual.json whose
+    `$schema` URL isn't byte-identical to a pinned v1.0.0 string
+    (`IsSupportedSchema`). Any real report exported by a Power BI Desktop
+    version using a different schema version fails EVERY owned file at once
+    — reproduced with a user report needing 279 diagnostics, and independently
+    reproduced by hand-crafting a v1.1.0-schema fixture (4 files, all rejected)
+  - this envelope exists for the round-trip-safe Generate/Mutate authoring
+    surface, where exact schema fidelity matters for safe serialization back
+    to disk. Scoring is read-only and never needed it — confirmed
+    `PbirScorePanel.refresh()` never reads anything from Import's response
+    (`importResult.pages`/`visuals` were always discarded); only
+    `response.analyzer.result` (the ScoreResult) is used
+  - the same `pbir/authoring`/`analyze` operation already has a supported,
+    already-tested compatibility input (`analyze.reportDirectory`) that skips
+    Import/the envelope entirely and calls `PbirScoringService.ScoreAsync`
+    directly — the exact same call the legacy `model/pbir/scoreReport` route
+    and Design Studio's Mutate before/after scoring use. Verified with the
+    real binary: the v1.1.0-schema fixture that Import rejected scores
+    successfully via `analyze.reportDirectory`
+  - fix: `PbirScorePanel.ts`'s `executePbirOptimizationScore` now sends a
+    single `analyze` request with `reportDirectory` instead of Import then
+    Analyze(snapshot); `buildPbirOptimizationImportRequest` and the
+    snapshot-shaped `buildPbirOptimizationAnalyzeRequest` were removed —
+    nothing else in the codebase referenced them. Rewrote
+    `pbirScorePanelScoring.test.ts` for the single-call contract; added a
+    failed-Analyze-stops-after-one-call case. No backend changes needed —
+    reused the existing `reportDirectory` compatibility path as-is
+  - full validation: extension Jest 527 passed, webview Jest 68 passed,
+    backend Release 1000 passed / 11 expected skips (unchanged — no backend
+    edits this round), TypeScript compile clean
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - this reverses the "Import → Analyze(snapshot) single authoritative
+    contract" decision for the Optimization Report specifically; Design
+    Studio's Generate/Mutate flow (PbirAuthoringWorkflow.ts) is untouched and
+    still legitimately needs Import→snapshot for round-trip-safe mutation
+  - next step: reload the window and re-score the four PBITest report
+    folders; if any of the four still fail, the message should now be
+    scoring-engine-specific, not an authoring-envelope rejection
+
+- 2026-08-15 Optimization Report scoring — second, unrelated defect found after
+  the transport-arity fix: `PbirAuthoringRpcDispatcher.Import()`
+  (Services/Discovery/PbirAuthoringRpc/PbirAuthoringRpcDispatcher.cs) computed
+  `succeeded` from two conditions (`IrState.Ir is not null` AND no diagnostic
+  has `ProjectionStatus == Invalid`) but only populated `error` from the first
+  condition. Any real report with a supported visual type (card/table/etc.)
+  whose query-state binding doesn't cleanly project — ambiguous role mapping,
+  missing projection field, wrong Measure/Column kind, empty entity/property —
+  returns `succeeded:false, error:null`, which the panel renders as the generic
+  "Scoring failed — no result returned." with zero diagnostic content. A tiny
+  empty-visuals fixture (used in earlier sessions and my own first smoke test)
+  never exercises this path, which is why it went undetected until a real
+  report was tried.
+  - reproduced against the real compiled binary with a card visual whose
+    projection field has neither Measure nor Column (Services/Discovery/
+    PbirLocalReportReader.cs's ReadBindings marks this Invalid) — confirmed
+    `succeeded:false, error:null` before the fix, proper error.summary after
+  - fix: Import() now derives `error` from the same invalid-diagnostics check
+    used for `succeeded`, with a summary naming the count and first invalid
+    diagnostic's real message. Also fixed `ToDiagnostic(LocalPbirMutationDiagnostic)`,
+    which was discarding the diagnostic's actual `Message` in favor of a
+    generic "The authoring pipeline reported a bounded diagnostic." placeholder
+    — without this the new error.summary would still be uninformative.
+  - added `Dispatcher_AuthoringImport_ReturnsErrorSummaryWhenSemanticBindingIsInvalid`
+    to RpcHostScopeBoundaryTests.cs; audited GenerateAsync/MutateAsync/Validate
+    for the same succeeded/error mismatch shape — their conditions are
+    exhaustive and consistent, this was the only instance
+  - full validation: backend Release 1000 passed / 11 expected skips / 0
+    failed, extension Jest 526 passed, webview Jest 68 passed
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload the window and re-score the real report; if it now
+    fails, the panel should show a specific diagnostic-backed message instead
+    of the generic fallback — that message is the next lead, not another
+    silent dead end
+
+- 2026-08-15 Optimization Report scoring — actual root cause (transport-layer,
+  not routing) found and fixed after the reinstalled VSIX still failed:
+  - `AnalyzerBridgeService.sendRequest` always forwarded a `cancellationToken`
+    positional argument to `client.sendRequest(method, params, cancellationToken)`
+    even when undefined. vscode-jsonrpc's untyped `sendRequest(method, ...args)`
+    decides object-vs-positional-array param encoding from `args.length`, not
+    from whether a trailing arg is `undefined` — so every call without a real
+    token got `params` wrapped as `[params, null]`, an array. The backend's
+    `ValueKind == Object` guard then rejected it ("must be a bounded JSON
+    object"), or — on the legacy scoreReport route — `TryGetProperty` silently
+    returned null on the array, producing "Parameter 'reportPath' is required."
+    Both historical errors were the same transport bug hitting two different
+    backend code paths; the routing-level fixes in prior sessions never
+    addressed it, hence the endless flip-flopping.
+  - fix: `AnalyzerBridgeService.sendRequest` (services/rpc/AnalyzerBridgeService.ts)
+    now omits the trailing arg entirely when no cancellation token is supplied,
+    so `client.sendRequest` is always called with exactly 2 args in that case.
+  - added a regression test using a variadic `ArityRecordingLanguageClient` fake
+    (the existing `FakeLanguageClient` stub has a fixed 2-param signature and
+    silently drops extra args, which is why this was invisible to the suite);
+    confirmed the new test fails against the pre-fix code (records 3 args) and
+    passes post-fix (records 2)
+  - verified the real backend contract separately by driving the compiled
+    `ModelingLanguageServer.dll` over actual stdio JSON-RPC framing with a temp
+    PBIR fixture — Import → Analyze succeeded, confirming the backend side was
+    always correct and the defect was entirely client-side
+  - full validation: extension Jest 526 passed, webview Jest 68 passed,
+    TypeScript compile clean, backend Release 999 passed / 11 expected skips
+  - rebuilt backend + extension + webview from clean, repackaged
+    `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`, installed via the
+    VS Code Insiders app-bundled CLI
+  - next step: reload the VS Code Insiders window and score a real report;
+    no real PBIR fixture exists in-repo for automated UI verification
+
+- 2026-08-15 Optimization Report scoring contract regression fixed at the
+  routing boundary: `PbirScorePanel` now uses one Import → Analyze(snapshot)
+  flow through `pbir/authoring`; the legacy `model/pbir/scoreReport` route
+  remains only for explicit compatibility callers.
+- Added request-builder/workflow regression coverage for both historical
+  failures, safe operation/source-kind diagnostics, explicit schema-version
+  validation, and a real AnalyzerRpcDispatcher Import → Analyze(snapshot) route.
+- Unified authoring Analyze and mutation before/after scoring with the host-owned
+  PbirProjectService/PbirScoringService instead of constructing a second scorer.
+- Validation: focused authoring/RPC tests 28 passed; extension Jest 525 passed;
+  webview Jest 68 passed; full backend 1000 passed / 11 expected Windows skips / 0
+  failed; TypeScript, production build, changed-file lint, diff check, and
+  darwin-arm64 VSIX packaging passed.
+- Exact VSIX artifact: `vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix`;
+  installed with the local VS Code CLI. No real PBIR fixture was configured, so
+  manual score-render verification remains unavailable.
+- Changes remain uncommitted and unstaged; generated tracked backend binaries
+  were changed by the production build and should be handled as generated
+  artifacts during handoff.
+
+## Active Session
+
+- 2026-08-15 RC1 stabilization and product repositioning closeout:
+  - audited frozen HEAD `6a1fe4eb` without adding product functionality
+  - fresh backend validation: 996 passed, 11 expected Windows skips, 0 failed;
+    focused Phase 35E suite: 9 passed; extension: 523 passed; webview: 68
+    passed; RpcHost/build/package:all passed; lint remains 43-error baseline
+  - refreshed RC1 validation evidence, aligned Version 2 roadmap to five
+    governance epics, and added standalone competitive analysis
+  - all changes remain unstaged and uncommitted; ignored 0.6.0 VSIX artifacts
+    remain available for manual UAT
+  - next step: execute the consultant UAT guide and record pass/fail evidence;
+    do not begin Version 2 implementation before UAT and release-owner signoff
+
+## Active Session
+
+- 2026-08-15 Rendered Design Review Integration with PBI Lens:
+  - implemented Phase 1 human-in-the-loop rendered-review checklist on the
+    existing capability-safe provider foundation
+  - added finding classifications, ten guided categories, status/note state,
+    manual typed screenshot evidence, protocol handlers, export fields, and
+    deterministic fallback
+  - current installed PBI Lens 0.4.0 has no supported public programmatic VS Code
+    API; CLI and MCP are documented but not installed/exercisable, so no adapter,
+    process runner, interactive command automation, or rendered acquisition will
+    be added
+  - implementation plan:
+    `docs/superpowers/plans/2026-08-15-optional-pbi-lens-capability-safe-provider.md`
+  - focused rendered-review/provider/recommendation/presentation tests: 21 passed;
+    extension suite: 523 passed; webview suite: 68 passed; TypeScript, build,
+    package, changed-file lint, and diff checks passed
+  - backend regression: 995 passed, 11 expected Windows skips, and one known
+    unrelated Phase 35E timeout-test flake; no backend code changed
+  - all work remains unstaged and uncommitted; next step is manual VS Code UAT
+    using `docs/integrations/rendered-review-uat-guide.md`
+
+## Active Session
+
+- 2026-08-15 UI Polish — Activity Bar Icon redesign:
+  - replacing the clipped four-bar Activity Bar SVG with a purpose-built
+    monochrome magnifying-glass silhouette containing three ascending bars
+  - primary logo and package icon remain unchanged; SVG geometry checks,
+    packaging, and before/after screenshot evidence are complete
+  - next step: hand off the uncommitted icon and evidence artifacts
+
+- 2026-08-15 PBIR Optimization Report handle-architecture fix:
+  - traced the report page to the legacy `model/pbir/scoreReport` call in
+    `PbirScorePanel`; Phase 46 introduced `pbir/authoring` Analyze, but this
+    page never migrated to it
+  - changed PBIR scoring to Import → Analyze using the opaque snapshot handle;
+    Analyze now accepts optional scoring config and stable page name while
+    retaining path-based scoring for compatibility callers
+  - validation: focused authoring/mutation backend tests 40 passed; extension
+    506 passed; webview 68 passed; TypeScript, changed-file ESLint,
+    `git diff --check`, and package:all passed; full backend had 995 passed,
+    11 expected skips, and one unrelated Phase 35E timeout-test flake
+  - repackaged 0.6.0 for all five targets; macOS arm64 artifact was created at
+    08:03:56 and contains the new authoring RPC call
+  - next step: install the fresh VSIX and manually verify Optimization Report
+    scoring and diagnostics; retain legacy scoreReport for external callers
+
+- 2026-08-15 PBIR score path fix:
+  - diagnosed the `Parameter 'reportPath' is required` scoring failure as an
+    extension tree-target resolution bug for reports represented by
+    `definition/report.json` without a separate `definition.pbir` marker
+  - added a regression test and updated the resolver to recognize both PBIR
+    report-root layouts; backend contracts were unchanged
+  - validation: focused test 6 passed; extension tests 506 passed; webview
+    tests 68 passed; TypeScript and production build passed; changed-file
+    ESLint and `git diff --check` passed; production build retains unrelated
+    pre-existing nullable-reference warnings
+  - next step: manually reload/reinstall the built extension and score the
+    affected report; keep the fix uncommitted with the existing RC1 strategy
+    work until UAT confirms the workflow
+
+- 2026-08-15 Product Repositioning — Power BI Design Governance & Optimization:
+  - paused implementation after RC1; no code, phase, feature, or backend
+    architecture changes were made
+  - researched Microsoft’s current Power BI Agentic, Report Design, Report
+    Authoring, Planner/Management, MCP, Fabric CLI, PBIR, accessibility, and
+    CI/CD surfaces
+  - added the strategy document
+    `docs/strategy/2026-08-15-power-bi-design-governance-optimization-strategy.md`
+    covering identity, market, differentiation, capability map, governance
+    architecture, PDP policy language, analyzer evolution, AI integration,
+    remediation, enterprise scenarios, editions, naming, messaging, debt, and
+    product epics
+  - recommendation: position as the independent policy/evidence/remediation
+    layer above Microsoft and other authoring providers; do not continue a
+    generic authoring roadmap
+  - next step: product-owner review of the strategy before any implementation
+    proposal; keep all strategy work uncommitted unless separately directed
+
+## Prior Phase History
+
+- 2026-08-15 Release Candidate 1 preparation after Phase 48:
+  - froze the Phase 36–48 feature set at HEAD `4cbcf391`; no Phase 49 work or
+    product code changes were started
+  - selected existing extension version `0.6.0` for RC1
+  - created the uncommitted release package under
+    `docs/releases/2026-08-15-0.6.0-rc1/` with summary, functional inventory,
+    UAT guide, regression checklist, known issues, release notes, validation,
+    architecture assessment, technical debt, and product-epic roadmap
+  - fresh validation: backend 996 passed / 11 expected Windows skips,
+    extension 505 passed, webview 68 passed, TypeScript/build/RpcHost passed,
+    package:all produced five target VSIXes; full lint remains the known
+    43-error baseline
+  - generated checked-in target backend changes from packaging were restored;
+    ignored 0.6.0 VSIX artifacts remain available for UAT; all source/docs are
+    unstaged and uncommitted
+  - next step: run final documentation/whitespace/status verification and
+    hand off RC1 for manual UAT; do not create a release commit until UAT is
+    complete
+
+## Active Session
+
+- 2026-08-15 Repository Phase 48 — Curated Mutation Expansion and Multi-Operation Planning:
+  - approved design: expand the public authoring allowlist to RenamePage, AddPage, RemovePage, MovePage, MoveVisual, and ResizeVisual while preserving pbir-authoring-rpc/v1, immutable snapshots, new artifact handles, backend planning, typed previews/diffs, and no capability discovery
+  - implemented test-first; public multi-operation requests and backend-only mutation kinds remain structured adapter rejections; planner preserves internal order, validates positions/removal/bounds, and emits typed diffs; VS Code has one curated picker
+  - validation: focused backend 21 passed; full backend 996 passed with 11 expected Windows skips; extension 505 passed; webview 68 passed; TypeScript, production build, VSIX packaging, changed-file lint, and git diff --check passed; all changes remain unstaged and uncommitted
+  - plan: `docs/superpowers/plans/2026-08-15-phase48-curated-mutation-expansion.md`
+
+- 2026-08-14 Repository Phase 47 — Interactive Mutation Workflow and Visual Diff Preview:
+  - design approved: expose only RenamePage through the existing pbir-authoring-rpc/v1 Mutate operation with backend-generated preview and execute modes
+  - preserve the broader internal typed mutation contract; reject non-RenamePage requests at the public adapter and VS Code workflow
+  - implemented backend semantic preview, execute re-planning, immutable snapshot/new artifact handle lifecycle, analyzer before/after comparison, import page metadata, and thin Quick Pick/Input Box/confirmation UX
+  - validation: focused backend 16 passed; full backend 986 passed with 11 expected Windows skips; extension 502 passed; webview 68 passed; TypeScript, production build, VSIX packaging, changed-file lint, and git diff --check passed
+  - full ESLint remains the unchanged 43-error repository baseline; all Phase 47 changes remain uncommitted and unstaged
+  - next recommendation: observe Rename Page usage before evaluating a curated mutation catalog versus backend capability discovery; do not add a graphical designer
+
+- 2026-08-14 Repository Phase 46 — Minimal VS Code Integration for Generate, Import, and Analyze:
+  - implemented one thin `pbir/authoring` JSON-RPC method with exactly Generate, Import, and Analyze admission, plus three output-channel VS Code commands
+  - added typed v1–v7 request conversion, structured response/error presentation, and backend-owned opaque artifact/snapshot handle resolution
+  - full validation is green: backend 977 passed with 11 expected Windows skips; extension 499 passed; webview 68 passed; build/package/diff checks passed; lint remains the unchanged 43-error baseline
+  - preserve Mutation and standalone Validate as backend-only; all changes remain uncommitted and unstaged
+  - next recommendation: run representative manual command workflows and use observed friction to choose Phase 47; do not assume mutation UX is next
+
+- 2026-08-14 Repository Phase 46 milestone-definition review:
+  - the concurrent VS Code/RPC working-tree proposal is protected pre-existing work and is not treated as roadmap authority for this design-only goal
+  - this goal selected a separate backend-local `RenamePage` milestone; its design/current-state/plan documents are authoritative for the roadmap entry and keep RPC/VS Code deferred
+
+- 2026-08-14 Repository Phase 45 — Minimal Direct Typed Backend Service:
+  - selected Option B: existing typed generation and mutation providers are the direct backend boundary; no new façade, RPC contract, registration, transport, or VS Code workflow was added
+  - focused direct-boundary tests are 5/5; pinned-schema rejection, typed/opaque merge preservation, deterministic hashes, stable identity, fidelity evidence, and boundary enforcement are covered
+  - Phase 45 implementation note, current-state note, and roadmap now describe direct typed invocation; pre-existing `PbirAuthoringRpc` proposal files remain preserved and unused
+  - next recommendation: keep Phase 46 not started until a real VS Code workflow demonstrates one narrow cross-process authoring need
+
+- 2026-08-14 Repository Phase 45 roadmap reconciliation:
+  - Phase 44 is confirmed COMPLETE by HEAD `8b109776` and its committed semantic-projection artifacts/evidence
+  - Phase 43 completion changes were already uncommitted at session start and remain preserved, including overlapping reader/fidelity paths
+  - the existing RPC is VS Code extension ↔ local .NET host over stdio JSON-RPC and currently exposes analyzer plus materialization routes only
+  - no real caller for a new authoring RPC is demonstrated; the pre-existing `PbirAuthoringRpc` files are transport-independent in-process work, not an RPC boundary
+  - decision: `NEXT MILESTONE REQUIRES ARCHITECTURE DECISION`; choose a real caller and one narrow operation before approving Phase 45 implementation
+  - no Phase 45 production code, RPC registration, VS Code wiring, or protected Phase 44 artifact was modified in this goal
+
+- 2026-08-14 Repository Phase 43 planning/reconciliation review: HEAD is a clean commit that claims Phase 43 implementation although the requested starting state says Phase 43 was not started. Treat the committed Phase 43 implementation and adjacent report-reader edits as protected evidence; do not extend or delete production code in this goal. Reconcile the existing design/plan against the pinned schema boundary, Phase 42 mutation foundation, and actual serializer integration, then leave an implementation-ready corrected plan only.
+
+- 2026-08-14 Repository Phase 44 — Semantic Binding Projection and Full Round-Trip Fidelity:
+  - authorized scope: project and implement descriptor-based semantic projection for imported PBIR across the existing supported visual families; preserve the Phase 43 envelope, shared IR, mutation, serializer, analyzer, and backend-only boundaries; no RPC, VS Code, new visual families, or semantic-model/DAX generation; leave all changes uncommitted and unstaged
+  - design approval: user approved the recommended single-catalog projection architecture on 2026-08-14
+  - current status: descriptor-based projection, unsupported-role diagnostics, shared-IR semantic equivalence, imported analyzer comparison, and timing evidence implemented and validated
+  - required boundary: imported roles not represented by the existing descriptor catalog remain envelope-preserved, structured-diagnostic, untyped, and non-mutable
+  - closeout: focused Phase 44 is 23/23; full backend is 947 passed with 11 expected Windows skips; core Release build, extension TypeScript/Jest/webview/build, timing observation, and git diff --check passed; all changes remain uncommitted and unstaged; Phase 45 may evaluate minimal internal RPC only after contract review
+
+- 2026-08-14 Repository Phase 43 — Lossless Authoring IR, Identity Preservation, and Round-Trip Fidelity:
+  - authorized scope: implement the approved hybrid lossless-authoring envelope over the existing shared IR, reader, mutation planner/executor, serializer, analyzer, and validation; preserve generation compatibility; no RPC; leave all changes uncommitted and unstaged
+  - design and implementation plan: `docs/superpowers/specs/2026-08-14-phase43-lossless-authoring-ir-design.md` and `docs/superpowers/plans/2026-08-14-phase43-lossless-authoring-ir.md`
+  - current status: prior committed artifacts are under reconciliation; helper tests pass, but end-to-end merge, serializer, fidelity, and analyzer acceptance remains unproven
+  - required boundary: opaque preservation is bounded by pinned schema ownership and cannot expose arbitrary JSON mutation or bypass typed validation
+  - closeout: not accepted as Phase 43 completion; the implementation note is retained as provenance and evidence only until the reconciled acceptance gate passes
+
+## Phase 42 — Explicit Slicer Interaction Closeout
+
+- 2026-08-14: Phase 42 completed as the additive backend-only v7 explicit same-page slicer-interaction slice. The pinned schema correction narrowed modes to `Default`, `DataFilter`, `HighlightFilter`, and `NoFilter`, and removed page-scope targets because the schema requires visual-name targets. Focused Phase 42 is 9/9 with deterministic generation and analyzer/provider round-trip; preserve V1–v6, Phase 29–31, analyzer/scoring, RPC/VS Code, provider-runtime, and execution boundaries.
+
+## Phase 41 — Report Composition — Closeout
+
+- 2026-08-14: Approved additive `local-pbir-generation-request/v6` for typed page templates, sections, slots, navigation, slicers, and slicer interactions. Preserve v1–v5 unchanged; keep composition contract, projection, and validation separate from the serializer/analyzer.
+- Design and implementation plan are recorded in `docs/superpowers/specs/2026-08-14-phase41-report-composition-design.md` and `docs/superpowers/plans/2026-08-14-phase41-report-composition.md`.
+- Implemented and validated. Focused Phase 41 is 12/12; full backend Release is 913 passed with 11 expected Windows skips; extension Jest is 494/494; webview Jest is 68/68; TypeScript, extension build, package, core build, and `git diff --check` passed. Scoped lint remains the unchanged 43-error baseline.
+- Representative score is 84.23 with 89 ms generation, 57 ms materialization, and 144 ms analyzer time. Hashes are in the Phase 41 implementation note. All Phase 41 changes remain uncommitted and unstaged; generated tracked binaries were restored after packaging. Do not modify `PbirScoringService.cs` or widen RPC/VS Code/public execution surfaces.
+- Next recommendation: compatibility review of richer typed slicer interactions or report-level reusable composition before considering public RPC/VS Code exposure.
+
+## Phase 38 — Rich PBIR Authoring
+
+- 2026-08-13: Added the backend-only typed v3 request for Card/Table formatting, deterministic themes, equality filters, basic interactions, report metadata, and deterministic layout margins/spacing while preserving v1/v2 requests.
+- Reused the shared IR, Phase 29 serializer, Phase 31 materialization, pinned schema validation, analyzer round-trip, hashes, and lineage. No RPC, VS Code, chart, semantic-model, DAX, hosted, Windows, Desktop, or provider-security surface was added.
+- Final validation is green: focused provider 23/23; backend Release 881 passed with 11 expected Windows skips; extension Jest 494/494; webview Jest 68/68; TypeScript/build/package and git diff --check passed. Representative round-trip scored 92.5 with 1 ms generation, 109 ms materialization, and 120 ms analyzer time. ESLint remains the unchanged 43-error baseline.
+- All Phase 38 changes remain uncommitted and unstaged. Next recommendation is generalized visual bindings and chart support; defer public surfaces until category/series/axis semantics stabilize.
+
+## Phase 37 — Incremental PBIR Authoring
+
+- 2026-08-13: Added typed v2 local PBIR generation for multiple pages, card/table visuals, direct measure/dimension bindings, and deterministic bounded layout while preserving Phase 36 v1 requests.
+- Focused provider coverage is 16/16; provider/serializer/analyzer regression coverage is 177/177. Full backend is 873 passed and 11 expected Windows skips out of 884; core Release build, extension build/TypeScript compilation, and git diff --check pass.
+- No RPC, VS Code, hosted/Windows execution, chart semantics, or provider-security changes were added. Changes remain uncommitted and unstaged.
+- Phase 37 closeout is complete locally. Next recommendation is Phase 38 formatting, filters, interactions, and themes before chart semantics or public surfaces.
+
+## Phase 36 — First Local PBIR Generation Provider
+
+- 2026-08-13: Implemented the backend-only `LocalPbirGenerationProviderService` with `local-pbir-generation-request/v1` and typed result/round-trip contracts.
+- The provider supports exactly one page, one card visual, one direct measure binding, deterministic layout, explicit caller-supplied UTC metadata, and safe local output targeting.
+- It delegates artifact construction to Phase 29, persistence to Phase 31, and scoring to the existing analyzer; no RPC, VS Code, Phase 35 provider activation, Windows, hosted, or remote execution was added.
+- Focused Phase 36 tests currently pass 9/9, including malformed requests, six-file artifact generation, materialization, analyzer score 73.5, and byte/hash determinism.
+- Deterministic hashes for the fixture are recorded in `docs/superpowers/implementation-notes/2026-08-13-phase36-first-local-pbir-generation-provider.md`.
+- Final validation is complete: full backend 866 passed with 11 expected Windows skips and 0 failures; schema/provider gate 13 passed; core Release build passed with 0 warnings and 0 errors; extension build and `git diff --check` passed.
+- Session closeout is recorded in `.agent-memory/sessions/20260813-phase36-first-local-pbir-generation-provider.md`. Next step is Phase 37 incremental PBIR authoring, not RPC or VS Code exposure.
+
+## Phase 35K Closeout
+
+- 2026-08-13: Replaced the Phase35I Windows skip-only scaffold with 11 executable xUnit integration tests and a disposable harness. The harness conditionally skips unsupported hosts, stages only the repository-owned inert runner from fixed build output, hashes package/executable identity, invokes existing Phase35I admission/runtime/evidence, and cleans its private worker root.
+- macOS validation: 11 discovered, 0 executed, 0 passed, 0 failed, 11 skipped with structured `NotApplicable:Phase35I.WindowsIntegration:Windows OS is required`; the Windows-targeted test assembly compiles successfully. No Windows evidence exists.
+- The current Phase35I evidence contract lacks native step telemetry, Job Object accounting snapshots, child PID lineage, ACL result fields, and artifact manifest fields; Phase35K records these as Windows-worker validation points without changing Phase35I runtime architecture.
+- Historical next-step record from the Phase35K closeout; superseded by the 2026-08-13 roadmap correction, which defers Phase35L until a concrete provider establishes a Windows/Desktop or untrusted-execution requirement.
+
+## Phase 35I Closeout
+
+- 2026-08-13: Added portable Phase35I worker/runner admission, Phase35C resource projection, worker-owned path binding, canonical evidence/proof status, one `Phase35I.Runtime` Windows-native restricted-token/Job Object boundary, and a repository-owned closed inert runner.
+- Portable and boundary validation is green: 6 portable containment tests plus 2 boundary tests. Windows integration tests are discovered and explicitly skipped on macOS with `NotApplicable: Phase35I Windows integration requires a real Windows worker.` The Windows runtime and inert runner compile; no Windows evidence exists.
+- Authoritative status: `PartiallyProven`. No provider, shell, credentials, PBIR generation, Desktop automation, MCP, Skills, publication, or Fabric mutation was added. All Phase35I changes remain uncommitted and unstaged.
+- Next step: run the Windows integration suite on a real certified Windows worker; Phase 35J should be execution-validation/remediation only.
+
+## Phase 35G Closeout
+
+- 2026-08-12: Compared Apple Virtualization.framework against controlled Windows/Linux remote execution using repository evidence and primary Apple/Microsoft/Linux documentation. Selected `remote-controlled-execution/v1` because likely Power BI Desktop-dependent provider behavior requires Windows; selection is recorded but not enabled.
+- Added a small non-enabling Phase35G decision contract and tests; extended the Phase35F mechanism vocabulary without changing the historical `none-local-macos/v1` result. No provider, fixture, PBIR generation, Desktop automation, secret, remote worker, shell bridge, MCP, or Skills execution occurred.
+- Phase 35H recommendation: prove an authenticated private domain-level protocol, isolated Windows worker, independent server-side validation, replay/reconciliation, correlated audit, and inert artifact transfer before any provider activation.
+- Validation complete: Phase35G 2/2; Phase35A–F 67/67; backend 840/840; RPC 119/119; extension 494/494; webview 68/68; TypeScript/build/package/target/boundary/diff checks passed; lint remains the unchanged 43-error baseline. Next step: review the complete uncommitted Phase35C–G diff. Preserve unrelated dirty files and keep Phase35G unstaged/uncommitted.
+
+## Phase 35F Closeout
+
+- 2026-08-12: Evaluated App Sandbox, Hardened Runtime/code signing, signed helper/XPC, Virtualization.framework, container runtime, and remote isolated execution against the Phase35C controls. Current macOS 27.0/Darwin 27 arm64 has no acceptable local mechanism proven; selection is `none-local-macos/v1` and admission remains `NotAdmitted`.
+- Added per-control Phase35F capability/evidence reporting and focused fail-closed tests; removed the unused unrestricted Phase35E process-boundary fallback. No provider or fixture executed.
+- Focused Phase35E/35F validation: 11/11 passed; Phase35A–F focused regression: 65/65; full backend: 838/838; extension: 494/494; webview: 68/68; backend target verification: 5/5; extension build/package and diff/document/boundary scans passed. ESLint remains the pre-existing 43-error baseline. All Phase35F changes remain unstaged and uncommitted; existing dirty Phase35C–E and unrelated files are preserved.
+- Next recommended step: run the full repository validation matrix, review the uncommitted Phase35C–F diff, and design-only compare Virtualization.framework against controlled Windows/Linux remote execution. Do not activate a provider.
+
+## Phase 35D Closeout
+
+- 2026-08-12: Phase 35D implementation and documentation are complete. Focused Phase 35A–35D: 54/54; full backend: 827/827; extension: 494/494; webview: 68/68; TypeScript compile and extension bundle pass. Repository lint remains the pre-existing 43-error baseline.
+- No provider was executed or activated. Phase 35A/B remain committed; Phase 35C and Phase 35D remain uncommitted and unstaged; unrelated dirty files were preserved.
+- Final checks: Phase 35D boundary and documentation scans passed; `npm run build` and `npm run package` passed with the darwin-arm64 VSIX. Phase 35E should address OS sandbox enforcement before controlled provider execution.
+
+## Phase 40 — Advanced Chart Authoring and Reusable Visual Templates
+
+- 2026-08-14: Added additive `local-pbir-generation-request/v5` authoring over the generalized Phase 39 binding model.
+- Added a closed typed visual descriptor catalog for Card, Table, Clustered Column Chart, Line Chart, Bar Chart, and Pie Chart; provider chart-family mapping now resolves descriptor metadata rather than adding visual-specific provider branches.
+- Added deterministic default/executive/compact templates, typed axis/legend/tooltip/conditional-formatting inputs, schema-safe projections, analyzer round-trip, lineage, hashing, and determinism coverage.
+- Validation is green: focused provider/descriptor/serializer 74/74; backend Release 900 passed with 11 expected Windows skips; extension Jest 494/494; webview Jest 68/68; TypeScript, extension build, backend publish, and `git diff --check` passed.
+- Representative v5 score is 88.45 with 73 ms generation, 124 ms materialization, and 97 ms analyzer time. Tooltip fields are validated and retained in the typed input, but custom tooltip PBIR emission remains deferred because the pinned schema rejects arbitrary visual-container shapes.
+- All Phase 40 changes remain uncommitted and unstaged. Next recommendation is Phase 41 report composition: reusable sections, page templates, navigation, slicers, and richer interactions.
+
+## Active Session
+
+- 2026-08-13 Repository Architecture Review — Roadmap Correction Around First PBIR Generation:
+  - completed a repository-wide review of the original analyzer objective, Phases 21–34 PBIR generation/materialization path, and Phases 35A–35L execution branch
+  - verified with current Microsoft documentation that PBIR supports documented external/programmatic edits, while PBIP/PBIR conversion through Desktop and some Desktop validation workflows remain Desktop-specific; this does not establish Windows as a universal PBIR-generation prerequisite
+  - concluded that the Phase35G Desktop/Windows premise is future-provider architecture based on a likely assumption, not an exercised provider requirement; Phase35L has no Windows evidence and no provider has executed
+  - added `docs/architecture/roadmap-correction-first-pbir-generation-review.md` with evidence, timeline, phase classification, gap analysis, corrected roadmap, and next-goal recommendation
+  - updated `docs/ROADMAP.md` to preserve 35G–35L history as deferred Windows/hosted infrastructure and re-scope existing Phase 36 to the first narrow local PBIR generation provider; no code or runtime architecture changed
+  - next recommended implementation goal, pending separate authorization: prove one local schema-validated PBIR generation slice over the existing Phase29–31 path
+
+- 2026-08-13 Repository Phase 35L — Certified Windows Worker Execution Gate:
+  - checked the required session memory and live worktree before execution
+  - host is macOS 27.0/Darwin 27 arm64; no attached or provisioned Windows worker, Windows environment variables, Windows VM, or local Windows execution tool was available
+  - the repository CI workflow declares a `windows-latest` matrix job, but no Phase35L worker was dispatched or externally mutated because the requested execution gate requires an actual available Windows environment and explicitly says to stop when none exists
+  - the Phase35K Windows suite was not run, no red-gate counts or Windows evidence were generated, no failures were observed, and no implementation remediation was attempted
+  - authoritative containment status remains `PartiallyProven`; Phase35L is blocked only on access to a certified Windows worker
+
+- 2026-08-13 Repository Phase 35J — Real Windows Worker Execution Validation Gate:
+  - inspected startup rules, Phase35I authoritative records, native runtime, inert runner, Windows integration tests, CI, and live Git state; checkout was clean at HEAD `5b29d5e3878b8b43fbc1a882557de71618b8f711`
+  - host is macOS 27.0/Darwin 27 arm64 with .NET 8.0.22 runtime and SDK 10.0.400; no real Windows worker is available in this session
+  - first unmodified `Category=WindowsIntegration` run: 10 discovered, 0 executed, 0 passed, 0 failed, 10 skipped with the existing NotApplicable reason
+  - found the existing Windows integration file is a skip-only scaffold with ten empty test bodies; no native failures or Windows enforcement evidence can be produced until closed-fixture assertions run on Windows
+  - added Phase35J execution-validation plan, current state, environment evidence, and failure/remediation records; updated Phase35I state/guide, roadmap, repo map, and memory; no runtime/test implementation was changed
+  - authoritative status remains `PartiallyProven`; next step is to implement/enable the closed Windows test coverage and run it on a real Windows worker; do not advance to provider execution
+
+- 2026-08-13 Repository Phase 35H — Remote Controlled Execution Boundary Proof:
+  - live checkout was clean at HEAD `c8f931efd604885c24440cfd52fe2721886c03e2`; Phase 35A–G are represented in committed history in this checkout; no files were staged or committed
+  - added a focused typed `remote-execution/v1` client/worker boundary with ephemeral RSA request/response signatures over an in-process transport harness, independent worker revalidation, closed inert workloads, persisted lifecycle/replay state, typed timeout/cancellation, remote quarantine, local Phase 35C artifact safety, and correlated audit
+  - focused Phase35H xUnit is 9/9; no Windows worker, mTLS, real network, provider, shell, Desktop, PBIR generation, MCP, Skills, credentials, publication, or Fabric mutation was exercised
+  - final validation: Phase35A–H focused 76/76; full backend 849/849; RPC coverage is included in the full backend run; extension Jest 494/494; webview Jest 68/68; TypeScript compilation, .NET build, extension build, VSIX packaging, boundary scan, and diff checks passed; lint remains the unchanged 43-error baseline
+  - generated darwin-arm64 backend binaries changed during the authoritative extension build and remain preserved; all Phase35H source/docs are uncommitted and unstaged; no commits were made
+  - next step: Phase35I should prove Windows Job Object plus restricted-token/no-breakaway containment and worker image/runner certification before any provider activation
+
+- 2026-08-12 Repository Phase 35E — OS Sandbox Enforcement and Controlled Execution Containment:
+  - design and implementation added a focused Phase35E admission/evidence boundary and isolated `Phase35E.Runtime` assembly so Phase35A–D Core boundary tests remain offline-only
+  - macOS `sandbox-exec` deny-default probes on Darwin 27 aborted with exit 134/137; the adapter reports unsupported and admission fails closed; no provider or fixture process was admitted
+  - focused Phase35E validation is 8/8; fixture project build passes; full backend has one timeout-test flake after 834 passes and needs a final rerun after the timeout window adjustment
+  - no staging, commit, reset, clean, provider activation, or unrelated-file rewrite was performed
+  - final validation: full backend 835/835; focused Phase35E 8/8; extension Jest 494/494; webview Jest 68/68; TypeScript compile, backend build, extension build, VSIX package, and `git diff --check` pass; lint remains the unchanged 43-error baseline
+  - next step: review the uncommitted Phase35E diff; Phase35F should establish stronger OS enforcement before any real provider execution
+
+- 2026-08-12 Repository Phase 35C — Provider Trust, Sandbox, Audit, and Artifact Safety Foundation:
+  - authorized scope: additive offline-only assurance layer over Phase 35A/35B; no real provider, external execution, credentials, publication, mutation, staging, commit, or push
+  - current status: implementation, focused tests, current-state, threat model, roadmap, and validation are complete; no real provider was activated
+  - repository evidence: HEAD contains Phase 35A and Phase 35B commits; worktree was clean at session start, contrary to stale memory notes describing those phases as uncommitted
+  - validation: Phase 35C 20/20; Phase 35A–35C focused 46/46; full backend 819/819; RPC 107/107; extension 494/494; webview 68/68; TypeScript compile; .NET build; packaged extension build and VSIX package; repository lint remains the unchanged 43-error baseline; diff/document/boundary checks passed
+  - repository state: Phase 35A and Phase 35B are committed in this checkout; Phase 35C is uncommitted and unstaged; no commit, staging, reset, clean, or unrelated-file rewrite was performed
+  - next step: review Phase 35C diff and decide Git disposition; Phase 35D should begin with pre-production provider certification or the narrowest enforcement prerequisite, not provider activation
+
+## Active Session
+
+- 2026-08-12 Repository Phase 35B — Governed Runtime Provider Architecture & Execution Framework:
+  - authorized scope: implement a focused offline-only composition root over authoritative uncommitted Phase 35A contracts; no real provider, external execution, publication, mutation, staging, or commit
+  - current status: design, plan, runtime services, focused tests, current-state, threat-model, roadmap, and memory updates are present; validation is complete
+  - validation: Phase 35A 11/11; Phase 35B 15/15; full backend 799/799 with zero skips; RPC 107/107; selected schema/boundary gate 36/36; extension 494/494; webview 68/68; TypeScript compile; .NET build; packaged extension build; diff/document checks passed; repository lint remains the unchanged 43-error baseline with no Phase 35B lint surface
+  - closeout: Phase 35A and Phase 35B remain uncommitted and unstaged; unrelated dirty files were preserved; next step is review/commit disposition only
+  - preservation rule: existing Phase 35A and unrelated dirty files are pre-existing and must remain untouched
+
+- 2026-08-12 Repository Phase 35A — Contract-Only Provider Foundation:
+  - authorized scope: backend-only deterministic versioned contracts and governance for future generation providers; no executable provider path; no commit
+  - current status: Phase 35A contract package, focused tests, design/plan, roadmap, current-state, and architecture-gap updates are present; focused contract validation is green; full validation remains to run
+  - authoritative readiness conclusion: **No runtime generation provider is available**
+  - validation: focused Phase 35A 11/11; full backend 784/784; RPC 119/119; pinned schema/boundary 8/8; extension/webview 494/494 and 68/68; TypeScript compile; document, placeholder, boundary, and diff checks passed; repository lint remains the unchanged 43-error baseline
+  - closeout: all Phase 35A work remains uncommitted; next step is review/commit disposition only, with no Phase 35B execution work implied
+
+- 2026-08-04 Repository Phase 34 — VS Code Local PBIR Materialization Workflow:
+  - authorized scope:
+    - consume only the Phase 33 preview, apply, and recovery inspection routes from the existing Design Studio materialize stage
+    - require explicit confirmation, exact preview identity, fresh transaction IDs, cancellation, lifecycle invalidation, and safe redacted presentation
+    - preserve all Phase 29–33 backend and transport authority and leave changes uncommitted
+  - current status:
+    - Phase 34 design, implementation plan, current-state, roadmap mapping, Skills-plan mapping, and architecture-boundary updates written
+    - host coordinator and Design Studio workflow component implemented with focused tests passing
+    - full extension/webview and backend validation passes: 494 extension tests, 68 webview tests, 773 backend tests with zero skips
+    - eight pinned offline schema/boundary tests and 29 focused RPC/changed-boundary tests pass; scoped changed-file lint is clean; repository lint remains at the documented 43-error baseline
+    - validation is complete; the scoped Phase 34 change set is being committed and pushed under explicit user authorization
+
+- Previous Phase 33 focus is retained below as historical context.
+
+- 2026-08-04 Repository Phase 33 — Local PBIR RPC Adapter:
+  - authorized scope:
+    - implement the provider-neutral local PBIR RPC adapter over completed Phase 31 and hardened Phase 32
+    - preserve all uncommitted Phase 32 changes
+    - support only preview, apply, and recovery inspection
+    - update Phase 33 design, plan, current-state, roadmap, original Skills plan, architecture gap, provider-adapter state, repository map, summaries, and session record
+    - leave changes uncommitted and do not add UI, provider, Skills, deployment, Desktop, Analyzer, PBIP, semantic-model, or legacy-report work
+  - current status:
+    - design and implementation plan written before production changes
+    - stateless adapter implemented over PbirMaterializationOrchestrationService with strict versioned validation and safe explicit outcome mapping
+    - RpcHost now references Core through an internal friend boundary, reusing existing Phase 31 types without exposing Phase 30 services
+    - validation passed: focused adapter/contract 12/12; Phase 29–33 regression inventory 202/202; full backend 773/773 with zero failures/skips; pinned offline schema/boundary 8/8; extension Jest 95 suites/462 tests; webview Jest 10 suites/65 tests; TypeScript compilation; RPC transport 107/107; repository lint remains the unchanged 44-error baseline with zero changed TypeScript/JavaScript files; whitespace, scope, document, and diff checks passed
+    - residual lifecycle risks remain inherited from Phase 32: non-cooperative handlers can delay disconnect drain, and an OS write already in progress cannot be retracted; Phase 30 transaction artifacts remain the recovery truth
+    - branch HEAD and origin both remain 57a14da9; 34 worktree paths are uncommitted
+  - next recommended step:
+    - choose whether to prepare a scoped Phase 33 commit, prepare commit and push, keep the validated changes uncommitted, or explicitly approve discard
+
+- 2026-08-03 Repository Phase 32 — RPC Transport Hardening:
+  - authorized scope:
+    - map Repository Phase 32 explicitly to shared generic RPC transport hardening
+    - design and plan before production changes
+    - implement strict bounded framing, concurrent request lifecycle, cancellation, shutdown, safe diagnostics, and deterministic tests
+  - preserved stop boundary:
+    - no Phase 33 PBIR adapter, Phase 31 route, provider or Skills execution, UI integration, external invocation, generated-artifact intake, deployment, publishing, version bump, commit, push, merge, or discard
+  - current status:
+    - verified the clean synchronized branch `codex/ux-consolidation-remediation-0-2-2` at `57a14da9d0ea10f485c12fb9315ae1b75a5d4ba9`
+    - mapped Phase 32 explicitly to shared RPC transport hardening and recorded the Phase 33–44 sequence as provisional planning only
+    - completed and self-reviewed the design and implementation plan before production changes
+    - implemented strict bounded framing/parsing, bounded concurrent dispatch, atomic response framing, typed request registration, deterministic cancellation/duplicate arbitration, idempotent shutdown/disconnect cleanup, and redacted diagnostics
+    - retained the exact existing application route inventory and added no Phase 31, PBIR adapter, provider, Skills, UI, deployment, or publishing authority
+    - validation passed: RPC 107/107; Phase 29–31 changed-file regression inventory 116/116; full backend 761/761; offline schema/boundary 8/8; Jest 105 suites / 527 tests; TypeScript compile; exact unchanged 44-tuple b50d17d9 lint baseline; scope, document, whitespace, and diff gates
+    - all Phase 32 changes remain uncommitted as requested
+  - next recommended step:
+    - perform scoped review and choose whether to prepare a Phase 32 commit, prepare and push it, keep it uncommitted, or explicitly approve discard
+    - do not begin provisional Phase 33 or any later phase without separate authorization
+
+- 2026-08-03 Phase 29–31 integration preparation:
+  - audit the full dirty worktree and classify every path and mixed hunk before staging
+  - run fresh focused Phase 29–31 backend tests followed by applicable repository validation
+  - if validation passes, create focused conventional commits for Phase 29 boundary documentation, Phase 30 materialization, Phase 31 orchestration, and the Phase 32 roadmap-gate records
+  - preserve the approved stop boundary: no Phase 32 implementation, merge, push, or pull request
+  - current result:
+    - no unrelated worktree changes or Phase 32 implementation were found
+    - focused backend passed 135/135; full backend passed 665/665; Jest passed 105 suites / 527 tests; TypeScript compilation and the 8-test schema/boundary gate passed; diff and scope checks passed
+    - a clean b50d17d9 worktree and the active worktree produced the same normalized 44 ESLint errors across the same 28 unchanged VS Code files; changed TypeScript/JavaScript count and scoped lint errors are both zero
+    - created four focused commits in dependency order for Phase 29, Phase 30, Phase 31, and the Phase 32 roadmap gate/integration audit
+    - post-commit backend, Jest, TypeScript, offline schema/boundary, scoped-lint, roadmap/scope, and diff gates passed
+    - the user pushed the branch through the UI on 2026-08-03 at 14:29:47 -0400; remote HEAD became ebf4423725c10e246a84b57e66d0a844407893fe
+  - next recommended step:
+    - preserve the pushed branch and wait for explicit authorization before any Phase 32 roadmap amendment, design, plan, implementation, merge, or pull request
+
+- 2026-08-03 Repository Phase 32 roadmap gate — mapping remains unconfirmed:
+  - independently rechecked the original Phase 4 roadmap/design/plan, Phase 29–31 state, provider contracts, Phase 31 orchestration, and RpcHost transport
+  - confirmed ROADMAP.md explicitly leaves Repository Phase 32 unmapped
+  - confirmed the original next provider scope is a broader Microsoft PBIR runtime adapter, while the requested local wrapper also requires transport-lifecycle capabilities RpcHost does not currently provide
+  - stopped without Phase 32 design, plan, code, tests, or validation claims as required by the request
+  - next recommended step:
+    - separately authorize a design-only roadmap amendment for a local Phase 31 transport adapter
+    - make strict bounded RpcHost request lifecycle hardening an explicit prerequisite or first bounded task
+    - keep that work distinct from the broader first runtime-provider implementation
+
+- 2026-08-02 Repository Phase 32 roadmap gate — stopped before implementation:
+  - requested objective:
+    - add a bounded provider-facing backend adapter over Phase 31 materialization orchestration
+  - evidence:
+    - ROADMAP.md and the original Phase 4 plan map only Phase 29 / 4A, Phase 30 / 4B, and Phase 31 post-4B application orchestration
+    - original Phase 4 next names a broader Microsoft PBIR adapter and external execution work, not a transport wrapper over Phase 31
+    - provider, execution-provider, and runtime-provider frameworks remain contract-only and explicitly exclude provider invocation
+    - RpcHost has no per-request cancellation registry, cancellation notification handling, concurrent dispatch, strict unknown-field rejection, or bounded provider payload contract
+  - decision:
+    - Repository Phase 32 is not clearly roadmap-mapped, so no production code, tests, Phase 32 design, or implementation plan was created
+    - documented the discrepancy in the roadmap, architecture-gap analysis, and provider-adapter current state
+    - documentation placeholder, production-boundary, and diff checks passed; implementation suites were intentionally not rerun
+  - next recommended step:
+    - authorize a design-only roadmap decision for either a local Phase 31 transport adapter with an explicit RpcHost lifecycle prerequisite, or the broader first runtime-provider implementation
+    - prefer the smaller local transport option, but do not call it an existing provider adapter or begin implementation until its mapping is approved
+
+- 2026-08-02 Repository Phase 31 — original roadmap Phase 4 post-4B application integration:
+  - objective:
+    - confirm the next authorized roadmap slice from repository evidence
+    - expose Phase 29 serialization and Phase 30 preview/apply/recovery inspection through one narrow backend application orchestration boundary
+    - preserve explicit preview identity, fresh transaction identity, fail-closed outcomes, cancellation, redacted diagnostics, and all Phase 29–30 durability guarantees
+  - authorization:
+    - the explicit Phase 31 goal authorizes the bounded provider/application-layer integration slice only
+    - no Skills execution, external provider invocation, deployment, publishing, Desktop, Analyzer, UI, PBIP, semantic-model, legacy report.json, schema upgrade, commit, push, pull request, or merge work
+  - current status:
+    - implementation and required documentation complete; all changes left uncommitted
+    - Phase 31 focused: 14 passed; Phase 29–31 focused: 111 passed
+    - full backend: 665 passed, 0 failed, 0 skipped
+    - Jest: 105 suites / 527 tests passed; standalone TypeScript compilation passed
+    - offline schema/boundary: 8 passed with exactly 8 pinned resources
+    - document, whitespace, roadmap, scope, changed-boundary, repository-output, and diff checks passed
+  - next recommended step:
+    - review the combined uncommitted Phase 29–31 diff and choose a Git disposition
+    - do not begin external provider, Skills, Desktop, deployment, publishing, Analyzer, UI, or later roadmap work without separate authorization
+
+- 2026-08-02 Repository Phase 30 — Original Roadmap Phase 4B implementation:
+  - objective:
+    - persist only validated Phase 29 modern PBIR artifacts to a caller-supplied local destination
+    - use read-only preview plus staged apply, rollback, and interrupted-transaction recovery
+    - preserve exact bytes, hashes, lineage, modern-only paths, and preview-writer behavior
+  - authorization:
+    - Phase 30 design and implementation plan approved by the explicit implementation goal
+    - no commit, push, pull request, merge, provider, Skills, deployment, Desktop, Analyzer, legacy report.json, UI, or unrelated cleanup work
+  - current status:
+    - implementation complete and left uncommitted for review
+    - focused backend: 82 passed, 0 failed, 0 skipped
+    - full backend: 650 passed, 0 failed, 0 skipped
+    - Jest: 105 suites and 527 tests passed
+    - standalone TypeScript compilation passed
+    - offline schema: 8 focused tests passed; document, whitespace, and scope checks passed
+  - delivered:
+    - versioned Phase 30 preview, apply, transaction, receipt, rollback, lineage, diagnostic, and hash contracts
+    - bounded filesystem adapter, canonical path policy, and embedded pinned-schema runtime validator
+    - read-only destination classification and exact Phase 29 inventory planning
+    - staged same-filesystem publication, managed replacement, rollback quarantine, and interrupted-transaction recovery
+    - focused tests for repeatability, stale targets, hostile and colliding paths, schema rejection, failure restoration, retries, and preview-writer boundaries
+    - Phase 30/4B design, plan, current-state, roadmap, and repository-memory updates
+  - next recommended step:
+    - review the uncommitted Phase 30 diff and choose a Git disposition
+    - do not begin provider, Skills, Desktop, deployment, publishing, Analyzer, UI, or later roadmap work without separate authorization
+
+- 2026-07-27 Repository Phase 30 — Original Roadmap Phase 4B design gate:
+  - objective:
+    - define safe local deployable PBIR materialization with preview/apply/rollback controls
+    - consume only validated Phase 29 artifact and manifest contracts
+    - preserve the separate preview-only writer and every external execution prohibition
+  - current status:
+    - phase boundary proposed
+    - implementation plan proposed
+    - explicit approval of both documents is required before production implementation
+  - proposed architecture:
+    - read-only target preview
+    - dedicated target report-definition directory
+    - exact-byte staging and verification
+    - same-filesystem directory promotion
+    - external transaction journal, receipt, backup, and rollback quarantine
+    - arbitrary nonempty user-managed targets fail closed
+  - stop boundary:
+    - no Phase 30 production code before approval
+    - no provider, Skills, API, CLI, deployment, publishing, Desktop, Analyzer, semantic-model, PBIP, legacy PBIR, refinement-loop, Fabric App, Fabric Data App, or UI work
+
+- 2026-07-26 Repository Phase 29 — Original Roadmap Phase 4A is complete:
+  - objective:
+    - serialize canonical pbir-ir/v1 into deterministic modern PBIR artifacts in memory
+    - validate the supported subset against pinned official Microsoft schemas offline
+    - stop before deployable filesystem materialization or execution work
+  - approval status:
+    - approved: Repository Phase 29 maps to original roadmap Phase 4A
+    - approved: deterministic in-memory modern PBIR serialization only
+    - approved and completed: production implementation plan
+  - delivered:
+    - pbir-deployable request, artifact, manifest, validation, readiness, diagnostics, lineage, and hash contracts
+    - modern definition.pbir and definition hierarchy in memory
+    - deterministic identities, canonical JSON, fixed layout, semantic projections, and SHA-256 hashes
+    - pinned offline Microsoft schema conformance tests
+    - fail-closed unsupported-input, tamper, trust-boundary, and preview-regression coverage
+  - next boundary:
+    - stop after Phase 29
+    - **Safe Local Deployable PBIR Materialization with Preview/Apply/Rollback Controls** requires a new goal
+    - provider, Microsoft Skills, deployment, Desktop, and Analyzer automation remain unauthorized
+
+- 2026-06-27 Design Package Microsoft Skills Integration Phase 28 is complete:
+  - objective:
+    - implement only Design Studio Execution Readiness Dashboard
+    - create design-studio-execution-readiness/v1
+    - aggregate architecture, planning, generation, runtime, skills, review, warnings, readiness summary, lineage, and trust-boundary status into a consultant-friendly dashboard
+    - preserve protocol validation and reject malformed readiness payloads
+    - preserve informational-only boundaries
+    - stop before deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, and Analyzer Workspace automation
+  - delivered:
+    - added backend DesignStudioExecutionReadinessService and DesignStudioExecutionReadinessSafetyGate
+    - added backend design-studio-execution-readiness/v1 models and focused xUnit coverage
+    - added extension DesignStudioExecutionReadinessSafetyGate and derived dashboard view model
+    - rendered the dashboard inside Design Studio Preview Review
+    - extended Design Studio protocol for requestExecutionReadiness and executionReadinessUpdated
+    - added `docs/current-state/design-studio-execution-readiness-state.md`
+    - updated current-state docs and repo memory
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudioExecutionReadinessServiceTests`
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioProtocol.test.ts --runInBand`
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs webview-src/design-studio/__tests__/App.test.tsx --runInBand`
+    - focused green gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudioExecutionReadinessServiceTests`
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioProtocol.test.ts --runInBand`
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs webview-src/design-studio/__tests__/App.test.tsx --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioWorkspace.test.ts --runInBand`
+      - `cd vscode-extension && npm run compile`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 28 as requested
+    - do not begin deployable PBIR generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-27 Design Package Microsoft Skills Integration Phase 27 is complete:
+  - objective:
+    - implement only Design Studio Preview Review Surface Integration
+    - create design-studio-preview-review/v1 in the VS Code extension workflow layer
+    - expose pbir-preview-package/v1 and pbir-review-handoff/v1 metadata inside Design Studio as review-only state
+    - add preview package summary, file inventory, hash inventory, lineage, warnings, rejected artifacts, rollback metadata, review readiness, and required reviewer action to the Design Studio surface
+    - add explicit review-only actions: mark preview reviewed, request revision, defer review, and prepare analyzer candidate metadata
+    - preserve protocol validation, reject unsupported message versions, reject malformed preview review payloads, and preserve Analyzer Workspace validation boundaries
+    - stop before deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, and Analyzer Workspace automation
+  - delivered:
+    - added DesignStudioPreviewReviewSafetyGate and persisted preview review store in the extension
+    - added Preview Review workflow stage between Prepare For Review and Review Design
+    - added host/webview protocol messages and validation for preview review actions/state
+    - added React rendering for preview package, review handoff, boundary, lineage, hash, rollback, warning, and rejected-artifact metadata
+    - added `docs/current-state/design-studio-preview-review-state.md`
+    - updated Design Studio and architecture current-state documentation
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+    - focused green gates:
+      - `cd vscode-extension && npx jest src/test/designStudioPreviewReview.test.ts --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioProtocol.test.ts --runInBand`
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs webview-src/design-studio/__tests__/App.test.tsx --runInBand`
+      - `cd vscode-extension && npx jest src/test/designStudioWorkspace.test.ts --runInBand`
+      - `cd vscode-extension && npm run compile`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 27 as requested
+    - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-27 Design Package Microsoft Skills Integration Phase 26 is complete:
+  - objective:
+    - implement only PBIR Preview Package and Review Handoff
+    - create pbir-preview-package/v1 and pbir-review-handoff/v1
+    - consume pbir-local-preview-write-result/v1, pbir-preview-manifest/v1, pbir-ir/v1, and generation-manifest/v1 approval context
+    - create deterministic metadata-only preview package records with file inventory, hash inventory, lineage, warnings, rejected artifacts, and rollback metadata reference
+    - create explicit Design Studio and Analyzer Workspace review handoff records
+    - preserve the Design Studio review boundary and Analyzer Workspace validation boundary
+    - stop before deployable PBIR generation, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, and Analyzer Workspace automation
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirPreviewPackageReviewHandoffModels.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewPackageService.cs`
+      - `service-dotnet/Services/Discovery/PbirReviewHandoffSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirReviewHandoffService.cs`
+      - `service-dotnet/tests/Discovery/PbirPreviewPackageReviewHandoffServiceTests.cs`
+      - `docs/current-state/pbir-preview-package-review-handoff-state.md`
+      - `.agent-memory/sessions/2026-06-27T110748Z-pbir-preview-package-review-handoff-phase26.md`
+    - updated:
+      - `docs/current-state/pbir-local-preview-writer-state.md`
+      - `docs/current-state/pbir-local-writer-boundary-state.md`
+      - `docs/current-state/pbir-preview-serializer-state.md`
+      - `docs/current-state/pbir-intermediate-representation-state.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - pbir-preview-package/v1
+      - pbir-review-handoff/v1
+      - PbirPreviewPackageService
+      - PbirReviewHandoffService
+      - PbirReviewHandoffSafetyGate
+      - review readiness states: incomplete, readyForDesignReview, readyForAnalyzerReview, blocked
+      - fail-closed rejection for forbidden deployable artifact references, missing hashes, incomplete lineage, missing Design Studio approval context, automatic Analyzer Workspace validation, Analyzer Workspace launch, deployment, and non-dry-run generation manifest constraints
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewPackageReviewHandoffServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewPackageReviewHandoffServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 26 as requested
+    - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 25 is complete:
+  - objective:
+    - implement only the PBIR Local Preview File Writer
+    - create pbir-local-preview-writer/v1 and pbir-local-preview-write-result/v1
+    - consume pbir-local-write-manifest/v1 plus approved local write request outputs
+    - write only safe non-deployable preview artifacts to a local output folder
+    - preserve deterministic file content, paths, hashes, source lineage, rollback metadata, and overwrite protection
+    - stop before deployable PBIR generation, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, and deployment
+  - starting context:
+    - Phase 24 PBIR Local Artifact Writer Safety Boundary is present as a dry-run-only manifest producer
+    - actual file writing remains unimplemented before this phase
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirLocalPreviewFileWriterModels.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalPreviewFileContentFactory.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalPreviewFileWriterSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalPreviewFileWriterService.cs`
+      - `service-dotnet/tests/Discovery/PbirLocalPreviewFileWriterServiceTests.cs`
+      - `docs/current-state/pbir-local-preview-writer-state.md`
+      - `.agent-memory/sessions/2026-06-26T194003Z-pbir-local-preview-file-writer-phase25.md`
+    - updated:
+      - `service-dotnet/Services/Discovery/Models/PbirLocalArtifactWriterModels.cs`
+      - `docs/current-state/pbir-local-writer-boundary-state.md`
+      - `docs/current-state/pbir-preview-serializer-state.md`
+      - `docs/current-state/pbir-intermediate-representation-state.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - pbir-local-preview-writer/v1
+      - pbir-local-preview-write-result/v1
+      - preview-only local file writes for approved pbir-local-write-manifest/v1 entries
+      - deterministic content resolution for preview Markdown, preview JSON, canonical IR JSON, preview manifest JSON, and diagnostics Markdown
+      - hash preservation against the approved dry-run manifest
+      - fail-if-exists and allow-overwrite-only-when-hash-matches policies
+      - rollback metadata reference without automatic rollback execution
+      - fail-closed rejection for report.json, definition.pbir, model.bim, TMDL, PBIP project structure paths, non-local output paths, blind overwrite, missing rollback metadata, unapproved manifest entries, Microsoft Skills execution, provider/API/CLI invocation, and deployment
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalPreviewFileWriterServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalPreviewFileWriterServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - session note:
+    - `.agent-memory/sessions/2026-06-26T194003Z-pbir-local-preview-file-writer-phase25.md`
+  - next recommended step:
+    - stop after Phase 25 as requested
+    - do not begin deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 24 is complete:
+  - objective:
+    - implement only the PBIR Local Artifact Writer Safety Boundary
+    - create pbir-local-writer/v1, pbir-local-write-request/v1, and pbir-local-write-manifest/v1
+    - consume pbir-preview-manifest/v1 and pbir-ir/v1
+    - produce deterministic dry-run local write manifests with planned paths, hashes, overwrite risk, rollback planning, warnings, and rejected artifacts
+    - stop before actual file writing, deployable PBIR generation, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, and deployment
+  - starting context:
+    - Phase 23 PBIR Preview Serializer is complete
+    - no deployable PBIR serialization, local artifact writer, Microsoft Skills execution, provider/API/CLI invocation, or deployment exists
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirLocalArtifactWriterModels.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalArtifactWriterSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirLocalArtifactWriterBoundaryService.cs`
+      - `service-dotnet/tests/Discovery/PbirLocalArtifactWriterBoundaryServiceTests.cs`
+      - `docs/current-state/pbir-local-writer-boundary-state.md`
+      - `docs/superpowers/plans/2026-06-26-pbir-local-writer-boundary-phase24.md`
+      - `.agent-memory/sessions/2026-06-26-pbir-local-writer-boundary-phase24.md`
+    - implemented:
+      - pbir-local-writer/v1
+      - pbir-local-write-request/v1
+      - pbir-local-write-manifest/v1
+      - dry-run-only local artifact writer boundary
+      - planned local paths and deterministic intended hashes
+      - source lineage from PBIR IR and preview manifest
+      - caller-supplied overwrite risk detection
+      - dry-run rollback planning
+      - fail-closed rejection for deployable PBIR artifacts, report.json, definition.pbir, model.bim, TMDL, PBIP project output, provider/API/CLI invocation, Microsoft Skills execution, deployment, non-local output roots, missing dry-run, and unsafe overwrite policy
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalArtifactWriterBoundaryServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirLocalArtifactWriterBoundaryServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 24 as requested
+    - do not begin actual local file writing, deployable PBIR serialization, report.json generation, definition.pbir generation, Microsoft Skills execution, provider/API/CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 23 is complete:
+  - objective:
+    - implement only PBIR Serializer Boundary and Local Preview Artifacts
+    - create pbir-preview-artifact/v1 and pbir-preview-manifest/v1
+    - consume canonical pbir-ir/v1 and pbir-serializer-request/v1
+    - emit deterministic local Markdown and JSON preview artifacts for human review only
+    - preserve immutable lineage and deterministic hashes
+    - stop before deployable PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, and deployable PBIR serialization
+  - starting context:
+    - Phase 22 canonical PBIR IR and serializer request contract are complete
+    - no PBIR serializer implementation, deployable PBIR output, Microsoft Skills execution, provider/API/CLI invocation, or deployment exists
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirPreviewSerializerModels.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewSerializerSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewSerializerValidator.cs`
+      - `service-dotnet/Services/Discovery/PbirPreviewSerializerService.cs`
+      - `service-dotnet/tests/Discovery/PbirPreviewSerializerServiceTests.cs`
+      - `docs/current-state/pbir-preview-serializer-state.md`
+      - `docs/superpowers/plans/2026-06-26-pbir-preview-serializer-phase23.md`
+      - `.agent-memory/sessions/2026-06-26-143218-pbir-preview-serializer-phase23.md`
+    - implemented:
+      - pbir-preview-artifact/v1
+      - pbir-preview-manifest/v1
+      - local deterministic PBIR preview serializer output descriptors
+      - deterministic Markdown and JSON preview artifacts
+      - page, visual layout, semantic binding, and navigation summaries
+      - deterministic file, file-set, output, and manifest hashes
+      - immutable preview lineage
+      - fail-closed safety rejection for deployable output, report.json, definition.pbir, model.bim, TMDL, Power BI project files, provider invocation, Microsoft API invocation, CLI invocation, Microsoft Skills execution, deployment, non-local paths, incomplete IR, and request hash mismatches
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewSerializerServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirPreviewSerializerServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 23 as requested
+    - do not begin deployable PBIR serialization, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 22 is complete:
+  - objective:
+    - implement only the Canonical PBIR Intermediate Representation scope
+    - create pbir-ir/v1 and pbir-serializer-request/v1 request contract
+    - consume generation-manifest/v1 and PBIR generation specification
+    - produce deterministic canonical IR with hashes and immutable lineage
+    - update the Reference PBIR Generator to emit canonical IR descriptors instead of descriptive-only intermediate metadata
+    - stop before Microsoft Skills execution, PBIR serialization, provider invocation, Microsoft API invocation, CLI invocation, deployment, and deployable PBIR generation
+  - starting context:
+    - Phase 21 local deterministic reference generator is complete
+    - no execution providers, Microsoft Skills execution, serializer, deployment, or deployable PBIR generation exists
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirIntermediateRepresentationModels.cs`
+      - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationService.cs`
+      - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationValidator.cs`
+      - `service-dotnet/Services/Discovery/PbirIntermediateRepresentationReadinessService.cs`
+      - `service-dotnet/tests/Discovery/PbirIntermediateRepresentationServiceTests.cs`
+      - `docs/current-state/pbir-intermediate-representation-state.md`
+      - `docs/superpowers/plans/2026-06-26-pbir-intermediate-representation-phase22.md`
+      - `.agent-memory/sessions/2026-06-26-pbir-intermediate-representation-phase22.md`
+    - updated:
+      - `service-dotnet/Services/Discovery/Models/ReferencePbirGenerationModels.cs`
+      - `service-dotnet/Services/Discovery/ReferencePbirGenerationService.cs`
+      - `service-dotnet/tests/Discovery/ReferencePbirGenerationServiceTests.cs`
+      - `docs/current-state/reference-generator-state.md`
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - pbir-ir/v1
+      - pbir-serializer-request/v1 request contract only
+      - deterministic PBIR IR generation from generation-manifest/v1 and PBIR generation specification
+      - PBIR IR validation for completeness, navigation integrity, semantic integrity, layout integrity, schema compatibility, and boundary protection
+      - PBIR IR readiness states:
+        - incomplete
+        - blocked
+        - canonical
+        - readyForSerializer
+      - deterministic IR input, content, and lineage hashes
+      - immutable IR lineage
+      - Reference PBIR Generator canonical IR output:
+        - `reference-pbir-generator/v1/canonical-pbir-ir.json`
+  - validation passed:
+    - focused red gate failed as expected before implementation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirIntermediateRepresentationServiceTests`
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~PbirIntermediateRepresentationServiceTests|FullyQualifiedName~ReferencePbirGenerationServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 22 as requested
+    - do not begin PBIR serialization, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, deployable PBIR generation, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 21 is complete:
+  - objective:
+    - implement only the Reference PBIR Generator local deterministic prototype
+    - create `reference-pbir-generator/v1` and `reference-generation-output/v1`
+    - consume `generation-manifest/v1`
+    - preserve immutable lineage, generation metadata, deterministic hashes, and local-only reference output
+    - stop before Microsoft Skills execution, Copilot execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, production PBIR generation, Fabric App generation, Fabric Data App generation, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, Phase 20 architecture certification docs, and current-state planning architecture summaries
+    - added failing xUnit coverage first for deterministic output, stable hashes, lineage, metadata, safety rejection, and boundary protection
+  - current validation:
+    - focused red gate failed as expected before implementation because Phase 21 reference generator types did not exist
+    - focused green gate passed:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ReferencePbirGenerationServiceTests`
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/ReferencePbirGenerationModels.cs`
+      - `service-dotnet/Services/Discovery/ReferenceGenerationSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/ReferencePbirGenerationService.cs`
+      - `service-dotnet/tests/Discovery/ReferencePbirGenerationServiceTests.cs`
+      - `docs/current-state/reference-generator-state.md`
+      - `docs/superpowers/plans/2026-06-26-reference-pbir-generator-phase21.md`
+      - `.agent-memory/sessions/2026-06-26-reference-pbir-generator-phase21.md`
+    - updated:
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `docs/current-state/architecture-readiness-report.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+      - `.agent-memory/repo-map.md`
+      - `.agent-memory/session-summaries.md`
+    - implemented:
+      - `reference-pbir-generator/v1`
+      - `reference-generation-output/v1`
+      - `IReferenceGenerationProvider`
+      - `ReferencePbirGenerationService`
+      - `ReferenceGenerationSafetyGate`
+      - deterministic local JSON and Markdown reference output descriptors
+      - deterministic SHA-256 input, file-set, output, and file-content hashes
+      - immutable lineage and generation metadata preservation
+      - fail-closed safety rejection for non-certified architecture, missing manifest, deployment requests, provider invocation requests, Microsoft API requests, CLI requests, network requests, and incomplete PBIR specification readiness
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ReferencePbirGenerationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 21 as requested
+    - do not begin Microsoft Skills execution, Copilot execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, production PBIR generation, Fabric App generation, Fabric Data App generation, Analyzer Workspace automation, or broader execution-provider implementation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-26 Design Package Microsoft Skills Integration Phase 20 is complete:
+  - objective:
+    - implement only Architecture Validation and Readiness Certification
+    - create `architecture-certification/v1`, `architecture-readiness-report/v1`, and `architecture-gap-analysis/v1`
+    - validate planning architecture, trust boundaries, ownership boundaries, provider neutrality, deterministic behavior, immutable lineage, schema consistency, readiness transitions, and approval transitions
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, and Analyzer Workspace automation
+  - started:
+    - Phase 19 completed deterministic planning pipeline verification through `generation-manifest/v1`
+    - added failing architecture certification tests first, then implemented the minimum certification-only services and contracts
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/ArchitectureCertificationModels.cs`
+      - `service-dotnet/Services/Discovery/ArchitectureValidationService.cs`
+      - `service-dotnet/Services/Discovery/ArchitectureReadinessCertificationService.cs`
+      - `service-dotnet/tests/Discovery/ArchitectureCertificationServiceTests.cs`
+      - `docs/current-state/architecture-certification-state.md`
+      - `docs/current-state/architecture-readiness-report.md`
+      - `docs/current-state/architecture-gap-analysis.md`
+    - implemented:
+      - `architecture-validation/v1`
+      - `architecture-certification/v1`
+      - `architecture-readiness-report/v1`
+      - `architecture-gap-analysis/v1`
+      - readiness states:
+        - `incomplete`
+        - `conditionallyReady`
+        - `architecturallyComplete`
+        - `readyForExecutionImplementation`
+      - deterministic validation for layer participation, trust boundaries, ownership boundaries, provider neutrality, schema versions, readiness transitions, approvals, deterministic pipeline verification, and immutable lineage
+      - deterministic certification and gap analysis documenting remaining implementation-only categories
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ArchitectureCertificationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 20 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, Microsoft API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, Analyzer Workspace automation, or execution implementation unless a new goal explicitly opens that phase
+
+### Prior Session Record
+
+- 2026-06-25 Design Package Microsoft Skills Integration Phase 19 is complete:
+  - objective:
+    - implement only the Phase 19 Generation Manifest Integration and Pipeline Verification scope
+    - integrate the complete planning pipeline into `generation-manifest/v1`
+    - add deterministic end-to-end pipeline verification from Design Package through Generation Manifest
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and the current Phase 18 manifest/runtime/provider code
+    - reconciled the repo state against the requested Phase 19 scope and identified the remaining gap as runtime-provider integration, manifest contract alignment, and explicit pipeline verification
+    - wrote failing xUnit coverage first for manifest contract expansion, deterministic readiness/lineage preservation, and end-to-end pipeline verification
+  - delivered:
+    - updated:
+      - `service-dotnet/Services/Discovery/Models/GenerationManifestModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestService.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestValidator.cs`
+      - `service-dotnet/tests/Discovery/GenerationManifestServiceTests.cs`
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `.agent-memory/repo-map.md`
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationPipelineVerificationModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationPipelineVerificationService.cs`
+      - `service-dotnet/tests/Discovery/GenerationPipelineVerificationServiceTests.cs`
+    - implemented:
+      - `generation-manifest/v1` source-reference integration across Design Package, Generation Request, Execution Plan, Planning Outcome, Runtime Provider, PBIR Generation Specification, Generation Provider Request, and Generation Provider Execution Plan
+      - separate manifest readiness summary and approval summary
+      - deterministic selected generation-provider and Microsoft runtime-provider summaries plus selected skill/provider-candidate capture
+      - `generation-pipeline-verification/v1`
+      - deterministic verification of every planning stage, preserved references, readiness transitions, immutable lineage, and non-execution boundaries
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~GenerationManifestServiceTests|FullyQualifiedName~GenerationPipelineVerificationServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 19 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, or Fabric Data App generation unless a new goal explicitly opens the next phase
+
+### Prior Session Record
+
+- 2026-06-25 Remove ConnectWise MCP is complete:
+  - objective:
+    - remove the local ConnectWise MCP registration from the active Codex configuration
+    - remove the dependent MCP-specific wording from the weekday morning brief automation
+  - started:
+    - read `AGENTS.md`, repo memory files, and failure-avoidance notes
+    - searched the repository for ConnectWise MCP references and confirmed the repo itself did not define the MCP
+    - located the active MCP definition in `/Users/bcrowell/.codex/config.toml`
+  - delivered:
+    - removed `[mcp_servers.connectwise_manage]` from `/Users/bcrowell/.codex/config.toml`
+    - updated `/Users/bcrowell/.codex/automations/weekday-morning-brief/automation.toml` to remove the hard-coded MCP endpoint and MCP-specific access wording
+  - validation passed:
+    - verified the config no longer contains `connectwise_manage`
+    - verified the config no longer contains the removed `mcp-remote` endpoint
+    - verified the automation no longer contains the removed endpoint URL
+    - verified the automation no longer contains MCP-specific ConnectWise access wording
+  - next recommended step:
+    - review whether archived `.codex` notes or attachments still need manual cleanup, but no active MCP config changes remain
+
+### Prior Session Record
+
+- 2026-06-25 Design Package Microsoft Skills Integration Phase 18 is complete:
+  - objective:
+    - implement only the Phase 18 Generation Manifest Framework scope
+    - add `generation-manifest/v1`
+    - create a deterministic immutable provider-neutral handoff manifest downstream from generation-provider execution planning
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and adjacent Discovery planning/runtime/specification/provider files
+    - confirmed the new seam should gather upstream planning artifacts into one immutable metadata-only handoff document for future generators
+    - preparing failing xUnit coverage first for deterministic manifest creation, validation, readiness states, complete lineage, stable ordering, and strict boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationManifestModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestService.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestValidator.cs`
+      - `service-dotnet/Services/Discovery/GenerationManifestReadinessService.cs`
+      - `service-dotnet/tests/Discovery/GenerationManifestServiceTests.cs`
+      - `docs/current-state/generation-manifest-framework-state.md`
+    - implemented:
+      - `generation-manifest/v1`
+      - deterministic metadata-only manifest creation from planning, specification, provider, execution-planning, and runtime-provider artifacts
+      - immutable reference preservation across Design Package, Generation Request, Execution Plan, Planning Outcome, runtime provider, generation provider request, generation-provider execution plan, and PBIR generation specification
+      - manifest validation for references, lineage integrity, readiness consistency, provider compatibility, schema compatibility, and non-execution boundaries
+      - readiness states:
+        - `incomplete`
+        - `blocked`
+        - `readyForGenerator`
+    - updated:
+      - `docs/current-state/generation-manifest-framework-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationManifestServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 18 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-25 Design Package Microsoft Skills Integration Phase 17 is complete:
+  - objective:
+    - implement only the Phase 17 Generation Provider Execution Planning Framework scope
+    - add `generation-provider-execution-plan/v1`
+    - create the execution-planning layer that consumes `generation-provider-request/v1` and prepares provider-neutral execution plans without invoking any provider
+    - add execution-plan validation and readiness evaluation
+    - stop before PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and the current-state docs for the adjacent planning, PBIR specification, and generation-provider layers
+    - confirmed Phase 17 should land as a downstream execution-planning seam after `generation-provider-request/v1` and before any future provider execution implementation
+    - identified an older generic `execution-plan/v1` layer in the repo and chose to keep Phase 17 isolated as a narrower generation-provider execution-planning contract to avoid mutating earlier planning abstractions
+    - preparing failing xUnit coverage first for deterministic plan creation, validation, readiness states, and strict non-execution boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationProviderExecutionPlanningModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderExecutionPlanningService.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderExecutionPlanValidator.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderExecutionReadinessService.cs`
+      - `service-dotnet/tests/Discovery/GenerationProviderExecutionPlanningServiceTests.cs`
+      - `docs/current-state/generation-provider-execution-planning-framework-state.md`
+    - implemented:
+      - `generation-provider-execution-plan/v1`
+      - deterministic execution stages:
+        - `specificationValidation`
+        - `providerCapabilityValidation`
+        - `executionPreparation`
+        - `providerHandoffPreparation`
+      - execution constraints:
+        - dry-run only
+        - mock execution permitted
+        - provider invocation prohibited
+        - API invocation prohibited
+        - CLI invocation prohibited
+        - deployment prohibited
+        - report mutation prohibited
+      - execution dependencies for approvals, provider readiness, runtime readiness, and specification completeness
+      - readiness states:
+        - `blocked`
+        - `partiallyPrepared`
+        - `prepared`
+        - `readyForExecutionProvider`
+    - updated:
+      - `docs/current-state/generation-provider-framework-state.md`
+      - `docs/current-state/pbir-generation-specification-framework-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationProviderExecutionPlanningServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 17 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, provider invocation, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-24 Design Package Microsoft Skills Integration Phase 16 is complete:
+  - objective:
+    - implement only the Phase 16 Generation Provider Contract Framework scope
+    - add `generation-provider/v1`, `generation-provider-definition/v1`, `generation-provider-request/v1`, `generation-provider-context/v1`, and `generation-provider-result/v1`
+    - create a provider-neutral registry, validation, readiness, and PBIR-specification-to-provider-request mapping seam
+    - stop before PBIR generation, Microsoft Skills execution, API invocation, CLI invocation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, failure-avoidance notes, the approved integration spec and plan, and the current-state docs for the Phase 10-15 planning/runtime/specification layers
+    - confirmed the new seam should sit after `pbir-generation-specification/v1` as a metadata-only provider contract that future generators can consume without introducing execution
+    - identified the target implementation pattern from adjacent phases:
+      - versioned model contract file
+      - focused framework service
+      - validator
+      - readiness service
+      - metadata-only registry
+      - xUnit contract and boundary tests
+    - preparing failing xUnit coverage first for registration, discovery, request mapping, compatibility validation, readiness evaluation, and strict non-generation boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/GenerationProviderModels.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderFrameworkService.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderRegistry.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderValidator.cs`
+      - `service-dotnet/Services/Discovery/GenerationProviderReadinessService.cs`
+      - `service-dotnet/tests/Discovery/GenerationProviderFrameworkServiceTests.cs`
+      - `docs/current-state/generation-provider-framework-state.md`
+    - implemented:
+      - `generation-provider/v1`
+      - `generation-provider-definition/v1`
+      - `generation-provider-request/v1`
+      - `generation-provider-context/v1`
+      - `generation-provider-result/v1`
+      - provider-neutral PBIR specification to generation-provider request mapping
+      - metadata-only generation provider registration, discovery, capability lookup, artifact-type lookup, and target-profile lookup
+      - generation-provider validation for specification completeness, provider compatibility, artifact-type support, target-profile support, and schema compatibility
+      - readiness states:
+        - `unsupported`
+        - `blocked`
+        - `candidate`
+        - `readyForGenerationProvider`
+    - updated:
+      - `docs/current-state/pbir-generation-specification-framework-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationProviderFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 16 as requested
+    - do not begin PBIR generation, Microsoft Skills execution, API invocation, CLI invocation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-23 Design Package Microsoft Skills Integration Phase 15 is complete:
+  - objective:
+    - implement only the Phase 15 PBIR Generation Specification Framework scope
+    - add `pbir-generation-specification/v1` and `pbir-artifact-specification/v1`
+    - create the specification-only mapping layer from Design Package, Generation Request, and Planning Outcome intent into PBIR artifact specifications
+    - add specification validation and readiness evaluation
+    - stop before Microsoft Skills execution, API invocation, CLI invocation, real PBIR generation, deployment, Fabric App generation, and Fabric Data App generation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for planning orchestration and the PBIR execution prototype boundary
+    - confirmed the new Phase 15 seam should sit between planning/runtime readiness and any future PBIR generation provider as an authoritative specification contract rather than an execution path
+    - identified the primary upstream inputs as `DesignPackage`, `GenerationRequest`, and `PlanningOutcome`, with the resulting specification intended to become the authoritative translation of Design Studio intent
+    - preparing failing xUnit coverage first for PBIR specification creation, validation, readiness states, and strict non-generation boundary protection
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirGenerationSpecificationModels.cs`
+      - `service-dotnet/Services/Discovery/PbirGenerationSpecificationService.cs`
+      - `service-dotnet/Services/Discovery/PbirGenerationSpecificationValidator.cs`
+      - `service-dotnet/Services/Discovery/PbirGenerationSpecificationReadinessService.cs`
+      - `service-dotnet/tests/Discovery/PbirGenerationSpecificationServiceTests.cs`
+      - `docs/current-state/pbir-generation-specification-framework-state.md`
+    - implemented:
+      - `pbir-generation-specification/v1`
+      - `pbir-artifact-specification/v1`
+      - deterministic Design Package + Generation Request + Planning Outcome mapping into PBIR artifact specifications
+      - specification validation for page, visual, semantic, navigation, and success-criteria completeness
+      - readiness states:
+        - `incomplete`
+        - `partiallySpecified`
+        - `specified`
+        - `readyForGenerationProvider`
+    - updated:
+      - `docs/current-state/planning-orchestration-framework-state.md`
+      - `docs/current-state/pbir-execution-prototype-boundary-state.md`
+      - `.agent-memory/repo-map.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirGenerationSpecificationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 15 as requested
+    - do not begin Microsoft Skills execution, API invocation, CLI invocation, real PBIR generation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Skills Integration Phase 14 is complete:
+  - objective:
+    - implement only the Phase 14 PBIR Execution Prototype Boundary scope
+    - add `pbir-execution-prototype/v1`, `pbir-execution-request/v1`, and `pbir-mock-execution-result/v1`
+    - add a PBIR-only safety gate, dry-run summary path, and deterministic mocked execution path
+    - stop before live Microsoft Skills execution, provider invocation, CLI execution, real artifact generation, deployment, Fabric App generation, Fabric Data App generation, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for planning orchestration, runtime provider framework, Microsoft runtime provider contract, Microsoft skills catalog, and Microsoft skill-provider adapter
+    - confirmed the Phase 14 seam should sit after `readyForMicrosoftRuntimeProvider` as a stricter PBIR-only execution-boundary prototype rather than a provider implementation
+    - identified the intended boundary inputs as `PlanningOrchestrationResult` plus `MicrosoftRuntimeProviderFrameworkState`
+    - preparing failing xUnit coverage first for safety-gate enforcement, deterministic dry-run summaries, mocked execution behavior, and rejection of non-PBIR or live/deployment paths
+  - delivered:
+    - added:
+      - `service-dotnet/Services/Discovery/Models/PbirExecutionPrototypeModels.cs`
+      - `service-dotnet/Services/Discovery/PbirExecutionSafetyGate.cs`
+      - `service-dotnet/Services/Discovery/PbirExecutionPrototypeBoundaryService.cs`
+      - `service-dotnet/tests/Discovery/PbirExecutionPrototypeBoundaryServiceTests.cs`
+      - `docs/current-state/pbir-execution-prototype-boundary-state.md`
+    - implemented:
+      - `pbir-execution-prototype/v1`
+      - `pbir-execution-request/v1`
+      - `pbir-mock-execution-result/v1`
+      - `dryRun` and `mockedExecution` PBIR execution modes
+      - deterministic PBIR dry-run summaries for pages, visuals, and semantic bindings
+      - deterministic mocked execution results from explicit fixture ids and optional explicit fixture output paths
+      - `PbirExecutionSafetyGate` rejection of:
+        - non-PBIR targets
+        - missing approvals
+        - unsupported runtime readiness
+        - unsupported providers
+        - live provider invocation
+        - deployment
+        - non-dry-run requests outside mocked execution
+    - updated:
+      - `docs/current-state/runtime-provider-framework-state.md`
+      - `docs/current-state/microsoft-runtime-provider-contract-state.md`
+      - `docs/current-state/microsoft-skill-provider-adapter-state.md`
+      - `docs/current-state/planning-orchestration-framework-state.md`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PbirExecutionPrototypeBoundaryServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 14 as requested
+    - do not begin live Microsoft Skills execution, provider invocation, CLI execution, real artifact generation, deployment, Fabric App generation, Fabric Data App generation, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Skill Provider Adapter Framework Phase 13 is complete:
+  - objective:
+    - implement only the Phase 13 Microsoft Skill Provider Adapter Framework scope
+    - add `microsoft-skill-provider-adapter/v1`, `microsoft-skill-provider/v1`, and `skill-provider-selection/v1`
+    - add descriptive provider registration, discovery, resolution, compatibility validation, and readiness evaluation
+    - integrate provider-selection metadata with planning orchestration and Microsoft runtime provider contracts without adding execution
+    - stop before Microsoft Skills execution, skill invocation, Microsoft API invocation, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and current-state docs for Microsoft skills catalog, planning orchestration, runtime provider framework, and Microsoft runtime provider contract
+    - confirmed the existing Phase 12 skill catalog is the upstream seam and that Phase 13 should add a descriptive provider-mapping layer rather than a runtime path
+    - added failing xUnit coverage first in `service-dotnet/tests/Discovery/MicrosoftSkillProviderAdapterFrameworkServiceTests.cs`
+    - verified the first red gate fails because the new provider-adapter contract types do not exist yet
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftSkillProviderModels.cs`
+    - added:
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderRegistry.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderResolutionService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderCompatibilityValidator.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderReadinessService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftSkillProviderAdapterFrameworkService.cs`
+    - integrated Microsoft skill-provider selection into:
+      - `service-dotnet/Services/Discovery/PlanningOrchestrationService.cs`
+      - `service-dotnet/Services/Discovery/PlanningReadinessAggregator.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderContractFrameworkService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderValidator.cs`
+      - `service-dotnet/Services/Discovery/Models/PlanningOrchestrationModels.cs`
+      - `service-dotnet/Services/Discovery/Models/MicrosoftRuntimeProviderModels.cs`
+    - added focused xUnit coverage in `service-dotnet/tests/Discovery/MicrosoftSkillProviderAdapterFrameworkServiceTests.cs`
+    - updated adjacent planning/runtime tests for the new planning-only provider-selection seam
+    - added `docs/current-state/microsoft-skill-provider-adapter-state.md`
+    - updated:
+      - `docs/current-state/microsoft-skills-catalog-state.md`
+      - `docs/current-state/planning-orchestration-framework-state.md`
+      - `docs/current-state/microsoft-runtime-provider-contract-state.md`
+      - `docs/current-state/runtime-provider-framework-state.md`
+      - `docs/current-state/capability-negotiation-framework-state.md`
+      - `docs/current-state/microsoft-adapter-specification-state.md`
+  - validation passed:
+    - focused gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftSkillProviderAdapterFrameworkServiceTests`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~PlanningOrchestrationServiceTests|FullyQualifiedName~MicrosoftRuntimeProviderContractFrameworkServiceTests|FullyQualifiedName~MicrosoftSkillsCapabilityCatalogFrameworkServiceTests|FullyQualifiedName~RuntimeProviderAbstractionFrameworkServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 13 as requested
+    - do not begin Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Skills Capability Catalog Framework Phase 12 is complete:
+  - objective:
+    - implement only the Phase 12 Microsoft Skills Capability Catalog Framework scope
+    - add `microsoft-skills-catalog/v1` and `microsoft-skill-definition/v1`
+    - add descriptive Microsoft skill registration, discovery, compatibility validation, capability resolution, and readiness evaluation
+    - integrate Microsoft skill metadata with capability negotiation, planning orchestration, and Microsoft runtime provider contracts without adding execution
+    - stop before Microsoft Skills execution, skill invocation, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and current-state docs for capability negotiation, planning orchestration, Microsoft adapter specification, runtime provider framework, and Microsoft runtime provider contract
+    - confirmed the existing Phase 6-11 stack is contract-first and execution-free, so Phase 12 should add a descriptive skill-catalog seam rather than a runtime path
+    - added failing xUnit coverage first in `service-dotnet/tests/Discovery/MicrosoftSkillsCapabilityCatalogFrameworkServiceTests.cs`
+    - verified the first red gate fails because the new Phase 12 contract types do not exist yet
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftSkillsCatalogModels.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillsCatalog.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillCompatibilityValidator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillResolutionService.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillReadinessService.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftSkillsCapabilityCatalogFrameworkService.cs`
+    - integrated Microsoft skill readiness into:
+      - `service-dotnet/Services/Discovery/PlanningOrchestrationService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderContractFrameworkService.cs`
+      - `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderValidator.cs`
+      - `service-dotnet/Services/Discovery/Models/PlanningOrchestrationModels.cs`
+      - `service-dotnet/Services/Discovery/Models/MicrosoftRuntimeProviderModels.cs`
+    - added focused xUnit coverage in `service-dotnet/tests/Discovery/MicrosoftSkillsCapabilityCatalogFrameworkServiceTests.cs`
+    - updated adjacent planning/runtime tests for the new planning-only skill metadata seam
+    - added `docs/current-state/microsoft-skills-catalog-state.md`
+    - updated:
+      - `docs/current-state/capability-negotiation-framework-state.md`
+      - `docs/current-state/planning-orchestration-framework-state.md`
+      - `docs/current-state/microsoft-runtime-provider-contract-state.md`
+      - `docs/current-state/runtime-provider-framework-state.md`
+      - `docs/current-state/microsoft-adapter-specification-state.md`
+  - validation passed:
+    - focused gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftSkillsCapabilityCatalogFrameworkServiceTests`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~PlanningOrchestrationServiceTests|FullyQualifiedName~MicrosoftRuntimeProviderContractFrameworkServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 12 as requested
+    - do not begin Microsoft Skills execution, skill invocation, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Microsoft Runtime Provider Contract Phase 11 is complete:
+  - objective:
+    - implement only the Phase 11 Microsoft Runtime Provider Contract scope
+    - define `microsoft-runtime-provider/v1`, `microsoft-runtime-request/v1`, and `microsoft-runtime-context/v1`
+    - add Microsoft-specific runtime validation, readiness, provider registration, and discovery without adding execution
+    - stop before Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for runtime provider framework, planning orchestration, and Microsoft adapter specification
+    - confirmed the generic Phase 10 runtime-provider layer is contract-only and that Phase 11 should extend it with a Microsoft-specific contract rather than mutate trust boundaries
+    - added failing xUnit coverage first for contract validation, readiness states, planned versus unsupported target handling, registry discovery, and boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftRuntimeProviderModels.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderValidator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftRuntimeReadinessService.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftRuntimeProviderContractFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/MicrosoftRuntimeProviderContractFrameworkServiceTests.cs`
+    - added `docs/current-state/microsoft-runtime-provider-contract-state.md`
+    - updated `docs/current-state/runtime-provider-framework-state.md`
+    - updated `docs/current-state/planning-orchestration-framework-state.md`
+    - updated `docs/current-state/microsoft-adapter-specification-state.md`
+    - formalized contract-only Microsoft runtime provider definition, request, context, validation, readiness, and registry registration/discovery
+    - preserved deterministic target handling:
+      - `pbirReport/default` supported
+      - `fabricDataApp/default` planned-only
+      - `fabricApp/default` unsupported
+    - preserved strict non-execution boundaries with no Microsoft Skills execution, API invocation, CLI invocation, provider invocation, artifact generation, deployment, or Analyzer Workspace automation
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftRuntimeProviderContractFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 11 as requested
+    - do not begin Microsoft Skills execution, Microsoft API invocation, CLI execution, provider invocation, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Runtime Provider Abstraction Layer Phase 10 is complete:
+  - objective:
+    - implement only the Phase 10 Runtime Provider Abstraction Layer scope
+    - introduce `runtime-provider/v1`, `runtime-provider-request/v1`, `runtime-provider-context/v1`, and `runtime-provider-result/v1`
+    - define runtime interfaces, validation, readiness, registry, and execution-candidate contracts without adding execution
+    - stop before Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for the existing Discovery planning stack
+    - confirmed the worktree is already dirty from prior phases and preserved unrelated changes
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for runtime contracts, readiness states, validation failures, registry behavior, execution-candidate creation, and non-execution boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/RuntimeProviderModels.cs`
+    - added `service-dotnet/Services/Discovery/IRuntimeProvider.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeProviderValidator.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeReadinessService.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeProviderRegistry.cs`
+    - added `service-dotnet/Services/Discovery/RuntimeProviderAbstractionFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/RuntimeProviderAbstractionFrameworkServiceTests.cs`
+    - added `docs/current-state/runtime-provider-framework-state.md`
+    - updated `docs/current-state/execution-provider-framework-state.md`
+    - updated `docs/current-state/planning-orchestration-framework-state.md`
+    - formalized the Phase 10 runtime-provider contract stack as pre-execution only
+    - added deterministic runtime readiness states:
+      - `invalid`
+      - `blocked`
+      - `unsupported`
+      - `candidate`
+      - `readyForRuntimeProvider`
+    - added contract-only runtime provider registration, discovery, validation, and execution-candidate shaping with no invocation surface
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~RuntimeProviderAbstractionFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 10 as requested
+    - do not begin runtime provider implementations, Microsoft Skills execution, provider invocation, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Planning Orchestration Framework Phase 9 is complete:
+  - objective:
+    - implement only the Phase 9 End-to-End Planning Orchestration Framework scope
+    - introduce `planning-orchestration/v1` and `planning-outcome/v1`
+    - compose the existing planning frameworks into a deterministic, execution-free orchestration workflow
+    - add explicit stage transition validation, readiness aggregation, failure classification, and lineage-preserving planning outcomes
+    - stop before Microsoft Skills execution, CLI execution, provider invocation, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, and the current-state docs for the existing Discovery planning stack
+    - confirmed the current checkout is already on branch `codex/ux-consolidation-remediation-0-2-2` and preserved unrelated worktree changes
+    - treated the approved spec and implementation plan as the design gate for this phase
+    - added failing xUnit coverage first for end-to-end planning orchestration, blocked planning outcomes, unsupported targets, transition validation, determinism, and planning-only boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/PlanningOrchestrationModels.cs`
+    - added `service-dotnet/Services/Discovery/Models/PlanningOutcomeModels.cs`
+    - added `service-dotnet/Services/Discovery/PlanningReadinessAggregator.cs`
+    - added `service-dotnet/Services/Discovery/PlanningOrchestrationService.cs`
+    - added `service-dotnet/tests/Discovery/PlanningOrchestrationServiceTests.cs`
+    - added `docs/current-state/planning-orchestration-framework-state.md`
+    - added deterministic `planning-orchestration/v1` lifecycle state with explicit stage history and transition history
+    - added deterministic `planning-outcome/v1` with metadata, references, status, readiness summary, lineage, and typed planning failures
+    - composed Design Package consumption, Generation Request, Execution Plan, Provider Adapter, Microsoft planning translation, Capability Negotiation, and Execution Provider eligibility into one execution-free planning workflow
+    - added explicit stage transition validation for predecessor outputs, version compatibility, reference integrity, and readiness consistency
+    - added readiness aggregation for blocking conditions, unresolved requirements, approval status, and execution-provider readiness
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~PlanningOrchestrationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 9 as requested
+    - do not begin runtime providers, Microsoft Skills execution, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the runtime phases
+
+- 2026-06-22 Design Package Execution Provider Contract Framework Phase 8 is complete:
+  - objective:
+    - implement only the Phase 8 Execution Provider Contract Framework scope
+    - introduce `execution-provider/v1` as the future-runtime provider contract
+    - add deterministic execution-provider definitions, request and response contracts, approval inheritance, eligibility evaluation, readiness handling, and audit lineage
+    - stop before Microsoft Skills execution, CLI execution, provider invocation, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the referenced spec and plan, and the current-state docs for capability negotiation, provider adapters, and Microsoft adapter specification
+    - confirmed the worktree is already dirty from prior phase implementation and will preserve unrelated changes
+    - treated the existing approved design docs as the design gate and added failing xUnit coverage first for provider contract loading, eligibility evaluation, approval inheritance, audit lineage preservation, deterministic results, and boundary protection
+    - traced the Discovery contract stack downstream from capability negotiation so the new seam stays contract-only and does not imply runtime behavior
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/ExecutionProviderModels.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionProviderValidator.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionEligibilityService.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionProviderContractFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/ExecutionProviderContractFrameworkServiceTests.cs`
+    - added `docs/current-state/execution-provider-framework-state.md`
+    - updated `docs/current-state/capability-negotiation-framework-state.md`
+    - updated `docs/current-state/microsoft-adapter-specification-state.md`
+    - updated `docs/current-state/provider-adapter-framework-state.md`
+    - formalized `execution-provider/v1` with provider definitions, provider requests, provider responses, inherited approval policy, and audit lineage contracts
+    - added deterministic eligibility outcomes:
+      - `eligible`
+      - `conditionallyEligible`
+      - `ineligible`
+      - `blocked`
+    - added explicit execution-provider readiness states:
+      - `notEligible`
+      - `conditionallyEligible`
+      - `eligible`
+      - `approvedForExecutionProvider`
+    - kept the framework contract-only with no execution surface
+  - validation:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ExecutionProviderContractFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 8 as requested
+    - do not begin runtime provider implementation, Microsoft Skills execution, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-22 Design Package Capability Negotiation Phase 7 is complete:
+  - objective:
+    - implement only the Phase 7 Capability Negotiation Framework scope
+    - introduce `capability-negotiation/v1` as the deterministic capability-resolution contract
+    - add provider-neutral requirement gathering, substitution handling, validation, and readiness evaluation across `generation-request/v1`, `execution-plan/v1`, `provider-adapter/v1`, and `microsoft-adapter-specification/v1`
+    - stop before Microsoft Skills execution, CLI execution, provider implementations, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the referenced spec and plan, and the current-state docs for provider planning, provider adapters, and Microsoft adapter specification
+    - confirmed the worktree is already dirty from prior phase implementation and will preserve unrelated changes
+    - treated the new goal scope as authoritative because the older plan file still labels a different Phase 7
+    - began tracing the current Discovery service seams to add negotiation downstream from the existing contract stack without introducing execution behavior
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/CapabilityNegotiationModels.cs`
+    - added `service-dotnet/Services/Discovery/CapabilityNegotiationValidator.cs`
+    - added `service-dotnet/Services/Discovery/CapabilityNegotiationService.cs`
+    - added `service-dotnet/tests/Discovery/CapabilityNegotiationServiceTests.cs`
+    - added `docs/current-state/capability-negotiation-framework-state.md`
+    - updated `docs/current-state/provider-adapter-framework-state.md`
+    - updated `docs/current-state/microsoft-adapter-specification-state.md`
+    - formalized `capability-negotiation/v1` with deterministic requirement, resolution, substitution, summary, and readiness models
+    - added explicit capability-negotiation readiness states:
+      - `unresolved`
+      - `partiallyResolved`
+      - `resolved`
+      - `blocked`
+      - `readyForExecutionProvider`
+    - kept the negotiation layer planning-only with no execution surface
+  - validation:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~CapabilityNegotiationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 7 as requested
+    - do not begin execution-provider or artifact-generation work unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 6 is complete:
+  - objective:
+    - implement only the Phase 6 Microsoft Adapter Specification scope
+    - introduce `microsoft-adapter-specification/v1` as the descriptive Microsoft capability-mapping contract
+    - add deterministic Microsoft planning translation, compatibility classification, and readiness handling
+    - stop before Microsoft Skills execution, CLI execution, provider implementations, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec and plan, the current-state docs, and the existing Generation Request, Provider Planning, and Provider Adapter framework seams
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for specification loading, validation, capability translation, compatibility categories, readiness transitions, and boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/MicrosoftAdapterSpecificationModels.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftAdapterSpecificationValidator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftProviderPlanningTranslator.cs`
+    - added `service-dotnet/Services/Discovery/MicrosoftAdapterSpecificationService.cs`
+    - added `service-dotnet/tests/Discovery/MicrosoftAdapterSpecificationServiceTests.cs`
+    - added `docs/current-state/microsoft-adapter-specification-state.md`
+    - updated `docs/current-state/discovery-wizard-state.md`
+    - updated `docs/current-state/design-studio-state.md`
+    - updated `docs/current-state/provider-planning-framework-state.md`
+    - updated `docs/current-state/provider-adapter-framework-state.md`
+    - formalized `microsoft-adapter-specification/v1` with schema metadata, provider identity, supported target profiles, capability mappings, target-profile mappings, compatibility catalog, constraint catalog, and review-requirements catalog
+    - added deterministic Microsoft capability translation through `MicrosoftProviderPlanningTranslator`
+    - added explicit Microsoft planning readiness states:
+      - `unsupported`
+      - `partiallySupported`
+      - `supported`
+      - `readyForMicrosoftAdapter`
+    - kept the Microsoft layer descriptive only, with no execution surface
+  - validation:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~MicrosoftAdapterSpecificationServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider implementation
+    - no PBIR or Fabric artifact generation
+    - no deployment
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 6 as requested
+    - do not begin Microsoft provider adapters, CLI execution, artifact generation, deployment, or Analyzer Workspace automation unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 5 is complete:
+  - objective:
+    - implement only the Phase 5 Provider Adapter Contract Framework scope
+    - introduce `provider-adapter/v1` as the authoritative adapter-compatibility input contract
+    - add provider-neutral adapter definitions, registry lookup, compatibility evaluation, and readiness handling
+    - stop before Microsoft Skills execution, CLI execution, provider implementations, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, the current-state docs, and the existing Generation Request plus Provider Planning framework seams
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for provider-adapter request creation, registry behavior, compatibility classification, readiness progression, and execution-free boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/ProviderAdapterModels.cs`
+    - added `service-dotnet/Services/Discovery/ProviderAdapterRegistry.cs`
+    - added `service-dotnet/Services/Discovery/ProviderAdapterCompatibilityService.cs`
+    - added `service-dotnet/Services/Discovery/ProviderAdapterFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/ProviderAdapterFrameworkServiceTests.cs`
+    - added `docs/current-state/provider-adapter-framework-state.md`
+    - updated `docs/current-state/provider-planning-framework-state.md`
+    - updated `docs/current-state/discovery-wizard-state.md`
+    - updated `docs/current-state/design-studio-state.md`
+    - formalized `provider-adapter/v1` with source contract versions, target artifact profile, capability requirements, constraints, review requirements, and success contract
+    - added provider-neutral adapter definitions with target-profile support, capability declarations, and source-version compatibility declarations
+    - added explicit Provider Adapter readiness states:
+      - `discovered`
+      - `compatible`
+      - `incompatible`
+      - `unsupported`
+      - `readyForExecutionProvider`
+    - kept compatibility evaluation provider-neutral and planning-only, with no execution surface
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ProviderAdapterFrameworkServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider implementation
+    - no PBIR or Fabric artifact generation
+    - no deployment
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 5 as requested
+    - do not begin Microsoft provider adapters, CLI execution, artifact generation, or deployment work unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 4 is complete:
+  - objective:
+    - implement only the Phase 4 Provider Planning Framework scope
+    - introduce `execution-plan/v1` as the authoritative provider-planning artifact
+    - add deterministic execution-plan creation, validation, capability declarations, and readiness handling
+    - stop before Microsoft Skills execution, CLI execution, provider adapters, artifact generation, deployment, and Analyzer Workspace automation
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, the current-state docs, and the existing Design Package consumption plus Generation Request framework seam
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for execution-plan creation, determinism, validation failures, readiness blocking, and execution-free boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/ExecutionPlanModels.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionPlanBuilder.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionPlanValidator.cs`
+    - added `service-dotnet/Services/Discovery/ExecutionPlanFrameworkService.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestTargetProfileCatalog.cs`
+    - added `service-dotnet/tests/Discovery/ExecutionPlanFrameworkServiceTests.cs`
+    - updated `service-dotnet/Services/Discovery/Models/GenerationRequestModels.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestBuilder.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestValidator.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestFrameworkService.cs`
+    - updated `service-dotnet/tests/Discovery/GenerationRequestFrameworkServiceTests.cs`
+    - added `docs/current-state/provider-planning-framework-state.md`
+    - updated `docs/current-state/discovery-wizard-state.md`
+    - updated `docs/current-state/design-studio-state.md`
+    - formalized `execution-plan/v1` with schema metadata, source references, target definition, provider planning metadata, planned work units, dependency graph, planning constraints, review requirements, and inherited success contract
+    - added a provider-neutral capability model with declared layout, semantic, artifact, and validation capability flags
+    - kept prompt segments derived from Generation Request only and removed the older provider-planning package stopgap from Generation Request framework state
+    - added explicit Execution Plan readiness states:
+      - `draft`
+      - `valid`
+      - `blocked`
+      - `readyForProviderAdapter`
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~ExecutionPlanFrameworkServiceTests|FullyQualifiedName~GenerationRequestFrameworkServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider adapters
+    - no PBIR or Fabric artifact generation
+    - no deployment
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 4 as requested
+    - do not begin Microsoft provider adapter or execution work unless a new goal explicitly opens the next phase
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 3 is complete:
+  - objective:
+    - implement only the Phase 3 Generation Request Framework scope
+    - add explicit framework services for request creation, validation, readiness, and provider-planning preparation
+    - stop before Microsoft Skills execution, CLI execution, provider adapters, artifact generation, analyzer handoff automation, and all later phases
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, the current-state docs, and the existing Design Package consumption plus Generation Request seam
+    - treated the approved design docs as the design gate and added failing xUnit coverage first for readiness transitions, framework blocking, deterministic orchestration, and provider-neutral boundary protection
+  - delivered:
+    - added `service-dotnet/Services/Discovery/GenerationRequestBuilder.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestValidator.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestPromptSegmentOrchestrator.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestFrameworkService.cs`
+    - added `service-dotnet/tests/Discovery/GenerationRequestFrameworkServiceTests.cs`
+    - updated `service-dotnet/Services/Discovery/Models/GenerationRequestModels.cs`
+    - updated `service-dotnet/Services/Discovery/Models/DesignPackageConsumptionModels.cs`
+    - updated `service-dotnet/Services/Discovery/DesignPackageConsumptionService.cs`
+    - updated `service-dotnet/Services/Discovery/GenerationRequestService.cs` into a thin compatibility facade over the new framework services
+    - formalized `draft`, `valid`, `blocked`, and `readyForProviderPlanning` request readiness states without implying approval, execution, or validation
+    - extended target-profile metadata with explicit profile identity and source experience-type compatibility validation
+    - preserved provider-neutral provenance and review-policy constraints while keeping prompt segments derived-only and deterministic
+    - updated `docs/current-state/discovery-wizard-state.md` to reflect the new downstream planning seam
+  - validation passed:
+    - focused gates:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationRequestFrameworkServiceTests`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationRequestServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - explicit non-implementation boundary:
+    - no Microsoft Skills execution
+    - no CLI execution
+    - no provider adapters
+    - no PBIR or Fabric artifact generation
+    - no Analyzer Workspace invocation or validation automation
+  - next recommended step:
+    - stop after Phase 3 as requested
+    - do not begin Microsoft adapter or artifact-generation work unless a new goal explicitly opens Phase 4
+
+- 2026-06-21 current-state documentation for Discovery Wizard and Design Studio is complete:
+  - objective:
+    - create `docs/current-state/discovery-wizard-state.md`
+    - create `docs/current-state/design-studio-state.md`
+  - started:
+    - read the current Discovery Wizard and Design Studio specs, readiness docs, trust-boundary docs, backend discovery services, and Design Studio webview shell
+    - identified the key distinction to preserve as backend-first Discovery Wizard versus shipped Design Studio workflow
+  - delivered:
+    - added `docs/current-state/discovery-wizard-state.md`
+    - added `docs/current-state/design-studio-state.md`
+    - documented implemented ownership, outputs, trust boundaries, and current limitations for both workflows
+  - validation:
+    - documentation-only direct review of both created files
+    - `git status --short` confirms the expected new docs path
+  - next recommended step:
+    - if desired, continue the current-state set with Analyzer Workspace, Design Package, and Generation Request
+
+- 2026-06-21 Design Package Microsoft Skills Integration Phase 2 is complete:
+  - objective:
+    - implement only the Phase 2 Skills Prompt Generation scope
+    - introduce `generation-request/v1` as the authoritative provider-facing execution contract
+    - derive deterministic prompt segments from the structured request
+    - stop before Phase 3 request framework work and all execution paths
+  - started:
+    - read `AGENTS.md`, repo memory files, the approved integration spec/plan, and the existing Design Package consumption seam
+    - treated the approved design docs as the design gate and used test-first implementation on top of `DesignPackageConsumptionService`
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/GenerationRequestModels.cs`
+    - added `service-dotnet/Services/Discovery/GenerationRequestService.cs`
+    - added `service-dotnet/tests/Discovery/GenerationRequestServiceTests.cs`
+    - formalized `generation-request/v1` with schema metadata, target profile, generation mode, design intent, structural intent, data intent, success contract, provenance, and review policy
+    - added deterministic prompt segment derivation for Target Summary, Audience Summary, Business Outcome, Structural Intent, Data Intent, Navigation Intent, Success Criteria, and Constraints
+    - preserved the Design Package as the upstream provider-neutral artifact and kept Fabric App unsupported in Phase 2 validation
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~GenerationRequestServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm run compile`
+      - `cd vscode-extension && npm test`
+  - next recommended step:
+    - stop after Phase 2 as requested
+    - do not begin Phase 3 unless the request lifecycle, provenance extension, and outcome-state scope are explicitly reopened
+
+- 2026-06-20 Design Package Consumption Layer Phase 1 is complete:
+  - objective:
+    - implement the Design Package consumption boundary only
+    - classify Design Package fields as required, optional, transformed, or ignored
+    - add validation and diagnostics before any Generation Request work begins
+    - stop before Microsoft Skills integration, CLI execution, provider adapters, artifact generation, and analyzer handoff
+  - started:
+    - read `AGENTS.md`, repo memory, the approved Design Package integration spec/plan, and the existing backend Design Package contract
+    - identified the main Phase 1 need as a strict provider-neutral seam between Design Package and any future Generation Request implementation
+    - added failing xUnit coverage first to pin required semantics, transformations, incompatible-state rejection, contract drift protection, and provider-neutral boundaries
+  - delivered:
+    - added `service-dotnet/Services/Discovery/Models/DesignPackageConsumptionModels.cs`
+    - added `service-dotnet/Services/Discovery/DesignPackageConsumptionService.cs`
+    - added `service-dotnet/tests/Discovery/DesignPackageConsumptionServiceTests.cs`
+    - formalized the consumption inventory and normalized generation-ready input without introducing provider-specific logic
+    - expanded the inventory to exhaustive field-path coverage and added a reflection-based drift gate so Design Package model changes cannot silently alter consumption semantics
+  - validation passed:
+    - focused gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignPackageConsumptionServiceTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Phase 1 as requested
+    - if work resumes, start with `generation-request/v1` contract design/implementation against the new consumption seam rather than exposing raw Design Package types downstream
+
+- 2026-06-20 Design Package Microsoft Skills / CLI integration design is complete:
+  - objective:
+    - create a design specification for converting Discovery Wizard Design Packages into Microsoft Power BI Skills / CLI consumable artifacts
+    - create a phased implementation plan covering contracts, trust boundaries, lifecycle, provenance, analyzer handoff, and failure handling
+    - stop after design and planning with no implementation work
+  - started:
+    - read `AGENTS.md`, repo memory files, Discovery Wizard / Design Studio / Analyzer Workspace architecture docs, and the current Design Package backend contract
+    - reviewed current Microsoft public guidance for Power BI agentic capabilities, report planner / management, report authoring, report design, Desktop Bridge, PBIR, Fabric report definitions, and Fabric Apps / data app templates
+    - identified the main architecture need as a versioned provider-neutral Generation Request boundary instead of exposing the raw Design Package directly
+  - delivered:
+    - wrote `docs/superpowers/specs/2026-06-20-design-package-microsoft-skills-integration.md`
+    - wrote `docs/superpowers/plans/2026-06-20-design-package-microsoft-skills-integration-plan.md`
+    - defined the lifecycle from Design Package to Generation Request to Generated Artifact to Analyzer Workspace to Review to Refinement
+    - defined explicit human approvals, typed failure classes, staged analyzer handoff, and extended provenance requirements
+  - key architecture decisions:
+    - keep the current Design Package backend-internal and authoritative for upstream planning only
+    - introduce `generation-request/v1` as the stable provider-facing boundary
+    - support PBIR Report first, Fabric Data App second, and defer Fabric App until terminology mapping is explicit
+    - require review and analyzer validation for every generated artifact
+  - next recommended step:
+    - lock the internal-to-Microsoft mapping for `Fabric App`, `Fabric Data App`, and Power BI org app terminology
+    - begin implementation at Phase 1 only after that mapping is explicit
+
+- 2026-06-20 Discovery Wizard MVP readiness assessment is complete:
+  - objective:
+    - review `docs/report-discovery-wizard-validation-review-round10.md`
+    - determine whether Discovery Wizard has reached MVP completion or whether additional refinement would still produce meaningful value
+    - assess recommendation quality, blueprint usefulness, Design Studio seeding quality, Design Package trust, diminishing returns, and Microsoft Skills readiness
+    - write `docs/report-discovery-wizard-mvp-readiness-assessment.md`
+    - stop after assessment with no product-code changes, no feature additions, no architecture changes, and no integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 10 review, Round 9 and Round 8 reviews, the consultant benchmark review, the Discovery Wizard design spec, and roadmap context
+    - identified the main decision as whether the remaining value lies in another heuristic refinement cycle or in downstream planning and pilot usage
+  - delivered:
+    - wrote `docs/report-discovery-wizard-mvp-readiness-assessment.md`
+    - concluded that Round 10 clears the last meaningful Discovery Wizard MVP blockers in recommendation trust, forecast-family blueprint divergence, and package-facing provider trust
+    - assessed the remaining gaps as cosmetic or edge-case tuning rather than structural trust defects
+  - decision gate:
+    - `A. Discovery Wizard MVP Complete`
+  - next recommended step:
+    - begin separate downstream design planning for Design Package consumption and Microsoft Skills / CLI integration
+    - use future pilot feedback to inform post-MVP tuning instead of scheduling another Discovery Wizard-only refinement cycle
+
+- 2026-06-20 Discovery Wizard Refinement Round 9 narrative selection and provider trust is complete:
+  - objective:
+    - implement only:
+      - Narrative Selection
+      - Provider Trust
+    - resolve the remaining Round 9 Discovery Wizard findings
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, Analyzer Workspace changes, and architecture work
+    - perform `Discovery Wizard Validation Review – Round 10` after implementation
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 9 validation review, the consultant benchmark review, and the current discovery services/tests
+    - identified the remaining problems as narrative-selection judgment and provider-facing rationale trust rather than architecture gaps
+    - added failing backend tests first for investigation dominance, customer profitability trust, forecast divergence, narrative-led lead selection, and provider-facing rationale cleanup
+  - delivered:
+    - refined `RecommendationEngineService` so lead recommendations now prioritize narrative category, bounded investigation trust, customer profitability actionability, mixed revenue follow-through, and planning-dominant forecast posture
+    - refined `ExperienceBlueprintGenerationService` so forecast executive review, planning review, follow-through, and investigation now produce different blueprint families and navigation flows
+    - refined `DesignPackageGenerationService` so package-facing rationale and provenance notes stay in business language and no longer leak internal names into user-facing rationale
+    - wrote `docs/report-discovery-wizard-validation-review-round10.md`
+  - validation passed:
+    - focused regression gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `A. Discovery Wizard MVP Complete`
+  - next recommended step:
+    - if desired, begin separate downstream design planning for Design Package consumption and Microsoft Skills / CLI integration
+    - do not start that integration work implicitly from this completed Discovery Wizard refinement session
+
+- 2026-06-20 Discovery Wizard Validation Review Round 9 is complete:
+  - objective:
+    - validate whether the Final Targeted Refinement resolved the remaining Round 8 trust, fidelity, and recommendation-quality concerns
+    - determine whether Discovery Wizard MVP is complete
+    - determine whether Discovery Wizard is ready for:
+      - Design Package consumption
+      - Microsoft Skills / CLI integration design planning
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, Round 8 review, consultant benchmark review, and the Discovery Wizard design spec
+    - inspected current discovery services and targeted regression coverage for recommendation trust, KPI fidelity, naming fidelity, Design Studio seeding, and Design Package rationale
+    - prepared a temporary out-of-repo reflection harness to exercise the live backend workflow end to end across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+  - delivered:
+    - exercised the live backend discovery workflow end to end across the six required scenarios
+    - wrote `docs/report-discovery-wizard-validation-review-round9.md`
+    - classified the key Round 8 findings as:
+      - service operations recommendation trust: resolved
+      - analytical investigation recommendation trust: unchanged
+      - unsupported KPI injection: resolved
+      - internal semantic-model naming leakage: improved
+      - Design Package trustworthiness: improved
+    - identified one additional Round 9 regression:
+      - customer profitability recommendation trust regressed back toward investigation-first ranking
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - next recommended step:
+    - keep Discovery Wizard work focused on mixed-signal recommendation trust, same-family blueprint de-clustering, and final Design Package trust hardening
+    - do not begin Design Package downstream consumption or Microsoft Skills / CLI integration design planning yet
+
+- 2026-06-20 Discovery Wizard Final Targeted Refinement is complete:
+  - objective:
+    - implement only:
+      - recommendation trust
+      - design package fidelity
+    - fix the remaining consultant-review gaps in:
+      - `docs/report-discovery-wizard-validation-review-round8.md`
+      - `docs/report-discovery-wizard-consultant-benchmark-review.md`
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, and architecture work
+  - delivered:
+    - refined `RecommendationEngineService` so service command-center, service workflow-routing, and investigation-first forecast-mix scenarios get more trustworthy lead-selection behavior
+    - removed unsupported KPI fallback generation from `ExperienceBlueprintGenerationService`
+    - made blueprint/package filter naming consultant-facing while preserving technical lineage in provenance
+    - surfaced KPI insufficiency through ambiguity notes instead of fabricated package content
+    - added focused backend regression coverage for service trust, investigation trust, strict KPI fidelity, consultant-facing naming, and package rationale/provider-guidance trust
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - run `Discovery Wizard Validation Review – Round 9`
+    - use Round 9 to decide whether the Discovery Wizard MVP is complete and whether Design Package quality is sufficient for Microsoft Skills / CLI integration design planning
+
+- 2026-06-20 Discovery Wizard Consultant Benchmark Review is complete:
+  - objective:
+    - compare live Discovery Wizard outputs against human consultant reasoning across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+    - determine whether remaining weaknesses are genuine product gaps or style differences
+    - answer readiness questions for Design Package consumption and Microsoft Skills integration planning
+    - stop after review with no product-code changes, no feature additions, and no architecture changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Discovery Wizard design spec, and the Round 8 validation review
+    - inspected current discovery services and built a temporary out-of-repo reflection harness to exercise the live backend workflow end to end without modifying product code
+  - delivered:
+    - exercised the live backend workflow across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+    - wrote `docs/report-discovery-wizard-consultant-benchmark-review.md`
+    - compared Discovery Wizard outputs against human consultant outputs for opportunities, ranking, experience selection, blueprints, and Design Package quality
+  - decision gate:
+    - `B. One Final Targeted Refinement`
+  - key findings:
+    - remaining weaknesses are genuine product gaps, not only style differences
+    - opportunity breadth is now mostly consultant-credible and no longer the main blocker
+    - lead recommendation trust remains weak in Service Operations and Analytical Investigation
+    - Design Package quality is still below provider-trust quality because fallback KPIs, internal semantic-model naming, and malformed rationale fields still leak into the artifact
+    - the architecture is already sufficient; the remaining work should stay inside ranking, blueprint differentiation, and package fidelity rather than reopening architecture
+  - next recommended step:
+    - make one final targeted refinement for recommendation trust, same-family blueprint de-clustering, and strict Design Package KPI / naming fidelity
+    - do not begin Design Package downstream consumption planning or Microsoft Skills integration planning yet
+
+- 2026-06-20 Report Discovery Wizard Validation Review Round 8 is complete:
+  - objective:
+    - validate whether the Opportunity Depth and Recommendation Diversity refinements resolved the remaining Round 7 Discovery Wizard weaknesses
+    - assess consultant-quality output across:
+      - Semantic Model
+      - Discovery Profile
+      - Opportunity Catalog
+      - Recommendation Engine
+      - Experience Blueprint generation
+      - Design Studio seeding
+      - Design Package generation
+    - compare findings directly against Round 7 and determine MVP completion and downstream readiness
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no Microsoft Skills / CLI integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 7 validation review, the Discovery Wizard design spec, and current discovery services/tests
+    - identified the validation focus as live workflow breadth and diversity rather than unit-test intent alone because Round 7 found a gap between downstream tests and end-to-end behavior
+  - delivered:
+    - exercised the live backend discovery workflow end to end across:
+      - Revenue / Sales
+      - Customer Profitability
+      - Inventory Operations
+      - Service Operations
+      - Forecasting
+      - Analytical Investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round8.md`
+    - compared the five Round 7 findings and classified them as:
+      - inventory opportunity depth too shallow: resolved
+      - service opportunity depth too shallow: resolved
+      - investigation opportunities dominate recommendations: improved
+      - recommendation diversity constrained by opportunity variety: improved
+      - downstream artifacts limited by upstream opportunity depth: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - live opportunity depth is now materially stronger and mostly consultant-grade across the six scenarios
+    - recommendation ranking is still inconsistent, especially where service-style models over-select investigation-first directions
+    - blueprint and seed diversity improved materially across experience types, but same-family clustering still persists in planning and investigation variants
+    - Design Package fidelity is still below downstream-trust quality because unsupported fallback KPIs and internal semantic-model naming still leak into the handoff artifact
+  - next recommended step:
+    - keep Discovery Wizard work focused on consultant-quality lead recommendation judgment, family-specific blueprint differentiation, and strict Design Package KPI and naming fidelity before any Design Package consumption planning or Microsoft Skills / CLI integration planning
+
+- 2026-06-20 Discovery Wizard Refinement Round 7 opportunity depth is complete:
+  - objective:
+    - implement only the approved Round 7 Discovery Wizard refinement for:
+      - opportunity depth
+      - recommendation diversity
+    - increase candidate opportunity breadth across executive, operational, investigative, planning, and governance-style opportunities when the semantic model supports them
+    - improve recommendation diversity by strengthening upstream catalog variety instead of changing downstream contracts or starting integration work
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, and Design Package contract changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 7 validation review, and the current discovery services/tests
+    - identified the root issue as shallow Opportunity Catalog depth in inventory, service, forecasting, and analytical-investigation scenarios, with recommendation diversity limited by thin candidate sets
+  - delivered:
+    - added backend-internal opportunity family, workflow orientation, decision pattern, why-this-exists, and evidence-narrative modeling without widening public contracts
+    - expanded revenue, inventory, service, forecasting, and investigation-capable discovery paths so the catalog emits materially different candidate families instead of a single dominant option
+    - propagated opportunity metadata into recommendation-engine supporting signals so richer candidate context survives into ranking explanations and diversity logic
+    - added targeted xUnit coverage for breadth, investigative/non-investigative coexistence, materially different catalogs, and recommendation metadata propagation
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Round 7 opportunity-depth and recommendation-diversity refinement as requested
+    - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, Design Studio workflow changes, Analyzer Workspace changes, or Design Package contract changes unless a new goal starts them
+
+- 2026-06-20 Report Discovery Wizard Validation Review Round 7 is complete:
+  - objective:
+    - validate whether the Round 6 downstream refinement resolved the remaining Discovery Wizard quality concerns
+    - assess recommendation diversity, Design Brief quality, concept candidate quality, draft seed quality, Design Package quality, and diversity propagation across the six required scenarios
+    - determine whether Discovery Wizard MVP is complete and whether it is ready for Design Package consumption or Microsoft Skills / CLI integration planning
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no integration work
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and Round 6 review
+    - exercised the live downstream discovery workflow through the actual discovery services across:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round7.md`
+    - compared the three Round 6 findings and classified them as:
+      - recommendation diversity inconsistent: worse
+      - Design Studio seeding too templated: unchanged
+      - Design Package output not provider-grade: unchanged
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - the actual live Opportunity Catalog is still too thin for consultant-grade portfolio curation in inventory, service, and analytical-investigation scenarios
+    - forecasting-specific blueprint shaping is improved, but executive-family downstream artifacts still collapse too often
+    - Design Package quality is still below provider-grade because rationale remains template-driven and KPI fidelity is not strict enough
+  - next recommended step:
+    - keep Discovery Wizard work focused on opportunity-catalog breadth, executive-family downstream differentiation, and strict KPI/provider-trust package fidelity before any Design Package consumption planning or Microsoft Skills / CLI integration planning
+
+- 2026-06-20 Discovery Wizard Refinement Round 6 downstream artifact quality is in progress:
+  - objective:
+    - implement only the approved Round 6 Discovery Wizard refinement for:
+      - Design Studio seeding quality
+      - Design Package provider readiness
+      - recommendation diversity propagation
+    - improve Design Brief rationale quality, concept candidate diversity, draft seed specificity, and provider-grade package language
+    - preserve advisory-only boundaries and stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 6 validation review, and the current discovery blueprint, Design Studio adapter, and design package services/tests
+    - identified the current gap as downstream artifact flattening, especially generic executive blueprint reuse, templated Design Studio seeding, and formulaic provider guidance
+  - current focus:
+    - add test-first coverage for richer brief/package rationale and downstream artifact divergence by recommendation intent
+    - refine blueprint shaping and downstream artifact language without changing advisory-only boundaries or starting any out-of-scope integrations
+
+- 2026-06-20 Discovery Wizard Refinement Round 6 downstream artifact quality is complete:
+  - objective:
+    - implement only the approved Round 6 Discovery Wizard refinement for:
+      - Design Studio seeding quality
+      - Design Package provider readiness
+      - recommendation diversity propagation
+    - improve Design Brief rationale quality, concept candidate diversity, draft seed specificity, and provider-grade package language
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - differentiated executive blueprint shaping so forecasting, revenue, and customer-oriented executive recommendations no longer collapse into one generic page stack
+    - upgraded Design Studio briefs with richer intent/cadence/navigation language and preserved experience-specific report typing for executive, app, investigative, and report-oriented seeds
+    - replaced the generic two-concept seed pattern with experience-specific alternate concept portfolios that vary navigation posture and consultant framing
+    - differentiated draft seed structure summaries, layout types, titles, and zones across executive, operational, investigative, and app-oriented recommendations
+    - strengthened Design Package page purpose, success criteria, rationale sections, and provider guidance so downstream handoff language explains why the experience exists, what should be generated, and what success looks like
+    - added targeted xUnit coverage for executive blueprint divergence, brief specificity, concept diversity, draft-seed divergence, provider-readiness language, and downstream diversity propagation
+    - updated pre-existing discovery tests that intentionally moved from the old generic executive/dashboard expectations to the new differentiated behavior
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - an early parallel attempt to run multiple filtered `dotnet test` commands caused a transient build-output file lock; authoritative validation was rerun sequentially and passed
+  - next recommended step:
+    - stop after Round 6 refinement as requested
+    - do not begin Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, or Analyzer Workspace changes
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 6 is complete:
+  - objective:
+    - validate whether the Experience Strategy and Provider Readiness refinement resolved the remaining Round 5 Discovery Wizard concerns
+    - assess recommendation quality, blueprint quality, Design Studio seeding quality, and Design Package readiness across the six required scenarios
+    - determine whether Discovery Wizard MVP is now complete and ready for downstream Design Package consumption and Microsoft Skills / CLI integration planning
+    - stop after review with no product-code changes, no feature additions, no architecture changes, and no Microsoft Skills / CLI integration work
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 5 validation review, and current discovery tests and design references
+    - identified the Round 5 comparison targets as revenue investigation bias, forecasting investigation bias, recommendation diversity, and provider-grade package quality
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and Round 5 review
+    - exercised the current backend discovery workflow against:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round6.md`
+    - compared the four Round 5 findings and classified them as:
+      - revenue recommendations over-biased toward investigation: resolved
+      - forecasting recommendations over-biased toward investigation: resolved
+      - recommendation diversity inconsistent: improved
+      - Design Package not provider-grade: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - revenue and forecasting recommendation posture are now materially more consultant-defensible
+    - inventory and analytical-investigation recommendation diversity are materially improved
+    - Design Studio seeding is useful and still too templated
+    - Design Package guidance is clearer and still not provider-grade
+    - downstream artifact shaping is now the main remaining risk, not primary recommendation ranking
+  - next recommended step:
+    - keep Discovery Wizard work focused on executive and planning blueprint differentiation, Design Studio seeding specificity, provider-grade Design Package language quality, and recommendation-set completeness before Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Discovery Wizard Refinement Round 5 Experience Strategy and Provider Readiness is complete:
+  - objective:
+    - implement only the approved Round 5 Discovery Wizard refinement for:
+      - experience strategy
+      - provider readiness
+    - improve revenue and forecasting recommendation posture
+    - improve Top 3 portfolio diversity and experience-type explainability
+    - strengthen Design Package rationale and add provider-neutral handoff guidance
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - started:
+    - read `AGENTS.md`, repo memory files, the Round 5 validation review, and the current discovery recommendation and design-package implementation
+    - identified the main gaps as investigation-heavy revenue and forecasting selections, weak portfolio-level curation, and planning-grade package language
+  - delivered:
+    - refined recommendation scoring so revenue and forecasting scenarios compete more credibly across executive consumption, operational management, and investigative analysis
+    - added portfolio-level diversity pressure using workflow-shape and decision-pattern differentiation
+    - made recommendation explainability explicit for:
+      - Executive-oriented
+      - Operational-oriented
+      - Investigative-oriented
+      - App-oriented
+      - Dashboard-oriented
+    - extended the backend-internal Design Package contract with:
+      - experience-type rationale
+      - provider-neutral provider guidance
+    - strengthened Design Package KPI rationale so forecasting, workflow, pipeline, profitability, and revenue KPIs explain scenario-specific decision value instead of generic fallback language
+    - added targeted xUnit coverage for:
+      - revenue executive-operational-investigative competition
+      - forecasting planning-first posture
+      - explicit experience-type explainability
+      - provider-neutral provider guidance
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, Analyzer Workspace changes, or another downstream discovery consumer
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 5 is complete:
+  - objective:
+    - validate whether the Consultant Decision Framework resolved the remaining Round 4 recommendation-quality concerns
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint generation, Design Studio seeding, and Design Package generation
+    - assess MVP completion and downstream readiness without product-code changes, feature additions, architecture changes, or Microsoft Skills / CLI integration planning
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and Round 4 review
+    - exercised the current backend discovery workflow against:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round5.md`
+    - compared the six Round 4 findings and classified them as:
+      - recommendation rationale still not consultant-quality: improved
+      - customer profitability recommendations weak: resolved
+      - forecasting recommendations weak: improved
+      - service workflow recommendations weak: resolved
+      - recommendation clustering: improved
+      - package rationale not provider-grade: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - customer profitability and service workflow recommendations are now materially more consultant-defensible
+    - revenue / sales still over-selects investigation framing for the lead recommendation
+    - forecasting is improved and still too investigation-shaped for a planning-first workflow
+    - recommendation diversity remains inconsistent, especially in inventory and analytical-investigation scenarios
+    - Design Studio seeding and Design Package rationale are still too templated for downstream high-trust consumption
+  - next recommended step:
+    - keep discovery work focused on revenue and forecasting intent preservation, recommendation-set diversity, PBIR surfacing quality, seed-language quality, and provider-grade package rationale before Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Consultant Decision Framework implementation is in progress:
+  - objective:
+    - implement only the Discovery Wizard Consultant Decision Framework from Validation Review Round 4
+    - introduce an explicit consultant-style decision layer between Opportunity Catalog and Recommendation Engine
+    - improve consultant-defensible ranking and rationale for revenue, customer profitability, forecasting, and service workflow scenarios
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - started:
+    - read `AGENTS.md`, repo memory files, Round 4 validation review, discovery design docs, and the current discovery services/tests
+    - identified the current gap as heuristic-first ranking with rationale generated after selection rather than from an explicit consultant decision model
+  - current focus:
+    - add test-first coverage for consultant decision judgment and tradeoff explanations
+    - implement consultant decision models and integrate them into recommendation ranking and rationale generation
+
+- 2026-06-19 Consultant Decision Framework implementation is complete:
+  - objective:
+    - implement only the Discovery Wizard Consultant Decision Framework from Validation Review Round 4
+    - introduce an explicit consultant-style decision layer between Opportunity Catalog and Recommendation Engine
+    - improve consultant-defensible ranking and rationale for revenue, customer profitability, forecasting, and service workflow scenarios
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - added backend-internal consultant decision models and a domain-aware consultant assessment inside the recommendation engine
+    - changed recommendation ranking to blend technical fit, business fit, and consultant judgment
+    - added explicit domain-framework boosts and dilution penalties so generic revenue reporting stops outranking richer forecasting and customer-profitability recommendations when those signals lead
+    - upgraded recommendation rationale to include:
+      - Why This Experience Wins
+      - Why Competing Experiences Lose
+      - Risks
+      - Assumptions
+      - Adoption Considerations
+      - Future Evolution Path
+    - added targeted xUnit coverage for revenue workflow, forecasting, customer profitability, service workflow, consultant rationale sections, and internal consultant model boundaries
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, provider-backed generation, or another downstream discovery consumer
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 4 is complete:
+  - objective:
+    - validate whether the Round 3 Discovery Wizard refinement resolved the remaining consultant-quality concerns
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint, Design Studio seeding, and Design Package
+    - assess MVP completion and downstream readiness without product-code changes, feature additions, architecture changes, or Microsoft Skills / CLI integration work
+  - delivered:
+    - reviewed the current discovery implementation, tests, design spec, and prior Round 3 review
+    - exercised the current backend discovery services against:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - forecasting
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round4.md`
+    - compared the five Round 3 findings and classified them as:
+      - recommendation quality still too template-driven: improved
+      - PBIR more credible but still under-differentiated: improved
+      - customer profitability and service workflow selection more context-aware: worse
+      - revenue / sales clustering still too tight: resolved
+      - Design Studio seeding and Design Package rationale too coarse: unchanged
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - recommendation prose is more structured, but recommendation judgment is still not consultant-grade
+    - revenue / sales diversity is materially better, but ranking now over-corrects toward the wrong lead recommendation
+    - customer profitability and forecasting still produce weakly consultant-defensible primary selections
+    - PBIR blueprint differentiation is materially better, but PBIR still does not surface often enough in end-to-end recommendations to feel first-class
+    - Design Studio seeding and Design Package rationale remain structurally useful and too coarse for provider-planning quality
+  - next recommended step:
+    - keep discovery work focused on ranking realism, scenario-intent preservation, PBIR surfacing quality, and downstream seed/package language quality before Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Report Discovery Wizard Refinement Round 3 Findings is complete:
+  - objective:
+    - implement only the approved Consultant Reasoning Quality refinement from Validation Review Round 3
+    - improve recommendation tradeoff reasoning, PBIR domain differentiation, explanation fidelity, recommendation diversity, and Design Package rationale quality
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - reworked recommendation rationale into consultant-style sections that defend the selected path against alternatives using audience, workflow, cadence, operational, and analytical signals
+    - aligned explanation content more directly to ranking inputs, including signal-specific evidence such as technician and work-order workflow context
+    - expanded PBIR report blueprint differentiation across:
+      - revenue and sales
+      - customer profitability
+      - inventory
+      - service operations
+      - forecasting
+      - analytical investigation
+    - strengthened Design Package rationale so KPI, page, navigation, business-outcome, and analytical-flow explanations answer why the selected structure exists
+    - added targeted xUnit coverage for:
+      - consultant tradeoff reasoning sections
+      - explanation fidelity
+      - revenue and sales recommendation de-clustering
+      - PBIR domain differentiation
+      - provider-grade design-package rationale
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RationaleUsesSignalDrivenConsultantSections|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_ExplanationFidelity_MatchesWinningSignals|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RevenueAndSalesRecommendations_AvoidSingleClusterWhenAlternativesAreCredible|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests.BuildRecommendationBlueprints_PbirReport_DiffersAcrossDomains|FullyQualifiedName~DesignPackageGenerationServiceTests.CreatePackage_RationaleIsProviderGradeAndDecisionDefensible"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, provider-backed generation, or downstream Design Studio workflow changes
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 3 is complete:
+  - objective:
+    - validate whether the Round 2 Discovery Wizard refinement resolved the remaining Round 2 recommendation-quality concerns
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint, Design Studio seeding, and Design Package
+    - avoid product-code changes, feature additions, architecture changes, and downstream Microsoft Skills / CLI planning
+  - delivered:
+    - reviewed the current discovery implementation, tests, spec, roadmap notes, and prior validation artifacts
+    - exercised the current backend discovery services against the required scenarios:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round3.md`
+    - compared the four Round 2 findings and classified them as:
+      - recommendation rationale too template-driven: improved
+      - PBIR report blueprints under-differentiated: improved
+      - experience-type selection not fully consultant-defensible: improved
+      - Top 3 recommendations clustered too tightly: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - recommendation quality is materially better than Round 2 but still too template-driven for consultant-grade output
+    - PBIR now behaves more like a first-class option, but its blueprint differentiation remains too shallow
+    - customer profitability and service workflow selection are more context-aware than Round 2
+    - revenue / sales recommendation diversity is still too tightly clustered
+    - Design Studio seeding and Design Package rationale remain too coarse for provider-backed execution planning
+  - notes:
+    - an earlier parallel start of `cd vscode-extension && npm test` and `cd vscode-extension && npm run compile` was discarded as non-authoritative because repo memory already records that these commands can race; final extension validation was rerun sequentially
+  - next recommended step:
+    - improve recommendation de-templating, PBIR differentiation depth, alternate-path curation, and rationale-to-selection alignment before Microsoft Skills / CLI integration planning or any provider-backed handoff work
+
+- 2026-06-19 Report Discovery Wizard Refinement Round 2 Findings is complete:
+  - objective:
+    - implement only the approved Discovery Wizard Refinement Round 2 follow-up
+    - improve recommendation reasoning quality, PBIR report differentiation, context-aware experience selection, and Top 3 recommendation diversity
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - rewrote recommendation rationale so it now explains:
+      - why the selected experience is the best fit
+      - why leading alternatives are weaker
+      - business tradeoffs
+      - expected adoption pattern
+      - decision cadence
+    - refined experience-type scoring with explicit audience, workflow, analytical-depth, cadence, interaction-frequency, operational-actionability, and PBIR narrative-fit signals
+    - removed the pre-diversity Top 5 truncation and strengthened diversity adjustment so materially different recommendations can still surface
+    - replaced PBIR generic fallback blueprints with narrative-first report flows plus PBIR-specific analytical flow and navigation intent
+    - added targeted xUnit coverage for rationale quality, PBIR differentiation, and clustering reduction
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RationaleIncludesTradeoffsAndAlternativeRejection|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_TopThreeAvoidTightClustering|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests.BuildRecommendationBlueprints_PbirReport_DiffersMateriallyFromOtherExperienceTypes|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_ContextAwareExperienceSelection_ChangesOutcomeForTheSameOpportunity|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_WorkflowSignalsCanFavorFabricApp"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, or another downstream discovery consumer
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 2 is complete:
+  - objective:
+    - validate whether the Discovery Wizard refinement pass resolved the Round 1 findings
+    - review output quality only across Discovery Profile, Opportunity Catalog, Recommendation Engine, Experience Blueprint, Design Studio seeding, and Design Package
+    - avoid product-code changes, feature additions, architecture changes, and downstream Microsoft Skills / CLI planning
+  - delivered:
+    - reviewed the current discovery implementation, tests, roadmap, and implementation plan
+    - exercised the current backend discovery services against the required scenarios:
+      - revenue / sales
+      - customer profitability
+      - inventory operations
+      - service operations
+      - analytical investigation
+    - wrote `docs/report-discovery-wizard-validation-review-round2.md`
+    - compared the four Round 1 findings and classified them as:
+      - provenance fidelity: resolved
+      - category-default experience selection: improved
+      - generic blueprint outputs: improved
+      - generic Design Package rationale: improved
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - key findings:
+    - provenance fidelity is now credible end to end
+    - experience-type selection is materially more context-aware
+    - service and inventory operational blueprints now diverge credibly
+    - recommendation and Design Package rationale remain too formulaic for consultant-grade output
+    - PBIR Report remains under-differentiated and alternates remain weaker than the workflow promises
+  - next recommended step:
+    - improve recommendation rationale quality, PBIR differentiation, and alternate-path curation before Microsoft Skills / CLI integration planning or any provider-backed handoff work
+
+- 2026-06-19 Report Discovery Wizard Refinement Round 1 is complete:
+  - objective:
+    - implement the approved Discovery Wizard Refinement follow-up from validation review round 1
+    - improve provenance fidelity, context-aware experience selection, blueprint specificity, and design-package rationale
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+  - delivered:
+    - added stable internal semantic-model and discovery-profile reference ids to the Discovery Profile seam
+    - preserved upstream lineage ids through:
+      - Experience Blueprint provenance
+      - Design Studio seeding lineage
+      - Design Package generation
+    - replaced category-default experience selection with context-aware competition across candidate experience types using:
+      - audience signals
+      - workflow language
+      - analytical-depth signals
+      - domain/category priors as secondary guidance
+    - differentiated operational blueprint output so service workflows no longer collapse onto the same shape as inventory workflows
+    - strengthened Design Package rationale with:
+      - audience rationale
+      - business outcome rationale
+      - KPI rationale
+      - page rationale
+      - navigation rationale
+      - analytical-flow rationale
+      - provenance notes
+    - added targeted xUnit coverage for:
+      - provenance fidelity
+      - context-aware experience selection
+      - operational blueprint differentiation
+      - design-package rationale quality
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - a parallel `npm test` plus `npm run compile` run can race because compile cleans `dist` while `pdfkitAssetPackaging.test.ts` inspects bundled assets; sequential validation is required for a trustworthy extension result
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, or another downstream discovery consumer
+
+
+- 2026-06-19 Report Discovery Wizard Validation Review Round 1 is complete:
+  - objective:
+    - validate the completed Discovery Wizard workflow before Microsoft Power BI Skills / CLI integration planning
+    - assess output quality, trust boundaries, and readiness only
+    - avoid product-code changes and architecture changes
+  - delivered:
+    - reviewed the implemented Discovery Wizard pipeline across:
+      - Discovery Profile
+      - Opportunity Catalog
+      - Recommendation Engine
+      - Experience Blueprint generation
+      - Design Studio seeding
+      - Design Package generation
+    - wrote `docs/report-discovery-wizard-validation-review-round1.md`
+    - evaluated the required scenarios:
+      - revenue / sales
+      - customer profitability
+      - inventory / operations
+      - service operations
+      - analytical investigation
+    - confirmed the current workflow is:
+      - architecturally well separated
+      - advisory-only
+      - provider-neutral
+      - not yet consistently consultant-quality
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - key findings:
+    - recommendation and blueprint quality are useful but still too heuristic- and template-driven
+    - experience-type selection is credible for core scenarios but too category-defaulted for mixed models
+    - backend provenance is weaker than intended because Design Studio seeding and Design Package generation synthesize lineage identifiers instead of preserving true upstream ids
+    - Design Package is sufficient as a planning handoff seam, not yet strong enough for downstream provider execution planning
+  - decision gate:
+    - `B. Requires Additional Discovery Work`
+  - next recommended step:
+    - improve provenance fidelity, confidence realism, blueprint specificity, and experience-type differentiation before starting Microsoft Skills / CLI integration planning
+
+- 2026-06-19 Report Discovery Wizard Phase 6 validation review is complete:
+  - objective:
+    - verify the existing Phase 6 Design Package implementation in the current working tree
+    - confirm required validation passes without widening scope beyond Phase 6
+    - avoid duplicating or replacing already-present implementation
+  - delivered:
+    - reviewed the existing Phase 6 backend-internal Design Package implementation:
+      - Design Package substrate models
+      - `DesignPackageGenerationService`
+      - boundary tests
+      - generation tests
+    - confirmed the implementation remains:
+      - provider-neutral
+      - advisory-only
+      - deterministic
+      - lineage-preserving
+      - internal-only with no public contract widening
+    - recorded validation outcome instead of introducing a parallel implementation path
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~DesignPackage"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - a narrowed `cd vscode-extension && npm test -- --runInBand discoveryDesignStudioSeed.test.ts` attempt is not a valid repo-local validation shortcut because the webview Jest leg receives the same pattern and exits with `No tests found`; prefer the required `npm test` command instead
+    - no product-code changes were required in this session because Phase 6 was already implemented in the working tree
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 7 or requests consumption of the internal Design Package seam
+
+- 2026-06-19 Report Discovery Wizard Phase 6 Design Package Generation is complete:
+  - objective:
+    - implement Phase 6 only for Report Discovery Wizard
+    - add a provider-neutral internal Design Package contract and generation seam
+    - preserve lineage from semantic model through Experience Blueprint into the Design Package
+    - keep the package advisory-only and separate from Design Studio approvals, provider execution, deployable assets, and validation authority
+    - stop before Microsoft Skills integration, CLI integration, provider-backed generation, PBIR generation, Fabric App generation, deployment, and validation ownership changes
+  - delivered:
+    - added backend-internal Design Package substrate models for:
+      - discovery context references
+      - audience and personas
+      - experience definition
+      - pages
+      - KPIs
+      - filters
+      - visual recommendations
+      - navigation
+      - analytical flow
+      - success criteria
+      - recommendation rationale
+      - provenance and lineage references
+    - added backend-internal `DesignPackageGenerationService`
+    - generated Design Packages deterministically from the selected recommendation and attached Experience Blueprint
+    - preserved full lineage across:
+      - semantic model
+      - Discovery Profile
+      - Opportunity
+      - Recommendation
+      - Experience Blueprint
+      - Design Package
+    - kept the Design Package provider-neutral and advisory-only:
+      - no Microsoft-specific payloads
+      - no CLI command surfaces
+      - no PBIR or Fabric execution contracts
+      - no generated assets
+      - no validation approval creation
+    - added xUnit coverage for:
+      - package creation
+      - package completeness
+      - lineage preservation
+      - determinism
+      - provider neutrality
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~DesignPackage"`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - the Design Package remains a distinct internal handoff object and does not reuse Design Studio artifact models
+    - package creation currently derives stable references from existing discovery, recommendation, and blueprint data without widening public contracts
+    - no discovery UI, RPC, or provider execution integration was added in this phase
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 7 or a separate scoped integration point that consumes Design Packages
+
+- 2026-06-19 Report Discovery Wizard Phase 5 Design Studio Integration is complete:
+  - objective:
+    - implement Phase 5 only for Report Discovery Wizard
+    - convert a selected recommendation into Design Studio starting artifacts
+    - preserve provenance from semantic model through blueprint into Design Studio artifacts
+    - preserve Design Studio ownership, approvals, and workflow boundaries
+    - stop before Design Package generation, Microsoft Skills integration, provider-backed generation, PBIR generation, and Fabric App generation
+  - delivered:
+    - added backend-internal structured Design Studio provenance lineage support:
+      - `DesignArtifactLineageLink`
+      - lineage on `DesignArtifactProvenance`
+    - added backend-internal discovery-to-Design-Studio seed contract:
+      - `DiscoveryDesignStudioStartingPoint`
+    - added backend-internal `DiscoveryDesignStudioAdapterService`
+    - implemented backend recommendation selection and Design Studio starting-point creation for:
+      - discovery-backed Design Brief
+      - discovery-backed Concept Candidates
+      - discovery-backed Draft seed artifacts
+    - mapped discovery blueprint inputs into Design Studio starting artifacts for:
+      - audience
+      - business objective
+      - analytical flow
+      - success criteria seed
+      - experience/report type
+      - navigation expectations
+      - KPI emphasis
+      - dimension emphasis
+      - page concepts
+      - navigation hierarchy
+      - draft page/layout/navigation artifacts
+    - added extension-side discovery seeding adapter:
+      - `selectDiscoveryRecommendationForDesignStudio`
+    - persisted seeded Design Studio artifacts into the existing Design Studio storage and workflow format without auto-approval
+    - preserved advisory-only, non-production trust boundaries:
+      - no approval bypass
+      - no validation approval creation
+      - no deployable asset creation
+      - no PBIR generation
+      - no Fabric App generation
+    - added coverage for:
+      - recommendation selection
+      - Design Brief creation
+      - Concept Candidate creation
+      - Draft seed creation
+      - provenance chain preservation
+      - Design Studio trust-boundary preservation
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - seeded Design Studio artifacts are intentionally created as `draft` / `notSubmitted` so Design Studio remains the owner of approvals and workflow progression
+    - the existing Design Studio workspace can load seeded Concept and Draft artifacts while still keeping Brief as the active approval gate
+    - Phase 5 stopped at Design Studio starting-point creation only
+    - no Design Package generation, Microsoft Skills integration, provider-backed generation, PBIR generation, or Fabric App generation was implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts downstream Design Package generation or discovery UI/rpc handoff work
+
+- 2026-06-19 Report Discovery Wizard Phase 4 Experience Blueprint Generation is complete:
+  - objective:
+    - implement Phase 4 only for Report Discovery Wizard
+    - add the internal Experience Blueprint layer on top of Discovery Profile, Opportunity Catalog, and Recommendation Engine
+    - generate structured blueprints for every recommendation
+    - preserve advisory-only, provider-neutral, internal-only boundaries without widening public contracts
+    - stop before Design Studio seeding, Design Package generation, Microsoft Skills integration, and provider-backed generation
+  - delivered:
+    - added backend-internal Experience Blueprint substrate models:
+      - `ExperienceBlueprint`
+      - `ExperienceBlueprintPage`
+      - `ExperienceBlueprintAnalyticalFlow`
+      - `ExperienceBlueprintNavigationIntent`
+      - `ExperienceBlueprintProvenance`
+    - extended backend-internal recommendations with attached internal blueprint output
+    - added backend-internal `ExperienceBlueprintGenerationService`
+    - implemented provider-neutral blueprint derivation for:
+      - PBIR reports
+      - Fabric apps
+      - Fabric data apps
+      - executive dashboards
+      - operational monitoring experiences
+      - analytical investigation experiences
+    - implemented blueprint output for:
+      - recommended pages
+      - primary KPIs
+      - suggested global filters
+      - page-scoped filters
+      - page-scoped visual recommendations
+      - navigation intent
+      - analytical flow
+      - expected audience
+      - expected business outcome
+      - success-criteria seed
+      - provenance back to discovery and opportunity inputs
+    - added xUnit coverage for:
+      - executive blueprint generation
+      - operational blueprint generation
+      - analytical blueprint generation
+      - PBIR report blueprint generation
+      - Fabric app blueprint generation
+      - Fabric data app blueprint generation
+      - KPI generation
+      - filter generation
+      - visual recommendation generation
+      - navigation intent generation
+      - analytical flow generation
+      - provenance preservation
+      - sparse-model graceful degradation
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - blueprint generation remains a separate internal layer after recommendation ranking
+    - blueprints remain advisory-only, provider-neutral, and non-deployable
+    - no Design Studio seeding, Design Package generation, Microsoft Skills integration, provider-backed generation, findings generation, or validation-status generation was implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts downstream Design Studio seeding
+
+- 2026-06-19 Report Discovery Wizard Phase 3 Recommendation Engine is complete:
+  - objective:
+    - implement Phase 3 only for Report Discovery Wizard
+    - add the internal Recommendation Engine layer on top of Discovery Profile and Opportunity Catalog
+    - return Top 3 Primary Recommendations plus 2 Alternate Recommendations with ranking, deduplication, diversity, confidence, business value, complexity, and explanation content
+    - preserve advisory-only, provider-neutral, internal-only boundaries without widening public contracts
+  - delivered:
+    - added backend-internal recommendation substrate models:
+      - business value levels
+      - complexity levels
+      - primary versus alternate placement
+      - consultant-style recommendation records
+      - primary and alternate recommendation set container
+    - added backend-internal `RecommendationEngineService`
+    - implemented weighted ranking across:
+      - semantic coverage
+      - business actionability
+      - analytical fit
+      - audience clarity
+      - opportunity completeness
+      - implementation complexity
+      - model confidence
+    - added recommendation-level:
+      - preferred experience type selection
+      - near-duplicate collapse
+      - diversity-aware primary and alternate selection
+      - confidence, business value, and complexity scoring
+      - consultant-style explanation, confidence note, and complexity note generation
+    - preserved ambiguity by carrying discovery ambiguity notes into recommendation limiting factors
+    - documented the weighting and selection strategy in:
+      - `docs/superpowers/implementation-notes/2026-06-19-report-discovery-wizard-phase3-recommendation-engine.md`
+    - added xUnit coverage for:
+      - ranking
+      - deduplication
+      - diversity
+      - recommendation limits
+      - confidence behavior
+      - sparse-model graceful degradation
+      - explanation completeness
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - backend validation still emits pre-existing nullable warnings in existing PBIR scoring and cross-page narrative files
+    - Phase 3 stopped at the internal Recommendation Engine layer as requested
+    - no Experience Blueprint generation, Design Studio seeding, Design Package generation, provider-backed generation, or Microsoft Skills integration were implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 4 Experience Blueprint generation
+
+- 2026-06-18 Report Discovery Wizard Phase 2 Opportunity Identification is complete:
+  - objective:
+    - implement Phase 2 only for Report Discovery Wizard
+    - create the internal Opportunity Catalog layer
+    - infer candidate business opportunities from Discovery Profile signals
+    - preserve advisory-only, provider-neutral, internal-only boundaries without widening public contracts
+  - delivered:
+    - added backend-internal Opportunity Catalog substrate models:
+      - opportunity categories
+      - candidate experience types
+      - supporting semantic signals
+      - opportunity candidates
+      - opportunity catalog
+    - added backend-internal `OpportunityIdentificationService`
+    - translated Discovery Profile signals into candidate opportunities for:
+      - executive reporting
+      - sales performance
+      - profitability analysis
+      - customer analysis
+      - inventory optimization
+      - service operations
+      - forecast accuracy
+      - root cause investigation
+      - comparative performance management
+    - preserved ambiguity notes and limiting factors on inferred opportunities
+    - added near-duplicate opportunity deduplication before any future ranking layer
+    - kept the entire layer advisory-only, provider-neutral, and separate from findings, Design Studio artifacts, and public scoring contracts
+    - added xUnit coverage for:
+      - revenue and territory opportunity inference
+      - customer profitability opportunity inference
+      - inventory opportunity inference
+      - service opportunity inference
+      - forecast opportunity inference
+      - analytical investigation opportunity inference
+      - sparse-model low-confidence handling
+      - deduplication
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - backend validation still emits pre-existing nullable warnings in existing PBIR scoring and cross-page narrative files
+    - Phase 2 stopped at the internal Opportunity Catalog layer as requested
+    - no recommendation engine, ranking, blueprint generation, Design Studio seeding, provider integration, or Microsoft Skills integration were implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 3 Recommendation Engine
+
+- 2026-06-18 Report Discovery Wizard Phase 1 Semantic Model Discovery is complete:
+  - objective:
+    - implement Phase 1 only for Report Discovery Wizard
+    - create the internal Discovery Profile layer
+    - inspect semantic-model metadata and normalize it into reusable internal structures
+    - capture ambiguity notes and confidence without widening public contracts
+  - delivered:
+    - added backend-internal discovery substrate models for Discovery Profile outputs
+    - added backend-internal `SemanticModelDiscoveryService`
+    - implemented semantic model loading from project-local `.SemanticModel` folders using common JSON model locations
+    - reused current PBIR report snapshot loading for inferred hierarchy and audience signals
+    - normalized:
+      - measures
+      - dimensions
+      - hierarchies
+      - date intelligence
+      - relationships
+      - business domains
+      - KPI clusters
+      - audience signals
+      - ambiguity notes
+      - confidence
+    - added xUnit coverage for:
+      - rich model
+      - sparse model
+      - ambiguous model
+      - revenue/customer/inventory/forecasting/service domain detection
+      - high/medium/low confidence
+      - explicit ambiguity notes
+      - public-contract boundary protection
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - notes:
+    - backend validation still emits pre-existing nullable warnings in existing PBIR scoring and cross-page narrative files
+    - Phase 1 stopped at the internal Discovery Profile layer as requested
+    - no Opportunity Catalog, recommendation engine, Experience Blueprint generation, Design Studio seeding, findings, or provider integration were implemented
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Phase 2 Opportunity Identification
+
+- 2026-06-18 Report Discovery Wizard planning is complete:
+  - objective:
+    - create a planning-only design specification and phased implementation plan for Report Discovery Wizard
+    - define the curated recommendation model, Experience Blueprint contract, Design Studio integration path, trust boundaries, and future Microsoft Skills integration posture
+  - delivered:
+    - created `docs/superpowers/specs/2026-06-18-report-discovery-wizard-design.md`
+    - created `docs/superpowers/plans/2026-06-18-report-discovery-wizard-plan.md`
+    - defined a curated output model with:
+      - Top 3 Primary Recommendations
+      - 2 Alternate Recommendations
+      - maximum of 5 recommendations
+    - defined required recommendation fields:
+      - recommendation name
+      - experience type
+      - confidence
+      - business value
+      - implementation complexity
+      - recommendation rationale
+      - audience
+      - expected business outcome
+    - defined Experience Blueprint as the bridge from semantic model discovery into Design Studio
+    - defined recommendation selection seeding for:
+      - Design Brief
+      - Concept Candidates
+      - Initial Draft
+    - defined Design Package as the future provider-neutral handoff object
+    - preserved Design Studio trust boundaries, Analyzer Workspace validation ownership, advisory-only recommendation posture, and optional downstream Microsoft Skills integration
+  - validation:
+    - targeted documentation-presence and heading checks only
+    - no build or test commands were run because this session was planning-only and made no product-code changes
+  - next recommended step:
+    - review and tighten the discovery taxonomy, ranking heuristics, and Experience Blueprint contract before any implementation phase starts
+
+- 2026-06-18 Design Studio Analytical & Comparison Speed Polish is complete:
+  - objective:
+    - reduce reading burden and improve consultant scan speed in Concept Studio, Refinement Studio, Compare Iterations, and Workflow Completion
+  - delivered:
+    - added a summary-first Concept Studio comparison layer with:
+      - Concept Summary
+      - Key Differences
+      - Recommended Baseline
+      - What Is Different?
+    - moved analytical-investigation scan guidance earlier in Concept Studio with explicit:
+      - Question
+      - Investigation
+      - Evidence
+      - Conclusion
+    - added a scan-first Compare Iterations progress layer with:
+      - accepted recommendation count
+      - rejected recommendation count
+      - deferred recommendation count
+      - outstanding recommendation count
+      - newly resolved issues
+      - remaining issues
+      - explicit What Remains Unresolved section
+    - updated Refinement Studio to surface recommendation outcomes more clearly and relabel proposed recommendations as `Outstanding` in the UI
+    - added a recommendation-outcomes summary block in Refinement Studio
+    - added explicit `Why this matters` visibility on refinement proposals
+    - preserved trust boundaries, workflow ownership, analyzer ownership, validation ownership, workflow completion ownership, and recommendation logic
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - notes:
+    - backend tests passed with pre-existing nullable warnings in .NET projects; no new failures were introduced
+  - next recommended step:
+    - if self-serve readiness is revisited, run a fresh consultant-style UAT pass focused on scan speed in analytical investigation and iteration comparison
+
+- 2026-06-18 Design Studio Documentation Alignment is complete:
+  - objective:
+    - align the published Design Studio docs with the executable workflow and current shell behavior
+  - delivered:
+    - updated `docs/report-design-studio-user-guide.md` to match the executable shell and workflow
+    - updated `docs/report-design-studio-workflow-walkthrough.md` to follow the real staged execution path
+    - updated `docs/report-design-studio-uat-guide.md` to validate the live workflow, trust boundaries, analyzer return path, completion, and reopen
+    - updated `docs/report-design-studio-uat-gap-analysis.md` to remove stale early-stage/doc-drift gaps and focus on remaining self-serve usability risks
+    - added self-serve onboarding guidance
+    - documented approvals, trust boundaries, analyzer ownership, analyzer return path, workflow completion, and reopen behavior across the Design Studio guides
+    - recorded that no current Design Studio workflow screenshots were available in-repo for this documentation pass
+  - validation passed:
+    - `rg -n "Design Brief|Approve Brief|Concept Studio|Generate Concepts|Select Baseline|Approve Concept|Draft Studio|Generate Draft|Approve Draft|Prepare For Review|Create Review Candidate|Approve Review Candidate|Review Design|Launch Analyzer Workspace|Return Real Analyzer Result|Attach Analyzer Results|Refinement Studio|Compare Iterations|Workflow Completion|Complete Iteration|Reopen Iteration|trust boundar|Analyzer Workspace owns validation|analyzer return path|Workflow Completion|self-serve onboarding" docs/report-design-studio-user-guide.md docs/report-design-studio-workflow-walkthrough.md docs/report-design-studio-uat-guide.md docs/report-design-studio-uat-gap-analysis.md`
+    - `rg -n "read-only|does not yet expose|not fully exposed|missing controls|cannot reliably complete|cannot be fully completed" docs/report-design-studio-user-guide.md docs/report-design-studio-workflow-walkthrough.md docs/report-design-studio-uat-guide.md docs/report-design-studio-uat-gap-analysis.md`
+  - next recommended step:
+    - rerun a fresh consultant-style UAT pass after this doc alignment to confirm whether the remaining blocker is only self-serve speed in analytical investigation and comparison-heavy scenarios
+
+- 2026-06-17 Design Studio Recommendation State Consistency is complete:
+  - objective:
+    - make recommendation state authoritative and consistent across Refinement Studio, Compare Iterations, Workflow Completion, and analyzer return attachment
+  - delivered:
+    - added a canonical recommendation-state model with:
+      - proposed
+      - approved
+      - rejected
+      - deferred
+    - chose persisted Refinement Studio proposals as the authoritative recommendation-state owner
+    - persisted canonical recommendation state into iteration links and iteration comparison snapshots for history preservation
+    - updated Refinement Studio presentation to display canonical recommendation state instead of reinterpreting approval state
+    - updated Compare Iterations recommendation evolution to read canonical recommendation state
+    - updated Workflow Completion deferred/unresolved counts to use canonical recommendation state and stop counting rejected recommendations as unresolved
+    - preserved analyzer-result identity, proposal identity, and source lineage through analyzer attachment and iteration recording
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - resume the remaining Round 6 follow-up items outside this slice:
+      - user-doc alignment with the executable shell
+      - comparison/analytical speed improvements for self-serve consultant usage
+
+- 2026-06-17 Report Design Studio MVP Validation Review Round 6 is complete:
+  - completed:
+    - re-ran the full live Design Studio MVP workflow for:
+      - Executive Dashboard
+      - Operational Monitoring
+      - Analytical Investigation
+    - validated the real analyzer return path in live workflow execution
+    - reviewed the live shell with browser tooling and Playwright
+    - created `docs/report-design-studio-mvp-validation-review-round6.md`
+  - outcome:
+    - decision gate `B. Ready For Guided Internal Pilot Only`
+    - not ready for self-serve internal consultant use
+    - ready for guided internal pilot use
+    - MVP not yet complete
+  - remaining blockers:
+    - recommendation-state inconsistency across Refinement Studio, Compare Iterations, and Workflow Completion
+    - current user-facing workflow docs materially contradict the executable shell
+    - analytical-investigation and comparison surfaces remain too slow for self-serve consultant usage
+  - next recommended step:
+    - fix late-stage recommendation-state consistency first
+    - then align the user guide and workflow walkthrough to the executable shell before any self-serve rollout claim
+
+- 2026-06-17 Design Studio Real Analyzer Return Integration is complete:
+  - delivered:
+    - replaced the primary seeded analyzer-return dependency with a real Analyzer Workspace return path
+    - added a real analyzer return contract carrying:
+      - thread id
+      - request id
+      - analyzer run id
+      - analyzer result id
+      - source candidate id
+      - source artifact/version fingerprint
+      - analyzer completion status
+      - validation status
+      - finding and recommendation references
+      - provenance metadata
+    - added Review Design discovery of completed analyzer results from persisted Analyzer Workspace return data instead of manual seeded injection
+    - changed explicit `Attach Analyzer Results` to consume real analyzer return payloads, preserve atomic attachment, and ingest analyzer-backed refinement inputs
+    - kept lineage validation in place across candidate identity, artifact fingerprint, and iteration recording
+    - updated Compare Iterations and Workflow Completion to show:
+      - analyzer run identity
+      - analyzer review completion
+      - attached result state
+  - preserved:
+    - analyzer ownership of execution, findings, review status, and validation approval
+    - Design Studio ownership of iteration management, design approvals, refinement workflow, and workflow completion
+    - no automatic analyzer execution
+    - no automatic validation approval
+    - no report mutation
+    - no provider execution
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - manual smoke:
+    - not run in this session
+  - next recommended step:
+    - stop here for this phase
+    - if follow-up work resumes, run the guided manual workflow smoke through Review Design, Analyzer Workspace return, explicit attach, Refinement Studio, Compare Iterations, and Workflow Completion without seeded artifacts
+
+- 2026-06-17 Report Design Studio MVP Validation Review Round 5 is complete:
+  - completed:
+    - re-ran the full live Design Studio workflow for:
+      - Executive Dashboard
+      - Operational Monitoring
+      - Analytical Investigation
+    - validated the current executable shell using Playwright plus seeded analyzer-return artifacts through the current implementation path
+    - created `docs/report-design-studio-mvp-validation-review-round5.md`
+  - outcome:
+    - decision gate `B. Ready For Guided Internal Pilot Only`
+    - workflow integrity blockers from Round 4 were resolved in live execution
+    - not ready for self-serve internal consultant use
+    - ready for guided internal pilot use
+  - remaining blockers:
+    - real analyzer-return plumbing still depends on seeded artifacts for this validation shape
+    - current Design Studio user docs still lag the executable shell
+    - analytical-investigation and comparison surfaces remain slower than self-serve consultant speed
+  - next recommended step:
+    - update user-facing Design Studio docs to match the executable shell and current completion model before any guided pilot package is reused
+
+- 2026-06-17 Report Design Studio Workflow Integrity Remediation is complete:
+  - delivered:
+    - added atomic analyzer-result attachment with rollback across refinement, review-design, and iteration persistence
+    - prevented attachment success when candidate lineage or source artifact/version fingerprint is missing or mismatched
+    - changed iteration recording to use attached analyzer results as the source of truth
+    - restored required analyzer-owned validation approval provenance when approved validation evidence is recorded
+    - aligned workflow-completion validation state with the latest iteration approval checkpoint
+    - prevented review surfaces from showing `Validated` when validation approval is still pending
+    - added regression coverage for attach success, attach rejection, rollback, refinement gating, and validation/completion consistency
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - manual smoke:
+    - not run in this session
+  - next recommended step:
+    - if Round 4 readiness is rechecked, rerun the live Design Studio workflow smoke specifically through `Attach Analyzer Results` and workflow completion
+
+- 2026-06-17 Report Design Studio MVP Validation Review Round 4 is in progress:
+  - completed:
+    - performed the first full end-to-end validation of the completed Design Studio workflow
+    - reviewed actual workflow execution using the live shell, Playwright, and seeded workflow artifacts
+    - created `docs/report-design-studio-mvp-validation-review-round4.md`
+  - outcome:
+    - decision gate `C. Requires Additional Workflow Work`
+    - not ready for self-serve internal consultant use
+    - not ready for guided internal pilot
+  - primary blocker:
+    - live `Attach Analyzer Results` fails with analyzer-owned validation provenance errors and can leave partially advanced workflow state behind
+  - next recommended step:
+    - fix analyzer-result attachment and validation/completion state consistency before any pilot or provider-backed generation planning
+
+- 2026-06-16 Analyzer Return Loop UX is complete:
+  - delivered:
+    - added explicit Review Design return-loop progression for:
+      - Review Not Started
+      - Review Launched
+      - Awaiting Analyzer Results
+      - Analyzer Results Available
+      - Results Attached
+      - Refinement Ready
+    - added explicit `Attach Analyzer Results` workflow messaging through the Design Studio protocol and shell
+    - added persisted analyzer-result availability and attachment tracking with:
+      - analyzer run id
+      - result reference
+      - source candidate id
+      - source artifact/version fingerprint
+      - validation result status
+      - validation approval state
+      - linked proposal ids
+    - updated iteration recording so attached analyzer results create explicit iteration history without:
+      - analyzer auto-execution
+      - automatic validation approval
+      - report mutation
+      - provider execution
+    - updated Refinement Studio unlock behavior to require explicit analyzer-result attachment
+    - updated Workflow Completion checklist and outstanding-item logic to include:
+      - Review Design completed
+      - Analyzer results attached
+      - Refinement reviewed
+      - Validation approval status recorded
+    - updated Compare Iterations and Review Design presentation to surface analyzer-return state more clearly
+  - preserved:
+    - analyzer ownership
+    - validation ownership
+    - approval separation
+    - advisory-only refinement ingestion
+    - no automatic analyzer execution
+    - no automatic validation approval
+    - no report mutation
+    - no provider execution
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion follow-up resumes, next slices should stay separate and may include:
+      - stronger Analyzer Workspace-to-Design Studio return plumbing from real analyzer surfaces
+      - richer Compare Iterations visualization for attached analyzer result trails
+      - explicit consultant-facing “no recommendations returned” iteration-closeout polish
+- 2026-06-16 Workflow Completion Model is complete:
+  - delivered:
+    - added explicit workflow-completion state modeling for iterations:
+      - active
+      - ready for completion
+      - completed
+      - reopened
+    - added persisted iteration workflow-completion snapshots with:
+      - completion checklist
+      - outstanding-item guidance
+      - satisfied approvals summary
+      - deferred and unresolved recommendation counts
+      - completed by / completed at
+      - reopened by / reopened at
+      - completion and reopen history
+    - added explicit shell-stage workflow completion after Compare Iterations with:
+      - consultant guidance
+      - completion checklist rendering
+      - outstanding item rendering
+      - completion state visibility
+      - `Complete Iteration`
+      - `Reopen Iteration`
+    - kept completion distinct from:
+      - design approval
+      - materialization approval
+      - refinement approval
+      - validation approval
+    - exposed completion state and completion summary inside Compare Iterations
+    - preserved iteration lineage, approval checkpoints, and auditability when completing or reopening
+    - kept Compare Iterations and iteration presentation backward-compatible with older records that do not yet contain completion snapshots
+    - mirrored the new completion contract into the backend-internal Design Studio C# models
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - analyzer ownership
+    - lineage model
+    - Design Studio trust boundaries
+    - no automatic validation approval
+    - no deployment or publication implication
+    - no provider-backed generation
+    - no analyzer return-loop UX
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion follow-up work resumes, next slices should be:
+      - analyzer return-loop UX
+      - richer non-blocking outstanding-item explanation for deferred recommendations
+      - any broader iteration auto-recording improvements as a separate scoped change
+- 2026-06-16 Review Design execution workflow is complete:
+  - delivered:
+    - made Review Design executable from the main shell after review-candidate approval
+    - added persisted explicit review-execution tracking for:
+      - not started
+      - launched
+      - completed
+    - rendered Review Design workflow detail directly in the shell for:
+      - candidate summary
+      - review readiness
+      - handoff status
+      - analyzer ownership
+      - review status
+      - completion state
+      - next-step guidance
+    - preserved explicit Analyzer Workspace launch through the existing handoff path
+    - kept validation approval analyzer-owned and separate from Review Design completion
+    - kept Refinement Studio blocked until explicit review completion exists, then unlocked it without auto-creating proposals
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - analyzer ownership
+    - validation ownership
+    - approval ownership
+    - lineage and provenance
+    - Design Studio trust boundaries
+    - no automatic analyzer execution
+    - no automatic validation approval
+    - no report mutation
+    - no provider execution
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start workflow-completion model or analyzer return-loop UX as separate scoped slices without changing Review Design trust semantics
+- 2026-06-16 Prepare For Review execution workflow is complete:
+  - delivered:
+    - made Prepare For Review executable from the main shell after Draft approval
+    - added explicit shell actions for:
+      - `Create Review Candidate`
+      - `Submit Candidate For Approval`
+      - `Approve Candidate`
+    - made Prepare For Review workflow transitions explicit across:
+      - blocked
+      - not started
+      - candidate created
+      - ready for approval
+      - approved
+    - rendered Prepare For Review review artifacts directly in the shell for:
+      - candidate summary
+      - review readiness
+      - review diagnostics
+      - review lineage
+      - materialization status
+      - approvals used
+    - preserved lineage/versioning by requiring separate candidate creation, submission, and approval versions
+    - kept Review Design blocked until review-candidate approval, then unlocked it after approved review-candidate lineage existed
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - lineage model
+    - materialization trust boundaries
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no analyzer execution
+    - no provider-backed generation
+    - no report mutation
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start Review Design execution as a separate scoped slice without changing Prepare For Review approval semantics
+- 2026-06-16 Draft Studio execution workflow is complete:
+  - delivered:
+    - made Draft Studio executable from the main shell after Concept baseline approval
+    - added explicit shell actions for:
+      - `Generate Draft`
+      - `Submit Draft For Approval`
+      - `Approve Draft`
+    - made Draft Studio workflow transitions explicit across:
+      - blocked
+      - not started
+      - draft generated
+      - ready for approval
+      - approved
+    - rendered Draft Studio review artifacts directly in the shell for:
+      - draft pages
+      - draft layouts
+      - draft navigation
+      - KPI placement
+    - preserved lineage/versioning by requiring separate draft generation, submission, and approval versions
+    - kept Prepare For Review blocked until draft approval, then unlocked it after approved draft lineage exists
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no provider-backed generation
+    - no Prepare For Review execution work beyond approved-draft unlock
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start Prepare For Review execution as a separate scoped slice without changing Draft Studio approval semantics
+- 2026-06-16 Concept Studio execution workflow is complete:
+  - delivered:
+    - made Concept Studio executable from the main shell after Design Brief approval
+    - added explicit shell actions for:
+      - `Generate Concepts`
+      - `Select Baseline`
+      - `Submit Baseline For Approval`
+      - `Approve Concept Baseline`
+    - made Concept Studio workflow transitions explicit across:
+      - blocked
+      - not started
+      - concepts generated
+      - baseline selected
+      - ready for approval
+      - approved
+    - preserved lineage/versioning by requiring separate concept generation, selection, submission, and approval versions
+    - kept Draft Studio blocked until concept approval, then unlocked it after approved concept baseline
+    - kept selected-stage header rendering anchored to the selected rail stage instead of stale workspace summaries
+  - preserved:
+    - approval ownership
+    - validation ownership
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no provider-backed generation
+    - no draft execution work beyond concept-gated unlock
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if workflow completion resumes, start Draft Studio execution as a separate scoped slice without changing Concept Studio approval semantics
+
+- 2026-06-16 Report Design Studio Design Brief execution is complete:
+  - delivered:
+    - executable Design Brief authoring in the main shell
+    - explicit `Save Draft`, `Submit For Approval`, and `Approve Brief` actions
+    - resumed persisted brief state through `currentBrief`
+    - stage-status transitions for `Not started`, `In progress`, `Ready`, and `Approved`
+    - Concept Studio blocking until Design Brief approval, then explicit unlock
+    - selected-stage/header consistency fixes for the Design Studio shell
+  - preserved:
+    - approval ownership
+    - lineage/versioning
+    - validation ownership
+    - Design Studio trust boundaries
+    - no automatic approvals
+    - no automatic progression
+  - validation passed:
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - next recommended step:
+    - stop here for this phase
+    - if the workflow completion effort resumes, start Concept Studio execution as a separate scoped slice without changing Design Brief semantics introduced here
+
+- 2026-06-16 Report Design Studio docs were corrected to match the shipped read-only shell:
+  - issue:
+    - the first-pass user docs mixed underlying Design Studio stage foundations with the actual shipped shell
+    - that caused the walkthrough to imply writable Design Brief fields and early-stage controls that are not present in the current UI
+  - corrected:
+    - `docs/report-design-studio-user-guide.md`
+    - `docs/report-design-studio-workflow-walkthrough.md`
+  - updated doc position:
+    - the current shipped shell is primarily a read-only workflow and review surface for:
+      - Design Brief
+      - Concept Studio
+      - Draft Studio
+      - Prepare For Review
+    - live actions are currently limited to:
+      - Review Design handoff
+      - Refinement proposal approve/reject/defer
+      - Compare Iterations selectors
+  - next recommended step:
+    - keep all user-facing Design Studio docs anchored to the shipped shell, not the underlying store/view foundations
+    - if the product later exposes full early-stage editing in the main shell, update the walkthrough again at that time
+
+- 2026-06-16 Report Design Studio UAT and user documentation is complete:
+  - created:
+    - `docs/report-design-studio-user-guide.md`
+    - `docs/report-design-studio-workflow-walkthrough.md`
+    - `docs/report-design-studio-uat-guide.md`
+    - `docs/report-design-studio-uat-gap-analysis.md`
+  - documentation focus:
+    - explain what Report Design Studio is and how it relates to PBIR Design Analyzer, Story Assessment, and Analyzer Workspace
+    - document the consultant workflow stage-by-stage using the actual shipped MVP shell terminology
+    - explain approval semantics:
+      - Ready
+      - Approved
+      - Validated
+      - Design Approval
+      - Materialization Approval
+      - Refinement Approval
+      - Validation Approval
+    - provide realistic UAT scripts for:
+      - Executive Dashboard
+      - Operational Monitoring
+      - Analytical Investigation
+  - key conclusion:
+    - the documentation can explain the workflow clearly, but the current shipped MVP still does not expose a complete self-serve early-stage action path in the main shell
+    - the gap analysis therefore answers the final readiness question as `no` for documentation-only self-serve consultant use
+  - validation:
+    - verified all four documentation files exist
+    - verified the required major sections and final readiness answer are present
+  - next recommended step:
+    - use the new docs for guided pilot support
+    - fix shell-exposed early-stage actions, middle-stage workflow language, and workflow completion signaling before claiming documentation-only self-serve readiness
+
+- 2026-06-16 Story Assessment navigation target fix is complete:
+  - root cause:
+    - the `Open target` action path in Story Assessment was valid end-to-end, but score-panel commands that opened a report chosen from the picker did not sync `pbirTreeProvider` to that report path
+    - as a result, `navigateToTarget` resolved against an empty or unrelated PBIR explorer tree, so the action appeared inert even though the webview click handler and host message router were working
+  - implementation:
+    - added `syncExplorerToReport` in `vscode-extension/src/commands/pbirCommands.ts`
+    - now synchronize the explorer project path before opening the score panel for:
+      - `pbirAnalyzer.scoreReport`
+      - `pbirAnalyzer.exportReviewWorkflow`
+      - `pbirAnalyzer.uploadScreenshots`
+  - regression coverage:
+    - added a command-level regression in `vscode-extension/src/test/pbirScoreCommand.treeItem.test.ts` proving picker-based score launches call `setProjectPath(reportRoot)` before opening the score panel
+  - validation passed:
+    - focused:
+      - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScoreCommand.treeItem.test.ts`
+      - `cd vscode-extension && npx jest --runTestsByPath src/test/pbirScorePanel.navigation.test.ts src/test/pbirExplorerReveal.test.ts`
+    - required:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - reload the extension host or reinstall/package if testing from the installed VSIX
+    - manually confirm Story Assessment `Open target` now reveals and opens the active report target when the score panel was launched from a picked report path
+
+- 2026-06-16 Design Studio installed VSIX refresh is complete:
+  - confirmed:
+    - the workspace fix for the Design Studio blank webview already existed locally
+    - the still-blank user repro came from a stale installed Insiders extension payload at:
+      - `~/.vscode-insiders/extensions/bcrowell.pbir-design-analyzer-0.6.0/webview-dist/design-studio.js`
+    - the stale installed bundle still contained `process.env.NODE_ENV`, while the workspace bundle did not
+  - packaging and install:
+    - rebuilt the shipped VSIX from the current workspace with:
+      - `cd vscode-extension && npm run package`
+    - reinstalled the fresh artifact into VS Code Insiders with:
+      - `/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code --install-extension /Users/bcrowell/Documents/GitHub/pbir-design-analyzer/vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix --force`
+  - verification:
+    - confirmed the installed Design Studio bundle now matches the fixed shape:
+      - size `177818`
+      - no `process.env.NODE_ENV`
+      - no `process` token remains in the installed `design-studio.js`
+  - next recommended step:
+    - reload the VS Code Insiders window so any cached webview host state is discarded
+    - reopen Report Design Studio and confirm the shell renders from the refreshed installed extension payload
+
+- 2026-06-15 Design Studio webview startup crash is fixed:
+  - root cause:
+    - the blank Report Design Studio page came from shared webview build-tooling leakage, not Design Studio application code
+    - the packaged `design-studio.js` bundle still contained React `process.env.NODE_ENV` runtime branches, which crash in a browser-like VS Code webview where `process` is undefined
+  - implementation:
+    - added compile-time production defines in:
+      - `vscode-extension/webview-src/vite.design-studio.config.ts`
+      - `vscode-extension/webview-src/vite.analyzer-score.config.ts`
+      - `vscode-extension/webview-src/vite.analyzer-config.config.ts`
+    - added regression coverage in:
+      - `vscode-extension/webview-src/design-studio/__tests__/bundleRuntime.test.ts`
+    - rebuilt webview assets so the shipped Design Studio bundle no longer emits `process.env.NODE_ENV`
+  - validation passed:
+    - targeted guard:
+      - `cd vscode-extension && npx jest -c jest.webview.config.cjs --runTestsByPath webview-src/design-studio/__tests__/bundleRuntime.test.ts`
+    - required validation:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - manual verification:
+    - reopened Report Design Studio and confirmed the shell rendered instead of a blank page
+    - confirmed the workflow rail rendered, including `Prepare For Review`, `Review Design`, and `Compare Iterations`
+  - next recommended step:
+    - return to the remaining release-candidate blocker for default score-diagnostics payload logging
+
+- 2026-06-15 PBIR engineering remediation release-candidate validation is complete:
+  - confirmed:
+    - Workstream 9 remained complete before RC validation
+    - required validation commands passed:
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm run verify:backend:targets`
+      - `cd vscode-extension && npm run package:all`
+    - clean-host VSIX install succeeded for:
+      - `vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
+    - packaged backend launched from the installed extension target path, not from repo-local build outputs
+    - score panel rendered and review-workflow export succeeded
+    - screenshot upload flow opened its native file-picker dialog
+  - release blockers found:
+    - packaged Design Studio opened a blank webview and VS Code logged a blocked `vscode-webview` request for `bcrowell.pbir-design-analyzer`
+    - default `PBIR Score Diagnostics` logging still persisted a large scored payload with findings and local report paths
+  - documentation added:
+    - `docs/pbir-engineering-remediation-release-candidate-validation.md`
+  - recommendation:
+    - not ready for internal install until the packaged Design Studio webview failure and default score-diagnostics logging hygiene failure are fixed and revalidated
+  - next recommended step:
+    - fix the packaged Design Studio webview bootstrap/runtime issue first
+    - then suppress full default score-diagnostics payload logging in normal operation
+    - rerun the same clean-host RC validation flow after both blockers are resolved
+
+- 2026-06-15 PBIR engineering remediation Workstream 9 is complete:
+  - implemented:
+    - removed speculative backend-only Design Studio provider scaffolding:
+      - `service-dotnet/Services/DesignStudio/Providers/IDesignStudioProvider.cs`
+      - `service-dotnet/Services/DesignStudio/Providers/ProviderCapabilityModels.cs`
+    - removed the duplicate backend-only materialization gateway model file:
+      - `service-dotnet/Services/DesignStudio/Materialization/MaterializationGatewayModels.cs`
+    - retained `service-dotnet/Services/DesignStudio/Models/DesignStudioModels.cs` as the active backend contract mirror for shipped Design Studio artifact and handoff vocabulary
+    - moved `DesignProviderCapabilityKind` into `DesignStudioModels.cs` because it remains part of the mirrored provenance contract, not a live provider registry
+    - rewrote focused Design Studio backend reflection tests so they now:
+      - assert speculative provider registry runtime types are absent
+      - assert the duplicate materialization namespace is absent
+      - preserve approval-separation, analyzer-owned validation, no-mutation, and non-execution trust boundaries on the remaining backend models
+    - documented the Workstream 9 audit and ownership decision in:
+      - `docs/superpowers/implementation-notes/2026-06-15-design-studio-backend-abstraction-cleanup.md`
+  - preserved:
+    - no provider-backed generation
+    - no new Design Studio runtime features
+    - no backend provider wiring
+    - no TypeScript Design Studio runtime behavior changes
+    - no scoring changes
+  - audit outcome:
+    - active backend runtime boundary protection remains in the internal Design Studio model vocabulary and reflection tests that lock approval separation, analyzer-owned validation, and non-mutation guarantees
+    - speculative future-provider runtime surface was removed because it had no runtime call sites and only survived through reflection-presence tests
+  - validation passed:
+    - focused Design Studio backend suite:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~DesignStudio`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 9 as requested
+    - if provider-backed generation is ever scoped later, reintroduce backend provider abstractions only with a real runtime execution path, explicit trust semantics, and fresh documentation
+
+- 2026-06-15 PBIR engineering remediation Workstream 7D is complete:
+  - implemented:
+    - extracted scorer config parsing into `service-dotnet/Services/Pbir/ScoringConfigurationService.cs`
+    - rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to delegate framework-weight, navigation-scoring, and governance-rule shaping to the new service
+    - added an internal `PbirScoringService` composition constructor so extracted collaborators can be supplied directly without changing the public scoring entry point
+    - collapsed repeated page-summary and zero-visual orchestration glue inside `PbirScoringService` into focused helpers
+    - added focused xUnit coverage in `service-dotnet/tests/Services/ScoringConfigurationServiceTests.cs`
+  - preserved:
+    - no scoring semantic changes
+    - no findings changes
+    - no recommendation logic changes
+    - no Story Assessment changes
+    - no Cross-Page Narrative changes
+    - no public contract changes
+  - regression gate passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+  - validation passed:
+    - focused scorer checks:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~ScoringConfigurationServiceTests|FullyQualifiedName~PbirScoringServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 7D as requested
+    - do not begin Workstream 9
+
+- 2026-06-15 PBIR engineering remediation Workstream 7C is complete:
+  - implemented:
+    - extracted recommendation buffering and bookmark-aware recommendation population into `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs` via `RecommendationAssemblyService`
+    - extracted score-result and page-score assembly into `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs` via `ScoreResultAssemblyService`
+    - extracted backward-compatible legacy score population into `service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs` via `ScoreCompatibilityAdapter`
+    - rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to delegate recommendation/result/compatibility output shaping to the extracted services
+    - added focused xUnit coverage for the extracted 7C services:
+      - `service-dotnet/tests/Services/RecommendationAssemblyServiceTests.cs`
+      - `service-dotnet/tests/Services/ScoreCompatibilityAdapterTests.cs`
+      - `service-dotnet/tests/Services/ScoreResultAssemblyServiceTests.cs`
+  - preserved:
+    - no scoring semantic changes
+    - no recommendation logic changes
+    - no public contract changes
+    - no Story Assessment changes
+    - no Cross-Page Narrative changes
+    - no Design Studio changes
+  - regression gate passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+  - validation passed:
+    - focused extracted-service tests:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationAssemblyServiceTests|FullyQualifiedName~ScoreCompatibilityAdapterTests|FullyQualifiedName~ScoreResultAssemblyServiceTests"`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 7C as requested
+    - do not begin final `PbirScoringService` thin-orchestrator cleanup without a separately scoped follow-on workstream
+
+- 2026-06-15 Post-7B scoring regression baseline is complete:
+  - implemented:
+    - captured a compact representative regression baseline for:
+      - `Sales & Production`
+      - `Sales Analysis`
+      - `Running Record Dataverse`
+      - `Sales AWF`
+    - stored normalized baseline projections at:
+      - `service-dotnet/tests/Baselines/Post7BScoring/`
+    - added focused real-fixture regression coverage in:
+      - `service-dotnet/tests/Post7BScoringBaselineTests.cs`
+    - documented baseline sources, normalization rules, baseline locations, and future 7C/7D comparison workflow in:
+      - `docs/story-assessment/2026-06-15-post-7b-scoring-regression-baseline.md`
+  - preserved:
+    - no scorer behavior changes
+    - no extension behavior changes
+    - no architecture changes
+    - no Workstream 7C implementation
+  - validation target:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - validation passed:
+    - focused baseline gate:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~Post7BScoringBaselineTests`
+    - required validation:
+      - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+      - `cd vscode-extension && npm test`
+      - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - use `Post7BScoringBaselineTests` as the first regression gate before any Workstream 7C or 7D scorer slice
+
+- 2026-06-15 PBIR engineering remediation Workstream 7B is complete:
+  - implemented:
+    - extracted Story Assessment sequencing into `service-dotnet/Services/Pbir/StoryAssessmentOrchestrator.cs`
+    - extracted Cross-Page Narrative sequencing into `service-dotnet/Services/Pbir/CrossPageNarrativeOrchestrator.cs`
+    - extracted focused seams for internal Story Signal Registry and Special Page Assessment orchestration into:
+      - `service-dotnet/Services/Pbir/StorySignalRegistryService.cs`
+      - `service-dotnet/Services/Pbir/SpecialPageAssessmentService.cs`
+    - rewired `service-dotnet/Services/Pbir/PbirScoringService.cs` to use the new orchestrators while remaining the scoring entry point
+    - added direct xUnit coverage for the extracted orchestration services
+    - added `InternalsVisibleTo("Tests")` for direct internal service/model coverage
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - focused regression coverage passed:
+    - extracted service tests: `StoryAssessmentOrchestratorTests`, `CrossPageNarrativeOrchestratorTests`
+    - existing `PbirScoringServiceTests` coverage for Story Assessment and Guided Story Improvements slices
+  - regression-gate note:
+    - a literal before/after representative-output diff was not rerun in this session because the current workspace did not preserve a safe pre-7B baseline separate from unrelated in-progress work
+    - relied on focused extracted-service tests plus existing Story Assessment regression coverage and full required validation instead
+  - next recommended step:
+    - stop after Workstream 7B as requested
+    - do not begin recommendation extraction, result assembly extraction, or backward-compat adapter extraction without a separately scoped follow-on workstream
+
+- 2026-06-15 PBIR engineering remediation Workstream 7A is complete:
+  - implemented:
+    - extracted report discovery into `service-dotnet/Services/Pbir/ReportDiscoveryService.cs`
+    - extracted report JSON/page model loading into `service-dotnet/Services/Pbir/ReportModelLoader.cs`
+    - extracted theme resolution into `service-dotnet/Services/Pbir/ThemeResolutionService.cs`
+    - moved private scoring foundation models into `service-dotnet/Services/Pbir/PbirScoringFoundationModels.cs`
+    - rewired `PbirScoringService` into a thinner orchestrator for foundation loading concerns
+    - added focused xUnit coverage for the extracted service seams
+  - regression gate passed:
+    - representative before/after scoring outputs matched after normalization of runtime-only `reportPath` and `scoredAt` fields
+  - validation passed:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+  - next recommended step:
+    - stop after Workstream 7A as requested
+    - do not begin Story Assessment extraction without a separately scoped follow-on workstream
+
 ## Active Branch
 
-- Branch: `feat/semantic-color-chart-intent`
+- Branch: `codex/ux-consolidation-remediation-0-2-2`
 
 ## Current Objective
 
-- `0.2.0` is now merged into `main`, validated, packaged, and smoke-checked in an isolated VS Code host. The next practical step is future work on the deferred roadmap epics rather than more `0.2.0` churn.
+- Repository Phase 30 is the proposed mapping for original roadmap Phase 4B.
+- Obtain explicit approval of both the Phase 30 boundary and implementation plan before production implementation.
+- Repository Phase 29 / original roadmap Phase 4A is complete.
+- Latest recorded product state: deterministic modern PBIR serialization is available in memory for the supported pbir-ir/v1 subset.
+- Rayfin Fabricator interoperability research is complete; no integration design or implementation has been approved.
+- Preserve the existing planning-only, review-only, and informational-only boundaries.
+- Phase 30 production implementation and all provider, Microsoft Skills, deployment, Desktop, and Analyzer automation remain unauthorized pending the relevant explicit approval.
 
-## Release Boundaries
+## In Progress
 
-- Keep completed product code, tests, docs, roadmap specs/plans, and compact durable memory.
-- Do not implement deferred roadmap epics in this release.
-- Keep scoring authoritative and unchanged.
-- Keep Evidence and Export secondary in the shipped workspace UX.
-- Keep `.vscode-test/` and other generated test-host artifacts out of commits.
+- Phase 30 design and implementation-plan approval gate.
+- No active production implementation phase.
+- No Fabricator integration implementation is in progress.
 
-## Release Outcome
+## Blockers
 
-- `main` now includes the full `0.2.0` review-workspace release.
-- Packaged artifact: `vscode-extension/pbir-design-analyzer-0.2.0.vsix`
-- Validation completed on `main`:
-  - `cd vscode-extension && npm run compile`
-  - `cd vscode-extension && npm test`
+- No active blocker.
+
+## Validation Status
+
+- Phase 30 approval-gate document validation passed:
+  - `git diff --check`
+  - both JSON examples parse
+  - all 14 versioned contract names match between design and plan
+  - all 12 journal phases, including terminal pre-mutation aborted, match between design and plan
+  - private control-root ownership marker is specified and unrelated existing control directories fail closed
+  - no placeholders, superseded names, production Phase 30 files, preview-writer widening, or external execution authorization
+  - one Active Session heading remains
+- Phase 29 implementation validation passed:
+  - focused backend across deployable serializer, canonical IR, and preview regression: 54 passed, 0 failed, 0 skipped
+  - full backend: 617 passed, 0 failed, 0 skipped
+  - Jest: 105 suites passed, 527 tests passed
+  - TypeScript compilation: passed
+  - all nine emitted fixture documents conform to the pinned local Microsoft Draft 7 schemas
+  - architecture-review remediation covers complete mutable contract hashing, stale IR integrity, null nested request rejection, exact semantic coverage, runtime hierarchy checks, and exact fixture-byte hashes
+  - no root-level report.json, filesystem writer, provider, Skills, API, CLI, deployment, Desktop, or Analyzer automation surface was added
+- Phase 29 document-only audit validation passed:
+  - `git diff --check`
+  - no trailing whitespace, placeholders, superseded request-reference names, or superseded runtime-validation names in the spec or plan
+  - all 13 JSON examples parse
+  - semantic-model inventory sample is exactly 310 UTF-8 bytes and hashes to `bc4f58184e62028614f7867e3927c5591f1b55c0104b3f70a9d85ed4e9516d29`
+  - all six modern-grid-1280x720/v1 slots satisfy the specified bounds, margins, and gutters
+  - approval-state, contract-name, supported-visual, validation-terminology, and preview-regression consistency checks passed
+  - changed-file scope contains only the Phase 29 spec, plan, and repository memory records
+- Latest recorded Phase 28 validation passed:
   - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
-  - `cd vscode-extension && npm run package`
-- Automated smoke pass completed in an isolated VS Code extension host against `Sales & Production.pbip`:
-  - `pbirAnalyzer.scoreReport` opened `PBIR Optimization Report`
-  - `pbirAnalyzer.configureScoring` opened `Design Analyzer Configuration`
-  - `pbirAnalyzer.checkGovernance` returned without crashing the extension host
-- Environment preparation needed on `main` before final validation:
-  - `cd vscode-extension && npm ci`
-  - `dotnet build service-dotnet/RpcHost/RpcHost.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- Current repo-contract break/fix validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+  - `cd vscode-extension && npm run build`
+- Shared repo-contract validation passed after this current-focus contract repair from Consulting-AI-Memory:
+  - `python3 scripts/validate_repo_contract.py --repo Consulting-AI-Memory --repo awesome-copilot --repo pbir-design-analyzer`
+- Phase-documentation audit found no `docs/memory/phase*.md`, no `docs/memory/phases/` content, and no `source_refs` in this repo; local phase-documentation namespacing validation is not needed until the repo starts storing shared memory phase docs.
+- Rayfin Fabricator research validation:
+  - reviewed public repository commit `4d4609797a92515c5815877ab8675387f997f4de`
+  - external JavaScript type-check passed
+  - external Vitest run was inconclusive under Node 25 because the environment exposed a non-functional global `localStorage`
+  - no pbir-design-analyzer product code changed
 
 ## Next Recommended Step
 
-- Start with roadmap Epic 1: Consultant Deliverables & Export Platform.
+- Review the Phase 39 generalized binding diff and consider Phase 40 chart-family expansion only after the role semantics remain stable.
+- Keep the binding model backend-only; do not add public RPC, VS Code, hosted execution, Windows execution, or another security layer for Phase 40 without separate authorization.
+
+## Relevant Files
+
+- `AGENTS.md`
+- `README.md`
+- `.agent-memory/current-focus.md`
+- `.agent-memory/repo-map.md`
+- `.agent-memory/session-summaries.md`
+- `docs/current-state/design-studio-execution-readiness-state.md`
+- `docs/current-state/design-studio-preview-review-state.md`
+- `docs/current-state/pbir-preview-package-review-handoff-state.md`
+- `docs/current-state/pbir-modern-serializer-state.md`
+- `docs/superpowers/specs/2026-07-26-deterministic-modern-pbir-serializer-phase29-design.md`
+- `docs/superpowers/specs/2026-07-27-safe-local-deployable-pbir-materialization-phase30-design.md`
+- `docs/superpowers/plans/2026-07-27-safe-local-deployable-pbir-materialization-phase30-plan.md`
+- `docs/superpowers/plans/2026-07-26-deterministic-modern-pbir-serializer-phase29-plan.md`
+- `.agent-memory/sessions/2026-06-27-0754-repo-contract-phase-doc-audit.md`
+- `.agent-memory/sessions/2026-07-26T120654Z-rayfin-fabricator-integration-review.md`
+- `.agent-memory/sessions/2026-07-26T121536Z-pbir-modern-serializer-phase29-design.md`
+
+## Last Updated
+
+- Date: `2026-08-14`
+- By: `codex`
+# 2026-08-12 Phase 35D — pre-production provider certification
+
+- Active objective: implement additive Phase 35D certification contracts and offline evaluators on top of the uncommitted Phase 35C foundation.
+- Safety boundary: no provider execution, process/shell/HTTP/MCP/Skills/Desktop invocation, dynamic loading, publication, PBIR generation, or unrestricted credentials.
+- Planned seams: deterministic package identity, signed attestation verification, versioned certification profiles/evidence, lifecycle/record store, exact certification-to-activation binding, and bounded atomic audit/replay persistence.
+- Worktree rule: preserve all existing Phase 35C and unrelated dirty files; do not stage, commit, reset, clean, or restore.
+- Next step: add focused Phase 35D tests first, then implementation, docs, and validation.
+# Phase 42 — Report Mutation — Active Foundation
+
+- 2026-08-14: Added backend-only typed local PBIR import, deterministic mutation planning, and shared-IR execution. Supported now: page operations, visual operations, layout, and direct bindings. Formatting/theme/filter/navigation/slicer operations fail closed until the IR and serializer can preserve them losslessly.
+- The current serializer derives folder identities from IR identity inputs and has no imported identity override; exact untouched-artifact hash preservation is not yet proven.
+- Focused mutation tests: 3/3 passed. Full backend Release: 916 passed, 11 expected Windows skips. Core Release build: 0 warnings/errors. Extension/webview Jest: 494/494 and 68/68; extension build and TypeScript compilation passed; `git diff --check` passed.
+- Keep Phase 42 uncommitted and unstaged. Do not add RPC, VS Code, Windows, hosted execution, or provider-security changes.
+## 2026-08-15 — Optimization Report authoring-RPC regression
+
+- Investigating a scoring regression introduced by commit `b31024ff`, which changed the PBIR Optimization Report from `model/pbir/scoreReport` to an `Import` + `Analyze` authoring-RPC sequence.
+- The observed message is emitted by `RpcHost/PbirAuthoringRpcAdapter.cs` before dispatcher validation when JSON-RPC params are absent/non-object; current Phase45 dispatcher Analyze validation is already independent of generation requests.
+- Completed repair: kept `pbir-authoring-rpc/v1` Analyze independent for explicit authoring workflows and restored Optimization Report scoring to the existing `model/pbir/scoreReport` analyzer route.
+- Regression coverage now proves the UI request shape, adapter missing-params boundary, and dispatcher Analyze-specific validation. Focused/full backend and extension tests, production build, VSIX packaging, and `git diff --check` passed.
+- Next: review the diff in the release branch; no additional authoring compatibility layer is needed.

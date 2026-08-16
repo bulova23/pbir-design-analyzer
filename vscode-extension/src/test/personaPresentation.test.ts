@@ -58,9 +58,12 @@ function buildFixPlanItem(overrides: Partial<FixPlanItem>): FixPlanItem {
     detail: 'Fix detail',
     severity: 'medium',
     effort: 'medium',
+    impact: 'medium',
+    why: 'Why this action matters.',
     scope: 'page',
     affectedPages: ['Overview'],
     recommendedAction: 'Fix it.',
+    resolvedOutcomes: ['Finding'],
     sourceFindingIds: ['finding'],
     ...overrides,
   };

@@ -94,4 +94,46 @@ describe('PbirTreeProvider local fallback', () => {
     expect(rootItems).toHaveLength(1);
     expect(rootItems[0].label).toBe('Sales & Production');
   });
+
+  it('sorts fallback page nodes deterministically when pages.json is missing', async () => {
+    fs.rmSync(path.join(projectRoot, 'Sales & Production.Report', 'definition', 'pages', 'pages.json'));
+
+    const customerPageRoot = path.join(projectRoot, 'Sales & Production.Report', 'definition', 'pages', 'CustomerPage');
+    fs.mkdirSync(customerPageRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(customerPageRoot, 'page.json'),
+      JSON.stringify({
+        name: 'CustomerPage',
+        displayName: 'Customer Analysis',
+      }),
+    );
+
+    const provider = new PbirTreeProvider();
+    provider.setProjectPath(pbipPath);
+
+    const rootItems = await provider.getChildren();
+    const reportChildren = await provider.getChildren(rootItems[0]);
+
+    expect(reportChildren.map((item) => item.label)).toEqual(['Corporate Theme', 'Customer Analysis', 'Overview']);
+  });
+
+  it('resolves pages by either display name or internal PBIR page name', async () => {
+    const provider = new PbirTreeProvider();
+    provider.setProjectPath(pbipPath);
+
+    const displayNameMatch = await provider.findPageItem('Overview');
+    const internalNameMatch = await provider.findPageItem('OverviewPage');
+
+    expect(displayNameMatch?.label).toBe('Overview');
+    expect(internalNameMatch?.label).toBe('Overview');
+  });
+
+  it('resolves visuals by stable PBIR visual id even when the explorer label uses the visual display name', async () => {
+    const provider = new PbirTreeProvider();
+    provider.setProjectPath(pbipPath);
+
+    const visualItem = await provider.findVisualItem('Overview', 'SalesByRegion');
+
+    expect(visualItem?.label).toBe('Sales by Region (barChart)');
+  });
 });

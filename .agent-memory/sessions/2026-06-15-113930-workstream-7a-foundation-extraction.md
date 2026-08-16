@@ -1,0 +1,41 @@
+# Session Note
+
+- date: 2026-06-15
+- objective: Implement PBIR engineering remediation Workstream 7A only
+- scope: Extract report loading/discovery, JSON parsing/model extraction, and theme resolution from `PbirScoringService` without scoring behavior changes
+- status: complete
+- implemented:
+  - added `ReportDiscoveryService` to own required PBIR report resolution and preserve existing invalid-path behavior
+  - added `ReportModelLoader` to own report JSON loading, page discovery/order, inline-plus-directory visual parsing, page/report filter extraction, and page model materialization
+  - added `ThemeResolutionService` to own local theme file resolution and palette parsing
+  - moved scoring foundation model types out of `PbirScoringService` into `PbirScoringFoundationModels.cs`
+  - rewired `PbirScoringService` to remain the orchestration entry point while delegating foundation loading concerns to the extracted services
+  - added focused xUnit coverage for discovery, model loading, and theme resolution seams
+- preserved:
+  - no Story Assessment extraction
+  - no Cross-Page Narrative extraction
+  - no recommendation extraction
+  - no result assembly extraction
+  - no score semantic changes
+  - no Design Studio changes
+  - no new product features
+- regression gate:
+  - captured representative pre-change score output in `output/workstream7a-baseline-before.json`
+  - reran the same representative scoring harness after extraction into `output/workstream7a-baseline-after.json`
+  - normalized comparison removing runtime-only `reportPath` and `scoredAt` fields was identical
+  - findings, story outputs, and recommendations matched on the representative reports after normalization
+- validation passed:
+  - focused red/green service extraction tests:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~ReportDiscoveryServiceTests|FullyQualifiedName~ReportModelLoaderTests|FullyQualifiedName~ThemeResolutionServiceTests"`
+  - targeted regression fixes:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~ScoreAsync_Accessibility_FlagsOnCanvasContrastFailure|FullyQualifiedName~ScoreAsync_InlineVisualMetadata_AddsSurfaceTreatmentFeedback|FullyQualifiedName~ReportModelLoaderTests|FullyQualifiedName~ThemeResolutionServiceTests|FullyQualifiedName~ReportDiscoveryServiceTests"`
+  - required full validation:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+    - `cd vscode-extension && npm test`
+    - `cd vscode-extension && npm run compile`
+- notes:
+  - `PbirScoringService.cs` diff for this slice removed 668 lines and added 18 lines in the file itself; extracted code now lives in focused foundation services/models
+  - existing nullable warnings in `PbirScoringService.cs`, `CrossPageNarrativeInputBuilder.cs`, and one Design Studio test remain pre-existing and outside Workstream 7A scope
+- next recommended step:
+  - stop after Workstream 7A as requested
+  - do not begin Story Assessment extraction in this branch without a separately scoped follow-on workstream

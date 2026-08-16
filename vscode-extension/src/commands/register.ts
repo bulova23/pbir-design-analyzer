@@ -4,18 +4,13 @@ import { resolvePbirProjectPath } from '../analyzer/project/pathing';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { registerPbirCommands, pbirTreeProvider } from './pbirCommands';
 import { PbirConfigPanel } from '../views/PbirConfigPanel';
+import { LEGACY_PBIR_COMMAND_ALIASES, PBIR_COMMANDS } from '../platform/extensionIds';
+import { getExtensionOutputChannel } from '../platform/outputChannels';
+import { AnalyzerHandoffService } from '../design-studio/materialization/analyzerHandoffService';
+import type { MaterializedSurfaceCandidate } from '../design-studio/contracts/designStudioModels';
+import { PbirAuthoringWorkflow } from '../services/rpc/PbirAuthoringWorkflow';
 
-export const PBIR_ANALYZER_COMMANDS = {
-  openProject: 'pbirAnalyzer.openProject',
-  refreshReports: 'pbirAnalyzer.refreshReports',
-  scoreReport: 'pbirAnalyzer.scoreReport',
-  configureScoring: 'pbirAnalyzer.configureScoring',
-  checkGovernance: 'pbirAnalyzer.checkGovernance',
-  exportGovernanceReport: 'pbirAnalyzer.exportGovernanceReport',
-  exportReviewWorkflow: 'pbirAnalyzer.exportReviewWorkflow',
-  uploadScreenshots: 'pbirAnalyzer.uploadScreenshots',
-  configureAuditProvider: 'pbirAnalyzer.configureAuditProvider',
-} as const;
+export { PBIR_COMMANDS };
 
 async function promptForPbirProjectPath(): Promise<string | undefined> {
   const selection = await vscode.window.showOpenDialog({
@@ -71,30 +66,49 @@ function registerCommandAlias(
 export function registerCommands(
   context: vscode.ExtensionContext,
   getDotnetBridge: () => AnalyzerBridgeService | undefined,
+  getAnalyzerHandoffService?: () => AnalyzerHandoffService,
 ): void {
   registerPbirCommands(context, getDotnetBridge);
 
-  const outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer');
-  context.subscriptions.push(outputChannel);
+  const outputChannel = getExtensionOutputChannel();
+  const authoringWorkflow = new PbirAuthoringWorkflow(getDotnetBridge);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(PBIR_ANALYZER_COMMANDS.openProject, async () => {
+    vscode.commands.registerCommand(PBIR_COMMANDS.generateReport, async () => authoringWorkflow.generate()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.importReport, async () => authoringWorkflow.import()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.analyzeAuthoringReport, async () => authoringWorkflow.analyze()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.renamePage, async () => authoringWorkflow.renamePage()),
+    vscode.commands.registerCommand(PBIR_COMMANDS.mutateReport, async () => authoringWorkflow.mutate()),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(PBIR_COMMANDS.openProject, async () => {
       await openPbirProject(outputChannel);
     }),
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(PBIR_ANALYZER_COMMANDS.configureScoring, async () => {
+    vscode.commands.registerCommand(PBIR_COMMANDS.configureScoring, async () => {
       outputChannel.appendLine(`[${new Date().toISOString()}] Opening scoring configuration`);
       await PbirConfigPanel.createOrShow(context, getDotnetBridge());
     }),
   );
 
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.refreshReports, 'pbir.refreshTree');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.scoreReport, 'pbir.scoreReport');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.checkGovernance, 'pbir.governanceCheck');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportGovernanceReport, 'pbir.exportGovernanceReport');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.exportReviewWorkflow, 'pbir.exportReviewWorkflow');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.uploadScreenshots, 'pbir.uploadScreenshots');
-  registerCommandAlias(context, PBIR_ANALYZER_COMMANDS.configureAuditProvider, 'pbir.configureAuditProvider');
+  if (getAnalyzerHandoffService) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        PBIR_COMMANDS.openAnalyzerWorkspaceHandoff,
+        async (candidate: MaterializedSurfaceCandidate) => {
+          const result = await getAnalyzerHandoffService().handoffCandidate(candidate);
+          if (!result.ok) {
+            void vscode.window.showWarningMessage(result.diagnostics.join(' '));
+          }
+        },
+      ),
+    );
+  }
+
+  for (const [legacyCommand, canonicalCommand] of Object.entries(LEGACY_PBIR_COMMAND_ALIASES)) {
+    registerCommandAlias(context, legacyCommand, canonicalCommand);
+  }
 }

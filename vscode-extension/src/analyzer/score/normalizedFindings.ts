@@ -2,6 +2,8 @@ import type {
   ActionabilityBreakdown,
   BenchmarkComparisonSummary,
   FrameworkFeedbackItem,
+  GuidedStoryImprovement,
+  GuidedStoryImprovements,
   NormalizedFinding,
   NormalizedFindingDetectionType,
   NormalizedFindingImpactArea,
@@ -11,6 +13,7 @@ import type {
   ScoreResult,
 } from '../contracts/scorePanel';
 import { normalizeFrameworkId } from './presentation';
+import { classifyRenderedReviewFinding } from '../renderedReview/reviewModel';
 
 const FRAMEWORK_LABELS: Record<string, string> = {
   gestalt: 'Gestalt Principles',
@@ -43,6 +46,18 @@ function normalizeWhitespace(value: string): string {
 
 function sanitizeIdPart(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function compareText(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
 }
 
 function splitFeedbackText(text: string): {
@@ -146,7 +161,7 @@ function inferFindingScope(pageName: string | undefined, item: FrameworkFeedback
 function inferAffectedPages(pageName: string | undefined, item: FrameworkFeedbackItem): string[] {
   const affectedPages = item.affectedVisuals?.map((visual) => visual.pageName) ?? [];
   if (affectedPages.length > 0) {
-    return [...new Set(affectedPages)];
+    return [...new Set(affectedPages)].sort(compareText);
   }
 
   return pageName ? [pageName] : [];
@@ -299,8 +314,67 @@ function buildBenchmarkFinding(
   };
 }
 
-function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison'>): void {
-  for (const [frameworkKey, items] of Object.entries(page.feedback ?? {})) {
+function guidedPriorityToSeverity(priority: GuidedStoryImprovement['priority']): NormalizedFindingSeverity {
+  switch (priority) {
+    case 'high':
+      return 'high';
+    case 'medium':
+      return 'medium';
+    default:
+      return 'low';
+  }
+}
+
+function buildGuidedStoryImprovementFinding(
+  pageName: string | undefined,
+  improvement: GuidedStoryImprovement,
+): NormalizedFinding {
+  return {
+    id: `${sanitizeIdPart(pageName ?? 'report')}-guided-story-${sanitizeIdPart(improvement.id)}`,
+    title: improvement.title,
+    summary: improvement.summary,
+    severity: guidedPriorityToSeverity(improvement.priority),
+    confidence: improvement.priority === 'high' ? 90 : 78,
+    scope: pageName ? 'page' : 'report',
+    detectionType: 'deterministic',
+    affectedPages: pageName ? [pageName] : [],
+    impactArea: improvement.relatedImpactArea,
+    frameworkImpact: ['Story Assessment'],
+    recommendation: improvement.rationale,
+    sourceKind: 'guidedStoryImprovement',
+    sourceSection: 'issues',
+    evidence: [
+      {
+        kind: 'storyAssessment',
+        label: 'Guided Story Improvements',
+        pageName,
+        detail: improvement.expectedImpact,
+      },
+    ],
+  };
+}
+
+function pushGuidedStoryImprovementFindings(
+  findings: NormalizedFinding[],
+  pageName: string | undefined,
+  guidedStoryImprovements: GuidedStoryImprovements | undefined,
+): boolean {
+  const improvements = guidedStoryImprovements
+    ? [
+        ...guidedStoryImprovements.highPriorityImprovements,
+        ...guidedStoryImprovements.mediumPriorityImprovements,
+      ]
+    : [];
+
+  for (const improvement of improvements) {
+    findings.push(buildGuidedStoryImprovementFinding(pageName, improvement));
+  }
+
+  return improvements.length > 0;
+}
+
+function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison' | 'guidedStoryImprovements'>): void {
+  for (const [frameworkKey, items] of Object.entries(page.feedback ?? {}).sort(([left], [right]) => compareText(left, right))) {
     for (const item of items) {
       const finding = buildFrameworkFinding(frameworkKey, item, page.pageName);
       if (finding) {
@@ -309,14 +383,20 @@ function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, '
     }
   }
 
-  if (page.actionabilityBreakdown) {
+  const hasGuidedStoryImprovements = pushGuidedStoryImprovementFindings(
+    findings,
+    page.pageName,
+    page.guidedStoryImprovements,
+  );
+
+  if (!hasGuidedStoryImprovements && page.actionabilityBreakdown) {
     const actionabilityFinding = buildActionabilityFinding(page.pageName, page.actionabilityBreakdown);
     if (actionabilityFinding) {
       findings.push(actionabilityFinding);
     }
   }
 
-  if (page.benchmarkComparison) {
+  if (!hasGuidedStoryImprovements && page.benchmarkComparison) {
     const benchmarkFinding = buildBenchmarkFinding(page.pageName, page.benchmarkComparison);
     if (benchmarkFinding) {
       findings.push(benchmarkFinding);
@@ -327,7 +407,7 @@ function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, '
 function dedupeFindings(findings: NormalizedFinding[]): NormalizedFinding[] {
   const seen = new Set<string>();
   return findings.filter((finding) => {
-    const key = `${finding.title}|${finding.summary}|${finding.affectedPages.join('|')}`;
+    const key = `${finding.title}|${finding.summary}|${[...finding.affectedPages].sort(compareText).join('|')}`;
     if (seen.has(key)) {
       return false;
     }
@@ -350,6 +430,51 @@ function severityRank(severity: NormalizedFindingSeverity): number {
   }
 }
 
+function compareEvidence(
+  left: NormalizedFinding['evidence'][number],
+  right: NormalizedFinding['evidence'][number],
+): number {
+  return compareText(
+    `${left.kind}|${left.pageName ?? ''}|${left.frameworkKey ?? ''}|${left.visualId ?? ''}|${left.label}|${left.detail ?? ''}`,
+    `${right.kind}|${right.pageName ?? ''}|${right.frameworkKey ?? ''}|${right.visualId ?? ''}|${right.label}|${right.detail ?? ''}`,
+  );
+}
+
+function normalizeFinding(finding: NormalizedFinding): NormalizedFinding {
+  const renderedReview = classifyRenderedReviewFinding(finding);
+  const evidenceDomains = [...new Set(finding.evidence.map((evidence) => {
+    if (evidence.kind === 'semanticModel') return 'semantic' as const;
+    if (evidence.kind === 'screenshot' || evidence.kind === 'audit') return 'rendered' as const;
+    return 'deterministic' as const;
+  }))];
+  return {
+    ...finding,
+    affectedPages: [...finding.affectedPages].sort(compareText),
+    frameworkImpact: [...finding.frameworkImpact].sort(compareText),
+    evidence: [...finding.evidence].sort(compareEvidence),
+    reviewClassification: renderedReview.classification,
+    renderedReviewCategory: renderedReview.category,
+    evidenceDomains,
+  };
+}
+
+export function compareNormalizedFindings(left: NormalizedFinding, right: NormalizedFinding): number {
+  const severityDelta = severityRank(left.severity) - severityRank(right.severity);
+  if (severityDelta !== 0) {
+    return severityDelta;
+  }
+
+  const confidenceDelta = right.confidence - left.confidence;
+  if (confidenceDelta !== 0) {
+    return confidenceDelta;
+  }
+
+  return compareText(
+    `${left.scope}|${left.impactArea}|${left.title}|${left.summary}|${left.id}`,
+    `${right.scope}|${right.impactArea}|${right.title}|${right.summary}|${right.id}`,
+  );
+}
+
 export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[] {
   const findings: NormalizedFinding[] = [];
 
@@ -362,7 +487,7 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
       pushPageFindings(findings, page);
     }
   } else {
-    for (const [frameworkKey, items] of Object.entries(result.feedback ?? {})) {
+    for (const [frameworkKey, items] of Object.entries(result.feedback ?? {}).sort(([left], [right]) => compareText(left, right))) {
       for (const item of items) {
         const finding = buildFrameworkFinding(frameworkKey, item, result.scoredPageName);
         if (finding) {
@@ -371,14 +496,20 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
       }
     }
 
-    if (result.actionabilityBreakdown) {
+    const hasGuidedStoryImprovements = pushGuidedStoryImprovementFindings(
+      findings,
+      result.scoredPageName,
+      result.guidedStoryImprovements,
+    );
+
+    if (!hasGuidedStoryImprovements && result.actionabilityBreakdown) {
       const actionabilityFinding = buildActionabilityFinding(result.scoredPageName, result.actionabilityBreakdown);
       if (actionabilityFinding) {
         findings.push(actionabilityFinding);
       }
     }
 
-    if (result.benchmarkComparison) {
+    if (!hasGuidedStoryImprovements && result.benchmarkComparison) {
       const benchmarkFinding = buildBenchmarkFinding(result.scoredPageName, result.benchmarkComparison);
       if (benchmarkFinding) {
         findings.push(benchmarkFinding);
@@ -386,12 +517,7 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
     }
   }
 
-  return dedupeFindings(findings).sort((left, right) => {
-    const severityDelta = severityRank(left.severity) - severityRank(right.severity);
-    if (severityDelta !== 0) {
-      return severityDelta;
-    }
-
-    return right.confidence - left.confidence;
-  });
+  return dedupeFindings(findings)
+    .map(normalizeFinding)
+    .sort(compareNormalizedFindings);
 }

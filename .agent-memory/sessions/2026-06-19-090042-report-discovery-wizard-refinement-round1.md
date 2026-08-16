@@ -1,0 +1,34 @@
+# Session Note
+
+- started: 2026-06-19T09:00:42-04:00
+- objective: Implement Report Discovery Wizard Refinement – Round 1 Findings
+- scope: Discovery Wizard Refinement only; exclude Microsoft Skills, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, Analyzer Workspace changes
+- status: complete
+- notes:
+  - reviewed `docs/report-discovery-wizard-validation-review-round1.md` and the existing discovery pipeline before changing code
+  - wrote implementation notes to `docs/superpowers/plans/2026-06-19-report-discovery-wizard-refinement-round1-plan.md`
+  - added red tests for:
+    - end-to-end provenance fidelity
+    - context-aware experience-type selection
+    - operational blueprint differentiation
+    - richer Design Package rationale
+  - implemented stable internal reference ids on Discovery Profile and preserved them through:
+    - Experience Blueprint provenance
+    - Design Studio seeding lineage
+    - Design Package lineage
+  - replaced category-default experience selection with scored experience-type competition using:
+    - audience strength
+    - workflow language
+    - analytical-depth signals
+    - secondary category priors
+  - differentiated service operational blueprints from inventory blueprints while preserving the existing inventory baseline shape
+  - expanded Design Package rationale with audience, business outcome, KPI, page, navigation, analytical-flow, and provenance explanations
+  - validation:
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"` passed
+    - `dotnet test service-dotnet/tests/Tests.csproj -c Release` passed
+    - `cd vscode-extension && npm test` passed
+    - `cd vscode-extension && npm run compile` passed
+  - validation note:
+    - running `npm test` and `npm run compile` in parallel is not reliable here because compile cleans `dist` while `pdfkitAssetPackaging.test.ts` reads packaged font assets; reran sequentially and confirmed green
+  - next recommended step:
+    - stop here unless a new goal explicitly starts Microsoft Skills integration, CLI integration, or another downstream discovery consumer

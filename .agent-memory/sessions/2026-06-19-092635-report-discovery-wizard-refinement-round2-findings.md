@@ -1,0 +1,44 @@
+# 2026-06-19 Report Discovery Wizard Refinement Round 2 Findings
+
+- objective:
+  - implement only the approved Discovery Wizard Refinement Round 2 follow-up
+  - improve recommendation reasoning quality, PBIR report differentiation, context-aware experience selection, and Top 3 recommendation diversity
+  - stop before Microsoft Skills integration, CLI integration, provider-backed generation, asset generation, Design Studio workflow changes, and Analyzer Workspace changes
+- delivered:
+  - strengthened recommendation rationale so `WhyWeRecommendIt` now explains:
+    - why the selected experience is the best fit
+    - why leading alternatives are weaker
+    - business tradeoffs
+    - expected adoption pattern
+    - decision cadence
+  - refined experience-type scoring to weigh:
+    - audience fit
+    - workflow language
+    - analytical depth
+    - decision cadence
+    - interaction frequency
+    - operational actionability
+    - PBIR narrative fit
+  - removed the pre-diversity Top 5 truncation in recommendation selection so materially different options can still compete for the Top 3 and alternates
+  - strengthened diversity adjustment with thematic and experience-family separation signals
+  - replaced PBIR report generic fallback blueprints with narrative-first report flows that include:
+    - report narrative
+    - KPI progression
+    - guided drill path
+    - decision brief close
+  - added PBIR-specific analytical flow and navigation intent so PBIR outputs differ materially from Fabric App and Executive Dashboard paths
+  - added targeted discovery tests for:
+    - rationale tradeoffs and alternative rejection
+    - PBIR differentiation
+    - Top 3 clustering reduction
+- validation passed:
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_RationaleIncludesTradeoffsAndAlternativeRejection|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_TopThreeAvoidTightClustering|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests.BuildRecommendationBlueprints_PbirReport_DiffersMateriallyFromOtherExperienceTypes|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_ContextAwareExperienceSelection_ChangesOutcomeForTheSameOpportunity|FullyQualifiedName~RecommendationEngineServiceTests.BuildRecommendations_WorkflowSignalsCanFavorFabricApp"`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter "FullyQualifiedName~RecommendationEngineServiceTests|FullyQualifiedName~ExperienceBlueprintGenerationServiceTests|FullyQualifiedName~DesignPackageGenerationServiceTests|FullyQualifiedName~DiscoveryDesignStudioAdapterServiceTests"`
+  - `dotnet test service-dotnet/tests/Tests.csproj -c Release`
+  - `cd vscode-extension && npm test`
+  - `cd vscode-extension && npm run compile`
+- notes:
+  - existing repo-local warnings outside the discovery workstream still appear during `dotnet test`, but the required validation passed cleanly
+  - sequential extension validation remains necessary because `npm run compile` cleans `dist`
+- next recommended step:
+  - stop here for this goal; only resume if a new goal explicitly starts Microsoft Skills integration, CLI integration, or another downstream discovery consumer

@@ -1,68 +1,135 @@
-import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
 import type { DesignAnalyzerConfig } from '../analyzer/config/types';
 import type {
-  AuditCaptureSummary,
-  AuditFindingDisplay,
-  AuditPageState,
-  AuditState,
+  FixApplySessionRecord,
+  FixOpportunity,
   ReviewWorkflowExportProfile,
   ReviewWorkflowMarkdownRenderOptions,
-  ScorePanelHostToWebviewMessage,
+  ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
-  ScorePanelWebviewToHostMessage,
-  ScoreRequestPayload,
+  ScorePanelWebviewToHostMessagePayload,
   ScoreResult,
+  RenderedReviewPanelState,
 } from '../analyzer/contracts/scorePanel';
-import { addCaptures, assignCapture, computeCoverage, loadSession, removeCapture, saveSession } from '../analyzer/audit/session';
+import type { RenderedReviewStatus } from '../analyzer/renderedReview/types';
 import type { VisualAuditSession } from '../analyzer/audit/types';
 import type { VisualAuditProvider } from '../analyzer/audit/providers/VisualAuditProvider';
 import { createActiveProvider } from '../analyzer/audit/providers/providerSetup';
+import { reviewFabricAppSurface } from '../analyzer/fabric/review/fabricAppReviewAnalyzer';
+import { enrichFixPlanWithAdvisoryContent } from '../analyzer/proposalEnrichment/proposalEnrichmentOrchestrator';
+import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
+import type { PbirAuthoringResponse } from '../services/rpc/PbirAuthoringWorkflow';
+import { getDiagnosticsOutputChannel } from '../platform/outputChannels';
+import {
+  getRecordedBackendIssue,
+  getRecordedBackendLaunchDiagnostics,
+} from '../languageServer/analyzerBackendClient';
 import { resolveWebviewAssets } from './webviewAssets';
-import { normalizeScoreResultPayload } from './scoreResultPayload';
-import { revealVisualInPbirExplorer } from './pbirExplorerReveal';
+import { buildFixWorkflowPayload, normalizeScoreResultPayload } from './scoreResultPayload';
 import { loadIntentFeedbackSession, saveIntentFeedbackSession, upsertIntentFeedback } from '../analyzer/intentFeedback/store';
 import {
-  buildReviewWorkflowExportData,
-  exportReviewWorkflowAsHtml,
-  exportReviewWorkflowAsJson,
-  exportReviewWorkflowAsMarkdown,
-  exportReviewWorkflowAsPdf,
-} from '../analyzer/score/reviewWorkflowExport';
-import {
   buildReviewPacketPreviewHtml,
-  defaultReviewPacketPreviewOptions,
   normalizeReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreview';
+import {
+  buildScorePanelState,
+  withScorePanelEnvelope,
+} from './scorePanelProtocol';
 import {
   loadReviewPacketPreviewOptions,
   saveReviewPacketPreviewOptions,
 } from '../analyzer/score/reviewPacketPreviewStore';
-import { chooseProfiledDocumentExportOptions } from '../analyzer/score/reviewWorkflowExportPrompts';
+import {
+  buildReviewWorkflowExportData,
+} from '../analyzer/score/reviewWorkflowExport';
+import { attachNavigationTargets } from '../analyzer/score/navigationTargets';
+import { buildStoryAssessmentReportSnapshot, compareStoryAssessmentSnapshots } from '../analyzer/score/storyAssessmentSnapshot';
+import { loadStoryAssessmentSnapshot, saveStoryAssessmentSnapshot } from '../analyzer/score/storyAssessmentSnapshotStore';
+import { buildScoreDeterminismDiagnostics } from '../analyzer/score/scoreDiagnostics';
+import type { AnalyzerWorkspaceHandoffPayload } from '../design-studio/contracts/designStudioModels';
+import { createScorePanelStateService } from './scorePanelStateService';
+import { createScorePanelMessageRouter } from './scorePanelMessageRouter';
+import { createScorePanelAuditWorkflowService } from './scorePanelAuditWorkflowService';
+import { createScorePanelExportWorkflowService } from './scorePanelExportWorkflowService';
+import { createScorePanelFixWorkflowService } from './scorePanelFixWorkflowService';
+import { recordAnalyzerWorkspaceReturn } from '../design-studio/state/analyzerWorkspaceReturnStore';
+import { getEnhancedScoringSettings, getRenderedReviewSettings } from '../platform/settings';
+import {
+  createPbiLensRenderedDesignEvidenceProvider,
+} from '../analyzer/renderedEvidence/renderedEvidenceProvider';
+import { maybeRecommendPbiLens } from '../analyzer/renderedEvidence/recommendation';
+import { buildRenderedReviewChecklist, updateRenderedReviewItem } from '../analyzer/renderedReview/reviewModel';
+
+// Scoring reads a report; it never needs the round-trip-safe Import/Mutate snapshot contract, whose
+// authoring envelope only accepts an exact pinned schema version and hard-rejects any report exported
+// by a Power BI Desktop version outside that pin. Analyze's reportDirectory input is the same direct
+// path used by the legacy model/pbir/scoreReport route and by Design Studio's Mutate before/after
+// scoring — it exists precisely so read-only scoring never has to pass through that envelope.
+export function buildPbirOptimizationAnalyzeRequest(
+  reportPath: string,
+  config: DesignAnalyzerConfig,
+  pageName?: string,
+): Record<string, unknown> {
+  return {
+    schemaVersion: 'pbir-authoring-rpc/v1',
+    operation: 'analyze',
+    analyze: {
+      reportDirectory: reportPath,
+      config,
+      ...(pageName ? { pageName } : {}),
+    },
+  };
+}
+
+type PbirOptimizationScoringBridge = Pick<AnalyzerBridgeService, 'executeAuthoringRequest'>;
+
+export async function executePbirOptimizationScore(
+  bridge: PbirOptimizationScoringBridge,
+  reportPath: string,
+  config: DesignAnalyzerConfig,
+  pageName?: string,
+  log: (message: string) => void = () => undefined,
+): Promise<PbirAuthoringResponse> {
+  const response = await bridge.executeAuthoringRequest<PbirAuthoringResponse>(
+    buildPbirOptimizationAnalyzeRequest(reportPath, config, pageName),
+  );
+  logOptimizationRequest(log);
+  return response;
+}
+
+function logOptimizationRequest(log: (message: string) => void): void {
+  log('[OptimizationScoring] rpcRoute=pbir/authoring schemaVersion=pbir-authoring-rpc/v1 operation=Analyze sourceKind=ReportReference reportPathPresent=true snapshotHandlePresent=false artifactHandlePresent=false authoringRequestPresent=false selectedReportIdentityPresent=true');
+}
 
 export class PbirScorePanel {
   private static instance: PbirScorePanel | undefined;
+  private static readonly diagnosticsOutput = getDiagnosticsOutputChannel();
 
   private readonly panel: vscode.WebviewPanel;
   private readonly bridge: AnalyzerBridgeService | undefined;
   private readonly context: vscode.ExtensionContext;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly scoreState = createScorePanelStateService();
+  private readonly messageRouter;
+  private readonly auditWorkflow;
+  private readonly exportWorkflow;
+  private readonly fixWorkflow;
+  private readonly renderedEvidenceProvider;
   private isDisposed = false;
   private isReady = false;
-  private pendingMessages: ScorePanelHostToWebviewMessage[] = [];
   private reportPath: string;
   private pageName: string | undefined;
-  private currentResult: ScoreResult | undefined;
-  private savedConfig: DesignAnalyzerConfig | null = null;
-  private selectedPageIndex = 0;
-  private reviewPacketPreviewOptions = defaultReviewPacketPreviewOptions;
   private auditSession: VisualAuditSession | undefined;
   private auditProvider: VisualAuditProvider;
+  private readonly fixOpportunityHistory = new Map<string, FixOpportunity>();
+  private selectedFixOpportunityIds: string[] = [];
+  private fixSelectionApprovalState: NonNullable<ScorePanelState['fixSelection']>['approvalState'] = 'NeedsPreview';
+  private fixApplySessions: FixApplySessionRecord[] = [];
+  private fixWorkflowMessage: string | undefined;
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -74,6 +141,7 @@ export class PbirScorePanel {
       PbirScorePanel.instance.panel.reveal(vscode.ViewColumn.Beside);
       PbirScorePanel.instance.reportPath = reportPath;
       PbirScorePanel.instance.pageName = pageName;
+      PbirScorePanel.instance.scoreState.setCurrentHandoffPayload(undefined);
       await PbirScorePanel.instance.refresh();
       return PbirScorePanel.instance;
     }
@@ -96,6 +164,60 @@ export class PbirScorePanel {
     return instance;
   }
 
+  static async createOrShowHandoffShell(
+    context: vscode.ExtensionContext,
+    bridge: AnalyzerBridgeService | undefined,
+    payload: AnalyzerWorkspaceHandoffPayload,
+  ): Promise<PbirScorePanel> {
+    const reportPath = payload.handoffReference.kind === 'repositoryBackedSurface'
+      ? payload.handoffReference.repositoryPath
+      : payload.handoffReference.kind === 'snapshotBackedSurface'
+        ? payload.handoffReference.sourceLocation
+        : payload.handoffReference.kind === 'syntheticPreview'
+          ? payload.handoffReference.previewSourceLocation
+          : payload.candidateId;
+
+    if (PbirScorePanel.instance) {
+      PbirScorePanel.instance.panel.reveal(vscode.ViewColumn.Beside);
+      PbirScorePanel.instance.reportPath = reportPath;
+      PbirScorePanel.instance.pageName = undefined;
+      PbirScorePanel.instance.presentHandoffShell(payload);
+      return PbirScorePanel.instance;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      'pbirScorePanel',
+      'PBIR Optimization Report',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview-dist')],
+      },
+    );
+
+    const instance = new PbirScorePanel(context, panel, bridge, reportPath);
+    PbirScorePanel.instance = instance;
+    context.subscriptions.push({ dispose: () => instance.dispose() });
+    instance.presentHandoffShell(payload);
+    return instance;
+  }
+
+  static async copyCurrentScoreDiagnostics(): Promise<boolean> {
+    const lastScoreDiagnosticsJson = PbirScorePanel.instance?.scoreState.getLastScoreDiagnosticsJson();
+    if (!lastScoreDiagnosticsJson) {
+      return false;
+    }
+
+    await vscode.env.clipboard.writeText(lastScoreDiagnosticsJson);
+    PbirScorePanel.diagnosticsOutput.show(true);
+    return true;
+  }
+
+  async requestScreenshotUpload(): Promise<void> {
+    await this.auditWorkflow.uploadScreenshots();
+  }
+
   private constructor(
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
@@ -109,75 +231,148 @@ export class PbirScorePanel {
     this.reportPath = reportPath;
     this.pageName = pageName;
     this.auditProvider = createActiveProvider(context);
+    this.renderedEvidenceProvider = createPbiLensRenderedDesignEvidenceProvider(
+      (extensionId) => vscode.extensions.getExtension(extensionId),
+    );
+    this.messageRouter = createScorePanelMessageRouter({
+      getPageCount: () => this.pageNamesFromResult().length,
+      onReady: async () => {
+        this.isReady = true;
+        this.flushPendingMessages();
+      },
+      onRefresh: () => this.refresh(),
+      onSelectTab: async (pageIndex) => {
+        this.scoreState.setSelectedPageIndex(pageIndex, this.pageNamesFromResult().length);
+      },
+      onSetIntentFeedback: (message) => this.handleSetIntentFeedback(message),
+      onUploadScreenshots: () => this.auditWorkflow.uploadScreenshots(),
+      onAttachScreenshot: async (pageNameValue) => { await this.auditWorkflow.attachScreenshot(pageNameValue); },
+      onRemoveScreenshot: (captureId) => this.auditWorkflow.removeScreenshot(captureId),
+      onAssignCapture: (captureId, targetPageName) => this.auditWorkflow.assignCapture(captureId, targetPageName),
+      onAnalyzeCapture: (captureId, pageNameValue) => this.auditWorkflow.analyzeCapture(captureId, pageNameValue),
+      onExportReviewWorkflow: () => this.exportWorkflow.exportReviewWorkflow(),
+      onSetReviewPacketPreviewProfile: (profile) => this.handleSetReviewPacketPreviewProfile(profile),
+      onSetReviewPacketPreviewTemplateVariant: (templateVariant) => this.handleSetReviewPacketPreviewTemplateVariant(templateVariant),
+      onOpenReviewPacketPreview: () => this.exportWorkflow.openReviewPacketPreview(),
+      onSetRenderedReviewStatus: (itemId, status) => this.setRenderedReviewStatus(itemId, status),
+      onSetRenderedReviewNote: (itemId, note) => this.setRenderedReviewNote(itemId, note),
+      onAttachRenderedScreenshot: (itemId) => this.attachRenderedScreenshot(itemId),
+      onOpenInPbiLens: (pageName, visualId) => this.openInPbiLens(pageName, visualId),
+      onToggleFixOpportunitySelection: (opportunityId) => this.fixWorkflow.toggleFixOpportunitySelection(opportunityId),
+      onPreviewSelectedFixOpportunities: () => this.fixWorkflow.previewSelectedFixOpportunities(),
+      onApproveSelectedFixOpportunities: () => this.fixWorkflow.approveSelectedFixOpportunities(),
+      onApplySelectedFixOpportunities: () => this.fixWorkflow.applySelectedFixOpportunities(),
+      onRollbackFixSession: (sessionId) => this.fixWorkflow.rollbackFixSession(sessionId),
+      onRegenerateFixOpportunities: (opportunityIds) => this.fixWorkflow.regenerateFixOpportunities(opportunityIds),
+      onApproveFixOpportunity: (opportunityId) => this.fixWorkflow.approveFixOpportunity(opportunityId),
+      onApplyFixOpportunity: (opportunityId) => this.fixWorkflow.applyFixOpportunity(opportunityId),
+      onRollbackFixOpportunity: (opportunityId) => this.fixWorkflow.rollbackFixOpportunity(opportunityId),
+      onOpenSettings: async () => {
+        await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
+      },
+    });
+    this.auditWorkflow = createScorePanelAuditWorkflowService({
+      context,
+      getReportPath: () => this.reportPath,
+      getCurrentResult: () => this.scoreState.getCurrentResult(),
+      getAuditProvider: () => this.auditProvider,
+      getAuditSession: () => this.auditSession,
+      setAuditSession: (session) => {
+        this.auditSession = session;
+      },
+      postMessage: (message) => this.postMessage(message),
+    });
+    this.exportWorkflow = createScorePanelExportWorkflowService({
+      context,
+      getReportPath: () => this.reportPath,
+      getCurrentResult: () => this.scoreState.getCurrentResult(),
+      getReviewPacketPreviewOptions: () => this.scoreState.getReviewPacketPreviewOptions(),
+      getRenderedReview: () => this.scoreState.getRenderedReview(),
+    });
+    this.fixWorkflow = createScorePanelFixWorkflowService({
+      getCurrentResult: () => this.scoreState.getCurrentResult(),
+      getFixOpportunityHistory: () => this.fixOpportunityHistory,
+      getSelectedFixOpportunityIds: () => this.selectedFixOpportunityIds,
+      setSelectedFixOpportunityIds: (ids) => {
+        this.selectedFixOpportunityIds = ids;
+      },
+      getFixSelectionApprovalState: () => this.fixSelectionApprovalState,
+      setFixSelectionApprovalState: (state) => {
+        this.fixSelectionApprovalState = state;
+      },
+      getFixApplySessions: () => this.fixApplySessions,
+      setFixApplySessions: (sessions) => {
+        this.fixApplySessions = sessions;
+      },
+      getFixWorkflowMessage: () => this.fixWorkflowMessage,
+      setFixWorkflowMessage: (message) => {
+        this.fixWorkflowMessage = message;
+      },
+      refresh: () => this.refresh(),
+      postCurrentScoreState: () => this.postCurrentScoreState(),
+    });
     this.panel.webview.html = this.getReactHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
-      (message) => this.handleMessage(message as ScorePanelWebviewToHostMessage),
+      (message) => this.handleMessage(message),
       null,
       this.disposables,
     );
   }
 
-  private async handleMessage(message: ScorePanelWebviewToHostMessage): Promise<void> {
-    switch (message.type) {
-      case 'webviewReady':
-        this.isReady = true;
-        this.flushPendingMessages();
-        return;
-      case 'refresh':
-        await this.refresh();
-        return;
-      case 'selectTab':
-        this.selectedPageIndex = message.pageIndex;
-        return;
-      case 'setIntentFeedback':
-        await this.handleSetIntentFeedback(message);
-        return;
-      case 'revealVisual': {
-        const revealed = await revealVisualInPbirExplorer(message.pageName, message.visualId);
-        if (!revealed) {
-          void vscode.window.showWarningMessage(
-            `Could not locate '${message.visualId}' on page '${message.pageName}' in the PBIR sidecar.`,
-          );
-        }
-        return;
-      }
-      case 'uploadScreenshots':
-        await this.handleUploadScreenshots();
-        return;
-      case 'attachScreenshot':
-        await this.handleAttachScreenshot(message.pageName);
-        return;
-      case 'removeScreenshot':
-        await this.handleRemoveScreenshot(message.captureId);
-        return;
-      case 'assignCapture':
-        await this.handleAssignCapture(message.captureId, message.targetPageName);
-        return;
-      case 'analyzeCapture':
-        await this.handleAnalyzeCapture(message.captureId, message.pageName);
-        return;
-      case 'exportReviewWorkflow':
-        await this.handleExportReviewWorkflow();
-        return;
-      case 'setReviewPacketPreviewProfile':
-        await this.handleSetReviewPacketPreviewProfile(message.profile);
-        return;
-      case 'setReviewPacketPreviewTemplateVariant':
-        await this.handleSetReviewPacketPreviewTemplateVariant(message.templateVariant);
-        return;
-      case 'openReviewPacketPreview':
-        await this.handleOpenReviewPacketPreview();
-        return;
-      case 'openSettings':
-        await vscode.commands.executeCommand('pbirAnalyzer.configureScoring');
-        return;
+  private async handleMessage(message: unknown): Promise<void> {
+    // webview.onDidReceiveMessage is fire-and-forget in VS Code — nothing awaits this callback,
+    // so an uncaught exception anywhere in the router chain becomes an unhandled promise rejection
+    // that only ever reaches the extension host's own console, never the user. Every action routed
+    // through here (navigate-to-target, attach screenshot, fix workflow, etc.) must fail loudly
+    // instead of silently doing nothing on click.
+    try {
+      await this.messageRouter.route(message);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      PbirScorePanel.diagnosticsOutput.appendLine(`[MessageRouter] Unhandled error routing webview message: ${detail}`);
+      void vscode.window.showErrorMessage(`PBIR Design Analyzer: the action failed unexpectedly. ${detail}`);
     }
   }
 
+  private buildPresentationResult(result: ScoreResult): ScoreResult {
+    const currentOpportunities = (result.fixOpportunities ?? []).map((item) => {
+      const history = this.fixOpportunityHistory.get(item.id);
+      return history
+        ? {
+            ...item,
+            state: history.state,
+            outcome: history.outcome,
+          }
+        : item;
+    });
+
+    const merged = [...currentOpportunities];
+    for (const history of this.fixOpportunityHistory.values()) {
+      if (!merged.some((item) => item.id === history.id) && history.state !== 'Previewed') {
+        merged.push(history);
+      }
+    }
+
+    return attachNavigationTargets({
+      ...result,
+      fixOpportunities: merged,
+    });
+  }
+
+  private buildFixSelectionState(result: ScoreResult): ScorePanelState['fixSelection'] {
+    return buildFixWorkflowPayload({
+      opportunities: result.fixOpportunities ?? [],
+      selectedOpportunityIds: this.selectedFixOpportunityIds,
+      approvalState: this.fixSelectionApprovalState,
+      message: this.fixWorkflowMessage,
+      fixApplySessions: this.fixApplySessions,
+    }).fixSelection;
+  }
+
   private pageNamesFromResult(): string[] {
-    const result = this.currentResult;
+    const result = this.scoreState.getCurrentResult();
     if (!result) return [];
     if (result.pageScores && result.pageScores.length > 0) {
       return result.pageScores.map((p) => p.pageName);
@@ -186,121 +381,18 @@ export class PbirScorePanel {
     return [];
   }
 
-  private async handleUploadScreenshots(): Promise<void> {
-    const uris = await vscode.window.showOpenDialog({
-      title: 'Select Report Screenshots',
-      canSelectMany: true,
-      canSelectFiles: true,
-      canSelectFolders: false,
-      filters: { Images: ['png', 'jpg', 'jpeg', 'webp'] },
-      openLabel: 'Add Screenshots',
-    });
-
-    if (!uris || uris.length === 0) return;
-
-    const session = await this.loadAuditSession();
-    const pageNames = this.pageNamesFromResult();
-    await addCaptures(this.context, session, uris.map((u) => u.fsPath), pageNames);
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleAttachScreenshot(pageName: string): Promise<void> {
-    const uris = await vscode.window.showOpenDialog({
-      title: `Attach Screenshot to "${pageName}"`,
-      canSelectMany: false,
-      canSelectFiles: true,
-      canSelectFolders: false,
-      filters: { Images: ['png', 'jpg', 'jpeg', 'webp'] },
-      openLabel: 'Attach',
-    });
-
-    if (!uris || uris.length === 0) return;
-
-    const session = await this.loadAuditSession();
-    await addCaptures(this.context, session, [uris[0].fsPath], [pageName]);
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleRemoveScreenshot(captureId: string): Promise<void> {
-    const session = await this.loadAuditSession();
-    const allCaptures = [
-      ...session.pages.flatMap((p) => p.captures),
-      ...session.unmatchedCaptures,
-    ];
-    const capture = allCaptures.find((c) => c.captureId === captureId);
-
-    removeCapture(session, captureId);
-
-    if (capture?.storedPath && fs.existsSync(capture.storedPath)) {
-      try {
-        fs.unlinkSync(capture.storedPath);
-      } catch {
-        // Non-fatal: asset cleanup failure
-      }
-    }
-
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleAssignCapture(captureId: string, targetPageName: string): Promise<void> {
-    const session = await this.loadAuditSession();
-    assignCapture(session, captureId, targetPageName);
-    await saveSession(this.context, session);
-    this.auditSession = session;
-    this.postAuditState();
-  }
-
-  private async handleAnalyzeCapture(captureId: string, pageName: string): Promise<void> {
-    const session = await this.loadAuditSession();
-    const page = session.pages.find((p) => p.pageName === pageName);
-    const capture = page?.captures.find((c) => c.captureId === captureId);
-
-    if (!capture) {
-      void vscode.window.showErrorMessage(`Capture ${captureId} not found for page "${pageName}".`);
-      return;
-    }
-
-    this.postMessage({ type: 'auditAnalyzing', captureId });
-
-    try {
-      const pageScore = this.currentResult?.pageScores?.find((p) => p.pageName === pageName);
-      const findings = await this.auditProvider.analyzeCapture({ capture, pageName, pageScore });
-
-      if (page) {
-        page.findings = page.findings.filter((f) => f.captureId !== captureId);
-        page.findings.push(...findings);
-      }
-
-      await saveSession(this.context, session);
-      this.auditSession = session;
-      this.postAuditState();
-    } catch (err) {
-      void vscode.window.showErrorMessage(
-        `Audit analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      this.postAuditState();
-    }
-  }
-
   private async loadAuditSession(): Promise<VisualAuditSession> {
-    if (!this.auditSession) {
-      this.auditSession = await loadSession(this.context, this.reportPath);
-    }
-    return this.auditSession;
+    return this.auditWorkflow.loadAuditSession();
   }
 
   private async handleSetIntentFeedback(
-    message: Extract<ScorePanelWebviewToHostMessage, { type: 'setIntentFeedback' }>,
+    message: Extract<ScorePanelWebviewToHostMessagePayload, { type: 'setIntentFeedback' }>,
   ): Promise<void> {
     const session = await loadIntentFeedbackSession(this.context, this.reportPath);
     const analyzerVersion = String(this.context.extension.packageJSON?.version ?? 'unknown');
-    const reportSessionId = `${session.reportKey}:${this.currentResult?.scoredAt ?? new Date().toISOString()}`;
+    const currentResult = this.scoreState.getCurrentResult();
+    const savedConfig = this.scoreState.getSavedConfig();
+    const reportSessionId = `${session.reportKey}:${currentResult?.scoredAt ?? new Date().toISOString()}`;
 
     upsertIntentFeedback(session, {
       pageName: message.pageName,
@@ -316,159 +408,124 @@ export class PbirScorePanel {
 
     await saveIntentFeedbackSession(this.context, session);
 
-    if (this.currentResult && this.savedConfig) {
-      const reviewPacketPreview = buildReviewWorkflowExportData(this.currentResult, session.entries);
-      this.postScoreState(this.savedConfig, this.currentResult, session.entries, reviewPacketPreview);
+    if (currentResult && savedConfig) {
+      const reviewPacketPreview = buildReviewWorkflowExportData(currentResult, session.entries, undefined, this.scoreState.getRenderedReview());
+      this.postScoreState(savedConfig, currentResult, session.entries, reviewPacketPreview);
     }
   }
 
   private async handleSetReviewPacketPreviewProfile(
     profile: ReviewWorkflowExportProfile,
   ): Promise<void> {
-    this.reviewPacketPreviewOptions = normalizeReviewPacketPreviewOptions({
-      ...this.reviewPacketPreviewOptions,
+    this.scoreState.setReviewPacketPreviewOptions(normalizeReviewPacketPreviewOptions({
+      ...this.scoreState.getReviewPacketPreviewOptions(),
       profile,
-    });
-    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.reviewPacketPreviewOptions);
+    }));
+    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.scoreState.getReviewPacketPreviewOptions());
     await this.postCurrentScoreState();
   }
 
   private async handleSetReviewPacketPreviewTemplateVariant(
     templateVariant: ReviewWorkflowMarkdownRenderOptions['templateVariant'],
   ): Promise<void> {
-    this.reviewPacketPreviewOptions = normalizeReviewPacketPreviewOptions({
-      ...this.reviewPacketPreviewOptions,
+    this.scoreState.setReviewPacketPreviewOptions(normalizeReviewPacketPreviewOptions({
+      ...this.scoreState.getReviewPacketPreviewOptions(),
       templateVariant,
-    });
-    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.reviewPacketPreviewOptions);
+    }));
+    await saveReviewPacketPreviewOptions(this.context, this.reportPath, this.scoreState.getReviewPacketPreviewOptions());
     await this.postCurrentScoreState();
   }
 
-  private async handleOpenReviewPacketPreview(): Promise<void> {
-    if (!this.currentResult) {
-      void vscode.window.showWarningMessage('Score the report before opening the review packet preview.');
-      return;
-    }
-
-    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
-    const reviewPacketPreview = buildReviewWorkflowExportData(this.currentResult, session.entries);
-    const html = buildReviewPacketPreviewHtml(
-      reviewPacketPreview,
-      this.reportPath,
-      this.reviewPacketPreviewOptions,
-    );
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbir-review-preview-'));
-    const reportName = path.basename(this.reportPath).replace(/\.Report$/i, '');
-    const profileSuffix = this.reviewPacketPreviewOptions.profile.toLowerCase();
-    const tempFilePath = path.join(tempDir, `${reportName}-${profileSuffix}-preview.html`);
-
-    fs.writeFileSync(tempFilePath, html, 'utf8');
-    await vscode.env.openExternal(vscode.Uri.file(tempFilePath));
-  }
-
   async exportReviewWorkflow(): Promise<void> {
-    if (!this.currentResult) {
-      void vscode.window.showWarningMessage('Score the report before exporting the review summary.');
-      return;
-    }
-
-    const session = await loadIntentFeedbackSession(this.context, this.reportPath);
-    const exportData = buildReviewWorkflowExportData(this.currentResult, session.entries);
-    const formatChoice = await vscode.window.showQuickPick(
-      [
-        { label: 'Markdown', description: 'Human-readable review summary (.md)' },
-        { label: 'HTML', description: 'Styled consultant packet (.html)' },
-        { label: 'PDF', description: 'Fixed-layout consultant packet (.pdf)' },
-        { label: 'JSON', description: 'Machine-readable review workflow snapshot (.json)' },
-      ],
-      { placeHolder: 'Choose review export format' },
-    );
-
-    if (!formatChoice) return;
-
-    const selectedFormat = formatChoice.label.toLowerCase();
-    const isMarkdown = selectedFormat === 'markdown';
-    const isHtml = selectedFormat === 'html';
-    const isPdf = selectedFormat === 'pdf';
-    let markdownProfile: ReviewWorkflowExportProfile = 'consultant';
-    let markdownOptions: ReviewWorkflowMarkdownRenderOptions = {};
-
-    if (isMarkdown || isHtml || isPdf) {
-      const exportSelection = await chooseProfiledDocumentExportOptions(
-        isMarkdown ? 'markdown' : isHtml ? 'html' : 'pdf',
-        this.reviewPacketPreviewOptions,
-      );
-      if (!exportSelection) return;
-      markdownProfile = exportSelection.profile;
-      markdownOptions = {
-        templateVariant: exportSelection.templateVariant,
-        branding: exportSelection.branding,
-      };
-    }
-
-    const saveUri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(
-        path.join(
-          path.dirname(this.reportPath),
-          `review-workflow-summary.${isMarkdown ? 'md' : isHtml ? 'html' : isPdf ? 'pdf' : 'json'}`,
-        ),
-      ),
-      filters: isMarkdown
-        ? { Markdown: ['md'] }
-        : isHtml
-          ? { HTML: ['html'] }
-          : isPdf
-            ? { PDF: ['pdf'] }
-            : { JSON: ['json'] },
-      saveLabel: 'Export',
-    });
-
-    if (!saveUri) return;
-
-    if (isPdf) {
-      const content = await exportReviewWorkflowAsPdf(exportData, markdownProfile, markdownOptions);
-      fs.writeFileSync(saveUri.fsPath, content);
-    } else {
-      const content = isMarkdown
-        ? exportReviewWorkflowAsMarkdown(exportData, markdownProfile, markdownOptions)
-        : isHtml
-          ? exportReviewWorkflowAsHtml(exportData, markdownProfile, markdownOptions)
-          : exportReviewWorkflowAsJson(exportData);
-
-      fs.writeFileSync(saveUri.fsPath, content, 'utf8');
-    }
-
-    const openAction = 'Open File';
-    const choice = await vscode.window.showInformationMessage(
-      `Review workflow summary exported to ${path.basename(saveUri.fsPath)}`,
-      openAction,
-    );
-
-    if (choice === openAction) {
-      if (isPdf) {
-        await vscode.commands.executeCommand('vscode.open', saveUri);
-      } else {
-        await vscode.window.showTextDocument(saveUri);
-      }
-    }
-  }
-
-  private async handleExportReviewWorkflow(): Promise<void> {
-    await this.exportReviewWorkflow();
+    await this.exportWorkflow.exportReviewWorkflow();
   }
 
   private async postCurrentScoreState(): Promise<void> {
-    if (!this.currentResult || !this.savedConfig) {
+    const currentResult = this.scoreState.getCurrentResult();
+    const savedConfig = this.scoreState.getSavedConfig();
+    if (!currentResult || !savedConfig) {
       return;
     }
 
     const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
     const reviewPacketPreview = buildReviewWorkflowExportData(
-      this.currentResult,
+      currentResult,
       intentFeedbackSession.entries,
+      undefined,
+      this.scoreState.getRenderedReview(),
     );
 
-    this.postScoreState(this.savedConfig, this.currentResult, intentFeedbackSession.entries, reviewPacketPreview);
+    this.postScoreState(savedConfig, currentResult, intentFeedbackSession.entries, reviewPacketPreview);
+  }
+
+  private renderedReviewState(result: ScoreResult): RenderedReviewPanelState {
+    const existing = this.scoreState.getRenderedReview();
+    const checklist = buildRenderedReviewChecklist(result.normalizedFindings ?? []).map((item) => {
+      const prior = existing?.checklist.find((candidate) => candidate.id === item.id);
+      return prior ? { ...item, ...prior, findingIds: item.findingIds, pageNames: item.pageNames } : item;
+    });
+    const state: RenderedReviewPanelState = {
+      enabled: getRenderedReviewSettings().enabled && getRenderedReviewSettings().showChecklist && checklist.length > 0,
+      checklist,
+      mutationFollowUp: this.fixApplySessions.length > 0 && this.renderedEvidenceProvider.getCapabilityReport().installed
+        ? 'Review rendered output in PBI Lens after mutation and confirm the visual outcome.'
+        : existing?.mutationFollowUp,
+    };
+    this.scoreState.setRenderedReview(state);
+    return state;
+  }
+
+  private async setRenderedReviewStatus(itemId: string, status: RenderedReviewStatus): Promise<void> {
+    const current = this.scoreState.getRenderedReview();
+    if (!current) return;
+    this.scoreState.setRenderedReview({
+      ...current,
+      checklist: current.checklist.map((item) => item.id === itemId ? updateRenderedReviewItem(item, { status }) : item),
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async setRenderedReviewNote(itemId: string, note: string): Promise<void> {
+    const current = this.scoreState.getRenderedReview();
+    if (!current) return;
+    this.scoreState.setRenderedReview({
+      ...current,
+      checklist: current.checklist.map((item) => item.id === itemId ? updateRenderedReviewItem(item, { reviewerNote: note }) : item),
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async attachRenderedScreenshot(itemId: string): Promise<void> {
+    const current = this.scoreState.getRenderedReview();
+    const item = current?.checklist.find((candidate) => candidate.id === itemId);
+    const pageName = item?.pageNames[0];
+    if (!current || !item || !pageName) return;
+    const capture = await this.auditWorkflow.attachScreenshot(pageName);
+    if (!capture) return;
+    this.scoreState.setRenderedReview({
+      ...current,
+      checklist: current.checklist.map((candidate) => candidate.id === itemId
+        ? updateRenderedReviewItem(candidate, {
+            screenshot: {
+              report: this.reportPath,
+              page: pageName,
+              timestamp: capture.capturedAt,
+              provider: 'PBI Lens',
+              fileReference: capture.storedPath,
+            },
+          })
+        : candidate),
+    });
+    await this.postCurrentScoreState();
+  }
+
+  private async openInPbiLens(pageName?: string, visualId?: string): Promise<void> {
+    const report = this.renderedEvidenceProvider.getCapabilityReport();
+    if (!report.capabilities.reportContextAvailable) {
+      void vscode.window.showInformationMessage('PBI Lens is installed, but no supported report-opening interface is available in this release.');
+      return;
+    }
+    void vscode.window.showInformationMessage(`Open ${visualId ?? pageName ?? 'the report'} in PBI Lens using its supported provider interface.`);
   }
 
   private postScoreState(
@@ -477,124 +534,203 @@ export class PbirScorePanel {
     intentFeedback: ScorePanelState['intentFeedback'],
     reviewPacketPreview: ReturnType<typeof buildReviewWorkflowExportData>,
   ): void {
+    const presentationResult = this.buildPresentationResult(result);
+    const renderedReview = this.renderedReviewState(presentationResult);
+    const reviewPacketWithRenderedReview = { ...reviewPacketPreview, renderedReview };
+    const fixWorkflow = buildFixWorkflowPayload({
+      opportunities: presentationResult.fixOpportunities ?? [],
+      selectedOpportunityIds: this.selectedFixOpportunityIds,
+      approvalState: this.fixSelectionApprovalState,
+      message: this.fixWorkflowMessage,
+      fixApplySessions: this.fixApplySessions,
+    });
     this.postMessage({
       type: 'scoreState',
-      state: {
+      state: buildScorePanelState({
         config,
-        result,
-        selectedPageIndex: this.selectedPageIndex,
+        result: presentationResult,
+        selectedPageIndex: this.scoreState.getSelectedPageIndex(),
         intentFeedback,
-        reviewPacketPreview,
+        storyAssessmentCurrentSnapshot: this.scoreState.getStoryAssessmentCurrentSnapshot(),
+        storyAssessmentDiffByPage: this.scoreState.getStoryAssessmentDiffByPage(),
+        storyAssessmentLastComparedAt: this.scoreState.getStoryAssessmentLastComparedAt(),
+        fixSelection: fixWorkflow.fixSelection,
+        fixApplySessions: fixWorkflow.fixApplySessions,
+        reviewPacketPreview: reviewPacketWithRenderedReview,
         reviewPacketPreviewHtml: buildReviewPacketPreviewHtml(
           reviewPacketPreview,
           this.reportPath,
-          this.reviewPacketPreviewOptions,
+          this.scoreState.getReviewPacketPreviewOptions(),
         ),
-        reviewPacketPreviewProfile: this.reviewPacketPreviewOptions.profile,
-        reviewPacketPreviewTemplateVariant: this.reviewPacketPreviewOptions.templateVariant,
-      },
+        reviewPacketPreviewProfile: this.scoreState.getReviewPacketPreviewOptions().profile,
+        reviewPacketPreviewTemplateVariant: this.scoreState.getReviewPacketPreviewOptions().templateVariant,
+        renderedEvidence: this.renderedEvidenceProvider.getCapabilityReport(),
+        renderedReview,
+      }),
     });
   }
 
-  private buildAuditState(session: VisualAuditSession, providerConfigured: boolean): AuditState {
-    const pageNames = this.pageNamesFromResult();
-    const coverage = computeCoverage(session, pageNames);
-
-    const pages: AuditPageState[] = session.pages.map((p) => ({
-      pageName: p.pageName,
-      captures: p.captures.map((c) => ({
-        captureId: c.captureId,
-        pageName: c.pageName,
-        stateName: c.stateName,
-        fileName: c.fileName,
-        storedPath: c.storedPath,
-        findingCount: p.findings.filter((f) => f.captureId === c.captureId).length,
-      })),
-      findings: p.findings.map((f): AuditFindingDisplay => ({
-        findingId: f.findingId,
-        captureId: f.captureId,
-        findingType: f.findingType,
-        severity: f.severity,
-        confidence: f.confidence,
-        issueSource: f.issueSource,
-        text: f.text,
-        recommendation: f.recommendation,
-        regionHint: f.regionHint,
-      })),
-    }));
-
-    const unmatchedCaptures: AuditCaptureSummary[] = session.unmatchedCaptures.map((c) => ({
-      captureId: c.captureId,
-      pageName: c.pageName,
-      stateName: c.stateName,
-      fileName: c.fileName,
-      storedPath: c.storedPath,
-      findingCount: 0,
-    }));
-
-    return {
-      coverage,
-      pages,
-      unmatchedCaptures,
-      isAnalyzing: false,
-      providerName: this.auditProvider.providerName,
-      providerConfigured,
-    };
+  private async postAuditState(): Promise<void> {
+    await this.auditWorkflow.postAuditState();
   }
 
-  private async postAuditState(): Promise<void> {
-    const session = await this.loadAuditSession();
-    const providerConfigured = await this.auditProvider.isConfigured();
-    const auditState = this.buildAuditState(session, providerConfigured);
-    this.postMessage({ type: 'auditState', audit: auditState });
+  private async refreshStoryAssessmentState(result: ScoreResult): Promise<void> {
+    const currentSnapshot = buildStoryAssessmentReportSnapshot(result);
+    if (currentSnapshot.pages.length === 0) {
+      this.scoreState.setStoryAssessmentCurrentSnapshot(undefined);
+      this.scoreState.setStoryAssessmentDiffByPage(undefined);
+      this.scoreState.setStoryAssessmentLastComparedAt(undefined);
+      return;
+    }
+
+    const priorSnapshot = await loadStoryAssessmentSnapshot(this.context, this.reportPath);
+    const diff = priorSnapshot
+      ? compareStoryAssessmentSnapshots(priorSnapshot, currentSnapshot)
+      : undefined;
+
+    this.scoreState.setStoryAssessmentCurrentSnapshot(currentSnapshot);
+    this.scoreState.setStoryAssessmentDiffByPage(diff?.byPage);
+    this.scoreState.setStoryAssessmentLastComparedAt(priorSnapshot ? result.scoredAt : undefined);
+    await saveStoryAssessmentSnapshot(this.context, this.reportPath, currentSnapshot);
   }
 
   private async refresh(): Promise<void> {
-    this.selectedPageIndex = 0;
     this.postMessage({ type: 'loading' });
     const scoringStartMs = Date.now();
 
     try {
-      if (!this.bridge) {
+      const surfaceDiscovery = detectAnalyzableSurface(this.reportPath);
+      if (surfaceDiscovery.status === 'unsupported' || surfaceDiscovery.status === 'ambiguous') {
         this.postMessage({
           type: 'error',
-          message: 'LSP bridge not available. Is the .NET service running?',
+          message: surfaceDiscovery.reason,
         });
         return;
       }
 
       const savedConfig = await loadDesignAnalyzerConfig(this.context);
-      this.savedConfig = savedConfig;
-      this.reviewPacketPreviewOptions = await loadReviewPacketPreviewOptions(this.context, this.reportPath);
+      const enhancedScoringSettings = getEnhancedScoringSettings();
+      if (enhancedScoringSettings.suggestPbiLens && getRenderedReviewSettings().suggestPbiLens) {
+        try {
+          await maybeRecommendPbiLens(
+            this.renderedEvidenceProvider.getCapabilityReport(),
+            this.context.globalState,
+            vscode.window.showInformationMessage,
+          );
+        } catch (error) {
+          PbirScorePanel.diagnosticsOutput.appendLine(
+            `[Rendered Evidence] Recommendation unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+      this.scoreState.setSavedConfig(savedConfig);
+      this.scoreState.setReviewPacketPreviewOptions(
+        await loadReviewPacketPreviewOptions(this.context, this.reportPath),
+      );
 
-      const requestPayload: ScoreRequestPayload = {
-        reportPath: this.reportPath,
-        config: savedConfig,
-      };
-
-      if (this.pageName) {
-        requestPayload.pageName = this.pageName;
+      if (surfaceDiscovery.surface.surfaceType === 'fabricApp') {
+        this.panel.title = 'Fabric App Review';
+        const reviewResult = await reviewFabricAppSurface(surfaceDiscovery.surface, 'fabricAppQuality');
+        const normalizedResult = await enrichFixPlanWithAdvisoryContent(
+          normalizeScoreResultPayload({
+            GestaltScore: reviewResult.qualityScore,
+            CognitiveLoadScore: reviewResult.qualityScore,
+            DataInkScore: reviewResult.qualityScore,
+            AccessibilityScore: reviewResult.qualityScore,
+            VisualBestPracticesScore: reviewResult.qualityScore,
+            StephenFewScore: reviewResult.qualityScore,
+            EnterpriseGovernanceScore: reviewResult.qualityScore,
+            TufteScore: reviewResult.qualityScore,
+            GraphicalPerceptionScore: reviewResult.qualityScore,
+            DensityScore: reviewResult.qualityScore,
+            NarrativeScore: reviewResult.qualityScore,
+            CompositeScore: reviewResult.qualityScore,
+            Feedback: {},
+            PageCount: reviewResult.evidence.length,
+            Recommendations: reviewResult.remediationGuidance,
+            ReportPath: this.reportPath,
+            ScoredAt: new Date().toISOString(),
+            NormalizedFindings: reviewResult.normalizedFindings,
+            FabricAppReview: {
+              QualityScore: reviewResult.qualityScore,
+              Summary: reviewResult.summary,
+              RemediationGuidance: reviewResult.remediationGuidance,
+              Evidence: reviewResult.evidence.map((item) => ({
+                Kind: item.kind,
+                Label: item.label,
+                Summary: item.summary,
+                FilePath: item.filePath,
+                PageName: item.pageName,
+                StateName: item.stateName,
+              })),
+            },
+          }),
+          {
+            providerMode: 'disabled',
+            enabledEnrichers: ['storytelling', 'executiveReadability'],
+          },
+        );
+        this.scoreState.setCurrentResult(normalizedResult);
+        await this.refreshStoryAssessmentState(normalizedResult);
+        await this.persistAnalyzerWorkspaceReturn(normalizedResult);
+        await this.captureScoreDiagnostics(normalizedResult);
+        const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
+        const reviewPacketPreview = buildReviewWorkflowExportData(
+          normalizedResult,
+          intentFeedbackSession.entries,
+          undefined,
+          this.scoreState.getRenderedReview(),
+        );
+        this.postScoreState(savedConfig, normalizedResult, intentFeedbackSession.entries, reviewPacketPreview);
+        return;
       }
 
-      const response = (await this.bridge.executeRequest(
-        'model/pbir/scoreReport',
-        requestPayload,
-      )) as { success: boolean; error?: string; data?: ScoreResult };
+      this.panel.title = 'PBIR Optimization Report';
 
-      if (!response?.success || !response.data) {
+      if (!this.bridge) {
+        const recordedIssue = getRecordedBackendIssue();
         this.postMessage({
           type: 'error',
-          message: response?.error ?? 'Scoring failed — no result returned.',
+          message: recordedIssue
+            ? `${recordedIssue.message} See the PBIR Design Analyzer output channel for backend diagnostics.`
+            : 'LSP bridge not available. Is the .NET service running?',
         });
         return;
       }
 
-      const normalizedResult = normalizeScoreResultPayload(response.data);
-      this.currentResult = normalizedResult;
+      const response = await executePbirOptimizationScore(
+        this.bridge,
+        this.reportPath,
+        savedConfig,
+        this.pageName,
+        (message) => PbirScorePanel.diagnosticsOutput.appendLine(message),
+      );
+      if (!response.succeeded || !response.analyzer?.result) {
+        this.postMessage({
+          type: 'error',
+          message: response.error?.summary ?? 'Scoring failed — no result returned.',
+        });
+        return;
+      }
+      const scoreResult = response.analyzer?.result;
+
+      const normalizedResult = await enrichFixPlanWithAdvisoryContent(
+        normalizeScoreResultPayload(scoreResult),
+        {
+          providerMode: 'disabled',
+          enabledEnrichers: ['storytelling', 'executiveReadability'],
+        },
+      );
+      this.scoreState.setCurrentResult(normalizedResult);
+      await this.refreshStoryAssessmentState(normalizedResult);
+      await this.persistAnalyzerWorkspaceReturn(normalizedResult);
+      await this.captureScoreDiagnostics(normalizedResult);
       const intentFeedbackSession = await loadIntentFeedbackSession(this.context, this.reportPath);
       const reviewPacketPreview = buildReviewWorkflowExportData(
         normalizedResult,
         intentFeedbackSession.entries,
+        undefined,
+        this.scoreState.getRenderedReview(),
       );
 
       telemetry.sendEvent('scoring.completed', {
@@ -608,10 +744,8 @@ export class PbirScorePanel {
       // Load audit session and push state to webview alongside score
       try {
         this.auditProvider = createActiveProvider(this.context);
-        this.auditSession = await loadSession(this.context, this.reportPath);
-        const providerConfigured = await this.auditProvider.isConfigured();
-        const auditState = this.buildAuditState(this.auditSession, providerConfigured);
-        this.postMessage({ type: 'auditState', audit: auditState });
+        this.auditSession = await this.auditWorkflow.loadAuditSession();
+        await this.auditWorkflow.postAuditState();
       } catch {
         // Non-fatal: audit state failure should not break scoring
       }
@@ -623,20 +757,45 @@ export class PbirScorePanel {
     }
   }
 
-  private postMessage(message: ScorePanelHostToWebviewMessage): void {
-    if (!this.isReady) {
-      this.pendingMessages.push(message);
+  private presentHandoffShell(payload: AnalyzerWorkspaceHandoffPayload): void {
+    const surfaceDiscovery = detectAnalyzableSurface(this.reportPath);
+    this.panel.title = surfaceDiscovery.status === 'supported' && surfaceDiscovery.surface.surfaceType === 'fabricApp'
+      ? 'Fabric App Review'
+      : 'PBIR Optimization Report';
+    this.scoreState.resetForHandoff();
+    this.scoreState.setCurrentHandoffPayload(payload);
+    this.postMessage({
+      type: 'error',
+      message: createScorePanelMessageRouter.buildHandoffMessage(payload),
+    });
+  }
+
+  private async persistAnalyzerWorkspaceReturn(result: ScoreResult): Promise<void> {
+    const handoffPayload = this.scoreState.getCurrentHandoffPayload();
+    if (!handoffPayload) {
       return;
     }
 
-    void this.panel.webview.postMessage(message);
+    await recordAnalyzerWorkspaceReturn(this.context, {
+      handoff: handoffPayload,
+      scoreResult: result,
+    });
+  }
+
+  private postMessage(message: ScorePanelHostToWebviewMessagePayload): void {
+    if (!this.isReady) {
+      this.scoreState.enqueuePendingMessage(message);
+      return;
+    }
+
+    void this.panel.webview.postMessage(withScorePanelEnvelope(message));
   }
 
   private flushPendingMessages(): void {
-    while (this.pendingMessages.length > 0) {
-      const message = this.pendingMessages.shift();
+    while (this.scoreState.getPendingMessages().length > 0) {
+      const message = this.scoreState.shiftPendingMessage();
       if (message) {
-        void this.panel.webview.postMessage(message);
+        void this.panel.webview.postMessage(withScorePanelEnvelope(message));
       }
     }
   }
@@ -733,6 +892,40 @@ export class PbirScorePanel {
     return Array.from({ length: 32 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
   }
 
+  private async captureScoreDiagnostics(result: ScoreResult): Promise<void> {
+    const diagnostics = buildScoreDeterminismDiagnostics({
+      result,
+      reportPath: this.reportPath,
+      extensionVersion: String(this.context.extension.packageJSON.version ?? 'unknown'),
+      backendVersion: await this.readBackendVersion(),
+      backendLaunchDiagnostics: getRecordedBackendLaunchDiagnostics(),
+    });
+
+    this.scoreState.setLastScoreDiagnosticsJson(JSON.stringify(diagnostics, null, 2));
+    PbirScorePanel.diagnosticsOutput.appendLine(`=== ${new Date().toISOString()} :: ${path.basename(this.reportPath)} ===`);
+    PbirScorePanel.diagnosticsOutput.appendLine(this.scoreState.getLastScoreDiagnosticsJson() ?? '');
+    PbirScorePanel.diagnosticsOutput.appendLine('');
+  }
+
+  private async readBackendVersion(): Promise<string | undefined> {
+    if (!this.bridge) {
+      return undefined;
+    }
+
+    try {
+      const response = await this.bridge.executeRequest('model/ping', {}) as {
+        success?: boolean;
+        data?: { version?: unknown };
+      };
+
+      return response?.success && typeof response.data?.version === 'string'
+        ? response.data.version
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   dispose(): void {
     if (this.isDisposed) {
       return;
@@ -740,9 +933,7 @@ export class PbirScorePanel {
 
     this.isDisposed = true;
     this.isReady = false;
-    this.pendingMessages = [];
-    this.currentResult = undefined;
-    this.savedConfig = null;
+    this.scoreState.resetForDispose();
 
     if (PbirScorePanel.instance === this) {
       PbirScorePanel.instance = undefined;

@@ -4,9 +4,13 @@ import * as vscode from 'vscode';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
 import { PbirTreeItem, PbirTreeProvider } from '../providers/PbirTreeProvider';
 import { PbirScorePanel } from '../views/PbirScorePanel';
+import { PbirDesignStudioPanel } from '../views/PbirDesignStudioPanel';
 import { registerPbirExplorerReveal } from '../views/pbirExplorerReveal';
 import { loadDesignAnalyzerConfig } from '../analyzer/config/store';
 import { telemetry } from '../telemetry/reporter';
+import { PBIR_COMMANDS, PBIR_VIEW_IDS } from '../platform/extensionIds';
+import { getExtensionOutputChannel } from '../platform/outputChannels';
+import { getAnalyzerSetting } from '../platform/settings';
 import {
   buildGovernanceExportData,
   exportAsJson,
@@ -15,18 +19,7 @@ import {
 } from '../analyzer/score/governanceExport';
 import type { ScoreResult } from '../analyzer/contracts/scorePanel';
 
-// PBIR command IDs — must match CommandDispatcher registrations
-export const PBIR_COMMANDS = {
-    getTree: 'pbir.getTree',
-    refreshTree: 'pbir.refreshTree',
-    scoreReport: 'pbir.scoreReport',
-    governanceCheck: 'pbir.governanceCheck',
-    exportGovernanceReport: 'pbir.exportGovernanceReport',
-    exportReviewWorkflow: 'pbir.exportReviewWorkflow',
-    uploadScreenshots: 'pbir.uploadScreenshots',
-    attachScreenshot: 'pbir.attachScreenshot',
-    configureAuditProvider: 'pbir.configureAuditProvider',
-} as const;
+export { PBIR_COMMANDS };
 
 /** Shared provider instance (exported so register.ts can pass it to the treeview). */
 export let pbirTreeProvider: PbirTreeProvider | undefined;
@@ -37,6 +30,45 @@ type WorkspaceGovernanceSettings = {
     enabled: boolean;
     approvedThemeIds: string[];
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function resolveReportJsonPath(reportPath: string): string {
+    if (reportPath.toLowerCase().endsWith('.report')) {
+        return path.join(reportPath, 'definition', 'report.json');
+    }
+
+    const reportFolderName = `${path.basename(reportPath, path.extname(reportPath))}.Report`;
+    return path.join(reportPath, reportFolderName, 'definition', 'report.json');
+}
+
+function readThemeIdFromPbir(reportPath: string): string {
+    try {
+        const reportJsonPath = resolveReportJsonPath(reportPath);
+        if (!fs.existsSync(reportJsonPath)) {
+            return '';
+        }
+
+        const reportJson = JSON.parse(fs.readFileSync(reportJsonPath, 'utf8')) as Record<string, unknown>;
+        const theme = isRecord(reportJson.theme) ? reportJson.theme : undefined;
+        const themeName = typeof theme?.name === 'string' ? theme.name.trim() : '';
+
+        if (themeName.length > 0) {
+            return themeName;
+        }
+
+        const themeHref = typeof theme?.href === 'string' ? theme.href.trim() : '';
+        if (themeHref.length === 0) {
+            return '';
+        }
+
+        return path.basename(themeHref, path.extname(themeHref));
+    } catch {
+        return '';
+    }
+}
 
 type PbirTreeItemLike = {
     kind?: unknown;
@@ -60,6 +92,13 @@ function resolveReportPathFromNodePath(nodePath: string | undefined): string | u
     let currentPath = nodePath;
     try {
         if (fs.statSync(currentPath).isFile()) {
+            if (
+                path.basename(currentPath).toLowerCase() === 'report.json' &&
+                path.basename(path.dirname(currentPath)).toLowerCase() === 'definition'
+            ) {
+                return path.dirname(path.dirname(currentPath));
+            }
+
             currentPath = path.dirname(currentPath);
         }
     } catch {
@@ -67,7 +106,10 @@ function resolveReportPathFromNodePath(nodePath: string | undefined): string | u
     }
 
     for (;;) {
-        if (fs.existsSync(path.join(currentPath, 'definition.pbir'))) {
+        if (
+            fs.existsSync(path.join(currentPath, 'definition.pbir')) ||
+            fs.existsSync(path.join(currentPath, 'definition', 'report.json'))
+        ) {
             return currentPath;
         }
 
@@ -95,12 +137,12 @@ function resolveCommandTarget(
     const rawNode = (target.rawNode ?? {}) as { displayName?: unknown; name?: unknown };
     const resolvedPageName = target.kind === 'page'
         ? (
-            typeof rawNode.displayName === 'string' && rawNode.displayName.length > 0
-                ? rawNode.displayName
+            typeof rawNode.name === 'string' && rawNode.name.length > 0
+                ? rawNode.name
                 : typeof target.label === 'string' && target.label.length > 0
                     ? target.label
-                    : typeof rawNode.name === 'string' && rawNode.name.length > 0
-                        ? rawNode.name
+                    : typeof rawNode.displayName === 'string' && rawNode.displayName.length > 0
+                        ? rawNode.displayName
                         : undefined
         )
         : pageNameArg;
@@ -114,9 +156,8 @@ function resolveCommandTarget(
 }
 
 function readWorkspaceGovernanceSettings(): WorkspaceGovernanceSettings {
-    const config = vscode.workspace.getConfiguration('powerbi-modeling');
-    const enabled = config.get<boolean>('governance.enabled', false) === true;
-    const approvedThemeIdsRaw = config.get<unknown>('governance.approvedThemeIds', []);
+    const enabled = getAnalyzerSetting<boolean>('governance.enabled', false) === true;
+    const approvedThemeIdsRaw = getAnalyzerSetting<unknown>('governance.approvedThemeIds', []);
     const approvedThemeIds = Array.isArray(approvedThemeIdsRaw)
         ? approvedThemeIdsRaw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         : [];
@@ -125,6 +166,14 @@ function readWorkspaceGovernanceSettings(): WorkspaceGovernanceSettings {
         enabled,
         approvedThemeIds,
     };
+}
+
+function syncExplorerToReport(reportPath: string | undefined): void {
+    if (!reportPath) {
+        return;
+    }
+
+    pbirTreeProvider?.setProjectPath(reportPath);
 }
 
 /**
@@ -139,21 +188,91 @@ export function registerPbirCommands(
     pbirTreeProvider.setBridgeService(getBridge());
 
     // Wire provider into the treeview
-    const treeView = vscode.window.createTreeView('powerbiModeling.pbirExplorer', {
+    const treeView = vscode.window.createTreeView(PBIR_VIEW_IDS.explorer, {
         treeDataProvider: pbirTreeProvider,
         showCollapseAll: true,
     });
     registerPbirExplorerReveal(pbirTreeProvider, treeView);
     context.subscriptions.push(treeView);
 
-    // pbir.refreshTree — manual refresh command
+    // pbirAnalyzer.refreshReports — manual refresh command
     context.subscriptions.push(
-        vscode.commands.registerCommand(PBIR_COMMANDS.refreshTree, () => {
+        vscode.commands.registerCommand(PBIR_COMMANDS.openDesignStudio, async (target?: PbirCommandTarget) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.openDesignStudio });
+            let reportPath = resolveCommandTarget(target).reportPath;
+
+            if (!reportPath && pbirTreeProvider) {
+                try {
+                    const rootItems = await pbirTreeProvider.getChildren();
+                    if (rootItems.length > 0) {
+                        reportPath = resolveCommandTarget(rootItems[0]).reportPath;
+                    }
+                } catch {
+                    // Fall through to picker below.
+                }
+            }
+
+            if (!reportPath) {
+                const uris = await vscode.window.showOpenDialog({
+                    title: 'Select PBIR report for Design Studio',
+                    filters: { 'PBIR Reports': ['pbir'], 'All Files': ['*'] },
+                    canSelectMany: false,
+                    canSelectFolders: true,
+                    openLabel: 'Open Design Studio',
+                });
+                reportPath = uris?.[0]?.fsPath;
+            }
+
+            if (!reportPath) {
+                return;
+            }
+
+            if (!fs.existsSync(reportPath)) {
+                vscode.window.showErrorMessage(`Report not found: ${reportPath}`);
+                return;
+            }
+
+            await PbirDesignStudioPanel.createOrShow(context, reportPath, getBridge());
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.openLocalPbirMaterialization, async (target?: PbirCommandTarget) => {
+            const reportPath = resolveCommandTarget(target).reportPath;
+            if (!reportPath) {
+                await vscode.commands.executeCommand(PBIR_COMMANDS.openDesignStudio, target);
+                return;
+            }
+
+            await PbirDesignStudioPanel.createOrShow(
+                context,
+                reportPath,
+                getBridge(),
+                undefined,
+                'materialize',
+            );
+        }),
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.refreshReports, () => {
             pbirTreeProvider?.refresh();
         })
     );
 
-    // pbir.scoreReport — opens score panel for the active PBIR report (T023)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(PBIR_COMMANDS.copyScoreDiagnostics, async () => {
+            const copied = await PbirScorePanel.copyCurrentScoreDiagnostics();
+            if (!copied) {
+                void vscode.window.showWarningMessage('No score diagnostics are available yet. Run Score Report first.');
+                return;
+            }
+
+            void vscode.window.showInformationMessage('Current score diagnostics copied to the clipboard.');
+        })
+    );
+
+    // pbirAnalyzer.scoreReport — opens score panel for the active PBIR report (T023)
     // Feature 003: Enhanced to support per-page scoring when called from tree context menu
     /**
      * Scores a PBIR report and displays the Optimization Report panel.
@@ -212,11 +331,11 @@ export function registerPbirCommands(
 
                 if (!reportPath) {
                     const uris = await vscode.window.showOpenDialog({
-                        title: 'Select PBIR Report',
+                        title: 'Select PBIR report or Fabric App repo',
                         filters: { 'PBIR Reports': ['pbir'], 'All Files': ['*'] },
                         canSelectMany: false,
-                        canSelectFolders: false,
-                        openLabel: 'Score Report',
+                        canSelectFolders: true,
+                        openLabel: 'Open Review',
                     });
                     reportPath = uris?.[0]?.fsPath;
                 }
@@ -232,6 +351,8 @@ export function registerPbirCommands(
                     return;
                 }
 
+                syncExplorerToReport(reportPath);
+
                 // Feature 003: Pass pageName to panel if provided (for per-page scoring)
                 await PbirScorePanel.createOrShow(context, bridge, reportPath, pageName);
             } catch (error: unknown) {
@@ -239,27 +360,22 @@ export function registerPbirCommands(
                 const message = error instanceof Error
                     ? error.message
                     : 'Unknown error occurred while scoring report';
-                console.error('[pbir.scoreReport] Error:', error);
+                console.error('[pbirAnalyzer.scoreReport] Error:', error);
                 vscode.window.showErrorMessage(`Failed to score report: ${message}`);
-                
-                // Optional: Log to output channel for debugging
-                try {
-                    const outputChannel = vscode.window.createOutputChannel('PBIR Design Analyzer');
-                    outputChannel.appendLine(`[ERROR] ${message}`);
-                    outputChannel.appendLine(
-                        `Stack: ${error instanceof Error ? error.stack ?? 'No stack trace' : 'No stack trace'}`,
-                    );
-                } catch {
-                    // Silently ignore if output channel creation fails
-                }
+
+                const outputChannel = getExtensionOutputChannel();
+                outputChannel.appendLine(`[ERROR] ${message}`);
+                outputChannel.appendLine(
+                    `Stack: ${error instanceof Error ? error.stack ?? 'No stack trace' : 'No stack trace'}`,
+                );
             }
         })
     );
 
-    // pbir.governanceCheck — score first, then evaluate policy (T035)
+    // pbirAnalyzer.checkGovernance — score first, then evaluate policy (T035)
     context.subscriptions.push(
-        vscode.commands.registerCommand(PBIR_COMMANDS.governanceCheck, async (target?: PbirCommandTarget) => {
-            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.governanceCheck });
+        vscode.commands.registerCommand(PBIR_COMMANDS.checkGovernance, async (target?: PbirCommandTarget) => {
+            telemetry.sendEvent('command.invoked', { commandName: PBIR_COMMANDS.checkGovernance });
             const bridge = getBridge();
             let reportPath = resolveCommandTarget(target).reportPath;
             if (!reportPath) {
@@ -277,25 +393,9 @@ export function registerPbirCommands(
             }
 
             const workspaceGovernance = readWorkspaceGovernanceSettings();
-            let themeId = '';
-
-            if (workspaceGovernance.enabled && workspaceGovernance.approvedThemeIds.length > 0) {
-                const input = await vscode.window.showInputBox({
-                    prompt: 'Enter the report theme name required by the workspace governance policy',
-                    placeHolder: workspaceGovernance.approvedThemeIds[0] ?? 'CorporateBlue',
-                    ignoreFocusOut: true,
-                    validateInput: (value) =>
-                        value.trim().length > 0
-                            ? undefined
-                            : 'Theme name is required when approved themes are configured.',
-                });
-
-                if (typeof input === 'undefined') {
-                    return;
-                }
-
-                themeId = input.trim();
-            }
+            const themeId = workspaceGovernance.enabled && workspaceGovernance.approvedThemeIds.length > 0
+                ? readThemeIdFromPbir(reportPath)
+                : '';
 
             type GovernanceResult = {
                 policyState?: string;
@@ -362,7 +462,7 @@ export function registerPbirCommands(
         })
     );
 
-    // pbir.exportGovernanceReport — score the report then export governance summary to Markdown or JSON
+    // pbirAnalyzer.exportGovernanceReport — score the report then export governance summary to Markdown or JSON
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.exportGovernanceReport, async (target?: PbirCommandTarget) => {
             const bridge = getBridge();
@@ -514,19 +614,20 @@ export function registerPbirCommands(
                     return;
                 }
 
+                syncExplorerToReport(reportPath);
                 const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
                 await panel.exportReviewWorkflow();
             } catch (error: unknown) {
                 const message = error instanceof Error
                     ? error.message
                     : 'Unknown error occurred while exporting review workflow';
-                console.error('[pbir.exportReviewWorkflow] Error:', error);
+                console.error('[pbirAnalyzer.exportReviewWorkflow] Error:', error);
                 vscode.window.showErrorMessage(`Failed to export review workflow: ${message}`);
             }
         })
     );
 
-    // pbir.uploadScreenshots — opens score panel then triggers screenshot upload via the active panel
+    // pbirAnalyzer.uploadScreenshots — opens score panel then triggers screenshot upload via the active panel
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.uploadScreenshots, async (target?: PbirCommandTarget) => {
             const reportPath = resolveCommandTarget(target).reportPath ?? resolveCommandTarget(pbirTreeProvider ? await pbirTreeProvider.getChildren().then((items) => items?.[0]).catch(() => undefined) : undefined).reportPath;
@@ -535,15 +636,14 @@ export function registerPbirCommands(
                 return;
             }
             // Open the score panel so the upload dialog has context
+            syncExplorerToReport(reportPath);
             const bridge = getBridge();
             const panel = await PbirScorePanel.createOrShow(context, bridge, reportPath);
-            void panel;
-            // Trigger upload via command to the panel's active session
-            await vscode.commands.executeCommand('pbir.scoreReport', reportPath);
+            await panel.requestScreenshotUpload();
         })
     );
 
-    // pbir.configureAuditProvider — provider picker + key entry, stored in SecretStorage
+    // pbirAnalyzer.configureAuditProvider — provider picker + key entry, stored in SecretStorage
     context.subscriptions.push(
         vscode.commands.registerCommand(PBIR_COMMANDS.configureAuditProvider, async () => {
             const { runProviderSetupFlow } = await import('../analyzer/audit/providers/providerSetup');

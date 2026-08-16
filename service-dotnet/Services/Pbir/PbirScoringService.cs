@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using PowerBIModelingService.Services.Pbir.Models;
+using PowerBIModelingService.Services.Pbir.CrossPageNarrative;
 
 namespace PowerBIModelingService.Services.Pbir;
 
@@ -64,12 +66,56 @@ public sealed class PbirScoringService
 
     private readonly PbirProjectService _projectService;
     private readonly ILogger<PbirScoringService> _logger;
+    private readonly ReportDiscoveryService _reportDiscoveryService;
+    private readonly ReportModelLoader _reportModelLoader;
+    private readonly ThemeResolutionService _themeResolutionService;
+    private readonly StoryAssessmentOrchestrator _storyAssessmentOrchestrator;
+    private readonly CrossPageNarrativeOrchestrator _crossPageNarrativeOrchestrator;
+    private readonly RecommendationAssemblyService _recommendationAssemblyService;
+    private readonly ScoreCompatibilityAdapter _scoreCompatibilityAdapter;
+    private readonly ScoreResultAssemblyService _scoreResultAssemblyService;
+    private readonly ScoringConfigurationService _scoringConfigurationService;
 
     /// <summary>Initializes a new instance of <see cref="PbirScoringService"/>.</summary>
     public PbirScoringService(PbirProjectService projectService, ILogger<PbirScoringService> logger)
     {
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
-        _logger         = logger         ?? throw new ArgumentNullException(nameof(logger));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _reportDiscoveryService = new ReportDiscoveryService(_projectService, _logger);
+        _reportModelLoader = new ReportModelLoader(_logger);
+        _themeResolutionService = new ThemeResolutionService(_logger);
+        _storyAssessmentOrchestrator = new StoryAssessmentOrchestrator();
+        _crossPageNarrativeOrchestrator = new CrossPageNarrativeOrchestrator();
+        _recommendationAssemblyService = new RecommendationAssemblyService();
+        _scoreCompatibilityAdapter = new ScoreCompatibilityAdapter();
+        _scoreResultAssemblyService = new ScoreResultAssemblyService(_scoreCompatibilityAdapter);
+        _scoringConfigurationService = new ScoringConfigurationService(_logger);
+    }
+
+    internal PbirScoringService(
+        PbirProjectService projectService,
+        ILogger<PbirScoringService> logger,
+        ReportDiscoveryService reportDiscoveryService,
+        ReportModelLoader reportModelLoader,
+        ThemeResolutionService themeResolutionService,
+        StoryAssessmentOrchestrator storyAssessmentOrchestrator,
+        CrossPageNarrativeOrchestrator crossPageNarrativeOrchestrator,
+        RecommendationAssemblyService recommendationAssemblyService,
+        ScoreCompatibilityAdapter scoreCompatibilityAdapter,
+        ScoreResultAssemblyService scoreResultAssemblyService,
+        ScoringConfigurationService scoringConfigurationService)
+    {
+        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _reportDiscoveryService = reportDiscoveryService ?? throw new ArgumentNullException(nameof(reportDiscoveryService));
+        _reportModelLoader = reportModelLoader ?? throw new ArgumentNullException(nameof(reportModelLoader));
+        _themeResolutionService = themeResolutionService ?? throw new ArgumentNullException(nameof(themeResolutionService));
+        _storyAssessmentOrchestrator = storyAssessmentOrchestrator ?? throw new ArgumentNullException(nameof(storyAssessmentOrchestrator));
+        _crossPageNarrativeOrchestrator = crossPageNarrativeOrchestrator ?? throw new ArgumentNullException(nameof(crossPageNarrativeOrchestrator));
+        _recommendationAssemblyService = recommendationAssemblyService ?? throw new ArgumentNullException(nameof(recommendationAssemblyService));
+        _scoreCompatibilityAdapter = scoreCompatibilityAdapter ?? throw new ArgumentNullException(nameof(scoreCompatibilityAdapter));
+        _scoreResultAssemblyService = scoreResultAssemblyService ?? throw new ArgumentNullException(nameof(scoreResultAssemblyService));
+        _scoringConfigurationService = scoringConfigurationService ?? throw new ArgumentNullException(nameof(scoringConfigurationService));
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -135,17 +181,7 @@ public sealed class PbirScoringService
     /// </example>
     public Task<ScoreResult> ScoreAsync(string reportPath, JsonElement? config = null, string? pageName = null)
     {
-        if (string.IsNullOrWhiteSpace(reportPath))
-        {
-            throw new ArgumentException("Parameter 'reportPath' is required.", nameof(reportPath));
-        }
-
-        var location = _projectService.TryGetReportLocation(reportPath);
-        if (location is null)
-        {
-            throw new InvalidOperationException(
-                $"No PBIR report definition found at '{reportPath}'.");
-        }
+        var location = _reportDiscoveryService.ResolveRequiredReportLocation(reportPath);
 
         // Dispatch: single-page vs. full-report scoring
         if (!string.IsNullOrWhiteSpace(pageName))
@@ -178,7 +214,7 @@ public sealed class PbirScoringService
     /// with a message in all framework feedback items.
     /// </summary>
     /// <param name="location">The PBIR report location (contains path to report.json and page definitions).</param>
-    /// <param name="pageName">The exact page name to score (case-sensitive). Must match a page's DisplayName.</param>
+    /// <param name="pageName">The exact page name to score (case-sensitive). Must match a page's stable PBIR name.</param>
     /// <returns>A <see cref="ScoreResult"/> with page-specific scores in the top-level properties.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown if the page name is not found. The exception message lists all available page names.
@@ -187,18 +223,19 @@ public sealed class PbirScoringService
     {
         _logger.LogInformation("[Scoring] Scoring single page '{Page}' in report: {Name}", pageName, location.ReportName);
 
-        var recommendations = new List<string>();
-        var reportJson      = ReadJsonObject(location.ReportJsonPath);
-        var themeColors     = ResolveThemeColors(reportJson, location, recommendations);
-        var allPages        = LoadAllPages(location);
-        var frameworkWeights = this.ExtractFrameworkWeights(config);  // Extract framework weights from config
-        var navigationScoring = ExtractNavigationScoringSettings(config);
+        var recommendations = _recommendationAssemblyService.CreateBuffer();
+        var reportModel = _reportModelLoader.LoadReportModel(location);
+        var themeColors = _themeResolutionService.ResolveThemeColors(reportModel.ReportJson, location);
+        var allPages = reportModel.Pages;
+        var reportFilters = reportModel.ReportFilters;
+        var frameworkWeights = _scoringConfigurationService.ExtractFrameworkWeights(config);
+        var navigationScoring = _scoringConfigurationService.ExtractNavigationScoringSettings(config);
 
         // Find the requested page
-        var page = allPages.FirstOrDefault(p => p.DisplayName == pageName);
+        var page = allPages.FirstOrDefault(p => p.Name == pageName);
         if (page is null)
         {
-            var availablePages = string.Join(", ", allPages.Select(p => $"'{p.DisplayName}'"));
+            var availablePages = string.Join(", ", allPages.Select(p => $"'{p.Name}'"));
             var errorMsg = $"Page '{pageName}' not found. Available pages: {availablePages}";
             _logger.LogWarning("[Scoring] {Error}", errorMsg);
             
@@ -210,53 +247,34 @@ public sealed class PbirScoringService
         var pageVisuals = page.Visuals;
         var pageComposition = BuildVisualComposition(pageVisuals, navigationScoring);
         bool hasDataVisuals = pageComposition.DataVisualCount > 0;
-        var pageStorySummary = InferPageStorySummary(page);
-        var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
-        var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
-            ? null
-            : BuildActionabilityBreakdown(page, pageStorySummary, pageIntentProfile);
-        var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
-            ? null
-            : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
+        var storyAssessment = _storyAssessmentOrchestrator.Assess(page, reportFilters);
+        var pageSummaryArtifacts = BuildPageSummaryArtifacts(page);
 
         // Zero-visual guard
         if (!hasDataVisuals)
         {
             const string noVisualsMsg =
                 "No data visuals found on this page — add charts, tables, or KPI cards to score this page.";
-            var noVizFeedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
-            foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
+            return _scoreResultAssemblyService.CreateSinglePageResult(new ScoreResultAssemblyInput
             {
-                noVizFeedback[key] = [FeedbackItem(false, noVisualsMsg, FindingTypes.Objective)];
-            }
-
-#pragma warning disable CS0618
-            return new ScoreResult
-            {
-                GestaltScore             = 0, CognitiveLoadScore       = 0,
-                DataInkScore             = 0, AccessibilityScore       = 0,
-                VisualBestPracticesScore = 0, StephenFewScore          = 0,
-                EnterpriseGovernanceScore = 0,
-                TufteScore               = 0,
-                GraphicalPerceptionScore = 0, DensityScore             = 0, NarrativeScore = 0,
-                LayoutScore = 0, ThemeScore = 0, GovernanceScore = 0,
-                Feedback        = noVizFeedback,
-                PageCount       = 1,
+                Frameworks = CreateZeroScoreFrameworkSet(noVisualsMsg),
                 Recommendations = recommendations,
-                ReportPath      = location.ReportRootPath,
-                ScoredPageName  = pageName,
-                ScoredAt        = DateTimeOffset.UtcNow,
+                ReportPath = location.ReportRootPath,
+                PageCount = 1,
+                ScoredPageId = page.Name,
+                ScoredPageName = pageName,
+                ScoredAt = DateTimeOffset.UtcNow,
                 FrameworkWeights = frameworkWeights,
                 DataVisualCount = pageComposition.DataVisualCount,
                 NavigationVisualCount = pageComposition.NavigationVisualCount,
                 HiddenVisualCount = pageComposition.HiddenVisualCount,
-                VisualMetadata = BuildPageVisualMetadataSummary(page),
-                InferredStorySummary = pageStorySummary,
-                PageIntentProfile = pageIntentProfile,
-                ActionabilityBreakdown = actionabilityBreakdown,
-                BenchmarkComparison = benchmarkComparison,
-            };
-#pragma warning restore CS0618
+                VisualMetadata = pageSummaryArtifacts.VisualMetadata,
+                InferredStorySummary = pageSummaryArtifacts.StorySummary,
+                PageIntentProfile = pageSummaryArtifacts.IntentProfile,
+                ActionabilityBreakdown = pageSummaryArtifacts.ActionabilityBreakdown,
+                BenchmarkComparison = pageSummaryArtifacts.BenchmarkComparison,
+                StoryAssessment = storyAssessment,
+            });
         }
 
         // ── Compute all six frameworks for this page ────────────────────────
@@ -276,54 +294,53 @@ public sealed class PbirScoringService
             "[Scoring] Page '{Page}' sub-scores — Gestalt={G:F1} CogLoad={C:F1} DataInk={D:F1} A11y={A:F1} VBP={V:F1} Few={F:F1} Tufte={T:F1}",
             pageName, gestaltScore, cogLoadScore, dataInkScore, accessibilityScore, vbpScore, fewScore, tufteScore);
 
-#pragma warning disable CS0618
-        var result = new ScoreResult
+        var result = _scoreResultAssemblyService.CreateSinglePageResult(new ScoreResultAssemblyInput
         {
-            GestaltScore             = Clamp(gestaltScore),
-            CognitiveLoadScore       = Clamp(cogLoadScore),
-            DataInkScore             = Clamp(dataInkScore),
-            AccessibilityScore       = Clamp(accessibilityScore),
-            VisualBestPracticesScore = Clamp(vbpScore),
-            EnterpriseGovernanceScore = Clamp(governanceScore),
-            StephenFewScore          = Clamp(fewScore),
-            TufteScore               = Clamp(tufteScore),
-            GraphicalPerceptionScore = Clamp(graphicalScore),
-            DensityScore             = Clamp(densityScore),
-            NarrativeScore           = Clamp(narrativeScore),
-            // Keep legacy fields in sync
-            LayoutScore    = Clamp(gestaltScore),
-            ThemeScore     = Clamp(vbpScore),
-            GovernanceScore = Clamp(governanceScore),
-            Feedback = new()
+            Frameworks = new ScoreFrameworkSet
             {
-                ["gestalt"]             = gestaltFeedback,
-                ["cognitiveLoad"]       = cogLoadFeedback,
-                ["dataInk"]             = dataInkFeedback,
-                ["accessibility"]       = a11yFeedback,
-                ["visualBestPractices"] = vbpFeedback,
-                ["governance"]          = governanceFeedback,
-                ["stephenFew"]          = fewFeedback,
-                ["tufte"]               = tufteFeedback,
-                ["graphicalPerception"] = graphicalFeedback,
-                ["density"]             = densityFeedback,
-                ["narrative"]           = narrativeFeedback,
+                GestaltScore = Clamp(gestaltScore),
+                CognitiveLoadScore = Clamp(cogLoadScore),
+                DataInkScore = Clamp(dataInkScore),
+                AccessibilityScore = Clamp(accessibilityScore),
+                VisualBestPracticesScore = Clamp(vbpScore),
+                StephenFewScore = Clamp(fewScore),
+                EnterpriseGovernanceScore = Clamp(governanceScore),
+                TufteScore = Clamp(tufteScore),
+                GraphicalPerceptionScore = Clamp(graphicalScore),
+                DensityScore = Clamp(densityScore),
+                NarrativeScore = Clamp(narrativeScore),
+                Feedback = new()
+                {
+                    ["gestalt"] = gestaltFeedback,
+                    ["cognitiveLoad"] = cogLoadFeedback,
+                    ["dataInk"] = dataInkFeedback,
+                    ["accessibility"] = a11yFeedback,
+                    ["visualBestPractices"] = vbpFeedback,
+                    ["governance"] = governanceFeedback,
+                    ["stephenFew"] = fewFeedback,
+                    ["tufte"] = tufteFeedback,
+                    ["graphicalPerception"] = graphicalFeedback,
+                    ["density"] = densityFeedback,
+                    ["narrative"] = narrativeFeedback,
+                },
             },
-            PageCount       = 1,
             Recommendations = recommendations,
-            ReportPath      = location.ReportRootPath,
-            ScoredPageName  = pageName,
-            ScoredAt        = DateTimeOffset.UtcNow,
+            ReportPath = location.ReportRootPath,
+            PageCount = 1,
+            ScoredPageId = page.Name,
+            ScoredPageName = pageName,
+            ScoredAt = DateTimeOffset.UtcNow,
             FrameworkWeights = frameworkWeights,
             DataVisualCount = pageComposition.DataVisualCount,
             NavigationVisualCount = pageComposition.NavigationVisualCount,
             HiddenVisualCount = pageComposition.HiddenVisualCount,
-            VisualMetadata = BuildPageVisualMetadataSummary(page),
-            InferredStorySummary = pageStorySummary,
-            PageIntentProfile = pageIntentProfile,
-            ActionabilityBreakdown = actionabilityBreakdown,
-            BenchmarkComparison = benchmarkComparison,
-        };
-#pragma warning restore CS0618
+            VisualMetadata = pageSummaryArtifacts.VisualMetadata,
+            InferredStorySummary = pageSummaryArtifacts.StorySummary,
+            PageIntentProfile = pageSummaryArtifacts.IntentProfile,
+            ActionabilityBreakdown = pageSummaryArtifacts.ActionabilityBreakdown,
+            BenchmarkComparison = pageSummaryArtifacts.BenchmarkComparison,
+            StoryAssessment = storyAssessment,
+        });
 
         // ── Bookmark-aware (per-state) scoring ──────────────────────────────
         // When bookmarks affect this page, re-score the page once per layout state with the
@@ -331,10 +348,9 @@ public sealed class PbirScoringService
         // per-state averages. The per-state composites surface on result.PerStateScores so the
         // panel can break out individual state quality.
         var overlay = ComputeBookmarkAwareOverlay(
-            page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+            page, reportModel.ReportJson, themeColors, navigationScoring, config, frameworkWeights);
         if (overlay is not null)
         {
-#pragma warning disable CS0618
             result.GestaltScore              = overlay.AveragedFrameworks["gestalt"];
             result.CognitiveLoadScore        = overlay.AveragedFrameworks["cognitiveLoad"];
             result.DataInkScore              = overlay.AveragedFrameworks["dataInk"];
@@ -346,14 +362,10 @@ public sealed class PbirScoringService
             result.GraphicalPerceptionScore  = overlay.AveragedFrameworks["graphicalPerception"];
             result.DensityScore              = overlay.AveragedFrameworks["density"];
             result.NarrativeScore            = overlay.AveragedFrameworks["narrative"];
-            result.LayoutScore               = result.GestaltScore;
-            result.ThemeScore                = result.VisualBestPracticesScore;
-            result.GovernanceScore           = result.EnterpriseGovernanceScore;
-#pragma warning restore CS0618
+            _scoreCompatibilityAdapter.PopulateLegacyScores(result);
             result.PerStateScores = overlay.PerStateScores;
 
-            recommendations.Add(
-                $"[Info] Bookmark-aware scoring active: page scored across {overlay.PerStateScores.Count} layout states (Default + {overlay.PerStateScores.Count - 1} bookmark state{(overlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+            _recommendationAssemblyService.AddBookmarkAwareScoringRecommendation(recommendations, overlay.PerStateScores.Count);
 
             _logger.LogInformation(
                 "[Bookmark State] Page '{Page}' scored across {Count} states, composite={Score}",
@@ -405,72 +417,47 @@ public sealed class PbirScoringService
     /// The <c>ScoringErrors</c> dictionary will contain entries for any pages that failed to score.</returns>
     private ScoreResult ComputeReportScore(PbirReportLocation location, JsonElement? config = null)
     {
-        var recommendations = new List<string>();
-        var reportJson    = ReadJsonObject(location.ReportJsonPath);
-        var themeColors   = ResolveThemeColors(reportJson, location, recommendations);
-        var pages         = LoadAllPages(location);
+        var recommendations = _recommendationAssemblyService.CreateBuffer();
+        var reportModel = _reportModelLoader.LoadReportModel(location);
+        var themeColors = _themeResolutionService.ResolveThemeColors(reportModel.ReportJson, location);
+        var pages = reportModel.Pages;
+        var reportFilters = reportModel.ReportFilters;
         var reportConsistencyContext = BuildReportConsistencyContext(pages);
-        var frameworkWeights = this.ExtractFrameworkWeights(config);  // Extract framework weights from config
-        var navigationScoring = ExtractNavigationScoringSettings(config);
+        var frameworkWeights = _scoringConfigurationService.ExtractFrameworkWeights(config);
+        var navigationScoring = _scoringConfigurationService.ExtractNavigationScoringSettings(config);
         var reportComposition = BuildVisualComposition(pages.SelectMany(p => p.Visuals), navigationScoring);
         bool hasDataVisuals = reportComposition.DataVisualCount > 0;
+        var topLevelStoryAssessment = pages.Count == 1
+            ? _storyAssessmentOrchestrator.Assess(pages[0], reportFilters, reportConsistencyContext?.Summary.Findings)
+            : null;
+        var singlePageSummaryArtifacts = BuildSinglePageReportSummaryArtifacts(pages);
 
         // Zero-visual guard — return 0 with explanation across all frameworks.
         if (!hasDataVisuals)
         {
             const string noVisualsMsg =
                 "No data visuals found on any page — add charts, tables, or KPI cards to score this report.";
-            var noVizFeedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
-            foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
+            return _scoreResultAssemblyService.CreateReportResult(new ScoreResultAssemblyInput
             {
-                noVizFeedback[key] = [FeedbackItem(false, noVisualsMsg, FindingTypes.Objective)];
-            }
-
-#pragma warning disable CS0618
-            return new ScoreResult
-            {
-                GestaltScore             = 0, CognitiveLoadScore       = 0,
-                DataInkScore             = 0, AccessibilityScore       = 0,
-                VisualBestPracticesScore = 0, StephenFewScore          = 0,
-                EnterpriseGovernanceScore = 0,
-                TufteScore               = 0,
-                GraphicalPerceptionScore = 0, DensityScore             = 0, NarrativeScore = 0,
-                LayoutScore = 0, ThemeScore = 0, GovernanceScore = 0,
-                Feedback        = noVizFeedback,
-                PageCount       = pages.Count,
+                Frameworks = CreateZeroScoreFrameworkSet(noVisualsMsg),
                 Recommendations = recommendations,
-                ReportPath      = location.ReportRootPath,
-                PageScores      = new(),
-                ScoringErrors   = new(),
-                ScoredAt        = DateTimeOffset.UtcNow,
+                ReportPath = location.ReportRootPath,
+                PageCount = pages.Count,
+                ScoredAt = DateTimeOffset.UtcNow,
                 FrameworkWeights = frameworkWeights,
                 DataVisualCount = reportComposition.DataVisualCount,
                 NavigationVisualCount = reportComposition.NavigationVisualCount,
                 HiddenVisualCount = reportComposition.HiddenVisualCount,
-                VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
-                InferredStorySummary = pages.Count == 1 ? InferPageStorySummary(pages[0]) : null,
-                PageIntentProfile = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroStorySummary
-                    ? BuildPageIntentProfileSummary(pages[0], zeroStorySummary)
-                    : null,
-                ActionabilityBreakdown = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroActionStory
-                    ? BuildActionabilityBreakdown(
-                        pages[0],
-                        zeroActionStory,
-                        BuildPageIntentProfileSummary(pages[0], zeroActionStory))
-                    : null,
-                BenchmarkComparison = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } zeroBenchmarkStory
-                    ? BuildBenchmarkComparison(
-                        pages[0],
-                        zeroBenchmarkStory,
-                        BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory),
-                        BuildActionabilityBreakdown(
-                            pages[0],
-                            zeroBenchmarkStory,
-                            BuildPageIntentProfileSummary(pages[0], zeroBenchmarkStory)))
-                    : null,
+                VisualMetadata = singlePageSummaryArtifacts?.VisualMetadata,
+                InferredStorySummary = singlePageSummaryArtifacts?.StorySummary,
+                PageIntentProfile = singlePageSummaryArtifacts?.IntentProfile,
+                ActionabilityBreakdown = singlePageSummaryArtifacts?.ActionabilityBreakdown,
+                BenchmarkComparison = singlePageSummaryArtifacts?.BenchmarkComparison,
+                StoryAssessment = topLevelStoryAssessment,
                 ReportConsistencySummary = reportConsistencyContext?.Summary,
-            };
-#pragma warning restore CS0618
+                PageScores = new(),
+                ScoringErrors = new(),
+            });
         }
 
         // ── Compute all six frameworks for the full report ────────────────────
@@ -490,72 +477,54 @@ public sealed class PbirScoringService
             "[Scoring] sub-scores — Gestalt={G:F1} CogLoad={C:F1} DataInk={D:F1} A11y={A:F1} VBP={V:F1} Few={F:F1} Tufte={T:F1}",
             gestaltScore, cogLoadScore, dataInkScore, accessibilityScore, vbpScore, fewScore, tufteScore);
 
-#pragma warning disable CS0618
-        var result = new ScoreResult
+        var result = _scoreResultAssemblyService.CreateReportResult(new ScoreResultAssemblyInput
         {
-            GestaltScore             = Clamp(gestaltScore),
-            CognitiveLoadScore       = Clamp(cogLoadScore),
-            DataInkScore             = Clamp(dataInkScore),
-            AccessibilityScore       = Clamp(accessibilityScore),
-            VisualBestPracticesScore = Clamp(vbpScore),
-            EnterpriseGovernanceScore = Clamp(governanceScore),
-            StephenFewScore          = Clamp(fewScore),
-            TufteScore               = Clamp(tufteScore),
-            GraphicalPerceptionScore = Clamp(graphicalScore),
-            DensityScore             = Clamp(densityScore),
-            NarrativeScore           = Clamp(narrativeScore),
-            // Keep legacy fields in sync so any existing integration still works.
-            LayoutScore    = Clamp(gestaltScore),
-            ThemeScore     = Clamp(vbpScore),
-            GovernanceScore = Clamp(governanceScore),
-            Feedback = new()
+            Frameworks = new ScoreFrameworkSet
             {
-                ["gestalt"]             = gestaltFeedback,
-                ["cognitiveLoad"]       = cogLoadFeedback,
-                ["dataInk"]             = dataInkFeedback,
-                ["accessibility"]       = a11yFeedback,
-                ["visualBestPractices"] = vbpFeedback,
-                ["governance"]          = governanceFeedback,
-                ["stephenFew"]          = fewFeedback,
-                ["tufte"]               = tufteFeedback,
-                ["graphicalPerception"] = graphicalFeedback,
-                ["density"]             = densityFeedback,
-                ["narrative"]           = narrativeFeedback,
+                GestaltScore = Clamp(gestaltScore),
+                CognitiveLoadScore = Clamp(cogLoadScore),
+                DataInkScore = Clamp(dataInkScore),
+                AccessibilityScore = Clamp(accessibilityScore),
+                VisualBestPracticesScore = Clamp(vbpScore),
+                StephenFewScore = Clamp(fewScore),
+                EnterpriseGovernanceScore = Clamp(governanceScore),
+                TufteScore = Clamp(tufteScore),
+                GraphicalPerceptionScore = Clamp(graphicalScore),
+                DensityScore = Clamp(densityScore),
+                NarrativeScore = Clamp(narrativeScore),
+                Feedback = new()
+                {
+                    ["gestalt"] = gestaltFeedback,
+                    ["cognitiveLoad"] = cogLoadFeedback,
+                    ["dataInk"] = dataInkFeedback,
+                    ["accessibility"] = a11yFeedback,
+                    ["visualBestPractices"] = vbpFeedback,
+                    ["governance"] = governanceFeedback,
+                    ["stephenFew"] = fewFeedback,
+                    ["tufte"] = tufteFeedback,
+                    ["graphicalPerception"] = graphicalFeedback,
+                    ["density"] = densityFeedback,
+                    ["narrative"] = narrativeFeedback,
+                },
             },
-            PageCount       = pages.Count,
             Recommendations = recommendations,
-            ReportPath      = location.ReportRootPath,
-            PageScores      = new(),
-            ScoringErrors   = new(),
-            ScoredAt        = DateTimeOffset.UtcNow,
-                FrameworkWeights = frameworkWeights,
-                DataVisualCount = reportComposition.DataVisualCount,
-                NavigationVisualCount = reportComposition.NavigationVisualCount,
-                HiddenVisualCount = reportComposition.HiddenVisualCount,
-                VisualMetadata = pages.Count == 1 ? BuildPageVisualMetadataSummary(pages[0]) : null,
-                InferredStorySummary = pages.Count == 1 ? InferPageStorySummary(pages[0]) : null,
-                PageIntentProfile = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleStorySummary
-                    ? BuildPageIntentProfileSummary(pages[0], singleStorySummary)
-                    : null,
-                ActionabilityBreakdown = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleActionStory
-                    ? BuildActionabilityBreakdown(
-                        pages[0],
-                        singleActionStory,
-                        BuildPageIntentProfileSummary(pages[0], singleActionStory))
-                    : null,
-                BenchmarkComparison = pages.Count == 1 && InferPageStorySummary(pages[0]) is { } singleBenchmarkStory
-                    ? BuildBenchmarkComparison(
-                        pages[0],
-                        singleBenchmarkStory,
-                        BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory),
-                        BuildActionabilityBreakdown(
-                            pages[0],
-                            singleBenchmarkStory,
-                            BuildPageIntentProfileSummary(pages[0], singleBenchmarkStory)))
-                    : null,
-                ReportConsistencySummary = reportConsistencyContext?.Summary,
-        };
-#pragma warning restore CS0618
+            ReportPath = location.ReportRootPath,
+            PageCount = pages.Count,
+            ScoredAt = DateTimeOffset.UtcNow,
+            FrameworkWeights = frameworkWeights,
+            DataVisualCount = reportComposition.DataVisualCount,
+            NavigationVisualCount = reportComposition.NavigationVisualCount,
+            HiddenVisualCount = reportComposition.HiddenVisualCount,
+            VisualMetadata = singlePageSummaryArtifacts?.VisualMetadata,
+            InferredStorySummary = singlePageSummaryArtifacts?.StorySummary,
+            PageIntentProfile = singlePageSummaryArtifacts?.IntentProfile,
+            ActionabilityBreakdown = singlePageSummaryArtifacts?.ActionabilityBreakdown,
+            BenchmarkComparison = singlePageSummaryArtifacts?.BenchmarkComparison,
+            StoryAssessment = topLevelStoryAssessment,
+            ReportConsistencySummary = reportConsistencyContext?.Summary,
+            PageScores = new(),
+            ScoringErrors = new(),
+        });
 
         // ── Compute per-page breakdown (parallel) ─────────────────────────────
         // Each page is scored independently: framework methods are pure (the only mutation is to
@@ -581,59 +550,31 @@ public sealed class PbirScoringService
                     if (!pageHasDataVisuals)
                     {
                         var emptyPageConsistencyNotes = BuildReportConsistencyNotes(page.DisplayName, reportConsistencyContext);
-                        var emptyStorySummary = InferPageStorySummary(page, emptyPageConsistencyNotes);
-                        var emptyIntentProfile = emptyStorySummary is null ? null : BuildPageIntentProfileSummary(page, emptyStorySummary);
-                        var emptyActionability = emptyStorySummary is null || emptyIntentProfile is null
-                            ? null
-                            : BuildActionabilityBreakdown(page, emptyStorySummary, emptyIntentProfile);
-                        var emptyBenchmark = emptyStorySummary is null || emptyIntentProfile is null || emptyActionability is null
-                            ? null
-                            : BuildBenchmarkComparison(page, emptyStorySummary, emptyIntentProfile, emptyActionability);
-                        concurrentPageScores.Add((pageIndex, new PageScore
+                        var emptyPageSummaryArtifacts = BuildPageSummaryArtifacts(page, emptyPageConsistencyNotes);
+                        var emptyStoryAssessment = _storyAssessmentOrchestrator.Assess(page, reportFilters, emptyPageConsistencyNotes);
+                        concurrentPageScores.Add((pageIndex, _scoreResultAssemblyService.CreatePageScore(new PageScoreAssemblyInput
                         {
+                            PageId = page.Name,
                             PageName = page.DisplayName,
-                            GestaltScore = 0,
-                            CognitiveLoadScore = 0,
-                            DataInkScore = 0,
-                            AccessibilityScore = 0,
-                            VisualBestPracticesScore = 0,
-                            StephenFewScore = 0,
-                            EnterpriseGovernanceScore = 0,
-                            TufteScore = 0,
-                            GraphicalPerceptionScore = 0,
-                            DensityScore = 0,
-                            NarrativeScore = 0,
-                            Feedback = new()
-                            {
-                                ["gestalt"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["cognitiveLoad"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["dataInk"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["accessibility"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["visualBestPractices"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["governance"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["stephenFew"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["tufte"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["graphicalPerception"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["density"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                                ["narrative"] = [FeedbackItem(false, "No data visuals on this page.", FindingTypes.Objective)],
-                            },
+                            Frameworks = CreateZeroScoreFrameworkSet("No data visuals on this page."),
                             Recommendations = [],
                             FrameworkWeights = frameworkWeights,
                             DataVisualCount = pageComposition.DataVisualCount,
                             NavigationVisualCount = pageComposition.NavigationVisualCount,
                             HiddenVisualCount = pageComposition.HiddenVisualCount,
-                            VisualMetadata = BuildPageVisualMetadataSummary(page),
+                            VisualMetadata = emptyPageSummaryArtifacts.VisualMetadata,
                             ReportConsistencyNotes = emptyPageConsistencyNotes,
-                            InferredStorySummary = emptyStorySummary,
-                            PageIntentProfile = emptyIntentProfile,
-                            ActionabilityBreakdown = emptyActionability,
-                            BenchmarkComparison = emptyBenchmark,
-                        }));
+                            InferredStorySummary = emptyPageSummaryArtifacts.StorySummary,
+                            PageIntentProfile = emptyPageSummaryArtifacts.IntentProfile,
+                            ActionabilityBreakdown = emptyPageSummaryArtifacts.ActionabilityBreakdown,
+                            BenchmarkComparison = emptyPageSummaryArtifacts.BenchmarkComparison,
+                            StoryAssessment = emptyStoryAssessment,
+                        })));
                         return;
                     }
 
                     // Score this page
-                    var pagePageRecommendations = new List<string>();
+                    var pagePageRecommendations = _recommendationAssemblyService.CreateBuffer();
                     var (pGestalt, pGestaltFeedback)          = ComputeGestaltScore(pageList);
                     var (pCogLoad, pCogLoadFeedback)          = ComputeCognitiveLoadScore(pageList, new(), navigationScoring);
                     var (pDataInk, pDataInkFeedback)          = ComputeDataInkScore(pageList, new(), navigationScoring);
@@ -649,7 +590,7 @@ public sealed class PbirScoringService
                     // Bookmark-aware overlay: replace per-framework scores with state averages when
                     // bookmarks affect this page, and surface the per-state composite map.
                     var pageOverlay = ComputeBookmarkAwareOverlay(
-                        page, reportJson, themeColors, navigationScoring, config, frameworkWeights);
+                        page, reportModel.ReportJson, themeColors, navigationScoring, config, frameworkWeights);
 
                     var finalGestalt        = pageOverlay?.AveragedFrameworks["gestalt"]              ?? Clamp(pGestalt);
                     var finalCogLoad        = pageOverlay?.AveragedFrameworks["cognitiveLoad"]        ?? Clamp(pCogLoad);
@@ -665,8 +606,7 @@ public sealed class PbirScoringService
 
                     if (pageOverlay is not null)
                     {
-                        pagePageRecommendations.Add(
-                            $"[Info] Bookmark-aware scoring active: page scored across {pageOverlay.PerStateScores.Count} layout states (Default + {pageOverlay.PerStateScores.Count - 1} bookmark state{(pageOverlay.PerStateScores.Count == 2 ? string.Empty : "s")}).");
+                        _recommendationAssemblyService.AddBookmarkAwareScoringRecommendation(pagePageRecommendations, pageOverlay.PerStateScores.Count);
 
                         _logger.LogInformation(
                             "[Bookmark State] Page '{Page}' scored across {Count} states",
@@ -674,55 +614,54 @@ public sealed class PbirScoringService
                     }
 
                     var reportConsistencyNotes = BuildReportConsistencyNotes(page.DisplayName, reportConsistencyContext);
-                    var pageStorySummary = InferPageStorySummary(page, reportConsistencyNotes);
-                    var pageIntentProfile = pageStorySummary is null ? null : BuildPageIntentProfileSummary(page, pageStorySummary);
-                    var actionabilityBreakdown = pageStorySummary is null || pageIntentProfile is null
-                        ? null
-                        : BuildActionabilityBreakdown(page, pageStorySummary, pageIntentProfile);
-                    var benchmarkComparison = pageStorySummary is null || pageIntentProfile is null || actionabilityBreakdown is null
-                        ? null
-                        : BuildBenchmarkComparison(page, pageStorySummary, pageIntentProfile, actionabilityBreakdown);
-                    var pageScore = new PageScore
+                    var pageSummaryArtifacts = BuildPageSummaryArtifacts(page, reportConsistencyNotes);
+                    var storyAssessment = _storyAssessmentOrchestrator.Assess(page, reportFilters, reportConsistencyNotes);
+                    var pageScore = _scoreResultAssemblyService.CreatePageScore(new PageScoreAssemblyInput
                     {
+                        PageId = page.Name,
                         PageName = page.DisplayName,
-                        GestaltScore = finalGestalt,
-                        CognitiveLoadScore = finalCogLoad,
-                        DataInkScore = finalDataInk,
-                        AccessibilityScore = finalAccessibility,
-                        VisualBestPracticesScore = finalVbp,
-                        EnterpriseGovernanceScore = finalGovernance,
-                        StephenFewScore = finalFew,
-                        TufteScore = finalTufte,
-                        GraphicalPerceptionScore = finalGraphical,
-                        DensityScore = finalDensity,
-                        NarrativeScore = finalNarrative,
-                        Feedback = new()
+                        Frameworks = new ScoreFrameworkSet
                         {
-                            ["gestalt"] = pGestaltFeedback,
-                            ["cognitiveLoad"] = pCogLoadFeedback,
-                            ["dataInk"] = pDataInkFeedback,
-                            ["accessibility"] = pA11yFeedback,
-                            ["visualBestPractices"] = pVbpFeedback,
-                            ["governance"] = pGovernanceFeedback,
-                            ["stephenFew"] = pFewFeedback,
-                            ["tufte"] = pTufteFeedback,
-                            ["graphicalPerception"] = pGraphicalFeedback,
-                            ["density"] = pDensityFeedback,
-                            ["narrative"] = pNarrativeFeedback,
+                            GestaltScore = finalGestalt,
+                            CognitiveLoadScore = finalCogLoad,
+                            DataInkScore = finalDataInk,
+                            AccessibilityScore = finalAccessibility,
+                            VisualBestPracticesScore = finalVbp,
+                            EnterpriseGovernanceScore = finalGovernance,
+                            StephenFewScore = finalFew,
+                            TufteScore = finalTufte,
+                            GraphicalPerceptionScore = finalGraphical,
+                            DensityScore = finalDensity,
+                            NarrativeScore = finalNarrative,
+                            Feedback = new()
+                            {
+                                ["gestalt"] = pGestaltFeedback,
+                                ["cognitiveLoad"] = pCogLoadFeedback,
+                                ["dataInk"] = pDataInkFeedback,
+                                ["accessibility"] = pA11yFeedback,
+                                ["visualBestPractices"] = pVbpFeedback,
+                                ["governance"] = pGovernanceFeedback,
+                                ["stephenFew"] = pFewFeedback,
+                                ["tufte"] = pTufteFeedback,
+                                ["graphicalPerception"] = pGraphicalFeedback,
+                                ["density"] = pDensityFeedback,
+                                ["narrative"] = pNarrativeFeedback,
+                            },
                         },
                         Recommendations = pagePageRecommendations,
                         FrameworkWeights = frameworkWeights,
                         DataVisualCount = pageComposition.DataVisualCount,
                         NavigationVisualCount = pageComposition.NavigationVisualCount,
                         HiddenVisualCount = pageComposition.HiddenVisualCount,
-                        VisualMetadata = BuildPageVisualMetadataSummary(page),
+                        VisualMetadata = pageSummaryArtifacts.VisualMetadata,
                         ReportConsistencyNotes = reportConsistencyNotes,
-                        InferredStorySummary = pageStorySummary,
-                        PageIntentProfile = pageIntentProfile,
-                        ActionabilityBreakdown = actionabilityBreakdown,
-                        BenchmarkComparison = benchmarkComparison,
+                        InferredStorySummary = pageSummaryArtifacts.StorySummary,
+                        PageIntentProfile = pageSummaryArtifacts.IntentProfile,
+                        ActionabilityBreakdown = pageSummaryArtifacts.ActionabilityBreakdown,
+                        BenchmarkComparison = pageSummaryArtifacts.BenchmarkComparison,
+                        StoryAssessment = storyAssessment,
                         PerStateScores = pageOverlay?.PerStateScores,
-                    };
+                    });
                     concurrentPageScores.Add((pageIndex, pageScore));
 
                     _logger.LogDebug(
@@ -748,6 +687,8 @@ public sealed class PbirScoringService
         {
             result.ScoringErrors[entry.Key] = entry.Value;
         }
+
+        result.InternalCrossPageNarrativeAssessment = _crossPageNarrativeOrchestrator.Build(result.PageScores);
 
         _logger.LogInformation(
             "[Scoring] Composite: {Score} (Gestalt={G} Cog={C} DataInk={D} A11y={A} VBP={V} Few={F})",
@@ -1992,12 +1933,12 @@ public sealed class PbirScoringService
     /// Scores report compliance against the governance rules supplied in the Design Analyzer config.
     /// Current rules cover max visuals per page, pie chart policy, and page title requirement.
     /// </summary>
-    private static (double score, List<FrameworkFeedbackItem> feedback) ComputeGovernanceScore(
+    private (double score, List<FrameworkFeedbackItem> feedback) ComputeGovernanceScore(
         List<PageData> pages,
         JsonElement? config)
     {
         var feedback = new List<FrameworkFeedbackItem>();
-        var rules = ExtractGovernanceRules(config);
+        var rules = _scoringConfigurationService.ExtractGovernanceRules(config);
         var allVisuals = pages.SelectMany(p => p.Visuals).Where(v => !v.IsHidden).ToList();
 
         if (pages.Count == 0)
@@ -2722,414 +2663,7 @@ public sealed class PbirScoringService
         return (Clamp(sub1 + sub2 + sub3 + sub4 + sub5), feedback);
     }
 
-    // ── Data loaders ─────────────────────────────────────────────────────────
-
-    private List<PageData> LoadAllPages(PbirReportLocation location)
-    {
-        var pagesRoot = Path.Combine(location.DefinitionPath, "pages");
-        if (!Directory.Exists(pagesRoot)) return [];
-
-        var pages = new List<PageData>();
-        foreach (var pageId in GetOrderedPageIds(pagesRoot))
-        {
-            if (string.IsNullOrWhiteSpace(pageId))
-            {
-                continue;
-            }
-
-            var pageDir = Path.Combine(pagesRoot, pageId);
-            if (!Directory.Exists(pageDir))
-            {
-                _logger.LogDebug("[Scoring] Skipping page id without folder: {PageId}", pageId);
-                continue;
-            }
-
-            var pageJsonPath = Path.Combine(pageDir, "page.json");
-            if (!File.Exists(pageJsonPath)) continue;
-
-            try
-            {
-                var pageJson = ReadJsonObject(pageJsonPath);
-                var displayName = pageJson["displayName"]?.GetValue<string>()
-                    ?? Path.GetFileName(pageDir);
-                
-                // Try to parse visuals from page.json first (new format)
-                var visuals = ParseVisuals(pageJson);
-                
-                // If no visuals found in page.json, scan visuals/ subdirectory (Power BI Desktop format)
-                if (visuals.Count == 0)
-                {
-                    visuals = ParseVisualsFromDirectory(pageDir);
-                }
-                
-                pages.Add(new PageData
-                {
-                    DisplayName = displayName,
-                    Visuals = visuals,
-                    Canvas = ParseCanvasMetadata(pageJson),
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Scoring] Could not read page {Dir}", pageDir);
-            }
-        }
-
-        return pages;
-    }
-
-    private List<string> GetOrderedPageIds(string pagesRoot)
-    {
-        var pagesMetadataPath = Path.Combine(pagesRoot, "pages.json");
-        if (File.Exists(pagesMetadataPath))
-        {
-            try
-            {
-                var pagesMetadata = ReadJsonObject(pagesMetadataPath);
-                if (pagesMetadata["pageOrder"] is JsonArray pageOrder)
-                {
-                    var orderedPageIds = pageOrder
-                        .Select(node => node?.GetValue<string>())
-                        .Where(pageId => !string.IsNullOrWhiteSpace(pageId))
-                        .Select(pageId => pageId!)
-                        .ToList();
-
-                    if (orderedPageIds.Count > 0)
-                    {
-                        return orderedPageIds;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Scoring] Failed to parse page order metadata: {Path}", pagesMetadataPath);
-            }
-        }
-
-        return Directory.GetDirectories(pagesRoot)
-            .Select(Path.GetFileName)
-            .Where(pageId => !string.IsNullOrWhiteSpace(pageId))
-            .Select(pageId => pageId!)
-            .ToList();
-    }
-
-    private List<VisualData> ParseVisuals(JsonObject pageJson)
-    {
-        var visuals = new List<VisualData>();
-
-        if (pageJson["visuals"] is not JsonArray arr) return visuals;
-
-        foreach (var item in arr)
-        {
-            if (item is not JsonObject vo) continue;
-            var visualId = vo["id"]?.GetValue<string>() ?? string.Empty;
-            bool isHidden = ReadBooleanNode(vo["isHidden"]) ?? false;
-            visuals.Add(CreateVisualData(
-                visualJson: vo,
-                visualId: visualId,
-                visualType: vo["type"]?.GetValue<string>() ?? string.Empty,
-                x: TryDouble(vo, "x"),
-                y: TryDouble(vo, "y"),
-                w: TryDouble(vo, "width"),
-                h: TryDouble(vo, "height"),
-                isHidden: isHidden,
-                sourceContext: $"page visual '{visualId}'"));
-        }
-
-        return visuals;
-    }
-    
-    /// <summary>
-    /// Parses visuals from the visuals/ subdirectory within a page folder.
-    /// This handles Power BI Desktop-authored reports where each visual is stored as visual.json.
-    /// </summary>
-    private List<VisualData> ParseVisualsFromDirectory(string pageDir)
-    {
-        var visuals = new List<VisualData>();
-        var visualsDir = Path.Combine(pageDir, "visuals");
-        
-        if (!Directory.Exists(visualsDir)) return visuals;
-        
-        foreach (var visualDir in Directory.GetDirectories(visualsDir))
-        {
-            var visualJsonPath = Path.Combine(visualDir, "visual.json");
-            if (!File.Exists(visualJsonPath)) continue;
-            
-            try
-            {
-                var visualJson = ReadJsonObject(visualJsonPath);
-                
-                // Extract visual name (folder name or from visual.json)
-                var visualName = visualJson["name"]?.GetValue<string>() 
-                    ?? Path.GetFileName(visualDir);
-                
-                // Extract position information
-                var position = visualJson["position"] as JsonObject;
-                double x = 0, y = 0, w = 0, h = 0;
-                
-                if (position is not null)
-                {
-                    x = position["x"]?.GetValue<double>() ?? 0;
-                    y = position["y"]?.GetValue<double>() ?? 0;
-                    w = position["width"]?.GetValue<double>() ?? 0;
-                    h = position["height"]?.GetValue<double>() ?? 0;
-                }
-                
-                // Extract visual type
-                var visual = visualJson["visual"] as JsonObject;
-                var visualType = visual?["visualType"]?.GetValue<string>() ?? "unknown";
-                
-                // Extract hidden state
-                bool isHidden = visualJson["isHidden"]?.GetValue<bool>() ?? false;
-                
-                visuals.Add(CreateVisualData(
-                    visualJson: visualJson,
-                    visualId: visualName,
-                    visualType: visualType,
-                    x: x,
-                    y: y,
-                    w: w,
-                    h: h,
-                    isHidden: isHidden,
-                    sourceContext: visualJsonPath));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Scoring] Could not parse visual definition at {Path}", visualJsonPath);
-            }
-        }
-        
-        return visuals;
-    }
-
-    private static CanvasMetadata? ParseCanvasMetadata(JsonObject pageJson)
-    {
-        var width = ReadDoubleNode(pageJson["width"])
-            ?? ReadNestedDouble(pageJson, "canvas", "width")
-            ?? ReadNestedDouble(pageJson, "pageSize", "width")
-            ?? ReadNestedDouble(pageJson, "size", "width");
-        var height = ReadDoubleNode(pageJson["height"])
-            ?? ReadNestedDouble(pageJson, "canvas", "height")
-            ?? ReadNestedDouble(pageJson, "pageSize", "height")
-            ?? ReadNestedDouble(pageJson, "size", "height");
-
-        if (width is > 0 && height is > 0)
-        {
-            return new CanvasMetadata(width.Value, height.Value);
-        }
-
-        return null;
-    }
-
-    private VisualData CreateVisualData(
-        JsonObject visualJson,
-        string visualId,
-        string visualType,
-        double x,
-        double y,
-        double w,
-        double h,
-        bool isHidden,
-        string sourceContext)
-    {
-        return new VisualData
-        {
-            Id = visualId,
-            Type = visualType,
-            X = x,
-            Y = y,
-            W = w,
-            H = h,
-            IsHidden = isHidden,
-            Text = ParseVisualTextMetadata(visualJson, visualId, visualType, sourceContext),
-            Labels = ParseVisualLabelMetadata(visualJson, visualId, sourceContext),
-            FieldRoles = ParseVisualFieldRoleMetadata(visualJson, visualId, sourceContext),
-            Formatting = ParseVisualFormattingMetadata(visualJson, visualId, sourceContext),
-        };
-    }
-
-    private VisualTextMetadata ParseVisualTextMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string visualType,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "text",
-            sourceContext,
-            () =>
-            {
-                var titleText = FirstNonBlank(
-                    ExtractVisibleObjectText(visualJson, ["title", "visualTitle", "header"]),
-                    ExtractVisibleScalarText(visualJson, ["titleText", "visualTitleText"]));
-                var subtitleText = FirstNonBlank(
-                    ExtractVisibleObjectText(visualJson, ["subtitle", "subTitle"]),
-                    ExtractVisibleScalarText(visualJson, ["subtitleText", "subTitleText"]));
-                string? textBoxText = null;
-                if (IsTextVisualType(visualType))
-                {
-                    textBoxText = FirstNonBlank(
-                        ExtractVisibleObjectText(visualJson, ["textbox", "textBox", "body"]),
-                        ExtractVisibleScalarText(visualJson, ["textBoxText", "bodyText", "text"]),
-                        ExtractTextRunContent(visualJson));
-                }
-
-                return new VisualTextMetadata(
-                    VisibleTitleText: titleText,
-                    VisibleSubtitleText: subtitleText,
-                    TextBoxText: textBoxText);
-            },
-            VisualTextMetadata.Empty);
-    }
-
-    private VisualLabelMetadata ParseVisualLabelMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "labels",
-            sourceContext,
-            () =>
-            {
-                var hasLegend = ExtractPresenceFlag(visualJson, ["legend"], ["hasLegend", "showLegend"]);
-                var hasAxisLabels = ExtractPresenceFlag(
-                    visualJson,
-                    ["axis", "xAxis", "yAxis", "categoryAxis", "valueAxis"],
-                    ["hasAxisLabels", "showAxisLabels"]);
-                var hasDataLabels = ExtractPresenceFlag(
-                    visualJson,
-                    ["dataLabels", "labels"],
-                    ["hasDataLabels", "showDataLabels"]);
-
-                return new VisualLabelMetadata(
-                    HasLegend: hasLegend,
-                    HasAxisLabels: hasAxisLabels,
-                    HasDataLabels: hasDataLabels);
-            },
-            VisualLabelMetadata.Empty);
-    }
-
-    private VisualFieldRoleMetadata ParseVisualFieldRoleMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "field roles",
-            sourceContext,
-            () =>
-            {
-                var categoryHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["category", "categories"]);
-                var valueHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["value", "values"]);
-                var seriesHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["series", "legend"]);
-                var measureHints = CollectRoleHints(visualJson, ["fieldRoles", "roles", "projections"], ["measure", "measures", "value", "values"]);
-
-                return new VisualFieldRoleMetadata(
-                    CategoryHints: categoryHints,
-                    ValueHints: valueHints,
-                    SeriesHints: seriesHints,
-                    MeasureHints: measureHints);
-            },
-            VisualFieldRoleMetadata.Empty);
-    }
-
-    private VisualFormattingMetadata ParseVisualFormattingMetadata(
-        JsonObject visualJson,
-        string visualId,
-        string sourceContext)
-    {
-        return TryParseVisualComponent(
-            visualId,
-            "formatting",
-            sourceContext,
-            () =>
-            {
-                var backgroundFillColor = FirstNonBlank(
-                    ExtractColorFromObjects(visualJson, ["background", "backgroundFill"]),
-                    ExtractColorFromObjects(visualJson, ["fill"]));
-                var fontColor = FirstNonBlank(
-                    ExtractColorFromObjects(visualJson, ["font", "foreground", "fontColor"]),
-                    ExtractColorFromObjects(visualJson, ["labelColor", "textColor", "foregroundColor"]));
-                var hasBorder = ExtractPresenceFlag(visualJson, ["border", "outline"], ["showBorder", "hasBorder"]);
-                var cornerRadius = ExtractNumericSetting(visualJson, ["corners"], ["radius"])
-                    ?? ExtractScalarNumber(visualJson, ["cornerRadius"]);
-                var hasShadow = ExtractPresenceFlag(visualJson, ["shadow", "dropShadow", "elevation"], ["showShadow", "hasShadow"]);
-
-                return new VisualFormattingMetadata(
-                    BackgroundFillColor: backgroundFillColor,
-                    FontColor: fontColor,
-                    HasBorder: hasBorder,
-                    CornerRadius: cornerRadius,
-                    HasShadow: hasShadow);
-            },
-            VisualFormattingMetadata.Empty);
-    }
-
-    /// <summary>
-    /// Resolves the theme data colours array from <c>report.json</c>.
-    /// Handles both built-in themes (empty colour list) and local <c>href</c> theme files.
-    /// </summary>
-    private List<string> ResolveThemeColors(
-        JsonObject reportJson,
-        PbirReportLocation location,
-        List<string> recs)
-    {
-        var themeNode = reportJson["theme"];
-        if (themeNode is null) return [];
-
-        // Local theme file reference?
-        var href = themeNode["href"]?.GetValue<string>();
-        if (!string.IsNullOrWhiteSpace(href) && !href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-        {
-            var themeFilePath = Path.GetFullPath(
-                Path.Combine(location.WorkspaceRootPath, href.TrimStart('/', '\\')));
-
-            if (File.Exists(themeFilePath))
-            {
-                return ParseThemeFile(themeFilePath);
-            }
-        }
-
-        // Built-in theme — name only, no colour data available for scoring.
-        return [];
-    }
-
-    private List<string> ParseThemeFile(string filePath)
-    {
-        try
-        {
-            var json = ReadJsonObject(filePath);
-
-            // Power BI theme JSON: { "dataColors": ["#hex", …] }
-            if (json["dataColors"] is JsonArray arr)
-            {
-                return arr
-                    .Select(n => n?.GetValue<string>())
-                    .Where(s => !string.IsNullOrWhiteSpace(s) && s!.StartsWith('#'))
-                    .Select(s => s!)
-                    .ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[Scoring] Could not parse theme file: {Path}", filePath);
-        }
-
-        return [];
-    }
-
     // ── Utilities ─────────────────────────────────────────────────────────────
-
-    private static JsonObject ReadJsonObject(string filePath)
-    {
-        var text = File.ReadAllText(filePath);
-        return JsonNode.Parse(text) as JsonObject
-            ?? throw new InvalidOperationException($"File is not a JSON object: {filePath}");
-    }
 
     private static double TryDouble(JsonObject obj, string key)
     {
@@ -3800,6 +3334,57 @@ public sealed class PbirScoringService
         };
     }
 
+    private static PageSummaryArtifacts BuildPageSummaryArtifacts(
+        PageData page,
+        IReadOnlyList<string>? reportConsistencyNotes = null)
+    {
+        var storySummary = InferPageStorySummary(page, reportConsistencyNotes);
+        var intentProfile = storySummary is null ? null : BuildPageIntentProfileSummary(page, storySummary);
+        var actionabilityBreakdown = storySummary is null || intentProfile is null
+            ? null
+            : BuildActionabilityBreakdown(page, storySummary, intentProfile);
+        var benchmarkComparison = storySummary is null || intentProfile is null || actionabilityBreakdown is null
+            ? null
+            : BuildBenchmarkComparison(page, storySummary, intentProfile, actionabilityBreakdown);
+
+        return new PageSummaryArtifacts(
+            BuildPageVisualMetadataSummary(page),
+            storySummary,
+            intentProfile,
+            actionabilityBreakdown,
+            benchmarkComparison);
+    }
+
+    private static PageSummaryArtifacts? BuildSinglePageReportSummaryArtifacts(IReadOnlyList<PageData> pages) =>
+        pages.Count == 1
+            ? BuildPageSummaryArtifacts(pages[0])
+            : null;
+
+    private static ScoreFrameworkSet CreateZeroScoreFrameworkSet(string message)
+    {
+        var feedback = new Dictionary<string, List<FrameworkFeedbackItem>>();
+        foreach (var key in new[] { "gestalt", "cognitiveLoad", "dataInk", "accessibility", "visualBestPractices", "governance", "stephenFew", "tufte", "graphicalPerception", "density", "narrative" })
+        {
+            feedback[key] = [FeedbackItem(false, message, FindingTypes.Objective)];
+        }
+
+        return new ScoreFrameworkSet
+        {
+            GestaltScore = 0,
+            CognitiveLoadScore = 0,
+            DataInkScore = 0,
+            AccessibilityScore = 0,
+            VisualBestPracticesScore = 0,
+            StephenFewScore = 0,
+            EnterpriseGovernanceScore = 0,
+            TufteScore = 0,
+            GraphicalPerceptionScore = 0,
+            DensityScore = 0,
+            NarrativeScore = 0,
+            Feedback = feedback,
+        };
+    }
+
     private static string InferPageIntentProfile(
         NarrativePageAnalysis analysis,
         string? dominantIntent)
@@ -4102,6 +3687,3044 @@ public sealed class PbirScoringService
         return evidence;
     }
 
+    internal static StorySignalRegistry BuildStorySignalRegistry(
+        PageData page,
+        IReadOnlyList<string>? reportConsistencyNotes = null)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        var visibleDataVisuals = analysis.VisibleDataVisuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .ToList();
+        var leadVisual = analysis.SupportingDataVisuals
+            .OrderBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .FirstOrDefault()
+            ?? visibleDataVisuals.FirstOrDefault();
+        var leadIntent = leadVisual is null ? null : InferChartIntent(leadVisual, page);
+        var semanticSignals = AnalyzeSemanticNarrativeSignals(analysis, leadVisual);
+        var targetBenchmarkPresent = ContainsAnyNarrativeKeyword(analysis.VisibleTexts, "target", "budget", "benchmark", "goal", "plan", "actual");
+        var priorPeriodContext = ContainsAnyNarrativeKeyword(analysis.VisibleTexts, "prior", "previous", "yoy", "mom", "qoq", "last month", "last year");
+        var slicerPresent = page.Visuals.Any(visual => !visual.IsHidden && visual.IsSlicer);
+
+        var entries = new List<StorySignalRegistryEntry>
+        {
+            CreateStorySignalEntry(
+                id: "layout.meaningfulVisibleTitle",
+                category: StorySignalCategory.Layout,
+                rawValue: analysis.VisibleTitle,
+                fired: analysis.HasMeaningfulVisibleTitle,
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Visible title or question anchor in the page scan path.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.DirectRemediation),
+            CreateStorySignalEntry(
+                id: "layout.topScanKpiCount",
+                category: StorySignalCategory.Layout,
+                rawValue: analysis.KpiCards.Count.ToString(CultureInfo.InvariantCulture),
+                fired: analysis.KpiCards.Count > 0,
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Count of KPI cards visible in the top scan path.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "layout.leadVisualType",
+                category: StorySignalCategory.Layout,
+                rawValue: leadVisual?.Type,
+                fired: !string.IsNullOrWhiteSpace(leadVisual?.Type),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "The leading visible data visual used in the narrative scan path.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "layout.supportingEvidenceFlow",
+                category: StorySignalCategory.Layout,
+                rawValue: analysis.HasSupportingEvidenceFlow.ToString(),
+                fired: analysis.HasSupportingEvidenceFlow,
+                contributionIntent: StorySignalContributionIntent.ShapesNarrativeConfidence,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Whether headline results are backed by supporting visuals in the same page flow.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "semantic.primaryMetric",
+                category: StorySignalCategory.Semantic,
+                rawValue: IsGenericStoryMetric(semanticSignals.PrimaryMetric) ? null : semanticSignals.PrimaryMetric,
+                fired: !IsGenericStoryMetric(semanticSignals.PrimaryMetric),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.Mixed,
+                explanationHook: "Primary measure inferred from field roles, titles, and semantic hints.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "semantic.primaryDimension",
+                category: StorySignalCategory.Semantic,
+                rawValue: semanticSignals.PrimaryDimension,
+                fired: !string.IsNullOrWhiteSpace(semanticSignals.PrimaryDimension),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.Mixed,
+                explanationHook: "Primary comparison or grouping dimension inferred from category metadata.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "semantic.richMetadataSupport",
+                category: StorySignalCategory.Semantic,
+                rawValue: semanticSignals.HasRichMetadataSupport.ToString(),
+                fired: semanticSignals.HasRichMetadataSupport,
+                contributionIntent: StorySignalContributionIntent.ShapesNarrativeConfidence,
+                remediability: StorySignalRemediability.SemanticModel,
+                explanationHook: "Aliases and descriptions reinforce the same business concept.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "context.targetBenchmarkPresent",
+                category: StorySignalCategory.Context,
+                rawValue: targetBenchmarkPresent.ToString(),
+                fired: targetBenchmarkPresent,
+                contributionIntent: StorySignalContributionIntent.SupportsDecisionContext,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Target, budget, or benchmark text appears in the visible narrative surface.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Required,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.DirectRemediation),
+            CreateStorySignalEntry(
+                id: "context.priorPeriodContext",
+                category: StorySignalCategory.Context,
+                rawValue: priorPeriodContext.ToString(),
+                fired: priorPeriodContext,
+                contributionIntent: StorySignalContributionIntent.SupportsDecisionContext,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Prior-period or delta wording appears in the visible narrative surface.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.DirectEvidence,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.DirectRemediation),
+            CreateStorySignalEntry(
+                id: "context.slicerPresent",
+                category: StorySignalCategory.Context,
+                rawValue: slicerPresent.ToString(),
+                fired: slicerPresent,
+                contributionIntent: StorySignalContributionIntent.SupportsExplorationContext,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "At least one visible slicer is present on the page.",
+                surfaceScope: StoryAssessmentSurfaceScope.PbirSpecific,
+                requirementRole: StorySignalRequirementRole.Optional,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DirectEvidence,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance),
+            CreateStorySignalEntry(
+                id: "context.crossPageConsistencyPenalty",
+                category: StorySignalCategory.Context,
+                rawValue: reportConsistencyNotes?.Count.ToString(CultureInfo.InvariantCulture),
+                fired: reportConsistencyNotes is { Count: > 0 },
+                contributionIntent: StorySignalContributionIntent.ShapesNarrativeConfidence,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Cross-page consistency notes may reduce narrative clarity confidence.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Optional,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.DiagnosticOnly),
+        };
+
+        if (leadIntent is not null)
+        {
+            entries.Add(CreateStorySignalEntry(
+                id: "layout.leadIntent",
+                category: StorySignalCategory.Layout,
+                rawValue: leadIntent.Intent,
+                fired: !string.IsNullOrWhiteSpace(leadIntent.Intent),
+                contributionIntent: StorySignalContributionIntent.ClarifiesStoryIntent,
+                remediability: StorySignalRemediability.ReportLayer,
+                explanationHook: "Inferred analytical intent of the lead chart.",
+                surfaceScope: StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+                requirementRole: StorySignalRequirementRole.Supportive,
+                evidenceRole: StorySignalEvidenceRole.ReinforcementOnly,
+                explanationType: StoryAssessmentExplanationType.DerivedButExplainable,
+                actionabilityType: StoryAssessmentActionabilityType.IndirectGuidance));
+        }
+
+        return new StorySignalRegistry { Entries = entries };
+    }
+
+    internal static StoryFilterTopologyAssessment BuildStoryFilterTopologyAssessment(
+        PageData page,
+        IReadOnlyList<FilterDefinitionData> reportFilters)
+    {
+        var canvasWidth = page.Canvas?.Width ?? CanvasWidth;
+        var canvasHeight = page.Canvas?.Height ?? CanvasHeight;
+        var visibleSlicers = page.Visuals
+            .Where(visual => !visual.IsHidden && visual.IsSlicer)
+            .ToList();
+        var extractedFilters = new List<StoryFilterTopologyFilter>();
+        var hierarchyPatterns = new List<string>();
+        var topologyCharacteristics = new List<string>();
+        var diagnosticNotes = new List<string>();
+
+        foreach (var slicer in visibleSlicers)
+        {
+            extractedFilters.Add(new StoryFilterTopologyFilter
+            {
+                SourceId = slicer.Id,
+                Scope = StoryFilterScope.Slicer,
+                DisplayLabel = FirstNonBlank(slicer.BestVisibleText, slicer.Filter.FieldHints.FirstOrDefault(), slicer.Id) ?? slicer.Id,
+                FieldHints = slicer.Filter.FieldHints,
+                HierarchyPattern = slicer.Filter.HierarchyPattern,
+                HierarchyDepth = slicer.Filter.HierarchyDepth,
+                PlacementZone = ClassifyFilterZone(slicer, canvasWidth, canvasHeight),
+            });
+
+            if (!string.IsNullOrWhiteSpace(slicer.Filter.HierarchyPattern))
+            {
+                hierarchyPatterns.Add(slicer.Filter.HierarchyPattern!);
+            }
+        }
+
+        foreach (var pageFilter in page.PageFilters)
+        {
+            extractedFilters.Add(new StoryFilterTopologyFilter
+            {
+                SourceId = pageFilter.SourceId,
+                Scope = StoryFilterScope.Page,
+                DisplayLabel = pageFilter.DisplayLabel,
+                FieldHints = pageFilter.FieldHints,
+                HierarchyPattern = pageFilter.HierarchyPattern,
+                HierarchyDepth = pageFilter.HierarchyDepth,
+                PlacementZone = null,
+            });
+
+            if (pageFilter.IsMalformed)
+            {
+                diagnosticNotes.Add($"Page filter '{pageFilter.SourceId}' had partial or malformed metadata.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(pageFilter.HierarchyPattern))
+            {
+                hierarchyPatterns.Add(pageFilter.HierarchyPattern!);
+            }
+        }
+
+        foreach (var reportFilter in reportFilters)
+        {
+            extractedFilters.Add(new StoryFilterTopologyFilter
+            {
+                SourceId = reportFilter.SourceId,
+                Scope = StoryFilterScope.Report,
+                DisplayLabel = reportFilter.DisplayLabel,
+                FieldHints = reportFilter.FieldHints,
+                HierarchyPattern = reportFilter.HierarchyPattern,
+                HierarchyDepth = reportFilter.HierarchyDepth,
+                PlacementZone = null,
+            });
+
+            if (reportFilter.IsMalformed)
+            {
+                diagnosticNotes.Add($"Report filter '{reportFilter.SourceId}' had partial or malformed metadata.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(reportFilter.HierarchyPattern))
+            {
+                hierarchyPatterns.Add(reportFilter.HierarchyPattern!);
+            }
+        }
+
+        var distinctZones = visibleSlicers
+            .Select(slicer => ClassifyFilterZone(slicer, canvasWidth, canvasHeight))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(zone => zone, StringComparer.Ordinal)
+            .ToList();
+        if (visibleSlicers.Count > 0)
+        {
+            topologyCharacteristics.Add(distinctZones.Count == 1
+                ? $"single {distinctZones[0]} control band"
+                : $"distributed slicer controls across {distinctZones.Count} zones");
+            if (distinctZones.Any(zone => zone.Contains("left", StringComparison.OrdinalIgnoreCase)))
+            {
+                topologyCharacteristics.Add("left control zone present");
+            }
+
+            if (distinctZones.Any(zone => zone.Contains("top", StringComparison.OrdinalIgnoreCase)))
+            {
+                topologyCharacteristics.Add("top control zone present");
+            }
+        }
+
+        if (page.PageFilters.Count > 0)
+        {
+            topologyCharacteristics.Add("page-scoped filter context present");
+        }
+
+        if (reportFilters.Count > 0)
+        {
+            topologyCharacteristics.Add("report-scoped filter context present");
+        }
+
+        if (hierarchyPatterns.Count > 0)
+        {
+            topologyCharacteristics.Add("hierarchical filter metadata present");
+        }
+
+        var signals = new List<StoryFilterTopologySignal>();
+        bool hasMeaningfulFieldHints = extractedFilters.Any(filter =>
+            filter.FieldHints.Any(hint => !string.IsNullOrWhiteSpace(NormalizeSemanticHint(hint))));
+        bool hasHierarchicalTimeSignal = extractedFilters.Any(filter =>
+            filter.HierarchyDepth >= 2 &&
+            (filter.HierarchyPattern?.Contains("year", StringComparison.OrdinalIgnoreCase) == true ||
+             filter.HierarchyPattern?.Contains("month", StringComparison.OrdinalIgnoreCase) == true ||
+             filter.DisplayLabel.Contains("date", StringComparison.OrdinalIgnoreCase) ||
+             filter.FieldHints.Any(hint =>
+                 hint.Contains("date", StringComparison.OrdinalIgnoreCase) ||
+                 hint.Contains("year", StringComparison.OrdinalIgnoreCase) ||
+                 hint.Contains("month", StringComparison.OrdinalIgnoreCase))));
+        signals.Add(new StoryFilterTopologySignal
+        {
+            Id = "topology.hierarchicalTimeFilter",
+            Classification = StoryFilterTopologySignalClassification.CrossSurfaceCandidate,
+            SurfaceScope = StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+            Scope = StoryFilterScope.Slicer,
+            Fired = hasHierarchicalTimeSignal,
+            SupportsArchetypeReinforcement = hasHierarchicalTimeSignal,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            AccuracyContribution = hasHierarchicalTimeSignal ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+            ExplainabilityContribution = hasHierarchicalTimeSignal ? StoryAssessmentValidationRating.Strong : StoryAssessmentValidationRating.NotAssessed,
+            ActionabilityContribution = hasHierarchicalTimeSignal ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+        });
+
+        bool hasScopedContextSignal = hasMeaningfulFieldHints && (page.PageFilters.Count > 0 || reportFilters.Count > 0);
+        signals.Add(new StoryFilterTopologySignal
+        {
+            Id = "topology.scopedFilterContext",
+            Classification = StoryFilterTopologySignalClassification.PbirSpecific,
+            SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+            Scope = reportFilters.Count > 0 ? StoryFilterScope.Report : StoryFilterScope.Page,
+            Fired = hasScopedContextSignal,
+            SupportsArchetypeReinforcement = hasScopedContextSignal,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            AccuracyContribution = hasScopedContextSignal ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+            ExplainabilityContribution = hasScopedContextSignal ? StoryAssessmentValidationRating.Strong : StoryAssessmentValidationRating.NotAssessed,
+            ActionabilityContribution = hasScopedContextSignal ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+        });
+
+        bool hasReportLevelContextSignal = hasMeaningfulFieldHints && reportFilters.Count > 0;
+        signals.Add(new StoryFilterTopologySignal
+        {
+            Id = "topology.reportLevelContext",
+            Classification = StoryFilterTopologySignalClassification.PbirSpecific,
+            SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+            Scope = StoryFilterScope.Report,
+            Fired = hasReportLevelContextSignal,
+            SupportsArchetypeReinforcement = hasReportLevelContextSignal,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            AccuracyContribution = hasReportLevelContextSignal ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+            ExplainabilityContribution = hasReportLevelContextSignal ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+            ActionabilityContribution = hasReportLevelContextSignal ? StoryAssessmentValidationRating.Weak : StoryAssessmentValidationRating.NotAssessed,
+        });
+
+        bool hasConsistentControlBand = hasMeaningfulFieldHints && visibleSlicers.Count > 0 && distinctZones.Count == 1;
+        signals.Add(new StoryFilterTopologySignal
+        {
+            Id = "topology.consistentControlBand",
+            Classification = StoryFilterTopologySignalClassification.CrossSurfaceCandidate,
+            SurfaceScope = StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+            Scope = StoryFilterScope.Slicer,
+            Fired = hasConsistentControlBand,
+            SupportsArchetypeReinforcement = hasConsistentControlBand,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            AccuracyContribution = hasConsistentControlBand ? StoryAssessmentValidationRating.Mixed : StoryAssessmentValidationRating.NotAssessed,
+            ExplainabilityContribution = hasConsistentControlBand ? StoryAssessmentValidationRating.Strong : StoryAssessmentValidationRating.NotAssessed,
+            ActionabilityContribution = hasConsistentControlBand ? StoryAssessmentValidationRating.Strong : StoryAssessmentValidationRating.NotAssessed,
+        });
+
+        bool diagnosticScatter = visibleSlicers.Count >= 2 && (!hasMeaningfulFieldHints || distinctZones.Count > 1);
+        signals.Add(new StoryFilterTopologySignal
+        {
+            Id = "topology.scatteredGenericFilters",
+            Classification = StoryFilterTopologySignalClassification.DiagnosticOnly,
+            SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+            Scope = StoryFilterScope.Slicer,
+            Fired = diagnosticScatter,
+            SupportsArchetypeReinforcement = false,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            AccuracyContribution = diagnosticScatter ? StoryAssessmentValidationRating.Weak : StoryAssessmentValidationRating.NotAssessed,
+            ExplainabilityContribution = diagnosticScatter ? StoryAssessmentValidationRating.Weak : StoryAssessmentValidationRating.NotAssessed,
+            ActionabilityContribution = diagnosticScatter ? StoryAssessmentValidationRating.Weak : StoryAssessmentValidationRating.NotAssessed,
+        });
+
+        if (diagnosticScatter)
+        {
+            diagnosticNotes.Add("Scattered or generic slicer topology was retained as diagnostic-only because it did not improve story inference quality.");
+        }
+
+        var reinforcedArchetypes = BuildTopologyReinforcementBonusMap(signals)
+            .Where(entry => entry.Value > 0d)
+            .Select(entry => entry.Key.ToString())
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+        var meaningfulSignals = signals.Where(signal => signal.Fired && signal.SupportsArchetypeReinforcement).ToList();
+
+        return new StoryFilterTopologyAssessment
+        {
+            SlicerCount = visibleSlicers.Count,
+            SurfaceScope = DetermineTopologySurfaceScope(signals),
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            PageFilterCount = page.PageFilters.Count,
+            ReportFilterCount = reportFilters.Count,
+            ExtractedFilters = extractedFilters,
+            HierarchyPatterns = hierarchyPatterns
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(pattern => pattern, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            TopologyCharacteristics = topologyCharacteristics
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(characteristic => characteristic, StringComparer.Ordinal)
+                .ToList(),
+            Signals = signals,
+            ReinforcedArchetypes = reinforcedArchetypes,
+            DiagnosticNotes = diagnosticNotes
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(note => note, StringComparer.Ordinal)
+                .ToList(),
+            AccuracyContribution = DetermineAggregateTopologyRating(meaningfulSignals.Select(signal => signal.AccuracyContribution)),
+            ExplainabilityContribution = DetermineAggregateTopologyRating(meaningfulSignals.Select(signal => signal.ExplainabilityContribution)),
+            ActionabilityContribution = DetermineAggregateTopologyRating(meaningfulSignals.Select(signal => signal.ActionabilityContribution)),
+        };
+    }
+
+    internal static StorySpecialPageAssessment BuildStorySpecialPageAssessment(PageData page)
+    {
+        var candidates = new List<StorySpecialPageAssessment>();
+
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.Tooltip,
+            keywordGroups:
+            [
+                new[] { "tooltip" },
+            ],
+            matchingVisualTypes: [],
+            matchingFieldHints: ["tooltip"],
+            treatAsPrimaryNarrativePage: false,
+            suppressNormalStoryGaps: false,
+            suppressGenericArchetypePromotion: true,
+            reason: "Tooltip pages provide supporting hover detail and should not be treated as a primary narrative page."));
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.Qna,
+            keywordGroups:
+            [
+                new[] { "q&a", "qna", "ask a question" },
+            ],
+            matchingVisualTypes: ["qnavisual"],
+            matchingFieldHints: ["question", "q&a", "qna"],
+            treatAsPrimaryNarrativePage: false,
+            suppressNormalStoryGaps: false,
+            suppressGenericArchetypePromotion: true,
+            reason: "Q&A pages are question-driven exploration surfaces and should not overclaim a generic analytical archetype."));
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.WhatIf,
+            keywordGroups:
+            [
+                new[] { "what if", "what-if", "scenario" },
+            ],
+            matchingVisualTypes: [],
+            matchingFieldHints: ["parameter", "scenario", "what if", "what-if"],
+            treatAsPrimaryNarrativePage: true,
+            suppressNormalStoryGaps: false,
+            suppressGenericArchetypePromotion: true,
+            reason: "What-if pages are scenario and exploration pages that should not be reduced to a generic comparison summary."));
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.KeyInfluencers,
+            keywordGroups:
+            [
+                new[] { "key influencers", "keyinfluencers", "keyinf", "keyinfluence", "keyinfluencer", "retkeyinf", "influencer", "driver", "drivers" },
+            ],
+            matchingVisualTypes: ["keyinfluencers"],
+            matchingFieldHints: ["influencer", "drivers", "driver"],
+            treatAsPrimaryNarrativePage: true,
+            suppressNormalStoryGaps: false,
+            suppressGenericArchetypePromotion: true,
+            reason: "Key Influencers pages are driver and explanation pages that should not be promoted as generic comparison pages."));
+        AddIfDetected(candidates, EvaluateCustomerSegmentationDiagnosticPage(page));
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.MarketBasket,
+            keywordGroups:
+            [
+                new[] { "market basket", "basket analysis" },
+                new[] { "association rules", "product pair" },
+            ],
+            matchingVisualTypes: [],
+            matchingFieldHints: ["support", "lift", "confidence", "product pair", "association"],
+            treatAsPrimaryNarrativePage: true,
+            suppressNormalStoryGaps: false,
+            suppressGenericArchetypePromotion: true,
+            reason: "Market Basket pages are association and explanatory analysis pages that should not overclaim KPI-summary archetypes."));
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.ReferenceLegal,
+            keywordGroups:
+            [
+                new[] { "legal", "disclaimer" },
+                new[] { "terms of use", "terms" },
+            ],
+            matchingVisualTypes: ["textbox"],
+            matchingFieldHints: ["legal", "disclaimer"],
+            treatAsPrimaryNarrativePage: false,
+            suppressNormalStoryGaps: true,
+            suppressGenericArchetypePromotion: true,
+            reason: "Reference and legal pages are non-analytical support pages and should not produce normal analytical gaps."));
+        AddIfDetected(candidates, EvaluateSpecialPageCandidate(
+            page,
+            StorySpecialPageType.ValidationSandbox,
+            keywordGroups:
+            [
+                new[] { "validation", "sandbox" },
+                new[] { "test page", "debug", "duplicate" },
+            ],
+            matchingVisualTypes: [],
+            matchingFieldHints: ["test", "validation", "sandbox"],
+            treatAsPrimaryNarrativePage: false,
+            suppressNormalStoryGaps: true,
+            suppressGenericArchetypePromotion: true,
+            reason: "Validation and sandbox pages are non-reviewable diagnostic pages and should not be treated as normal analytical pages."));
+
+        return candidates
+            .OrderByDescending(candidate => GetSpecialPageConfidenceRank(candidate.Confidence))
+            .ThenByDescending(candidate => candidate.EvidenceReferences.Count)
+            .ThenBy(candidate => candidate.PageType.ToString(), StringComparer.Ordinal)
+            .FirstOrDefault()
+            ?? new StorySpecialPageAssessment
+            {
+                PageType = StorySpecialPageType.Unknown,
+                Confidence = StorySpecialPageConfidence.Low,
+                EvidenceReferences = Array.Empty<StorySpecialPageEvidenceReference>(),
+                Reason = "No special-page classification met the conservative evidence threshold.",
+                PromotionState = StoryAssessmentPromotionState.Internal,
+                SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+                TreatAsPrimaryNarrativePage = true,
+                SuppressNormalStoryGaps = false,
+                SuppressGenericArchetypePromotion = false,
+            };
+    }
+
+    private static StorySpecialPageAssessment? EvaluateSpecialPageCandidate(
+        PageData page,
+        StorySpecialPageType pageType,
+        IReadOnlyList<string[]> keywordGroups,
+        IReadOnlyList<string> matchingVisualTypes,
+        IReadOnlyList<string> matchingFieldHints,
+        bool treatAsPrimaryNarrativePage,
+        bool suppressNormalStoryGaps,
+        bool suppressGenericArchetypePromotion,
+        string reason)
+    {
+        var evidenceReferences = new List<StorySpecialPageEvidenceReference>();
+        int score = 0;
+        int textCueCount = 0;
+        var matchedPhrases = new List<string>();
+
+        if (TryAddSpecialPageKeywordEvidence(evidenceReferences, "page", "displayName", page.DisplayName, keywordGroups, out var displayNameMatch))
+        {
+            score += 2;
+            textCueCount++;
+            if (!string.IsNullOrWhiteSpace(displayNameMatch))
+            {
+                matchedPhrases.Add(displayNameMatch);
+            }
+        }
+
+        var strictVisibleTitle = GetStrictVisibleTitleText(page);
+        if (TryAddSpecialPageKeywordEvidence(evidenceReferences, "page", "strictVisibleTitle", strictVisibleTitle, keywordGroups, out var strictTitleMatch))
+        {
+            score += 2;
+            textCueCount++;
+            if (!string.IsNullOrWhiteSpace(strictTitleMatch))
+            {
+                matchedPhrases.Add(strictTitleMatch);
+            }
+        }
+
+        foreach (var visual in page.Visuals.Where(visual => !visual.IsHidden))
+        {
+            if (matchingVisualTypes.Any(type => string.Equals(type, visual.Type, StringComparison.OrdinalIgnoreCase)))
+            {
+                evidenceReferences.Add(new StorySpecialPageEvidenceReference
+                {
+                    SourceType = "visualType",
+                    ReferenceId = visual.Id,
+                    Summary = $"Visual '{visual.Id}' uses the special-page type '{visual.Type}'.",
+                });
+                score += 2;
+                break;
+            }
+        }
+
+        foreach (var visual in page.Visuals.Where(visual => !visual.IsHidden))
+        {
+            if (TryAddSpecialPageKeywordEvidence(evidenceReferences, "visualTitle", visual.Id, visual.BestVisibleText, keywordGroups, out var visualMatch))
+            {
+                score += 1;
+                textCueCount++;
+                if (!string.IsNullOrWhiteSpace(visualMatch))
+                {
+                    matchedPhrases.Add(visualMatch);
+                }
+                break;
+            }
+        }
+
+        var fieldHints = page.Visuals
+            .Where(visual => !visual.IsHidden)
+            .SelectMany(visual => visual.FieldRoles.CategoryHints
+                .Concat(visual.FieldRoles.SeriesHints)
+                .Concat(visual.FieldRoles.MeasureHints)
+                .Concat(visual.FieldRoles.ValueHints))
+            .ToList();
+        var matchingHint = fieldHints.FirstOrDefault(hint => matchingFieldHints.Any(match => TextContainsPhrase(hint, match)));
+        if (!string.IsNullOrWhiteSpace(matchingHint))
+        {
+            evidenceReferences.Add(new StorySpecialPageEvidenceReference
+            {
+                SourceType = "fieldHint",
+                ReferenceId = pageType.ToString(),
+                Summary = $"Field or measure metadata contains special-page cue '{matchingHint}'.",
+            });
+            score += 1;
+            textCueCount++;
+        }
+
+        if (pageType is StorySpecialPageType.KeyInfluencers &&
+            RequiresAdditionalKeyInfluencerSupport(matchedPhrases, evidenceReferences))
+        {
+            return null;
+        }
+
+        if (pageType is StorySpecialPageType.ReferenceLegal && page.Visuals.Count(visual => !visual.IsDecorative && !visual.IsNavigationElement) <= 1)
+        {
+            evidenceReferences.Add(new StorySpecialPageEvidenceReference
+            {
+                SourceType = "layout",
+                ReferenceId = pageType.ToString(),
+                Summary = "Page uses little or no analytical visual evidence, which supports a non-analytical reference posture.",
+            });
+            score += 1;
+        }
+
+        if (pageType is StorySpecialPageType.Tooltip && page.Visuals.Count(visual => !visual.IsHidden) <= 3)
+        {
+            evidenceReferences.Add(new StorySpecialPageEvidenceReference
+            {
+                SourceType = "layout",
+                ReferenceId = pageType.ToString(),
+                Summary = "Tooltip page uses a compact supporting layout rather than a full narrative canvas.",
+            });
+            score += 1;
+        }
+
+        var distinctSourceCount = evidenceReferences
+            .Select(reference => $"{reference.SourceType}:{reference.ReferenceId}")
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        if (score < 2 || distinctSourceCount == 0 || (textCueCount == 0 && score < 4))
+        {
+            return null;
+        }
+
+        var confidence = score >= 4 && distinctSourceCount >= 2
+            ? StorySpecialPageConfidence.High
+            : StorySpecialPageConfidence.Medium;
+        return new StorySpecialPageAssessment
+        {
+            PageType = pageType,
+            Confidence = confidence,
+            EvidenceReferences = evidenceReferences
+                .GroupBy(reference => $"{reference.SourceType}:{reference.ReferenceId}:{reference.Summary}", StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList(),
+            Reason = reason,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+            TreatAsPrimaryNarrativePage = treatAsPrimaryNarrativePage,
+            SuppressNormalStoryGaps = suppressNormalStoryGaps,
+            SuppressGenericArchetypePromotion = suppressGenericArchetypePromotion,
+        };
+    }
+
+    private static bool TryAddSpecialPageKeywordEvidence(
+        ICollection<StorySpecialPageEvidenceReference> evidenceReferences,
+        string sourceType,
+        string referenceId,
+        string? candidateText,
+        IReadOnlyList<string[]> keywordGroups,
+        out string? matchedPhrase)
+    {
+        matchedPhrase = null;
+
+        if (string.IsNullOrWhiteSpace(candidateText))
+        {
+            return false;
+        }
+
+        foreach (var group in keywordGroups)
+        {
+            var matchedCandidate = group.FirstOrDefault(phrase =>
+                TextContainsPhrase(candidateText, phrase) ||
+                NormalizeSpecialPageCue(candidateText).Contains(NormalizeSpecialPageCue(phrase), StringComparison.Ordinal));
+            if (!string.IsNullOrWhiteSpace(matchedCandidate))
+            {
+                matchedPhrase = matchedCandidate;
+                evidenceReferences.Add(new StorySpecialPageEvidenceReference
+                {
+                    SourceType = sourceType,
+                    ReferenceId = referenceId,
+                    Summary = $"Text cue '{matchedPhrase}' matched in '{candidateText}'.",
+                });
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static StorySpecialPageAssessment? EvaluateCustomerSegmentationDiagnosticPage(PageData page)
+    {
+        var evidenceReferences = new List<StorySpecialPageEvidenceReference>();
+        int score = 0;
+
+        bool hasCustomerTextCue = TryAddSpecialPageKeywordEvidence(
+            evidenceReferences,
+            "page",
+            "displayName",
+            page.DisplayName,
+            [["customer", "segment", "segmentation", "cohort", "account", "buyer"]],
+            out _);
+        hasCustomerTextCue |= TryAddSpecialPageKeywordEvidence(
+            evidenceReferences,
+            "page",
+            "strictVisibleTitle",
+            GetStrictVisibleTitleText(page),
+            [["customer", "segment", "segmentation", "cohort", "account", "buyer"]],
+            out _);
+        if (hasCustomerTextCue)
+        {
+            score += 2;
+        }
+
+        var customerSemanticHints = page.PageFilters
+            .SelectMany(filter => filter.FieldHints)
+            .Concat(page.Visuals
+                .Where(visual => !visual.IsHidden)
+                .SelectMany(visual => visual.FieldRoles.CategoryHints
+                    .Concat(visual.FieldRoles.SeriesHints)
+                    .Concat(visual.FieldRoles.MeasureHints)
+                    .Concat(visual.FieldRoles.ValueHints)))
+            .Where(IsCustomerSegmentationCue)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (customerSemanticHints.Count > 0)
+        {
+            evidenceReferences.Add(new StorySpecialPageEvidenceReference
+            {
+                SourceType = "fieldHint",
+                ReferenceId = StorySpecialPageType.CustomerSegmentationDiagnostic.ToString(),
+                Summary = $"Customer or segmentation semantic cues detected: {string.Join(", ", customerSemanticHints.OrderBy(hint => hint, StringComparer.OrdinalIgnoreCase))}.",
+            });
+            score += customerSemanticHints.Count >= 2 ? 2 : 1;
+        }
+
+        var visibleAnalyticalVisuals = page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsDecorative && !visual.IsNavigationElement && !visual.IsKpiCard)
+            .ToList();
+        bool hasDiagnosticBreakdownStructure =
+            visibleAnalyticalVisuals.Count >= 2 &&
+            (visibleAnalyticalVisuals.Count(visual => visual.IsComparison || visual.Type is "tableEx" or "table" or "matrix") >= 2 ||
+             visibleAnalyticalVisuals.Any(visual => visual.Type is "tableEx" or "table" or "matrix"));
+        if (hasDiagnosticBreakdownStructure)
+        {
+            evidenceReferences.Add(new StorySpecialPageEvidenceReference
+            {
+                SourceType = "layout",
+                ReferenceId = StorySpecialPageType.CustomerSegmentationDiagnostic.ToString(),
+                Summary = "Multiple analytical breakdown visuals suggest a diagnostic or segmentation page rather than a KPI monitor.",
+            });
+            score += 1;
+        }
+
+        if (!hasCustomerTextCue || customerSemanticHints.Count == 0 || !hasDiagnosticBreakdownStructure || score < 4)
+        {
+            return null;
+        }
+
+        return new StorySpecialPageAssessment
+        {
+            PageType = StorySpecialPageType.CustomerSegmentationDiagnostic,
+            Confidence = score >= 5 ? StorySpecialPageConfidence.High : StorySpecialPageConfidence.Medium,
+            EvidenceReferences = evidenceReferences,
+            Reason = "Customer and segmentation cues indicate a diagnostic breakdown page, so generic performance-monitor promotion should be downgraded.",
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+            TreatAsPrimaryNarrativePage = true,
+            SuppressNormalStoryGaps = false,
+            SuppressGenericArchetypePromotion = true,
+        };
+    }
+
+    private static bool IsCustomerSegmentationCue(string? hint)
+    {
+        if (string.IsNullOrWhiteSpace(hint))
+        {
+            return false;
+        }
+
+        return TextContainsPhrase(hint, "customer") ||
+               TextContainsPhrase(hint, "segment") ||
+               TextContainsPhrase(hint, "segmentation") ||
+               TextContainsPhrase(hint, "cohort") ||
+               TextContainsPhrase(hint, "account") ||
+               TextContainsPhrase(hint, "buyer");
+    }
+
+    private static bool RequiresAdditionalKeyInfluencerSupport(
+        IReadOnlyList<string> matchedPhrases,
+        IReadOnlyList<StorySpecialPageEvidenceReference> evidenceReferences)
+    {
+        var normalizedMatches = matchedPhrases
+            .Select(NormalizeSpecialPageCue)
+            .Where(match => !string.IsNullOrWhiteSpace(match))
+            .ToList();
+        bool hasCompactAlias = normalizedMatches.Any(match => match is
+            "retkeyinf" or
+            "keyinf" or
+            "keyinfluence" or
+            "keyinfluencer" or
+            "influencer" or
+            "driver" or
+            "drivers");
+        bool hasStrongPhrase = normalizedMatches.Any(match => match == "keyinfluencers");
+        if (!hasCompactAlias || hasStrongPhrase)
+        {
+            return false;
+        }
+
+        return !evidenceReferences.Any(reference =>
+            string.Equals(reference.SourceType, "visualType", StringComparison.Ordinal) ||
+            string.Equals(reference.SourceType, "fieldHint", StringComparison.Ordinal));
+    }
+
+    private static string NormalizeSpecialPageCue(string text)
+    {
+        return Regex.Replace(text.ToLowerInvariant(), @"[^a-z0-9]+", string.Empty, RegexOptions.CultureInvariant);
+    }
+
+    private static int GetSpecialPageConfidenceRank(StorySpecialPageConfidence confidence)
+    {
+        return confidence switch
+        {
+            StorySpecialPageConfidence.High => 3,
+            StorySpecialPageConfidence.Medium => 2,
+            _ => 1,
+        };
+    }
+
+    private static void AddIfDetected(
+        ICollection<StorySpecialPageAssessment> candidates,
+        StorySpecialPageAssessment? assessment)
+    {
+        if (assessment is not null)
+        {
+            candidates.Add(assessment);
+        }
+    }
+
+    internal static StoryAssessmentArchetypeClassification? BuildStoryAssessmentArchetypeClassification(
+        StorySignalRegistry? registry,
+        StoryFilterTopologyAssessment? topologyAssessment = null,
+        StorySpecialPageAssessment? specialPageAssessment = null)
+    {
+        if (registry?.Entries is null || registry.Entries.Count == 0)
+        {
+            return null;
+        }
+
+        var entriesById = registry.Entries
+            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
+        var candidateResults = new[]
+        {
+            EvaluateArchetype(entriesById, StoryArchetypeId.PerformanceMonitor, BuildPerformanceMonitorExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.TrendException, BuildTrendExceptionExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.Ranking, BuildRankingExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.Comparison, BuildComparisonExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.Decomposition, BuildDecompositionExpectations()),
+            EvaluateArchetype(entriesById, StoryArchetypeId.NarrativeWalkthrough, BuildNarrativeWalkthroughExpectations()),
+        }
+        .Select(result => ApplyTopologyReinforcement(result, topologyAssessment))
+        .Select(result => ApplySpecialPageArchetypeGuardrails(result, specialPageAssessment))
+        .OrderByDescending(result => result.MatchScore)
+        .ThenBy(result => result.ArchetypeId.ToString(), StringComparer.Ordinal)
+        .ToList();
+
+        if (candidateResults.Count == 0)
+        {
+            return null;
+        }
+
+        var bestScore = candidateResults[0].MatchScore;
+        var secondBestScore = candidateResults.Count > 1 ? candidateResults[1].MatchScore : 0d;
+        bool suppressedBySpecialPageType = specialPageAssessment is not null &&
+                                           specialPageAssessment.PageType != StorySpecialPageType.Unknown &&
+                                           specialPageAssessment.SuppressGenericArchetypePromotion;
+
+        var finalizedResults = candidateResults
+            .Select((result, index) => FinalizeArchetypeResult(
+                result,
+                marginToNearestCompetitor: index == 0 ? bestScore - secondBestScore : bestScore - result.MatchScore,
+                isBestFit: index == 0))
+            .ToList();
+
+        var bestFit = finalizedResults[0];
+        return new StoryAssessmentArchetypeClassification
+        {
+            BestFitArchetypeId = bestFit.ArchetypeId,
+            SurfaceScope = DetermineArchetypeClassificationSurfaceScope(finalizedResults),
+            PromotionState = DetermineCanonicalPromotionState(finalizedResults.Select(result => result.PromotionState)),
+            SuppressedBySpecialPageType = suppressedBySpecialPageType,
+            ArchetypePromotionDisposition = DetermineArchetypePromotionDisposition(specialPageAssessment, suppressedBySpecialPageType),
+            SpecialPageReason = suppressedBySpecialPageType ? specialPageAssessment?.Reason : null,
+            ArchetypeResults = finalizedResults,
+            Level1ValidationHarness = new StoryAssessmentLevel1ValidationHarness
+            {
+                ReviewerChoice = null,
+                SystemChoice = bestFit.ArchetypeId.ToString(),
+                DisagreementReason = null,
+                AccuracyRating = StoryAssessmentValidationRating.NotAssessed,
+                ConsistencyRating = StoryAssessmentValidationRating.NotAssessed,
+                ExplainabilityRating = StoryAssessmentValidationRating.NotAssessed,
+                ActionabilityRating = StoryAssessmentValidationRating.NotAssessed,
+            },
+            PromotionGateDefinition = new StoryAssessmentPromotionGateDefinition
+            {
+                MinimumClassificationAccuracy = 0.85d,
+                MinimumExplanationQuality = StoryAssessmentValidationRating.Strong,
+                MinimumGapUsefulnessPotential = StoryAssessmentValidationRating.Mixed,
+                MaximumFalsePositiveRate = 0.10d,
+                ReviewerAgreementThresholdPlaceholder = 0.80d,
+            },
+        };
+    }
+
+    internal static StorySemanticCoherenceAssessment BuildStorySemanticCoherenceAssessment(
+        PageData page,
+        StorySpecialPageAssessment? specialPageAssessment = null)
+    {
+        var tuningDetails = BuildSemanticCoherenceTuningDetails(page, specialPageAssessment);
+        var extractedTerms = ExtractSemanticCoherenceTerms(page, specialPageAssessment);
+        var scoringMode = specialPageAssessment is not null &&
+                          specialPageAssessment.PageType != StorySpecialPageType.Unknown &&
+                          !specialPageAssessment.TreatAsPrimaryNarrativePage
+            ? "DiagnosticSpecialPage"
+            : "PrimaryNarrative";
+        if (extractedTerms.Count == 0)
+        {
+            return CreateSparseSemanticCoherenceAssessment(scoringMode, tuningDetails);
+        }
+
+        var termClusters = BuildSemanticTermClusters(extractedTerms);
+        if (termClusters.Count == 0)
+        {
+            return CreateSparseSemanticCoherenceAssessment(scoringMode, tuningDetails, extractedTerms);
+        }
+
+        var topCluster = termClusters[0];
+        var secondCluster = termClusters.Count > 1 ? termClusters[1] : null;
+        var totalClusterWeight = termClusters.Sum(cluster => cluster.Weight);
+        var totalEvidenceCount = extractedTerms.Count;
+        bool diagnosticMode = string.Equals(scoringMode, "DiagnosticSpecialPage", StringComparison.Ordinal);
+        bool isSparse = diagnosticMode
+            ? totalEvidenceCount < 3 || totalClusterWeight < 2.5d
+            : totalEvidenceCount < 4 || totalClusterWeight < 3.5d || topCluster.SupportCount < 2;
+        var dominantShare = topCluster.Weight / Math.Max(totalClusterWeight, 1d);
+        double coherenceScore = isSparse
+            ? Math.Round(dominantShare * 35d, 2)
+            : Math.Round(Math.Min(100d, dominantShare * 72d + Math.Min(28d, topCluster.SupportCount * 5d)), 2);
+
+        bool strongCompetingStory = !isSparse &&
+            secondCluster is not null &&
+            MeetsStrongCompetingStoryThreshold(topCluster, secondCluster, extractedTerms);
+        bool weakDisagreement = !isSparse &&
+            secondCluster is not null &&
+            !strongCompetingStory &&
+            MeetsWeakDisagreementThreshold(topCluster, secondCluster, extractedTerms);
+
+        var coherenceClassification = isSparse
+            ? StorySemanticCoherenceClassification.Sparse
+            : strongCompetingStory || coherenceScore < 55d
+                ? StorySemanticCoherenceClassification.Split
+                : StorySemanticCoherenceClassification.Focused;
+        var competingStoryStatus = strongCompetingStory
+            ? StoryCompetingStoryStatus.StrongCandidatePromotionDelayed
+            : weakDisagreement || (!isSparse && secondCluster is not null && coherenceClassification == StorySemanticCoherenceClassification.Split)
+                ? StoryCompetingStoryStatus.WeakDiagnosticOnly
+                : StoryCompetingStoryStatus.None;
+        var confidence = DetermineSemanticCoherenceConfidence(
+            coherenceScore,
+            totalEvidenceCount,
+            topCluster,
+            secondCluster,
+            isSparse,
+            weakDisagreement);
+        var validationStatus = competingStoryStatus == StoryCompetingStoryStatus.StrongCandidatePromotionDelayed
+            ? StorySemanticCoherenceValidationStatus.PromotionDelayedRequiresStrongerValidation
+            : !isSparse && confidence != StorySemanticCoherenceConfidence.Low
+                ? StorySemanticCoherenceValidationStatus.Level1Candidate
+                : StorySemanticCoherenceValidationStatus.Internal;
+        var dominantConcept = isSparse ? null : topCluster.ClusterId;
+        var weakDisagreementSignals = (weakDisagreement ||
+                                       (!isSparse && secondCluster is not null && coherenceClassification == StorySemanticCoherenceClassification.Split)) &&
+                                      secondCluster is not null
+            ? new[]
+            {
+                $"Secondary cluster '{secondCluster.ClusterId}' remains distinct but below competing-story confidence thresholds.",
+                $"Top clusters differ by {Math.Round(Math.Abs(topCluster.Weight - secondCluster.Weight), 2).ToString(CultureInfo.InvariantCulture)} weighted support.",
+            }
+            : Array.Empty<string>();
+        var explanationHooks = BuildSemanticCoherenceExplanationHooks(
+            topCluster,
+            secondCluster,
+            coherenceClassification,
+            competingStoryStatus,
+            extractedTerms.Count,
+            weakDisagreementSignals);
+
+        return new StorySemanticCoherenceAssessment
+        {
+            CoherenceScore = coherenceScore,
+            SurfaceScope = StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+            ScoringMode = scoringMode,
+            CoherenceClassification = coherenceClassification,
+            DominantConcept = dominantConcept,
+            ExtractedTerms = extractedTerms,
+            TermClusters = termClusters,
+            CompetingStoryStatus = competingStoryStatus,
+            WeakDisagreementSignals = weakDisagreementSignals,
+            ExplanationHooks = explanationHooks,
+            Confidence = confidence,
+            ValidationStatus = validationStatus,
+            PromotionState = DetermineSemanticCoherencePromotionState(competingStoryStatus, isSparse),
+            TuningDetails = tuningDetails,
+            Level1ValidationHarness = new StorySemanticCoherenceLevel1ValidationHarness
+            {
+                ReviewerCoherenceChoice = null,
+                SystemCoherenceChoice = coherenceClassification.ToString(),
+                ReviewerDominantConcept = null,
+                SystemDominantConcept = dominantConcept ?? string.Empty,
+                DisagreementReason = null,
+                AccuracyRating = StoryAssessmentValidationRating.NotAssessed,
+                ConsistencyRating = StoryAssessmentValidationRating.NotAssessed,
+                ExplainabilityRating = StoryAssessmentValidationRating.NotAssessed,
+                ActionabilityRating = StoryAssessmentValidationRating.NotAssessed,
+            },
+        };
+    }
+
+    private static StorySemanticCoherenceAssessment CreateSparseSemanticCoherenceAssessment(
+        string scoringMode,
+        IReadOnlyList<string> tuningDetails,
+        IReadOnlyList<StorySemanticTermEvidence>? extractedTerms = null)
+    {
+        return new StorySemanticCoherenceAssessment
+        {
+            CoherenceScore = 0d,
+            SurfaceScope = StoryAssessmentSurfaceScope.CrossSurfaceCandidate,
+            ScoringMode = scoringMode,
+            CoherenceClassification = StorySemanticCoherenceClassification.Sparse,
+            DominantConcept = null,
+            ExtractedTerms = extractedTerms ?? Array.Empty<StorySemanticTermEvidence>(),
+            TermClusters = Array.Empty<StorySemanticTermCluster>(),
+            CompetingStoryStatus = StoryCompetingStoryStatus.None,
+            WeakDisagreementSignals = Array.Empty<string>(),
+            ExplanationHooks =
+            [
+                "Sparse semantic metadata prevented a reliable coherence judgment.",
+            ],
+            Confidence = StorySemanticCoherenceConfidence.Low,
+            ValidationStatus = StorySemanticCoherenceValidationStatus.Internal,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            TuningDetails = tuningDetails,
+            Level1ValidationHarness = new StorySemanticCoherenceLevel1ValidationHarness
+            {
+                ReviewerCoherenceChoice = null,
+                SystemCoherenceChoice = StorySemanticCoherenceClassification.Sparse.ToString(),
+                ReviewerDominantConcept = null,
+                SystemDominantConcept = string.Empty,
+                DisagreementReason = null,
+                AccuracyRating = StoryAssessmentValidationRating.NotAssessed,
+                ConsistencyRating = StoryAssessmentValidationRating.NotAssessed,
+                ExplainabilityRating = StoryAssessmentValidationRating.NotAssessed,
+                ActionabilityRating = StoryAssessmentValidationRating.NotAssessed,
+            },
+        };
+    }
+
+    internal static StoryGapAssessment BuildStoryGapAssessment(
+        StorySignalRegistry? registry,
+        StoryAssessmentArchetypeClassification? archetypeClassification,
+        StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
+        StoryFilterTopologyAssessment? topologyAssessment,
+        StorySpecialPageAssessment? specialPageAssessment)
+    {
+        var gaps = new List<StoryGapRecord>();
+
+        if (registry?.Entries is { Count: > 0 })
+        {
+            foreach (var entry in registry.Entries
+                         .Where(entry =>
+                             !entry.Fired &&
+                             entry.RequirementRole != StorySignalRequirementRole.Optional &&
+                             entry.Remediability != StorySignalRemediability.NotDirectlyRemediable &&
+                             entry.ActionabilityType != StoryAssessmentActionabilityType.DiagnosticOnly)
+                         .OrderBy(entry => entry.Id, StringComparer.Ordinal))
+            {
+                var confidence = DetermineSignalGapConfidence(entry);
+                gaps.Add(new StoryGapRecord
+                {
+                    GapId = $"gap.missing.{entry.Id}",
+                    Description = BuildMissingSignalGapDescription(entry),
+                    EvidenceReferences =
+                    [
+                        new StoryGapEvidenceReference
+                        {
+                            SourceType = "signalRegistry",
+                            ReferenceId = entry.Id,
+                            Summary = $"Signal did not fire: {entry.ExplanationHook}",
+                        },
+                    ],
+                    RemediationLayer = MapGapRemediationLayer(entry.Remediability, entry.Category),
+                    ActionabilityAssessment = DowngradeGapActionability(
+                        MapGapActionability(entry.ActionabilityType),
+                        confidence),
+                    ArchetypeRelevance = DetermineGapArchetypeRelevance(entry.Id, archetypeClassification),
+                    PromotionState = StoryAssessmentPromotionState.Internal,
+                    Confidence = confidence,
+                    IsFutureContractCandidate = IsFutureContractCandidateGapId($"gap.missing.{entry.Id}"),
+                });
+            }
+        }
+
+        if (semanticCoherenceAssessment is not null)
+        {
+            var semanticConfidence = MapGapConfidence(semanticCoherenceAssessment.Confidence);
+            if (semanticCoherenceAssessment.CoherenceClassification == StorySemanticCoherenceClassification.Sparse)
+            {
+                gaps.Add(new StoryGapRecord
+                {
+                    GapId = "gap.semantic.sparseMetadata",
+                    Description = "Strengthen semantic model names, descriptions, or visible titles so the page resolves to a clearer business concept.",
+                    EvidenceReferences = BuildSemanticGapEvidenceReferences(
+                        "semantic.sparseMetadata",
+                        semanticCoherenceAssessment.ExplanationHooks),
+                    RemediationLayer = StoryGapRemediationLayer.Model,
+                    ActionabilityAssessment = DowngradeGapActionability(
+                        StoryGapActionabilityAssessment.PartlyActionable,
+                        semanticConfidence),
+                    ArchetypeRelevance = StoryGapArchetypeRelevance.Low,
+                    PromotionState = StoryAssessmentPromotionState.Internal,
+                    Confidence = semanticConfidence,
+                    IsFutureContractCandidate = IsFutureContractCandidateGapId("gap.semantic.sparseMetadata"),
+                });
+            }
+
+            if (semanticCoherenceAssessment.CoherenceClassification == StorySemanticCoherenceClassification.Split)
+            {
+                gaps.Add(new StoryGapRecord
+                {
+                    GapId = "gap.semantic.competingStoryMetadata",
+                    Description = "Align measure names, field labels, and visible wording around one dominant concept so the story is easier to explain consistently.",
+                    EvidenceReferences = BuildSemanticGapEvidenceReferences(
+                        "semantic.competingStoryMetadata",
+                        semanticCoherenceAssessment.ExplanationHooks),
+                    RemediationLayer = StoryGapRemediationLayer.Model,
+                    ActionabilityAssessment = DowngradeGapActionability(
+                        StoryGapActionabilityAssessment.PartlyActionable,
+                        semanticConfidence),
+                    ArchetypeRelevance = StoryGapArchetypeRelevance.Primary,
+                    PromotionState = StoryAssessmentPromotionState.Internal,
+                    Confidence = semanticConfidence,
+                    IsFutureContractCandidate = IsFutureContractCandidateGapId("gap.semantic.competingStoryMetadata"),
+                });
+
+                gaps.Add(new StoryGapRecord
+                {
+                    GapId = "gap.semantic.competingStoryRestructure",
+                    Description = "Separate competing narratives into clearer sections, visuals, or pages so users do not have to reconcile multiple stories at once.",
+                    EvidenceReferences = BuildSemanticGapEvidenceReferences(
+                        "semantic.competingStoryRestructure",
+                        semanticCoherenceAssessment.ExplanationHooks),
+                    RemediationLayer = StoryGapRemediationLayer.Restructure,
+                    ActionabilityAssessment = DowngradeGapActionability(
+                        StoryGapActionabilityAssessment.Actionable,
+                        semanticConfidence),
+                    ArchetypeRelevance = StoryGapArchetypeRelevance.Primary,
+                    PromotionState = StoryAssessmentPromotionState.Internal,
+                    Confidence = semanticConfidence,
+                    IsFutureContractCandidate = IsFutureContractCandidateGapId("gap.semantic.competingStoryRestructure"),
+                });
+            }
+        }
+
+        if (topologyAssessment is not null &&
+            topologyAssessment.Signals.Any(signal =>
+                signal.Id == "topology.scatteredGenericFilters" &&
+                signal.Fired))
+        {
+            gaps.Add(new StoryGapRecord
+            {
+                GapId = "gap.topology.scatteredFilters",
+                Description = "Group or simplify filter controls so the story keeps one consistent exploration entry point instead of scattered filter affordances.",
+                EvidenceReferences = BuildTopologyGapEvidenceReferences(topologyAssessment),
+                RemediationLayer = StoryGapRemediationLayer.Restructure,
+                ActionabilityAssessment = StoryGapActionabilityAssessment.PartlyActionable,
+                ArchetypeRelevance = StoryGapArchetypeRelevance.Supporting,
+                PromotionState = StoryAssessmentPromotionState.Internal,
+                Confidence = StoryGapConfidence.Medium,
+                IsFutureContractCandidate = IsFutureContractCandidateGapId("gap.topology.scatteredFilters"),
+            });
+        }
+
+        var filteredGaps = FilterStoryGapsForValidation(gaps, specialPageAssessment);
+
+        return new StoryGapAssessment
+        {
+            SurfaceScope = DetermineStoryGapSurfaceScope(filteredGaps),
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            Gaps = filteredGaps
+                .GroupBy(gap => gap.GapId, StringComparer.Ordinal)
+                .Select(group => group.First())
+                .OrderBy(gap => gap.GapId, StringComparer.Ordinal)
+                .ToList(),
+        };
+    }
+
+    internal static StoryConfidenceBreakdownAssessment BuildStoryConfidenceBreakdownAssessment(
+        StorySignalRegistry? registry,
+        StoryAssessmentArchetypeClassification? archetypeClassification,
+        StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
+        StoryFilterTopologyAssessment? topologyAssessment,
+        StoryGapAssessment? gapAssessment)
+    {
+        var records = new List<StoryConfidenceDimensionRecord>();
+        var lowConfidenceCauses = DetermineConfidenceLowCauses(
+            registry,
+            archetypeClassification,
+            semanticCoherenceAssessment);
+
+        records.Add(BuildAccuracyConfidenceDimension(
+            registry,
+            archetypeClassification,
+            semanticCoherenceAssessment,
+            lowConfidenceCauses));
+        records.Add(BuildConsistencyConfidenceDimension(
+            registry,
+            archetypeClassification,
+            semanticCoherenceAssessment,
+            lowConfidenceCauses));
+        records.Add(BuildExplainabilityConfidenceDimension(
+            registry,
+            semanticCoherenceAssessment,
+            topologyAssessment,
+            lowConfidenceCauses));
+        records.Add(BuildActionabilityConfidenceDimension(
+            registry,
+            topologyAssessment,
+            gapAssessment,
+            lowConfidenceCauses));
+
+        var strongestDimensions = BuildConfidenceDimensionLabelsByRating(records, descending: true);
+        var weakestDimensions = BuildConfidenceDimensionLabelsByRating(records, descending: false);
+
+        return new StoryConfidenceBreakdownAssessment
+        {
+            SurfaceScope = DetermineConfidenceBreakdownSurfaceScope(records),
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            Dimensions = records,
+            StrongestDimensions = strongestDimensions,
+            WeakestDimensions = weakestDimensions,
+            LowConfidenceCauses = lowConfidenceCauses,
+        };
+    }
+
+    private static StoryArchetypeMatchResult ApplySpecialPageArchetypeGuardrails(
+        StoryArchetypeMatchResult result,
+        StorySpecialPageAssessment? specialPageAssessment)
+    {
+        if (specialPageAssessment is null ||
+            specialPageAssessment.PageType == StorySpecialPageType.Unknown ||
+            !specialPageAssessment.SuppressGenericArchetypePromotion)
+        {
+            return result;
+        }
+
+        var penalty = GetSpecialPageArchetypePenalty(specialPageAssessment.PageType, result.ArchetypeId);
+        if (penalty <= 0d)
+        {
+            return result;
+        }
+
+        var hooks = result.ExplanationHooks.ToList();
+        hooks.Add($"Special page type '{specialPageAssessment.PageType}' reduced generic archetype promotion for {result.ArchetypeId}.");
+
+        return new StoryArchetypeMatchResult
+        {
+            ArchetypeId = result.ArchetypeId,
+            SurfaceScope = result.SurfaceScope,
+            MatchScore = Math.Round(Math.Max(0d, result.MatchScore - penalty), 2),
+            MatchConfidence = result.MatchConfidence,
+            MatchedSignals = result.MatchedSignals,
+            MissedSignals = result.MissedSignals,
+            ExplanationHooks = hooks
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            ValidationStatus = result.ValidationStatus,
+            PromotionEligibilityState = result.PromotionEligibilityState,
+            PromotionState = result.PromotionState,
+        };
+    }
+
+    private static double GetSpecialPageArchetypePenalty(StorySpecialPageType pageType, StoryArchetypeId archetypeId)
+    {
+        return pageType switch
+        {
+            StorySpecialPageType.Tooltip or StorySpecialPageType.Qna or StorySpecialPageType.ReferenceLegal or StorySpecialPageType.ValidationSandbox => archetypeId switch
+            {
+                StoryArchetypeId.PerformanceMonitor => 0.32d,
+                StoryArchetypeId.Comparison => 0.28d,
+                StoryArchetypeId.Ranking => 0.24d,
+                StoryArchetypeId.TrendException => 0.22d,
+                StoryArchetypeId.Decomposition => 0.18d,
+                StoryArchetypeId.NarrativeWalkthrough => 0.10d,
+                _ => 0d,
+            },
+            StorySpecialPageType.WhatIf => archetypeId switch
+            {
+                StoryArchetypeId.PerformanceMonitor => 0.20d,
+                StoryArchetypeId.Comparison => 0.18d,
+                StoryArchetypeId.Ranking => 0.14d,
+                StoryArchetypeId.TrendException => 0.10d,
+                _ => 0d,
+            },
+            StorySpecialPageType.KeyInfluencers => archetypeId switch
+            {
+                StoryArchetypeId.PerformanceMonitor => 0.22d,
+                StoryArchetypeId.Comparison => 0.20d,
+                StoryArchetypeId.Ranking => 0.18d,
+                StoryArchetypeId.TrendException => 0.12d,
+                StoryArchetypeId.Decomposition => 0.08d,
+                _ => 0d,
+            },
+            StorySpecialPageType.CustomerSegmentationDiagnostic => archetypeId switch
+            {
+                StoryArchetypeId.PerformanceMonitor => 0.28d,
+                _ => 0d,
+            },
+            StorySpecialPageType.MarketBasket => archetypeId switch
+            {
+                StoryArchetypeId.PerformanceMonitor => 0.24d,
+                StoryArchetypeId.Comparison => 0.22d,
+                StoryArchetypeId.Ranking => 0.18d,
+                StoryArchetypeId.TrendException => 0.12d,
+                StoryArchetypeId.NarrativeWalkthrough => 0.06d,
+                _ => 0d,
+            },
+            _ => 0d,
+        };
+    }
+
+    private static string DetermineArchetypePromotionDisposition(
+        StorySpecialPageAssessment? specialPageAssessment,
+        bool suppressedBySpecialPageType)
+    {
+        if (!suppressedBySpecialPageType)
+        {
+            return "Normal";
+        }
+
+        return specialPageAssessment?.TreatAsPrimaryNarrativePage == true
+            ? "DowngradedBySpecialPageType"
+            : "SecondaryToSpecialPageType";
+    }
+
+    private static IReadOnlyList<string> BuildSemanticCoherenceTuningDetails(
+        PageData page,
+        StorySpecialPageAssessment? specialPageAssessment)
+    {
+        var details = new List<string>
+        {
+            "Weighted page display name and strict visible title ahead of secondary visual text.",
+            "Weighted the primary narrative visual title and measure hints above supporting visuals.",
+            "Applied narrow deterministic phrase folding for Q&A, what-if, key influencers, and market basket terms.",
+        };
+
+        if (specialPageAssessment is not null && specialPageAssessment.PageType != StorySpecialPageType.Unknown)
+        {
+            details.Add(
+                specialPageAssessment.TreatAsPrimaryNarrativePage
+                    ? $"Special-page cue '{specialPageAssessment.PageType}' adjusted weighting without disabling review."
+                    : $"Special-page cue '{specialPageAssessment.PageType}' enabled diagnostic coherence mode.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(GetStrictVisibleTitleText(page)))
+        {
+            details.Add("Strict visible page title contributed additional deterministic weighting.");
+        }
+
+        return details
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static List<StorySemanticTermEvidence> ExtractSemanticCoherenceTerms(
+        PageData page,
+        StorySpecialPageAssessment? specialPageAssessment = null)
+    {
+        var analysis = AnalyzeNarrativePage(page);
+        var primaryVisual = SelectPrimaryNarrativeVisual(page);
+        var sourceEntries = new List<(string Source, string RawText, double Weight)>();
+
+        void AddSource(string source, string? rawText, double weight)
+        {
+            if (string.IsNullOrWhiteSpace(rawText))
+            {
+                return;
+            }
+
+            sourceEntries.Add((source, rawText!, weight));
+        }
+
+        AddSource("page.displayName", page.DisplayName, 1.35d);
+        AddSource("page.visibleTitle", analysis.VisibleTitle, 1.50d);
+        AddSource("page.strictVisibleTitle", GetStrictVisibleTitleText(page), 1.60d);
+        if (specialPageAssessment is not null && specialPageAssessment.PageType != StorySpecialPageType.Unknown)
+        {
+            AddSource("page.specialType", specialPageAssessment.PageType.ToString(), 1.60d);
+        }
+
+        foreach (var visual in page.Visuals
+                     .Where(visual => !visual.IsHidden)
+                     .OrderBy(visual => visual.Y)
+                     .ThenBy(visual => visual.X)
+                     .ThenBy(visual => visual.Id, StringComparer.Ordinal))
+        {
+            var titleWeight = visual.IsSlicer
+                ? 0.55d
+                : primaryVisual?.Id == visual.Id ? 1.55d : 1.15d;
+            var measureWeight = visual.IsSlicer
+                ? 0.35d
+                : primaryVisual?.Id == visual.Id ? 1.20d : 1.00d;
+            var categoryWeight = visual.IsSlicer
+                ? 0.45d
+                : primaryVisual?.Id == visual.Id ? 1.15d : 1.00d;
+            AddSource($"visual.{visual.Id}.title", visual.Text.VisibleTitleText, titleWeight);
+            AddSource($"visual.{visual.Id}.subtitle", visual.Text.VisibleSubtitleText, 1.00d);
+            AddSource($"visual.{visual.Id}.textbox", visual.Text.TextBoxText, 1.20d);
+            if (!string.Equals(visual.BestVisibleText, visual.Text.VisibleTitleText, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(visual.BestVisibleText, visual.Text.TextBoxText, StringComparison.OrdinalIgnoreCase))
+            {
+                AddSource($"visual.{visual.Id}.visibleText", visual.BestVisibleText, 1.00d);
+            }
+
+            foreach (var hint in visual.FieldRoles.CategoryHints)
+            {
+                AddSource($"visual.{visual.Id}.category", hint, categoryWeight);
+            }
+
+            foreach (var hint in visual.FieldRoles.SeriesHints)
+            {
+                AddSource($"visual.{visual.Id}.series", hint, 1.00d);
+            }
+
+            foreach (var hint in visual.FieldRoles.MeasureHints)
+            {
+                AddSource($"visual.{visual.Id}.measure", hint, measureWeight);
+            }
+
+            foreach (var hint in visual.FieldRoles.ValueHints)
+            {
+                AddSource($"visual.{visual.Id}.value", hint, 0.90d);
+            }
+        }
+
+        return sourceEntries
+            .Select(entry => new StorySemanticTermEvidence
+            {
+                CanonicalTerm = NormalizeSemanticCoherenceTerm(entry.RawText) ?? string.Empty,
+                RawText = entry.RawText,
+                Source = entry.Source,
+                Weight = entry.Weight,
+            })
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.CanonicalTerm))
+            .OrderBy(entry => entry.CanonicalTerm, StringComparer.Ordinal)
+            .ThenBy(entry => entry.Source, StringComparer.Ordinal)
+            .ThenBy(entry => entry.RawText, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static VisualData? SelectPrimaryNarrativeVisual(PageData page)
+    {
+        return page.Visuals
+            .Where(visual => !visual.IsHidden && !visual.IsDecorative && !visual.IsNavigationElement)
+            .OrderByDescending(visual => visual.W * visual.H)
+            .ThenBy(visual => visual.Y)
+            .ThenBy(visual => visual.X)
+            .FirstOrDefault();
+    }
+
+    private static string? NormalizeSemanticCoherenceTerm(string? rawText)
+    {
+        var normalized = NormalizeSemanticHint(rawText);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        normalized = ApplySemanticPhraseNormalization(normalized);
+        var tokenBuffer = Regex.Replace(normalized.ToLowerInvariant(), @"[^a-z0-9]+", " ", RegexOptions.CultureInvariant);
+        var tokens = tokenBuffer
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeSemanticCoherenceToken)
+            .Where(token => !string.IsNullOrWhiteSpace(token) && !IsSemanticCoherenceStopWord(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return tokens.Count == 0 ? null : string.Join(' ', tokens);
+    }
+
+    private static string ApplySemanticPhraseNormalization(string normalized)
+    {
+        return normalized
+            .Replace("Q&A", "Qna", StringComparison.OrdinalIgnoreCase)
+            .Replace("Q & A", "Qna", StringComparison.OrdinalIgnoreCase)
+            .Replace("What If", "WhatIf", StringComparison.OrdinalIgnoreCase)
+            .Replace("What-If", "WhatIf", StringComparison.OrdinalIgnoreCase)
+            .Replace("Key Influencers", "KeyInfluencers", StringComparison.OrdinalIgnoreCase)
+            .Replace("Market Basket", "MarketBasket", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeSemanticCoherenceToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return string.Empty;
+        }
+
+        var normalized = token.Trim();
+        if (normalized.Length > 4 && normalized.EndsWith("ies", StringComparison.Ordinal))
+        {
+            normalized = normalized[..^3] + "y";
+        }
+        else if (normalized.Length > 4 && normalized.EndsWith("es", StringComparison.Ordinal) &&
+                 (normalized.EndsWith("ches", StringComparison.Ordinal) ||
+                  normalized.EndsWith("shes", StringComparison.Ordinal) ||
+                  normalized.EndsWith("sses", StringComparison.Ordinal) ||
+                  normalized.EndsWith("xes", StringComparison.Ordinal) ||
+                  normalized.EndsWith("zes", StringComparison.Ordinal)))
+        {
+            normalized = normalized[..^2];
+        }
+        else if (normalized.Length > 3 && normalized.EndsWith('s') && !normalized.EndsWith("ss", StringComparison.Ordinal))
+        {
+            normalized = normalized[..^1];
+        }
+
+        return normalized;
+    }
+
+    private static bool IsSemanticCoherenceStopWord(string token) =>
+        token.Length < 3 ||
+        token is "the" or "and" or "for" or "with" or "from" or "into" or "onto" or "over" or "under" or
+            "page" or "chart" or "visual" or "dashboard" or "report" or "review" or "summary" or "detail" or
+            "details" or "analysis" or "view" or "metric" or "measure" or "value" or "count" or "total";
+
+    private static List<StorySemanticTermCluster> BuildSemanticTermClusters(
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        var clusterBuckets = new Dictionary<string, SemanticCoherenceClusterAccumulator>(StringComparer.Ordinal);
+
+        foreach (var term in extractedTerms)
+        {
+            var tokens = term.CanonicalTerm
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (tokens.Count == 0)
+            {
+                continue;
+            }
+
+            var tokenWeight = term.Weight / tokens.Count;
+            foreach (var token in tokens)
+            {
+                if (!clusterBuckets.TryGetValue(token, out var bucket))
+                {
+                    bucket = new SemanticCoherenceClusterAccumulator();
+                    clusterBuckets[token] = bucket;
+                }
+
+                bucket.Weight += tokenWeight;
+                bucket.Terms.Add(term.CanonicalTerm);
+                bucket.RawTexts.Add(term.RawText);
+            }
+        }
+
+        return clusterBuckets
+            .Select(pair => new StorySemanticTermCluster
+            {
+                ClusterId = pair.Key,
+                Weight = Math.Round(pair.Value.Weight, 2),
+                SupportCount = pair.Value.Terms.Count,
+                Terms = pair.Value.Terms
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(term => term, StringComparer.Ordinal)
+                    .ToList(),
+                ExplanationHook = $"Cluster '{pair.Key}' is supported by {pair.Value.Terms.Count} extracted term(s).",
+            })
+            .Where(cluster => cluster.Weight > 0d)
+            .OrderByDescending(cluster => cluster.Weight)
+            .ThenByDescending(cluster => cluster.SupportCount)
+            .ThenBy(cluster => cluster.ClusterId, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static bool MeetsStrongCompetingStoryThreshold(
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster secondCluster,
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        if (topCluster.SupportCount < 3 || secondCluster.SupportCount < 3)
+        {
+            return false;
+        }
+
+        if (topCluster.Weight < 2.0d || secondCluster.Weight < 2.0d)
+        {
+            return false;
+        }
+
+        var ratio = topCluster.Weight / Math.Max(secondCluster.Weight, 0.01d);
+        if (ratio > 1.20d || ratio < 0.83d)
+        {
+            return false;
+        }
+
+        if (!AreDistinctSemanticClusters(topCluster.ClusterId, secondCluster.ClusterId))
+        {
+            return false;
+        }
+
+        return CountExclusiveSupportingTerms(topCluster.ClusterId, secondCluster.ClusterId, extractedTerms) >= 2 &&
+               CountExclusiveSupportingTerms(secondCluster.ClusterId, topCluster.ClusterId, extractedTerms) >= 2;
+    }
+
+    private static bool MeetsWeakDisagreementThreshold(
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster secondCluster,
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        if (secondCluster.Weight < 0.3d || secondCluster.SupportCount < 1)
+        {
+            return false;
+        }
+
+        if (!AreDistinctSemanticClusters(topCluster.ClusterId, secondCluster.ClusterId))
+        {
+            return false;
+        }
+
+        var ratio = topCluster.Weight / Math.Max(secondCluster.Weight, 0.01d);
+        return ratio <= 3.50d && CountExclusiveSupportingTerms(secondCluster.ClusterId, topCluster.ClusterId, extractedTerms) >= 1;
+    }
+
+    private static int CountExclusiveSupportingTerms(
+        string clusterId,
+        string otherClusterId,
+        IReadOnlyList<StorySemanticTermEvidence> extractedTerms)
+    {
+        return extractedTerms.Count(term =>
+            ContainsSemanticCoherenceToken(term.CanonicalTerm, clusterId) &&
+            !ContainsSemanticCoherenceToken(term.CanonicalTerm, otherClusterId));
+    }
+
+    private static bool AreDistinctSemanticClusters(string firstClusterId, string secondClusterId) =>
+        !string.Equals(firstClusterId, secondClusterId, StringComparison.Ordinal);
+
+    private static bool ContainsSemanticCoherenceToken(string canonicalTerm, string token) =>
+        canonicalTerm
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(token, StringComparer.Ordinal);
+
+    private static StorySemanticCoherenceConfidence DetermineSemanticCoherenceConfidence(
+        double coherenceScore,
+        int totalEvidenceCount,
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster? secondCluster,
+        bool isSparse,
+        bool weakDisagreement)
+    {
+        if (isSparse)
+        {
+            return StorySemanticCoherenceConfidence.Low;
+        }
+
+        if (!weakDisagreement &&
+            coherenceScore >= 60d &&
+            totalEvidenceCount >= 4 &&
+            topCluster.SupportCount >= 3)
+        {
+            return StorySemanticCoherenceConfidence.High;
+        }
+
+        if (coherenceScore >= 40d && totalEvidenceCount >= 4)
+        {
+            return StorySemanticCoherenceConfidence.Medium;
+        }
+
+        return StorySemanticCoherenceConfidence.Low;
+    }
+
+    private static List<string> BuildSemanticCoherenceExplanationHooks(
+        StorySemanticTermCluster topCluster,
+        StorySemanticTermCluster? secondCluster,
+        StorySemanticCoherenceClassification coherenceClassification,
+        StoryCompetingStoryStatus competingStoryStatus,
+        int evidenceCount,
+        IReadOnlyList<string> weakDisagreementSignals)
+    {
+        var hooks = new List<string>
+        {
+            $"Dominant cluster '{topCluster.ClusterId}' has {topCluster.Weight.ToString("0.##", CultureInfo.InvariantCulture)} weighted support across {topCluster.SupportCount} term(s).",
+            $"Coherence classified as {coherenceClassification}.",
+            $"Semantic evidence count: {evidenceCount}.",
+        };
+
+        if (secondCluster is not null)
+        {
+            hooks.Add($"Secondary cluster '{secondCluster.ClusterId}' has {secondCluster.Weight.ToString("0.##", CultureInfo.InvariantCulture)} weighted support across {secondCluster.SupportCount} term(s).");
+        }
+
+        if (competingStoryStatus == StoryCompetingStoryStatus.StrongCandidatePromotionDelayed)
+        {
+            hooks.Add("Competing-story detection fired only after both leading clusters cleared the strong-support and near-equal thresholds.");
+        }
+        else if (weakDisagreementSignals.Count > 0)
+        {
+            hooks.AddRange(weakDisagreementSignals);
+        }
+
+        return hooks
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static List<StoryConfidenceLowCause> DetermineConfidenceLowCauses(
+        StorySignalRegistry? registry,
+        StoryAssessmentArchetypeClassification? archetypeClassification,
+        StorySemanticCoherenceAssessment? semanticCoherenceAssessment)
+    {
+        var causes = new List<StoryConfidenceLowCause>();
+        var entries = registry?.Entries ?? Array.Empty<StorySignalRegistryEntry>();
+
+        int firedSignals = entries.Count(entry => entry.Fired);
+        if (firedSignals < 4 ||
+            semanticCoherenceAssessment?.CoherenceClassification == StorySemanticCoherenceClassification.Sparse)
+        {
+            causes.Add(StoryConfidenceLowCause.SparseEvidence);
+        }
+
+        if (semanticCoherenceAssessment?.CompetingStoryStatus is StoryCompetingStoryStatus.StrongCandidatePromotionDelayed or StoryCompetingStoryStatus.WeakDiagnosticOnly)
+        {
+            causes.Add(StoryConfidenceLowCause.ConflictingEvidence);
+        }
+
+        var bestMatch = archetypeClassification?.ArchetypeResults.FirstOrDefault();
+        if (bestMatch?.MatchConfidence == StoryArchetypeMatchConfidence.Low)
+        {
+            causes.Add(StoryConfidenceLowCause.WeakArchetypeMatch);
+        }
+
+        if (semanticCoherenceAssessment?.Confidence == StorySemanticCoherenceConfidence.Low ||
+            semanticCoherenceAssessment?.CoherenceClassification == StorySemanticCoherenceClassification.Split)
+        {
+            causes.Add(StoryConfidenceLowCause.LowSemanticCoherence);
+        }
+
+        if (entries.Any(entry => !entry.Fired &&
+                                 entry.Category == StorySignalCategory.Context &&
+                                 entry.RequirementRole != StorySignalRequirementRole.Optional))
+        {
+            causes.Add(StoryConfidenceLowCause.MissingContext);
+        }
+
+        return causes
+            .Distinct()
+            .OrderBy(cause => cause)
+            .ToList();
+    }
+
+    private static StoryConfidenceDimensionRecord BuildAccuracyConfidenceDimension(
+        StorySignalRegistry? registry,
+        StoryAssessmentArchetypeClassification? archetypeClassification,
+        StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
+        IReadOnlyList<StoryConfidenceLowCause> lowConfidenceCauses)
+    {
+        var entries = registry?.Entries ?? Array.Empty<StorySignalRegistryEntry>();
+        var bestMatch = archetypeClassification?.ArchetypeResults.FirstOrDefault();
+        var drivers = new List<string>();
+        var reducers = new List<string>();
+        var missingSignals = entries
+            .Where(entry => !entry.Fired && entry.Category == StorySignalCategory.Context)
+            .Select(entry => entry.Id)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
+        var evidenceReferences = new List<StoryGapEvidenceReference>();
+
+        if (bestMatch is not null)
+        {
+            drivers.Add($"Best-fit archetype '{bestMatch.ArchetypeId}' matched at {bestMatch.MatchConfidence} confidence.");
+            evidenceReferences.Add(new StoryGapEvidenceReference
+            {
+                SourceType = "archetypeClassification",
+                ReferenceId = bestMatch.ArchetypeId.ToString(),
+                Summary = $"Best-fit archetype matched with {bestMatch.MatchConfidence} confidence at score {bestMatch.MatchScore.ToString("0.##", CultureInfo.InvariantCulture)}.",
+            });
+
+            if (bestMatch.MatchConfidence == StoryArchetypeMatchConfidence.Low)
+            {
+                reducers.Add("Weak archetype match reduces confidence that the current story interpretation is the right one.");
+            }
+        }
+
+        if (entries.Any(entry => entry.Fired &&
+                                 entry.EvidenceRole == StorySignalEvidenceRole.DirectEvidence &&
+                                 entry.ExplanationType == StoryAssessmentExplanationType.DirectEvidence))
+        {
+            drivers.Add("Direct evidence signals fired for the current narrative interpretation.");
+        }
+
+        if (missingSignals.Count > 0)
+        {
+            reducers.Add("Missing context signals reduce confidence in narrative accuracy.");
+        }
+
+        evidenceReferences.AddRange(BuildSignalRegistryEvidenceReferences(
+            entries.Where(entry => entry.Fired && entry.EvidenceRole == StorySignalEvidenceRole.DirectEvidence).Take(2),
+            "accuracy"));
+
+        var rating = StoryAssessmentValidationRating.Mixed;
+        if (bestMatch?.MatchConfidence == StoryArchetypeMatchConfidence.High &&
+            !lowConfidenceCauses.Contains(StoryConfidenceLowCause.MissingContext) &&
+            semanticCoherenceAssessment?.Confidence != StorySemanticCoherenceConfidence.Low)
+        {
+            rating = StoryAssessmentValidationRating.Strong;
+        }
+        else if (bestMatch?.MatchConfidence == StoryArchetypeMatchConfidence.Low ||
+                 lowConfidenceCauses.Contains(StoryConfidenceLowCause.MissingContext))
+        {
+            rating = StoryAssessmentValidationRating.Weak;
+        }
+
+        return new StoryConfidenceDimensionRecord
+        {
+            DimensionId = StoryConfidenceBreakdownDimension.Accuracy,
+            DimensionLabel = "Accuracy",
+            Rating = rating,
+            ConfidenceDrivers = drivers.Distinct(StringComparer.Ordinal).ToList(),
+            ConfidenceReducers = reducers.Distinct(StringComparer.Ordinal).ToList(),
+            MissingSignals = missingSignals,
+            EvidenceReferences = evidenceReferences
+                .GroupBy(reference => $"{reference.SourceType}:{reference.ReferenceId}", StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList(),
+            Explanation = rating == StoryAssessmentValidationRating.Strong
+                ? "Accuracy confidence is strengthened by aligned archetype and direct-evidence signals."
+                : rating == StoryAssessmentValidationRating.Weak
+                    ? "Accuracy confidence is limited by missing context or a weak archetype match."
+                    : "Accuracy confidence is mixed because the current evidence is partially aligned but incomplete.",
+            Actionability = missingSignals.Count > 0
+                ? StoryGapActionabilityAssessment.Actionable
+                : StoryGapActionabilityAssessment.PartlyActionable,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            SurfaceScope = DetermineConfidenceSurfaceScope(entries.Select(entry => entry.SurfaceScope)),
+        };
+    }
+
+    private static StoryConfidenceDimensionRecord BuildConsistencyConfidenceDimension(
+        StorySignalRegistry? registry,
+        StoryAssessmentArchetypeClassification? archetypeClassification,
+        StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
+        IReadOnlyList<StoryConfidenceLowCause> lowConfidenceCauses)
+    {
+        var entries = registry?.Entries ?? Array.Empty<StorySignalRegistryEntry>();
+        var bestMatch = archetypeClassification?.ArchetypeResults.FirstOrDefault();
+        var drivers = new List<string>();
+        var reducers = new List<string>();
+        var missingSignals = new List<string>();
+        var evidenceReferences = new List<StoryGapEvidenceReference>();
+
+        if (bestMatch?.MatchConfidence is StoryArchetypeMatchConfidence.High or StoryArchetypeMatchConfidence.Medium)
+        {
+            drivers.Add("Archetype matching stayed above the low-confidence threshold.");
+            evidenceReferences.Add(new StoryGapEvidenceReference
+            {
+                SourceType = "archetypeClassification",
+                ReferenceId = $"{bestMatch.ArchetypeId}.consistency",
+                Summary = $"Archetype consistency anchored by {bestMatch.MatchConfidence} match confidence.",
+            });
+        }
+
+        if (semanticCoherenceAssessment?.CompetingStoryStatus == StoryCompetingStoryStatus.None)
+        {
+            drivers.Add("Semantic coherence did not detect a competing story.");
+        }
+
+        if (lowConfidenceCauses.Contains(StoryConfidenceLowCause.ConflictingEvidence))
+        {
+            reducers.Add("Conflicting or competing semantic evidence reduces consistency confidence.");
+        }
+
+        if (lowConfidenceCauses.Contains(StoryConfidenceLowCause.SparseEvidence))
+        {
+            reducers.Add("Sparse evidence reduces repeatability confidence across similar pages.");
+        }
+
+        if (semanticCoherenceAssessment is not null)
+        {
+            evidenceReferences.AddRange(BuildSemanticGapEvidenceReferences(
+                "consistency.semantic",
+                semanticCoherenceAssessment.ExplanationHooks));
+        }
+
+        var rating = StoryAssessmentValidationRating.Mixed;
+        if (reducers.Count == 0 &&
+            bestMatch?.MatchConfidence != StoryArchetypeMatchConfidence.Low &&
+            semanticCoherenceAssessment?.CompetingStoryStatus == StoryCompetingStoryStatus.None)
+        {
+            rating = StoryAssessmentValidationRating.Strong;
+        }
+        else if (reducers.Count > 0)
+        {
+            rating = StoryAssessmentValidationRating.Weak;
+        }
+
+        return new StoryConfidenceDimensionRecord
+        {
+            DimensionId = StoryConfidenceBreakdownDimension.Consistency,
+            DimensionLabel = "Consistency",
+            Rating = rating,
+            ConfidenceDrivers = drivers.Distinct(StringComparer.Ordinal).ToList(),
+            ConfidenceReducers = reducers.Distinct(StringComparer.Ordinal).ToList(),
+            MissingSignals = missingSignals,
+            EvidenceReferences = evidenceReferences
+                .GroupBy(reference => $"{reference.SourceType}:{reference.ReferenceId}", StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList(),
+            Explanation = rating == StoryAssessmentValidationRating.Strong
+                ? "Consistency confidence is supported by stable archetype and coherence signals."
+                : rating == StoryAssessmentValidationRating.Weak
+                    ? "Consistency confidence is reduced by sparse or conflicting evidence."
+                    : "Consistency confidence remains mixed because the evidence is only partially stable.",
+            Actionability = reducers.Count > 0
+                ? StoryGapActionabilityAssessment.PartlyActionable
+                : StoryGapActionabilityAssessment.NotActionable,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            SurfaceScope = DetermineConfidenceSurfaceScope(entries.Select(entry => entry.SurfaceScope)),
+        };
+    }
+
+    private static StoryConfidenceDimensionRecord BuildExplainabilityConfidenceDimension(
+        StorySignalRegistry? registry,
+        StorySemanticCoherenceAssessment? semanticCoherenceAssessment,
+        StoryFilterTopologyAssessment? topologyAssessment,
+        IReadOnlyList<StoryConfidenceLowCause> lowConfidenceCauses)
+    {
+        var entries = registry?.Entries ?? Array.Empty<StorySignalRegistryEntry>();
+        int directEvidenceCount = entries.Count(entry =>
+            entry.Fired &&
+            entry.ExplanationType == StoryAssessmentExplanationType.DirectEvidence);
+        var drivers = new List<string>();
+        var reducers = new List<string>();
+        var missingSignals = new List<string>();
+        var evidenceReferences = new List<StoryGapEvidenceReference>();
+
+        if (directEvidenceCount >= 2)
+        {
+            drivers.Add("Multiple direct-evidence signals support explainable reasoning.");
+        }
+
+        if (semanticCoherenceAssessment?.ExplanationHooks.Count > 0)
+        {
+            drivers.Add("Semantic coherence exposes explanation hooks for the dominant concept and evidence count.");
+            evidenceReferences.AddRange(BuildSemanticGapEvidenceReferences(
+                "explainability.semantic",
+                semanticCoherenceAssessment.ExplanationHooks));
+        }
+
+        if (topologyAssessment?.Signals.Any(signal => signal.Fired && signal.Classification == StoryFilterTopologySignalClassification.DiagnosticOnly) == true)
+        {
+            reducers.Add("Diagnostic-only topology signals reduce explainability clarity.");
+            evidenceReferences.AddRange(BuildTopologyGapEvidenceReferences(topologyAssessment));
+        }
+
+        if (lowConfidenceCauses.Contains(StoryConfidenceLowCause.SparseEvidence))
+        {
+            reducers.Add("Sparse evidence limits how clearly the confidence rationale can be defended.");
+        }
+
+        evidenceReferences.AddRange(BuildSignalRegistryEvidenceReferences(
+            entries.Where(entry => entry.Fired).Take(2),
+            "explainability"));
+
+        var rating = StoryAssessmentValidationRating.Mixed;
+        if (directEvidenceCount >= 2 && reducers.Count == 0)
+        {
+            rating = StoryAssessmentValidationRating.Strong;
+        }
+        else if (reducers.Count > 0 && directEvidenceCount == 0)
+        {
+            rating = StoryAssessmentValidationRating.Weak;
+        }
+
+        return new StoryConfidenceDimensionRecord
+        {
+            DimensionId = StoryConfidenceBreakdownDimension.Explainability,
+            DimensionLabel = "Explainability",
+            Rating = rating,
+            ConfidenceDrivers = drivers.Distinct(StringComparer.Ordinal).ToList(),
+            ConfidenceReducers = reducers.Distinct(StringComparer.Ordinal).ToList(),
+            MissingSignals = missingSignals,
+            EvidenceReferences = evidenceReferences
+                .GroupBy(reference => $"{reference.SourceType}:{reference.ReferenceId}", StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList(),
+            Explanation = rating == StoryAssessmentValidationRating.Strong
+                ? "Explainability confidence is supported by direct evidence and explicit explanation hooks."
+                : rating == StoryAssessmentValidationRating.Weak
+                    ? "Explainability confidence is limited because too much of the rationale depends on sparse or diagnostic-only evidence."
+                    : "Explainability confidence remains mixed because some evidence is explicit but not complete.",
+            Actionability = StoryGapActionabilityAssessment.PartlyActionable,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            SurfaceScope = DetermineConfidenceSurfaceScope(entries.Select(entry => entry.SurfaceScope)),
+        };
+    }
+
+    private static StoryConfidenceDimensionRecord BuildActionabilityConfidenceDimension(
+        StorySignalRegistry? registry,
+        StoryFilterTopologyAssessment? topologyAssessment,
+        StoryGapAssessment? gapAssessment,
+        IReadOnlyList<StoryConfidenceLowCause> lowConfidenceCauses)
+    {
+        var entries = registry?.Entries ?? Array.Empty<StorySignalRegistryEntry>();
+        var gaps = gapAssessment?.Gaps ?? Array.Empty<StoryGapRecord>();
+        int actionableGapCount = gaps.Count(gap => gap.ActionabilityAssessment == StoryGapActionabilityAssessment.Actionable);
+        var drivers = new List<string>();
+        var reducers = new List<string>();
+        var missingSignals = entries
+            .Where(entry => !entry.Fired &&
+                            entry.ActionabilityType == StoryAssessmentActionabilityType.DirectRemediation)
+            .Select(entry => entry.Id)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
+        var evidenceReferences = new List<StoryGapEvidenceReference>();
+
+        if (actionableGapCount > 0)
+        {
+            drivers.Add("Actionable story gaps provide a concrete path to strengthen confidence.");
+            evidenceReferences.AddRange(gaps
+                .Where(gap => gap.ActionabilityAssessment == StoryGapActionabilityAssessment.Actionable)
+                .Take(2)
+                .Select(gap => new StoryGapEvidenceReference
+                {
+                    SourceType = "storyGap",
+                    ReferenceId = gap.GapId,
+                    Summary = gap.Description,
+                }));
+        }
+
+        if (topologyAssessment?.ActionabilityContribution == StoryAssessmentValidationRating.Strong)
+        {
+            drivers.Add("Filter topology contributes clear, author-facing remediation guidance.");
+            evidenceReferences.AddRange(BuildTopologyGapEvidenceReferences(topologyAssessment));
+        }
+
+        if (gaps.Any(gap => gap.ActionabilityAssessment == StoryGapActionabilityAssessment.NotActionable))
+        {
+            reducers.Add("Low-confidence or non-actionable gaps reduce confidence that the current rationale leads directly to remediation.");
+        }
+
+        if (lowConfidenceCauses.Contains(StoryConfidenceLowCause.MissingContext))
+        {
+            reducers.Add("Missing context limits direct author actionability until narrative anchors are added.");
+        }
+
+        evidenceReferences.AddRange(BuildSignalRegistryEvidenceReferences(
+            entries.Where(entry => !entry.Fired &&
+                                   entry.ActionabilityType == StoryAssessmentActionabilityType.DirectRemediation)
+                .Take(2),
+            "actionability"));
+
+        var rating = StoryAssessmentValidationRating.Mixed;
+        if (actionableGapCount > 0 && reducers.Count == 0)
+        {
+            rating = StoryAssessmentValidationRating.Strong;
+        }
+        else if (actionableGapCount == 0 || reducers.Count > 1)
+        {
+            rating = StoryAssessmentValidationRating.Weak;
+        }
+
+        return new StoryConfidenceDimensionRecord
+        {
+            DimensionId = StoryConfidenceBreakdownDimension.Actionability,
+            DimensionLabel = "Actionability",
+            Rating = rating,
+            ConfidenceDrivers = drivers.Distinct(StringComparer.Ordinal).ToList(),
+            ConfidenceReducers = reducers.Distinct(StringComparer.Ordinal).ToList(),
+            MissingSignals = missingSignals,
+            EvidenceReferences = evidenceReferences
+                .GroupBy(reference => $"{reference.SourceType}:{reference.ReferenceId}", StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList(),
+            Explanation = rating == StoryAssessmentValidationRating.Strong
+                ? "Actionability confidence is high because the assessment points to concrete author actions."
+                : rating == StoryAssessmentValidationRating.Weak
+                    ? "Actionability confidence is limited because too much of the rationale remains indirect or downgraded."
+                    : "Actionability confidence is mixed because some remediation is clear but not all confidence limits are easily resolved.",
+            Actionability = actionableGapCount > 0
+                ? StoryGapActionabilityAssessment.Actionable
+                : StoryGapActionabilityAssessment.PartlyActionable,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            SurfaceScope = DetermineConfidenceSurfaceScope(entries.Select(entry => entry.SurfaceScope)),
+        };
+    }
+
+    private static List<string> BuildConfidenceDimensionLabelsByRating(
+        IReadOnlyList<StoryConfidenceDimensionRecord> records,
+        bool descending)
+    {
+        if (records.Count == 0)
+        {
+            return [];
+        }
+
+        var ordered = descending
+            ? records.OrderByDescending(record => GetValidationRatingRank(record.Rating))
+            : records.OrderBy(record => GetValidationRatingRank(record.Rating));
+        int targetRank = GetValidationRatingRank(ordered.First().Rating);
+
+        return ordered
+            .Where(record => GetValidationRatingRank(record.Rating) == targetRank)
+            .Select(record => record.DimensionLabel)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(label => label, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static int GetValidationRatingRank(StoryAssessmentValidationRating rating)
+    {
+        return rating switch
+        {
+            StoryAssessmentValidationRating.Strong => 3,
+            StoryAssessmentValidationRating.Mixed => 2,
+            StoryAssessmentValidationRating.Weak => 1,
+            _ => 0,
+        };
+    }
+
+    private static StoryAssessmentSurfaceScope DetermineConfidenceSurfaceScope(
+        IEnumerable<StoryAssessmentSurfaceScope> surfaceScopes)
+    {
+        var scopes = surfaceScopes.ToList();
+        return scopes.Contains(StoryAssessmentSurfaceScope.CrossSurfaceCandidate)
+            ? StoryAssessmentSurfaceScope.CrossSurfaceCandidate
+            : StoryAssessmentSurfaceScope.PbirSpecific;
+    }
+
+    private static StoryAssessmentSurfaceScope DetermineConfidenceBreakdownSurfaceScope(
+        IReadOnlyList<StoryConfidenceDimensionRecord> records)
+    {
+        return DetermineConfidenceSurfaceScope(records.Select(record => record.SurfaceScope));
+    }
+
+    private static List<StoryGapEvidenceReference> BuildSignalRegistryEvidenceReferences(
+        IEnumerable<StorySignalRegistryEntry> entries,
+        string referencePrefix)
+    {
+        return entries
+            .Select((entry, index) => new StoryGapEvidenceReference
+            {
+                SourceType = "signalRegistry",
+                ReferenceId = $"{referencePrefix}.{entry.Id}.{index + 1}",
+                Summary = entry.Fired
+                    ? $"Signal fired: {entry.ExplanationHook}"
+                    : $"Signal missing: {entry.ExplanationHook}",
+            })
+            .ToList();
+    }
+
+    private static StoryGapConfidence DetermineSignalGapConfidence(StorySignalRegistryEntry entry)
+    {
+        if (entry.EvidenceRole == StorySignalEvidenceRole.DirectEvidence &&
+            entry.ExplanationType == StoryAssessmentExplanationType.DirectEvidence)
+        {
+            return StoryGapConfidence.High;
+        }
+
+        return entry.EvidenceRole == StorySignalEvidenceRole.DirectEvidence
+            ? StoryGapConfidence.Medium
+            : StoryGapConfidence.Low;
+    }
+
+    private static StoryGapRemediationLayer MapGapRemediationLayer(
+        StorySignalRemediability remediability,
+        StorySignalCategory category)
+    {
+        return remediability switch
+        {
+            StorySignalRemediability.ReportLayer => StoryGapRemediationLayer.Report,
+            StorySignalRemediability.SemanticModel => StoryGapRemediationLayer.Model,
+            StorySignalRemediability.Mixed when category == StorySignalCategory.Semantic => StoryGapRemediationLayer.Model,
+            StorySignalRemediability.Mixed => StoryGapRemediationLayer.Report,
+            _ => StoryGapRemediationLayer.Restructure,
+        };
+    }
+
+    private static StoryGapActionabilityAssessment MapGapActionability(
+        StoryAssessmentActionabilityType actionabilityType)
+    {
+        return actionabilityType switch
+        {
+            StoryAssessmentActionabilityType.DirectRemediation => StoryGapActionabilityAssessment.Actionable,
+            StoryAssessmentActionabilityType.IndirectGuidance => StoryGapActionabilityAssessment.PartlyActionable,
+            _ => StoryGapActionabilityAssessment.NotActionable,
+        };
+    }
+
+    private static StoryGapActionabilityAssessment DowngradeGapActionability(
+        StoryGapActionabilityAssessment actionabilityAssessment,
+        StoryGapConfidence confidence)
+    {
+        if (confidence != StoryGapConfidence.Low)
+        {
+            return actionabilityAssessment;
+        }
+
+        return actionabilityAssessment switch
+        {
+            StoryGapActionabilityAssessment.Actionable => StoryGapActionabilityAssessment.PartlyActionable,
+            StoryGapActionabilityAssessment.PartlyActionable => StoryGapActionabilityAssessment.NotActionable,
+            _ => StoryGapActionabilityAssessment.NotActionable,
+        };
+    }
+
+    private static StoryGapArchetypeRelevance DetermineGapArchetypeRelevance(
+        string signalId,
+        StoryAssessmentArchetypeClassification? archetypeClassification)
+    {
+        var bestFit = archetypeClassification?.ArchetypeResults.FirstOrDefault();
+        if (bestFit is null)
+        {
+            return StoryGapArchetypeRelevance.Low;
+        }
+
+        if (bestFit.MissedSignals.Any(signal => signal.Contains(signalId, StringComparison.Ordinal)))
+        {
+            return StoryGapArchetypeRelevance.Primary;
+        }
+
+        if (bestFit.MatchedSignals.Any(signal => signal.Contains(signalId, StringComparison.Ordinal)))
+        {
+            return StoryGapArchetypeRelevance.Supporting;
+        }
+
+        return StoryGapArchetypeRelevance.Low;
+    }
+
+    private static StoryGapConfidence MapGapConfidence(
+        StorySemanticCoherenceConfidence confidence)
+    {
+        return confidence switch
+        {
+            StorySemanticCoherenceConfidence.High => StoryGapConfidence.High,
+            StorySemanticCoherenceConfidence.Medium => StoryGapConfidence.Medium,
+            _ => StoryGapConfidence.Low,
+        };
+    }
+
+    private static List<StoryGapEvidenceReference> BuildSemanticGapEvidenceReferences(
+        string referencePrefix,
+        IReadOnlyList<string> explanationHooks)
+    {
+        return explanationHooks
+            .Where(hook => !string.IsNullOrWhiteSpace(hook))
+            .Take(3)
+            .Select((hook, index) => new StoryGapEvidenceReference
+            {
+                SourceType = "semanticCoherence",
+                ReferenceId = $"{referencePrefix}.{index + 1}",
+                Summary = hook,
+            })
+            .ToList();
+    }
+
+    private static List<StoryGapEvidenceReference> BuildTopologyGapEvidenceReferences(
+        StoryFilterTopologyAssessment topologyAssessment)
+    {
+        var references = new List<StoryGapEvidenceReference>();
+        var firedDiagnosticSignal = topologyAssessment.Signals.FirstOrDefault(signal =>
+            signal.Id == "topology.scatteredGenericFilters" &&
+            signal.Fired);
+        if (firedDiagnosticSignal is not null)
+        {
+            references.Add(new StoryGapEvidenceReference
+            {
+                SourceType = "filterTopology",
+                ReferenceId = firedDiagnosticSignal.Id,
+                Summary = "Filter topology retained a scattered or generic control pattern as diagnostic-only evidence.",
+            });
+        }
+
+        foreach (var note in topologyAssessment.DiagnosticNotes.Take(2))
+        {
+            references.Add(new StoryGapEvidenceReference
+            {
+                SourceType = "filterTopology",
+                ReferenceId = "diagnosticNote",
+                Summary = note,
+            });
+        }
+
+        return references;
+    }
+
+    private static StoryAssessmentSurfaceScope DetermineStoryGapSurfaceScope(
+        IReadOnlyList<StoryGapRecord> gaps)
+    {
+        if (gaps.Count == 0)
+        {
+            return StoryAssessmentSurfaceScope.PbirSpecific;
+        }
+
+        return gaps.Any(gap => gap.RemediationLayer == StoryGapRemediationLayer.Restructure ||
+                               gap.RemediationLayer == StoryGapRemediationLayer.Model)
+            ? StoryAssessmentSurfaceScope.CrossSurfaceCandidate
+            : StoryAssessmentSurfaceScope.PbirSpecific;
+    }
+
+    private static List<StoryGapRecord> FilterStoryGapsForValidation(
+        IReadOnlyList<StoryGapRecord> gaps,
+        StorySpecialPageAssessment? specialPageAssessment)
+    {
+        if (specialPageAssessment?.SuppressNormalStoryGaps == true)
+        {
+            return [];
+        }
+
+        IEnumerable<StoryGapRecord> filtered = gaps;
+        if (specialPageAssessment?.PageType == StorySpecialPageType.Tooltip)
+        {
+            filtered = filtered.Where(gap =>
+                gap.GapId.Contains("layout", StringComparison.Ordinal) &&
+                gap.RemediationLayer == StoryGapRemediationLayer.Report);
+        }
+        else
+        {
+            filtered = filtered.Where(gap =>
+                gap.IsFutureContractCandidate ||
+                gap.GapId is "gap.semantic.competingStoryMetadata" or "gap.semantic.competingStoryRestructure" ||
+                !(gap.RemediationLayer == StoryGapRemediationLayer.Model &&
+                  gap.Confidence == StoryGapConfidence.Low) &&
+                gap.ActionabilityAssessment != StoryGapActionabilityAssessment.NotActionable);
+        }
+
+        return filtered.ToList();
+    }
+
+    private static bool IsFutureContractCandidateGapId(string gapId)
+    {
+        return gapId is
+            "gap.missing.layout.meaningfulVisibleTitle" or
+            "gap.missing.context.targetBenchmarkPresent" or
+            "gap.missing.context.priorPeriodContext" or
+            "gap.missing.semantic.primaryMetric" or
+            "gap.missing.semantic.primaryDimension" or
+            "gap.topology.scatteredFilters";
+    }
+
+    internal static GuidedStoryImprovements BuildGuidedStoryImprovements(
+        StoryGapAssessment? storyGapAssessment,
+        StorySpecialPageAssessment? specialPageAssessment)
+    {
+        if (specialPageAssessment is not null &&
+            (specialPageAssessment.SuppressNormalStoryGaps ||
+             specialPageAssessment.PageType != StorySpecialPageType.Unknown))
+        {
+            return new GuidedStoryImprovements();
+        }
+
+        var mapped = (storyGapAssessment?.Gaps ?? Array.Empty<StoryGapRecord>())
+            .Select(gap => MapGuidedStoryImprovement(gap, storyGapAssessment))
+            .Where(improvement => improvement is not null)
+            .Cast<GuidedStoryImprovement>()
+            .GroupBy(improvement => improvement.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(improvement => GetGuidedStoryImprovementPriorityRank(improvement.Priority))
+            .ThenBy(improvement => GetGuidedStoryImprovementSequenceRank(improvement.Id))
+            .ThenBy(improvement => improvement.Title, StringComparer.Ordinal)
+            .ToList();
+
+        return new GuidedStoryImprovements
+        {
+            HighPriorityImprovements = mapped
+                .Where(improvement => string.Equals(improvement.Priority, "high", StringComparison.Ordinal))
+                .ToList(),
+            MediumPriorityImprovements = mapped
+                .Where(improvement => string.Equals(improvement.Priority, "medium", StringComparison.Ordinal))
+                .ToList(),
+            StoryImprovementRationale = BuildGuidedStoryImprovementRationale(mapped),
+        };
+    }
+
+    private static GuidedStoryImprovement? MapGuidedStoryImprovement(
+        StoryGapRecord gap,
+        StoryGapAssessment? storyGapAssessment)
+    {
+        var priority = DetermineGuidedStoryImprovementPriority(gap.GapId, storyGapAssessment);
+
+        return gap.GapId switch
+        {
+            "gap.missing.layout.meaningfulVisibleTitle" => new GuidedStoryImprovement
+            {
+                Id = "missing-title-question-anchor",
+                Title = "Add a clearer page question or title",
+                Summary = "The page does not establish its main question or decision early enough.",
+                Rationale = "A clear title or question anchor helps readers understand what the page is trying to explain before they interpret the visuals.",
+                ExpectedImpact = "Stronger narrative scan path and faster comprehension.",
+                Priority = priority,
+                RelatedImpactArea = "storytelling",
+            },
+            "gap.missing.context.targetBenchmarkPresent" => new GuidedStoryImprovement
+            {
+                Id = "missing-benchmark-target",
+                Title = "Add a benchmark or target",
+                Summary = "The current result appears without a visible target, budget, or benchmark for comparison.",
+                Rationale = "Readers need an explicit reference point to judge whether the current result is strong, weak, or off track.",
+                ExpectedImpact = "Clearer decision context around the headline numbers.",
+                Priority = priority,
+                RelatedImpactArea = "benchmark",
+            },
+            "gap.missing.context.priorPeriodContext" => new GuidedStoryImprovement
+            {
+                Id = "missing-prior-period-context",
+                Title = "Add prior-period context",
+                Summary = "The page shows the current result, but not enough context about movement over time.",
+                Rationale = "Prior-period context helps readers judge change, momentum, and whether the current result is improving or slipping.",
+                ExpectedImpact = "Stronger trend interpretation and decision context.",
+                Priority = priority,
+                RelatedImpactArea = "benchmark",
+            },
+            "gap.missing.semantic.primaryMetric" => new GuidedStoryImprovement
+            {
+                Id = "missing-primary-metric",
+                Title = "Make the primary metric more explicit",
+                Summary = "The page lacks one clearly stated metric that anchors the story.",
+                Rationale = "A primary metric gives the page a stable headline measure and makes the rest of the evidence easier to interpret.",
+                ExpectedImpact = "Clearer KPI framing and stronger narrative focus.",
+                Priority = priority,
+                RelatedImpactArea = "kpiEffectiveness",
+            },
+            "gap.missing.semantic.primaryDimension" => new GuidedStoryImprovement
+            {
+                Id = "missing-primary-dimension",
+                Title = "Clarify the primary comparison dimension",
+                Summary = "The page does not make the main comparison group explicit enough for quick reading.",
+                Rationale = "A clear primary dimension tells readers how to segment the result and where to look for the key comparison.",
+                ExpectedImpact = "Cleaner comparison logic and faster interpretation.",
+                Priority = priority,
+                RelatedImpactArea = "storytelling",
+            },
+            "gap.topology.scatteredFilters" => new GuidedStoryImprovement
+            {
+                Id = "scattered-filters",
+                Title = "Consolidate scattered filters",
+                Summary = "Filter controls are spread across the page instead of creating one clear exploration entry point.",
+                Rationale = "Consolidated filters reduce visual noise and help the story start with the evidence rather than the controls.",
+                ExpectedImpact = "Cleaner reading flow and a more focused exploration path.",
+                Priority = priority,
+                RelatedImpactArea = "storytelling",
+            },
+            _ => null,
+        };
+    }
+
+    private static string DetermineGuidedStoryImprovementPriority(
+        string gapId,
+        StoryGapAssessment? storyGapAssessment)
+    {
+        var defaultPriority = gapId switch
+        {
+            "gap.missing.layout.meaningfulVisibleTitle" => "high",
+            "gap.missing.context.targetBenchmarkPresent" => "high",
+            "gap.missing.semantic.primaryMetric" => "high",
+            "gap.missing.context.priorPeriodContext" => "medium",
+            "gap.missing.semantic.primaryDimension" => "medium",
+            "gap.topology.scatteredFilters" => "medium",
+            _ => "medium",
+        };
+
+        if (defaultPriority == "high")
+        {
+            return defaultPriority;
+        }
+
+        var validatedGapCount = (storyGapAssessment?.Gaps ?? Array.Empty<StoryGapRecord>())
+            .Count(gap => IsFutureContractCandidateGapId(gap.GapId));
+
+        return gapId == "gap.missing.semantic.primaryDimension" && validatedGapCount >= 4
+            ? "high"
+            : defaultPriority;
+    }
+
+    private static int GetGuidedStoryImprovementPriorityRank(string priority)
+    {
+        return priority switch
+        {
+            "high" => 0,
+            "medium" => 1,
+            _ => 2,
+        };
+    }
+
+    private static int GetGuidedStoryImprovementSequenceRank(string improvementId)
+    {
+        return improvementId switch
+        {
+            "missing-title-question-anchor" => 0,
+            "missing-benchmark-target" => 1,
+            "missing-primary-metric" => 2,
+            "missing-primary-dimension" => 3,
+            "missing-prior-period-context" => 4,
+            "scattered-filters" => 5,
+            _ => 6,
+        };
+    }
+
+    private static string BuildGuidedStoryImprovementRationale(
+        IReadOnlyList<GuidedStoryImprovement> improvements)
+    {
+        if (improvements.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var ids = improvements
+            .Select(improvement => improvement.Id)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (ids.Contains("missing-benchmark-target") && ids.Contains("missing-prior-period-context"))
+        {
+            return "The page clearly communicates current performance, but readers cannot tell whether results are good, bad, improving, or declining because benchmark and trend context are missing.";
+        }
+
+        if (ids.Contains("missing-primary-metric") && ids.Contains("scattered-filters"))
+        {
+            return "The page has useful content, but the headline metric is not obvious enough and the filter path competes with the story instead of reinforcing it.";
+        }
+
+        if (ids.Contains("missing-title-question-anchor"))
+        {
+            return "The page has a recognizable story, but the headline question is still too implicit for readers to understand the point quickly.";
+        }
+
+        if (ids.Contains("missing-benchmark-target"))
+        {
+            return "The page surfaces a current result, but readers cannot judge whether it is on track because no visible benchmark or target anchors the interpretation.";
+        }
+
+        if (ids.Contains("missing-prior-period-context"))
+        {
+            return "The page shows current performance, but readers cannot tell whether it is improving or declining because prior-period context is missing.";
+        }
+
+        if (ids.Contains("missing-primary-metric"))
+        {
+            return "The page includes relevant evidence, but the headline metric is still too implicit for readers to identify the main takeaway quickly.";
+        }
+
+        if (ids.Contains("missing-primary-dimension"))
+        {
+            return "The page includes relevant evidence, but the main comparison group is not explicit enough for readers to see where the key comparison lives.";
+        }
+
+        if (ids.Contains("scattered-filters"))
+        {
+            return "The page story is understandable, but the filter path is fragmented enough to compete with the main reading flow.";
+        }
+
+        return "The page has a recognizable story, but a few missing anchors still make the reading path harder to interpret quickly.";
+    }
+
+    private static string BuildMissingSignalGapDescription(StorySignalRegistryEntry entry)
+    {
+        return entry.Id switch
+        {
+            "layout.meaningfulVisibleTitle" => "Add a visible page title or question anchor so the report states its story intent in the scan path.",
+            "context.targetBenchmarkPresent" => "Add a visible target, budget, or benchmark so the current result has explicit decision context.",
+            "semantic.primaryMetric" => "Clarify the primary business metric in semantic metadata or visible labeling so the page has a stable quantitative anchor.",
+            "semantic.primaryDimension" => "Clarify the primary comparison dimension so the grouping logic is explicit to both the model and the reader.",
+            "layout.leadVisualType" => "Promote one clear lead visual so the page has a recognizable narrative starting point.",
+            _ => $"Strengthen the missing story signal '{entry.Id}' so the page provides clearer narrative evidence.",
+        };
+    }
+
+    private static StoryArchetypeMatchResult EvaluateArchetype(
+        IReadOnlyDictionary<string, StorySignalRegistryEntry> entriesById,
+        StoryArchetypeId archetypeId,
+        IReadOnlyList<ArchetypeExpectation> expectations)
+    {
+        double totalWeight = expectations.Sum(expectation => expectation.Weight);
+        double matchedWeight = 0d;
+        var matchedSignals = new List<string>();
+        var missedSignals = new List<string>();
+        var explanationHooks = new List<string>();
+
+        foreach (var expectation in expectations)
+        {
+            bool matched = expectation.IsMatched(entriesById);
+            if (matched)
+            {
+                matchedWeight += expectation.Weight;
+                matchedSignals.Add(expectation.DescribeMatched(entriesById));
+                explanationHooks.Add(expectation.GetExplanationHook(entriesById));
+            }
+            else
+            {
+                missedSignals.Add(expectation.DescribeMissed(entriesById));
+                explanationHooks.Add(expectation.GetExplanationHook(entriesById));
+            }
+        }
+
+        return new StoryArchetypeMatchResult
+        {
+            ArchetypeId = archetypeId,
+            SurfaceScope = StoryAssessmentSurfaceScope.PbirSpecific,
+            MatchScore = totalWeight <= 0d ? 0d : Math.Round(matchedWeight / totalWeight, 2),
+            MatchConfidence = StoryArchetypeMatchConfidence.Low,
+            MatchedSignals = matchedSignals,
+            MissedSignals = missedSignals,
+            ExplanationHooks = explanationHooks
+                .Where(hook => !string.IsNullOrWhiteSpace(hook))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            ValidationStatus = StoryArchetypeValidationStatus.NeedsLevel1Review,
+            PromotionEligibilityState = StoryAssessmentPromotionEligibilityState.NotEligible,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+        };
+    }
+
+    private static StoryArchetypeMatchResult ApplyTopologyReinforcement(
+        StoryArchetypeMatchResult result,
+        StoryFilterTopologyAssessment? topologyAssessment)
+    {
+        if (topologyAssessment is null || topologyAssessment.Signals.Count == 0)
+        {
+            return result;
+        }
+
+        var bonusMap = BuildTopologyReinforcementBonusMap(topologyAssessment.Signals);
+        if (!bonusMap.TryGetValue(result.ArchetypeId, out var bonus) || bonus <= 0d)
+        {
+            return result;
+        }
+
+        var boundedBonus = result.MatchScore >= 0.45d
+            ? Math.Min(0.12d, bonus)
+            : Math.Min(0.05d, bonus);
+        if (boundedBonus <= 0d)
+        {
+            return result;
+        }
+
+        var hooks = result.ExplanationHooks.ToList();
+        hooks.Add($"Filter topology reinforcement contributed {boundedBonus:0.##} to {result.ArchetypeId} without acting as primary narrative evidence.");
+
+        return new StoryArchetypeMatchResult
+        {
+            ArchetypeId = result.ArchetypeId,
+            SurfaceScope = result.SurfaceScope,
+            MatchScore = Math.Round(Math.Min(1d, result.MatchScore + boundedBonus), 2),
+            MatchConfidence = result.MatchConfidence,
+            MatchedSignals = result.MatchedSignals,
+            MissedSignals = result.MissedSignals,
+            ExplanationHooks = hooks
+                .Where(hook => !string.IsNullOrWhiteSpace(hook))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            ValidationStatus = result.ValidationStatus,
+            PromotionEligibilityState = result.PromotionEligibilityState,
+            PromotionState = result.PromotionState,
+        };
+    }
+
+    private static StoryArchetypeMatchResult FinalizeArchetypeResult(
+        StoryArchetypeMatchResult result,
+        double marginToNearestCompetitor,
+        bool isBestFit)
+    {
+        var confidence = DetermineArchetypeMatchConfidence(result.MatchScore, marginToNearestCompetitor, result.MatchedSignals.Count, isBestFit);
+        var validationStatus = confidence switch
+        {
+            StoryArchetypeMatchConfidence.High when isBestFit => StoryArchetypeValidationStatus.ReadyForPromotionReview,
+            StoryArchetypeMatchConfidence.Low when isBestFit => StoryArchetypeValidationStatus.AmbiguousNeedsReview,
+            _ => StoryArchetypeValidationStatus.NeedsLevel1Review,
+        };
+        var promotionEligibilityState = confidence switch
+        {
+            StoryArchetypeMatchConfidence.High when isBestFit => StoryAssessmentPromotionEligibilityState.ReadyForPromotionReview,
+            StoryArchetypeMatchConfidence.Medium when isBestFit => StoryAssessmentPromotionEligibilityState.Level1ReviewCandidate,
+            _ => StoryAssessmentPromotionEligibilityState.NotEligible,
+        };
+
+        return new StoryArchetypeMatchResult
+        {
+            ArchetypeId = result.ArchetypeId,
+            SurfaceScope = result.SurfaceScope,
+            MatchScore = result.MatchScore,
+            MatchConfidence = confidence,
+            MatchedSignals = result.MatchedSignals,
+            MissedSignals = result.MissedSignals,
+            ExplanationHooks = result.ExplanationHooks,
+            ValidationStatus = validationStatus,
+            PromotionEligibilityState = promotionEligibilityState,
+            PromotionState = DetermineArchetypePromotionState(validationStatus, promotionEligibilityState),
+        };
+    }
+
+    private static StoryArchetypeMatchConfidence DetermineArchetypeMatchConfidence(
+        double matchScore,
+        double marginToNearestCompetitor,
+        int matchedSignalCount,
+        bool isBestFit)
+    {
+        if (isBestFit && matchScore >= 0.75d && marginToNearestCompetitor >= 0.15d && matchedSignalCount >= 4)
+        {
+            return StoryArchetypeMatchConfidence.High;
+        }
+
+        if (isBestFit && matchScore >= 0.65d && marginToNearestCompetitor >= 0.12d && matchedSignalCount >= 3)
+        {
+            return StoryArchetypeMatchConfidence.Medium;
+        }
+
+        if (!isBestFit && matchScore >= 0.60d)
+        {
+            return StoryArchetypeMatchConfidence.Medium;
+        }
+
+        return StoryArchetypeMatchConfidence.Low;
+    }
+
+    private static StoryAssessmentPromotionState DetermineArchetypePromotionState(
+        StoryArchetypeValidationStatus validationStatus,
+        StoryAssessmentPromotionEligibilityState promotionEligibilityState)
+    {
+        return validationStatus == StoryArchetypeValidationStatus.ReadyForPromotionReview &&
+               promotionEligibilityState == StoryAssessmentPromotionEligibilityState.ReadyForPromotionReview
+            ? StoryAssessmentPromotionState.Internal
+            : StoryAssessmentPromotionState.Internal;
+    }
+
+    private static StoryAssessmentSurfaceScope DetermineArchetypeClassificationSurfaceScope(
+        IReadOnlyList<StoryArchetypeMatchResult> results)
+    {
+        return results.Any(result => result.SurfaceScope == StoryAssessmentSurfaceScope.CrossSurfaceCandidate)
+            ? StoryAssessmentSurfaceScope.CrossSurfaceCandidate
+            : StoryAssessmentSurfaceScope.PbirSpecific;
+    }
+
+    private static StoryAssessmentPromotionState DetermineCanonicalPromotionState(
+        IEnumerable<StoryAssessmentPromotionState> promotionStates)
+    {
+        return promotionStates.Any(state => state != StoryAssessmentPromotionState.Internal)
+            ? promotionStates.First(state => state != StoryAssessmentPromotionState.Internal)
+            : StoryAssessmentPromotionState.Internal;
+    }
+
+    private static StoryAssessmentPromotionState DetermineSemanticCoherencePromotionState(
+        StoryCompetingStoryStatus competingStoryStatus,
+        bool isSparse)
+    {
+        return StoryAssessmentPromotionState.Internal;
+    }
+
+    private static StoryAssessmentSurfaceScope DetermineTopologySurfaceScope(
+        IReadOnlyList<StoryFilterTopologySignal> signals)
+    {
+        return signals.Any(signal => signal.SurfaceScope == StoryAssessmentSurfaceScope.CrossSurfaceCandidate)
+            ? StoryAssessmentSurfaceScope.CrossSurfaceCandidate
+            : StoryAssessmentSurfaceScope.PbirSpecific;
+    }
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildPerformanceMonitorExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.20d, entry => EntryRawValueEquals(entry, "comparison"), "lead intent comparison"),
+        ExpectSignal("layout.topScanKpiCount", 0.18d, entry => EntryRawIntAtLeast(entry, 1), "KPI layer present"),
+        ExpectSignal("context.targetBenchmarkPresent", 0.22d, entry => entry.Fired, "target or benchmark context present"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => TitleContainsAny(entry?.RawValue, "performance", "monitor", "kpi", "scorecard"), "monitor-oriented title"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.12d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.10d, entry => entry.Fired, "primary metric inferred"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildTrendExceptionExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.28d, entry => EntryRawValueEquals(entry, "trend"), "lead intent trend"),
+        ExpectSignal("context.priorPeriodContext", 0.18d, entry => entry.Fired, "prior-period context present"),
+        ExpectSignal("context.targetBenchmarkPresent", 0.16d, entry => entry.Fired, "target or benchmark context present"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => TitleContainsAny(entry?.RawValue, "trend", "exception", "variance", "risk", "alert", "monitor"), "trend/exception title cue"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.10d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.10d, entry => entry.Fired, "primary metric inferred"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildRankingExpectations() =>
+    [
+        ExpectSignal("layout.leadVisualType", 0.24d, entry => RawValueContainsAny(entry?.RawValue, "bar", "column"), "bar/column lead visual"),
+        ExpectSignal("layout.leadIntent", 0.16d, entry => EntryRawValueEquals(entry, "comparison"), "lead intent comparison"),
+        ExpectSignal("semantic.primaryDimension", 0.18d, entry => entry.Fired, "ranking dimension inferred"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.26d, entry => TitleContainsAny(entry?.RawValue, "top", "rank", "bottom", "highest", "lowest"), "ranking title cue"),
+        ExpectSignal("semantic.primaryMetric", 0.08d, entry => entry.Fired, "primary metric inferred"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.08d, entry => entry.Fired, "supporting evidence flow present"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildComparisonExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.24d, entry => EntryRawValueEquals(entry, "comparison"), "lead intent comparison"),
+        ExpectSignal("semantic.primaryDimension", 0.18d, entry => entry.Fired, "comparison dimension inferred"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.24d, entry => TitleContainsAny(entry?.RawValue, "vs", "versus", "compare", "comparison", "by"), "comparison title cue"),
+        ExpectSignal("context.targetBenchmarkPresent", 0.12d, entry => entry.Fired, "target/budget benchmark context present"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.12d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.10d, entry => entry.Fired, "primary metric inferred"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildDecompositionExpectations() =>
+    [
+        ExpectSignal("layout.leadIntent", 0.30d, entry => EntryRawValueEquals(entry, "composition"), "lead intent composition"),
+        ExpectSignal("layout.leadVisualType", 0.20d, entry => RawValueContainsAny(entry?.RawValue, "stacked", "pie", "donut", "funnel"), "composition-oriented visual"),
+        ExpectSignal("semantic.primaryDimension", 0.15d, entry => entry.Fired, "decomposition dimension inferred"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.20d, entry => TitleContainsAny(entry?.RawValue, "share", "mix", "composition", "contribution", "breakdown"), "decomposition title cue"),
+        ExpectSignal("semantic.primaryMetric", 0.08d, entry => entry.Fired, "primary metric inferred"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.07d, entry => entry.Fired, "supporting evidence flow present"),
+    ];
+
+    private static IReadOnlyList<ArchetypeExpectation> BuildNarrativeWalkthroughExpectations() =>
+    [
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => entry?.Fired == true, "meaningful narrative title"),
+        ExpectSignal("layout.supportingEvidenceFlow", 0.24d, entry => entry.Fired, "supporting evidence flow present"),
+        ExpectSignal("semantic.primaryMetric", 0.14d, entry => entry.Fired, "primary metric inferred"),
+        ExpectSignal("semantic.primaryDimension", 0.10d, entry => entry.Fired, "supporting dimension inferred"),
+        ExpectSignal("semantic.richMetadataSupport", 0.10d, entry => entry.Fired, "rich metadata support present"),
+        ExpectSignal("layout.meaningfulVisibleTitle", 0.18d, entry => TitleContainsAny(entry?.RawValue, "why", "story", "journey", "walkthrough", "explained"), "storytelling title cue"),
+        ExpectSignal("layout.leadIntent", 0.06d, entry => entry?.Fired == true, "lead analytical intent inferred"),
+    ];
+
+    private static ArchetypeExpectation ExpectSignal(
+        string signalId,
+        double weight,
+        Func<StorySignalRegistryEntry?, bool> predicate,
+        string narrativeLabel)
+    {
+        return new ArchetypeExpectation(
+            signalId,
+            weight,
+            entriesById => predicate(GetSignal(entriesById, signalId)),
+            entriesById => DescribeSignalState(GetSignal(entriesById, signalId), signalId, narrativeLabel, matched: true),
+            entriesById => DescribeSignalState(GetSignal(entriesById, signalId), signalId, narrativeLabel, matched: false),
+            entriesById => GetSignal(entriesById, signalId)?.ExplanationHook ?? narrativeLabel);
+    }
+
+    private static StorySignalRegistryEntry? GetSignal(
+        IReadOnlyDictionary<string, StorySignalRegistryEntry> entriesById,
+        string signalId) =>
+        entriesById.TryGetValue(signalId, out var entry) ? entry : null;
+
+    private static string DescribeSignalState(
+        StorySignalRegistryEntry? entry,
+        string signalId,
+        string narrativeLabel,
+        bool matched)
+    {
+        if (entry is null)
+        {
+            return $"{signalId}: {(matched ? "missing match target" : "missing")} ({narrativeLabel})";
+        }
+
+        var rawSuffix = string.IsNullOrWhiteSpace(entry.RawValue)
+            ? string.Empty
+            : $" [{entry.RawValue}]";
+        return $"{signalId}: {(matched ? "matched" : "missed")} {narrativeLabel}{rawSuffix}";
+    }
+
+    private static bool EntryRawValueEquals(StorySignalRegistryEntry? entry, string expectedValue) =>
+        entry is not null &&
+        string.Equals(entry.RawValue, expectedValue, StringComparison.OrdinalIgnoreCase);
+
+    private static bool EntryRawIntAtLeast(StorySignalRegistryEntry? entry, int minimum) =>
+        entry is not null &&
+        int.TryParse(entry.RawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedValue) &&
+        parsedValue >= minimum;
+
+    private static IReadOnlyDictionary<StoryArchetypeId, double> BuildTopologyReinforcementBonusMap(
+        IReadOnlyList<StoryFilterTopologySignal> signals)
+    {
+        var bonuses = Enum.GetValues<StoryArchetypeId>()
+            .ToDictionary(archetype => archetype, _ => 0d);
+
+        foreach (var signal in signals.Where(signal => signal.Fired && signal.SupportsArchetypeReinforcement))
+        {
+            switch (signal.Id)
+            {
+                case "topology.hierarchicalTimeFilter":
+                    bonuses[StoryArchetypeId.TrendException] += 0.10d;
+                    bonuses[StoryArchetypeId.PerformanceMonitor] += 0.04d;
+                    break;
+                case "topology.scopedFilterContext":
+                    bonuses[StoryArchetypeId.TrendException] += 0.04d;
+                    bonuses[StoryArchetypeId.Comparison] += 0.06d;
+                    bonuses[StoryArchetypeId.Ranking] += 0.04d;
+                    break;
+                case "topology.reportLevelContext":
+                    bonuses[StoryArchetypeId.TrendException] += 0.03d;
+                    bonuses[StoryArchetypeId.Comparison] += 0.02d;
+                    break;
+                case "topology.consistentControlBand":
+                    bonuses[StoryArchetypeId.Comparison] += 0.04d;
+                    bonuses[StoryArchetypeId.NarrativeWalkthrough] += 0.04d;
+                    break;
+            }
+        }
+
+        return bonuses;
+    }
+
+    private static StoryAssessmentValidationRating DetermineAggregateTopologyRating(
+        IEnumerable<StoryAssessmentValidationRating> ratings)
+    {
+        var distinctRatings = ratings
+            .Where(rating => rating != StoryAssessmentValidationRating.NotAssessed)
+            .Distinct()
+            .ToList();
+
+        if (distinctRatings.Count == 0)
+        {
+            return StoryAssessmentValidationRating.NotAssessed;
+        }
+
+        if (distinctRatings.Contains(StoryAssessmentValidationRating.Strong))
+        {
+            return StoryAssessmentValidationRating.Strong;
+        }
+
+        if (distinctRatings.Contains(StoryAssessmentValidationRating.Mixed))
+        {
+            return StoryAssessmentValidationRating.Mixed;
+        }
+
+        return StoryAssessmentValidationRating.Weak;
+    }
+
+    private static bool TitleContainsAny(string? rawTitle, params string[] keywords) =>
+        keywords.Any(keyword => TextContainsPhrase(rawTitle ?? string.Empty, keyword));
+
+    private static bool RawValueContainsAny(string? rawValue, params string[] snippets) =>
+        snippets.Any(snippet => rawValue?.Contains(snippet, StringComparison.OrdinalIgnoreCase) == true);
+
+    private static StorySignalRegistryEntry CreateStorySignalEntry(
+        string id,
+        StorySignalCategory category,
+        string? rawValue,
+        bool fired,
+        StorySignalContributionIntent contributionIntent,
+        StorySignalRemediability remediability,
+        string explanationHook,
+        StoryAssessmentSurfaceScope surfaceScope,
+        StorySignalRequirementRole requirementRole,
+        StorySignalEvidenceRole evidenceRole,
+        StoryAssessmentExplanationType explanationType,
+        StoryAssessmentActionabilityType actionabilityType)
+    {
+        return new StorySignalRegistryEntry
+        {
+            Id = id,
+            Category = category,
+            RawValue = rawValue,
+            Fired = fired,
+            ContributionIntent = contributionIntent,
+            Remediability = remediability,
+            ExplanationHook = explanationHook,
+            ReliabilityState = StorySignalReliabilityState.Candidate,
+            SurfaceScope = surfaceScope,
+            RequirementRole = requirementRole,
+            EvidenceRole = evidenceRole,
+            ExplanationType = explanationType,
+            ActionabilityType = actionabilityType,
+            PromotionState = StoryAssessmentPromotionState.Internal,
+            Evaluations = Array.Empty<StoryAssessmentDimensionEvaluation>(),
+        };
+    }
+
+    private sealed record ArchetypeExpectation(
+        string SignalId,
+        double Weight,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, bool> IsMatched,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, string> DescribeMatched,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, string> DescribeMissed,
+        Func<IReadOnlyDictionary<string, StorySignalRegistryEntry>, string> GetExplanationHook);
+
+    private sealed class SemanticCoherenceClusterAccumulator
+    {
+        public double Weight { get; set; }
+
+        public HashSet<string> Terms { get; } = new(StringComparer.Ordinal);
+
+        public HashSet<string> RawTexts { get; } = new(StringComparer.Ordinal);
+    }
+
     private static string CleanMetricLabel(string? label)
     {
         var normalized = NormalizeSemanticHint(label);
@@ -4166,7 +6789,11 @@ public sealed class PbirScoringService
             primaryMetric,
             primaryDimension,
             confidenceBonus,
-            evidence);
+            evidence,
+            HasRichSemanticSupport(leadMeasureCandidates, leadVisual?.FieldRoles.MeasureHints) ||
+                HasRichSemanticSupport(leadCategoryCandidates, leadVisual?.FieldRoles.CategoryHints),
+            HasSemanticTextAlignment(analysis.VisibleTitle, primaryMetric, primaryDimension) ||
+                HasSemanticTextAlignment(leadVisual?.BestVisibleText, primaryMetric, primaryDimension));
     }
 
     private static string BuildExecutiveHeadlinePhrase(string metricLabel)
@@ -7025,6 +9652,29 @@ public sealed class PbirScoringService
         return visible != false;
     }
 
+    private static int InferHierarchyDepth(
+        IReadOnlyList<string> fieldHints,
+        string? hierarchyPattern)
+    {
+        if (!string.IsNullOrWhiteSpace(hierarchyPattern))
+        {
+            return hierarchyPattern.Split('>', StringSplitOptions.RemoveEmptyEntries).Length;
+        }
+
+        var normalized = string.Join(" ", fieldHints)
+            .ToLowerInvariant();
+        int depth = 0;
+        foreach (var token in new[] { "year", "quarter", "month", "week", "day" })
+        {
+            if (normalized.Contains(token, StringComparison.Ordinal))
+            {
+                depth++;
+            }
+        }
+
+        return depth >= 2 ? depth : 0;
+    }
+
     private static string? ReadStringNode(JsonNode? node)
     {
         if (node is null)
@@ -7163,296 +9813,15 @@ public sealed class PbirScoringService
             possiblePoints,
             findingType);
 
-    /// <summary>
-    /// Extracts framework weights from the configuration JsonElement passed from the frontend.
-    /// Returns a dictionary mapping framework names to their configured weights (0-100).
-    /// If config is null or doesn't contain a framework, returns 0 for that framework.
-    /// </summary>
-    /// <param name="config">The configuration JsonElement from the frontend (optional).</param>
-    /// <returns>A dictionary of framework weights. If config is null, returns an empty dictionary.</returns>
-    private Dictionary<string, double> ExtractFrameworkWeights(JsonElement? config)
-    {
-        var weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-
-        if (!config.HasValue || config.Value.ValueKind != JsonValueKind.Object)
-        {
-            _logger.LogWarning("[ExtractFrameworkWeights] Config is null or not an object, using default Design Analyzer configuration");
-            return GetDefaultFrameworkWeights();
-        }
-
-        // Try to extract from "frameworks" array (new format from Design Analyzer Config panel)
-        if (config.Value.TryGetProperty("frameworks", out var frameworksArray) &&
-            frameworksArray.ValueKind == JsonValueKind.Array)
-        {
-            _logger.LogInformation("[ExtractFrameworkWeights] Found {FrameworkCount} frameworks in config array", frameworksArray.GetArrayLength());
-            
-            foreach (var framework in frameworksArray.EnumerateArray())
-            {
-                if (framework.ValueKind != JsonValueKind.Object)
-                    continue;
-
-                // Get the framework ID
-                string? id = null;
-                if (framework.TryGetProperty("id", out var idProp))
-                {
-                    id = idProp.GetString();
-                }
-
-                if (string.IsNullOrEmpty(id))
-                    continue;
-
-                // Normalize ID to match internal framework names
-                var normalizedId = NormalizeFrameworkId(id);
-
-                // Check if framework is enabled
-                bool isEnabled = false;
-                if (framework.TryGetProperty("enabled", out var enabledProp))
-                {
-                    isEnabled = enabledProp.ValueKind == JsonValueKind.True;
-                }
-
-                // Extract weight
-                double weight = 0;
-                if (isEnabled && framework.TryGetProperty("weight", out var weightProp))
-                {
-                    try
-                    {
-                        weight = weightProp.GetDouble();
-                    }
-                    catch { /* fall through */ }
-                }
-
-                weights[normalizedId] = weight;
-                _logger.LogDebug("[ExtractFrameworkWeights]   {FrameworkId} → {NormalizedId}: enabled={Enabled}, weight={Weight}%", id, normalizedId, isEnabled, weight);
-            }
-
-            if (weights.Count > 0)
-            {
-                _logger.LogInformation("[ExtractFrameworkWeights] Extracted {WeightCount} framework weights: {Weights}", 
-                    weights.Count, 
-                    string.Join(", ", weights.Select(kv => $"{kv.Key}={kv.Value}%")));
-            }
-            else
-            {
-                _logger.LogWarning("[ExtractFrameworkWeights] Frameworks array was present but no enabled frameworks found!");
-            }
-            return weights;
-        }
-
-        _logger.LogWarning("[ExtractFrameworkWeights] No 'frameworks' array found in config, trying legacy format");
-        
-        // Fall back to old flat object format (legacy support)
-        var legacyFrameworks = new[]
-        {
-            "gestalt", "cognitiveLoad", "dataInk", "graphicalPerception", "accessibility",
-            "visualBestPractices", "governance", "stephenFew", "tufte", "density", "narrative"
-        };
-
-        foreach (var framework in legacyFrameworks)
-        {
-            if (config.Value.TryGetProperty(framework, out var frameworkObj) &&
-                frameworkObj.ValueKind == JsonValueKind.Object)
-            {
-                // Check if framework is enabled
-                bool isEnabled = true;
-                if (frameworkObj.TryGetProperty("enabled", out var enabledProp))
-                {
-                    isEnabled = enabledProp.ValueKind == JsonValueKind.True;
-                }
-
-                // Extract weight
-                double weight = 0;
-                if (isEnabled && frameworkObj.TryGetProperty("weight", out var weightProp))
-                {
-                    try
-                    {
-                        weight = weightProp.GetDouble();
-                    }
-                    catch { /* fall through */ }
-                }
-
-                weights[framework] = weight;
-                _logger.LogDebug("[ExtractFrameworkWeights] (legacy) {Framework}: enabled={Enabled}, weight={Weight}%", framework, isEnabled, weight);
-            }
-        }
-
-        if (weights.Count > 0)
-        {
-            _logger.LogInformation("[ExtractFrameworkWeights] Extracted {WeightCount} legacy weights: {Weights}", 
-                weights.Count, 
-                string.Join(", ", weights.Select(kv => $"{kv.Key}={kv.Value}%")));
-        }
-        else
-        {
-            _logger.LogWarning("[ExtractFrameworkWeights] No weights found in either new or legacy format - using default Design Analyzer configuration");
-            return GetDefaultFrameworkWeights();
-        }
-
-        return weights;
-    }
-
-    private static Dictionary<string, double> GetDefaultFrameworkWeights() => new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["gestalt"] = 30,
-        ["cognitiveLoad"] = 20,
-        ["dataInk"] = 15,
-        ["graphicalPerception"] = 0,
-        ["accessibility"] = 15,
-        ["visualBestPractices"] = 20,
-        ["governance"] = 0,
-        ["stephenFew"] = 0,
-        ["tufte"] = 0,
-        ["density"] = 0,
-        ["narrative"] = 0,
-    };
-
-    private static NavigationScoringSettings ExtractNavigationScoringSettings(JsonElement? config)
-    {
-        var defaults = new NavigationScoringSettings(
-            Enabled: true,
-            WeightPercent: 25,
-            WarningNavigationCount: 8,
-            WarningHiddenVisualCount: 5);
-
-        if (!config.HasValue || config.Value.ValueKind != JsonValueKind.Object)
-        {
-            return defaults;
-        }
-
-        if (!config.Value.TryGetProperty("navigationScoring", out var navigationScoring) ||
-            navigationScoring.ValueKind != JsonValueKind.Object)
-        {
-            return defaults;
-        }
-
-        var enabled = defaults.Enabled;
-        if (navigationScoring.TryGetProperty("enabled", out var enabledProp) &&
-            enabledProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
-        {
-            enabled = enabledProp.GetBoolean();
-        }
-
-        var weightPercent = defaults.WeightPercent;
-        if (navigationScoring.TryGetProperty("weight", out var weightProp) &&
-            weightProp.ValueKind == JsonValueKind.Number)
-        {
-            try
-            {
-                weightPercent = Math.Clamp(weightProp.GetDouble(), 0, 100);
-            }
-            catch
-            {
-                weightPercent = defaults.WeightPercent;
-            }
-        }
-
-        return defaults with
-        {
-            Enabled = enabled,
-            WeightPercent = weightPercent,
-        };
-    }
-
-    private static GovernanceRules ExtractGovernanceRules(JsonElement? config)
-    {
-        var rules = new GovernanceRules(MaxVisualsPerPage: 10, AllowPieCharts: false, RequirePageTitle: true);
-
-        if (!config.HasValue || !config.Value.TryGetProperty("governance", out var governanceArray) ||
-            governanceArray.ValueKind != JsonValueKind.Array)
-        {
-            return rules;
-        }
-
-        foreach (var rule in governanceArray.EnumerateArray())
-        {
-            if (rule.ValueKind != JsonValueKind.Object || !rule.TryGetProperty("id", out var idProp))
-            {
-                continue;
-            }
-
-            var id = idProp.GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(id) || !rule.TryGetProperty("value", out var valueProp))
-            {
-                continue;
-            }
-
-            switch (id)
-            {
-                case "maxVisuals":
-                case "maxVisualsPerPage":
-                    if (valueProp.ValueKind == JsonValueKind.Number && valueProp.TryGetInt32(out var maxVisuals))
-                    {
-                        rules = rules with { MaxVisualsPerPage = Math.Max(1, maxVisuals) };
-                    }
-                    break;
-                case "allowPie":
-                case "allowPieCharts":
-                    if (valueProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                    {
-                        rules = rules with { AllowPieCharts = valueProp.GetBoolean() };
-                    }
-                    break;
-                case "requireTitle":
-                case "requirePageTitle":
-                    if (valueProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                    {
-                        rules = rules with { RequirePageTitle = valueProp.GetBoolean() };
-                    }
-                    break;
-            }
-        }
-
-        return rules;
-    }
-
-    /// <summary>
-    /// Normalizes framework ID from Design Analyzer panel format to internal framework names.
-    /// Supports all 11 frameworks: 7 core + 4 optional.
-    /// E.g.: "gestalt" → "gestalt", "cognitive" → "cognitiveLoad", "dataink" → "dataInk"
-    /// </summary>
-    private static string NormalizeFrameworkId(string id)
-    {
-        return id.ToLowerInvariant() switch
-        {
-            // Core frameworks (7)
-            "gestalt" => "gestalt",
-            "cognitive" or "cognitivelload" => "cognitiveLoad",
-            "dataink" or "data-ink" => "dataInk",
-            "graphical" or "graphicalperception" => "graphicalPerception",
-            "accessibility" or "wcag" => "accessibility",
-            "visual" or "visualbestpractices" => "visualBestPractices",
-            "governance" or "enterprisegovernance" => "governance",
-            // Optional frameworks (4)
-            "stephen" or "stephenfew" => "stephenFew",
-            "tufte" or "tufeminimalism" => "tufte",
-            "density" or "dashboarddensity" => "density",
-            "narrative" or "narrativedesign" => "narrative",
-            _ => id // Return original if no mapping found
-        };
-    }
-
     private static double Clamp(double value) => Math.Max(0.0, Math.Min(100.0, value));
 
     // ── Inner types ──────────────────────────────────────────────────────────
-
-    private readonly record struct GovernanceRules(int MaxVisualsPerPage, bool AllowPieCharts, bool RequirePageTitle);
-
-    private readonly record struct NavigationScoringSettings(
-        bool Enabled,
-        double WeightPercent,
-        int WarningNavigationCount,
-        int WarningHiddenVisualCount)
-    {
-        public double WeightMultiplier => WeightPercent / 100.0;
-    }
 
     private readonly record struct VisualComposition(
         int DataVisualCount,
         int NavigationVisualCount,
         int HiddenVisualCount,
         double WeightedVisibleCount);
-
-    private readonly record struct CanvasMetadata(double Width, double Height);
 
     private readonly record struct VisualRow(
         List<VisualData> Visuals,
@@ -7558,101 +9927,19 @@ public sealed class PbirScoringService
         ReportConsistencySummary Summary,
         List<ReportConsistencyIssueContext> Issues);
 
+    private sealed record PageSummaryArtifacts(
+        PageVisualMetadataSummary? VisualMetadata,
+        PageStorySummary? StorySummary,
+        PageIntentProfileSummary? IntentProfile,
+        ActionabilityBreakdown? ActionabilityBreakdown,
+        BenchmarkComparisonSummary? BenchmarkComparison);
+
     private enum MetricLabelPattern
     {
         Plain,
         PrefixModifier,
         SuffixModifier,
         GenericAggregate,
-    }
-
-    private sealed record PageData
-    {
-        public required string DisplayName { get; init; }
-        public List<VisualData> Visuals { get; init; } = [];
-        public CanvasMetadata? Canvas { get; init; }
-    }
-
-    private sealed record VisualData
-    {
-        public required string Id { get; init; }
-        public required string Type { get; init; }
-        public double X { get; init; }
-        public double Y { get; init; }
-        public double W { get; init; }
-        public double H { get; init; }
-        public bool IsHidden { get; init; }
-        public VisualTextMetadata Text { get; init; } = VisualTextMetadata.Empty;
-        public VisualLabelMetadata Labels { get; init; } = VisualLabelMetadata.Empty;
-        public VisualFieldRoleMetadata FieldRoles { get; init; } = VisualFieldRoleMetadata.Empty;
-        public VisualFormattingMetadata Formatting { get; init; } = VisualFormattingMetadata.Empty;
-
-        public bool IsSlicer     => Type is "slicer" or "advancedSlicerVisual";
-        public bool IsKpiCard    => Type is "card" or "kpiVisual" or "multiRowCard";
-        public bool IsPieDonut   => Type is "pieChart" or "donutChart";
-        public bool IsTrend      => Type is "lineChart" or "areaChart" or "lineAndStackedColumnChart" or "lineAndClusteredColumnChart";
-        public bool IsComparison => Type is "clusteredColumnChart" or "clusteredBarChart"
-                                          or "stackedColumnChart" or "stackedBarChart"
-                                          or "barChart" or "columnChart" or "waterfallChart";
-        public string? VisibleTitleText => Text.VisibleTitleText;
-        public string? VisibleSubtitleText => Text.VisibleSubtitleText;
-        public string? TextBoxText => Text.TextBoxText;
-        public string? BestVisibleText => FirstNonBlank(VisibleTitleText, TextBoxText, VisibleSubtitleText);
-        public bool HasVisibleTitleIntent => !string.IsNullOrWhiteSpace(BestVisibleText);
-        public bool IsNavigationElement
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(Type))
-                {
-                    return false;
-                }
-
-                var normalized = Type.Trim().ToLowerInvariant();
-                return normalized is "actionbutton"
-                    or "navigationbutton"
-                    or "basicshape"
-                    or "shape"
-                    or "image"
-                    or "slicer"
-                    or "advancedslicervisual"
-                    or "qnavisual"
-                    || normalized.Contains("button", StringComparison.Ordinal)
-                    || normalized.Contains("image", StringComparison.Ordinal)
-                    || normalized.EndsWith("slicer", StringComparison.Ordinal);
-            }
-        }
-
-        public bool IsDecorative => string.IsNullOrWhiteSpace(Type) || _decorativeTypes.Contains(Type);
-    }
-
-    private sealed record VisualTextMetadata(string? VisibleTitleText, string? VisibleSubtitleText, string? TextBoxText)
-    {
-        public static VisualTextMetadata Empty { get; } = new(null, null, null);
-    }
-
-    private sealed record VisualLabelMetadata(bool? HasLegend, bool? HasAxisLabels, bool? HasDataLabels)
-    {
-        public static VisualLabelMetadata Empty { get; } = new(null, null, null);
-    }
-
-    private sealed record VisualFieldRoleMetadata(
-        IReadOnlyList<string> CategoryHints,
-        IReadOnlyList<string> ValueHints,
-        IReadOnlyList<string> SeriesHints,
-        IReadOnlyList<string> MeasureHints)
-    {
-        public static VisualFieldRoleMetadata Empty { get; } = new([], [], [], []);
-    }
-
-    private sealed record VisualFormattingMetadata(
-        string? BackgroundFillColor,
-        string? FontColor,
-        bool? HasBorder,
-        double? CornerRadius,
-        bool? HasShadow)
-    {
-        public static VisualFormattingMetadata Empty { get; } = new(null, null, null, null, null);
     }
 
     private sealed record NarrativePageAnalysis(
@@ -7675,5 +9962,7 @@ public sealed class PbirScoringService
         string PrimaryMetric,
         string? PrimaryDimension,
         int ConfidenceBonus,
-        List<string> Evidence);
+        List<string> Evidence,
+        bool HasRichMetadataSupport,
+        bool HasSemanticTextAlignment);
 }

@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { registerCommands, PBIR_ANALYZER_COMMANDS } from '../commands/register';
-import { PBIR_COMMANDS, registerPbirCommands } from '../commands/pbirCommands';
+import { registerCommands, PBIR_COMMANDS } from '../commands/register';
+import { registerPbirCommands } from '../commands/pbirCommands';
 import { PbirScorePanel } from '../views/PbirScorePanel';
 
 jest.mock('../views/PbirScorePanel', () => ({
@@ -67,7 +67,7 @@ describe('pbir.exportReviewWorkflow command', () => {
   it('registers the analyzer-level alias and routes it to the PBIR export command', async () => {
     registerCommands({ subscriptions: [] } as unknown as vscode.ExtensionContext, () => undefined);
 
-    const aliasHandler = getRegisteredHandler(PBIR_ANALYZER_COMMANDS.exportReviewWorkflow);
+    const aliasHandler = getRegisteredHandler('pbir.exportReviewWorkflow');
     await aliasHandler('/tmp/example.Report');
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(

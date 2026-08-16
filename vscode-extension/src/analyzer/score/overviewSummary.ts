@@ -162,18 +162,32 @@ export function buildOverviewSummary(result: ScoreResult): OverviewSummary {
   const benchmarkSummary = buildBenchmarkSummary(result.benchmarkComparison);
   const maturityBand = inferMaturityBand(result.compositeScore, distribution);
   const riskBand = inferRiskBand(distribution);
+  const readinessSummary = result.readinessAssessment
+    ? {
+        readinessScore: result.readinessAssessment.overallReadinessScore,
+        readinessBand: result.readinessAssessment.readinessBand,
+        candidatePageCount: result.readinessAssessment.candidatePages.length,
+        migrationBlockerCount: result.readinessAssessment.blockers.length,
+        estimatedRedesignEffort: result.readinessAssessment.estimatedRedesignEffort,
+      }
+    : undefined;
+  const readinessSentence = readinessSummary
+    ? ` It is a ${readinessSummary.readinessBand === 'strongCandidate' ? 'strong' : readinessSummary.readinessBand === 'possibleCandidate' ? 'possible' : readinessSummary.readinessBand === 'redesignRequired' ? 'redesign-first' : 'report-first'} migration candidate for Fabric Apps.`
+    : '';
+  const fabricAppSentence = result.fabricAppReview ? ` ${result.fabricAppReview.summary}` : '';
 
   return {
     overallScore: result.compositeScore,
     maturityBand,
     riskBand,
     benchmarkSummary,
-    executiveSummary: `This report is ${maturityBand.toLowerCase()} with ${riskBand.toLowerCase()} risk based on the current score and issue mix.`,
+    executiveSummary: `This report is ${maturityBand.toLowerCase()} with ${riskBand.toLowerCase()} risk based on the current score and issue mix.${readinessSentence}${fabricAppSentence}`,
     severityDistribution: distribution,
     topStrengths: buildTopStrengths(result, distribution),
     topWeaknesses,
     topIssues,
     topActions,
     crossPageSummary,
+    readinessSummary,
   };
 }

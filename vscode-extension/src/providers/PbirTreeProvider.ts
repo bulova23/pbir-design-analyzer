@@ -58,7 +58,7 @@ export class PbirTreeItem extends vscode.TreeItem {
 // ── Provider ─────────────────────────────────────────────────────────────────
 
 /**
- * VS Code TreeDataProvider for the `powerbiModeling.pbirExplorer` view.
+ * VS Code TreeDataProvider for the `pbirAnalyzer.explorer` view.
  *
  * Displays the PBIR report hierarchy:
  * ```
@@ -93,15 +93,28 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
         this._onDidChangeTreeData.fire();
     }
 
-    async findVisualItem(pageName: string, visualId: string): Promise<PbirTreeItem | undefined> {
+    async findReportItem(): Promise<PbirTreeItem | undefined> {
         const rootItems = await this.getChildren();
-        const reportItem = rootItems.find((item) => item.kind === 'report');
+        return rootItems.find((item) => item.kind === 'report');
+    }
+
+    async findPageItem(pageName: string): Promise<PbirTreeItem | undefined> {
+        const reportItem = await this.findReportItem();
         if (!reportItem) {
             return undefined;
         }
 
         const pageItems = await this.getChildren(reportItem);
-        const pageItem = pageItems.find((item) => this._matchesPage(item, pageName));
+        return pageItems.find((item) => this._matchesPage(item, pageName));
+    }
+
+    async findVisualItem(pageName: string, visualId: string): Promise<PbirTreeItem | undefined> {
+        const reportItem = await this.findReportItem();
+        if (!reportItem) {
+            return undefined;
+        }
+
+        const pageItem = await this.findPageItem(pageName);
         if (!pageItem) {
             return undefined;
         }
@@ -165,7 +178,7 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
             }
         }
 
-        const localTree = buildLocalPbirTree(this._projectPath);
+        const localTree = await buildLocalPbirTree(this._projectPath);
         if (localTree) {
             return [this._createReportItem(localTree)];
         }
@@ -255,7 +268,7 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
             typeof item.label === 'string' ? item.label : undefined,
         ];
 
-        return candidates.some((candidate) => candidate === pageName);
+        return candidates.some((candidate) => this._matchesIdentifier(candidate, pageName));
     }
 
     private _matchesVisual(item: PbirTreeItem, visualId: string): boolean {
@@ -264,7 +277,19 @@ export class PbirTreeProvider implements vscode.TreeDataProvider<PbirTreeItem> {
         }
 
         const rawNode = item.rawNode as PbirVisualNode | undefined;
-        return rawNode?.name === visualId;
+        const candidates = [
+            rawNode?.id,
+            rawNode?.name,
+            typeof item.label === 'string' ? item.label : undefined,
+            item.resourceUri?.fsPath ? path.basename(path.dirname(item.resourceUri.fsPath)) : undefined,
+        ];
+
+        return candidates.some((candidate) => this._matchesIdentifier(candidate, visualId));
+    }
+
+    private _matchesIdentifier(candidate: string | undefined, expected: string): boolean {
+        return typeof candidate === 'string' &&
+            candidate.trim().localeCompare(expected.trim(), undefined, { sensitivity: 'accent' }) === 0;
     }
 
     /**

@@ -1,0 +1,2853 @@
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/CrossPageNarrative/CrossPageNarrativeInputBuilder.cs(28,22): warning CS8601: Possible null reference assignment. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7213,72): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7215,71): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7216,64): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7222,68): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7223,72): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7225,71): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7226,64): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7233,67): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7235,64): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7236,71): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7242,67): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7244,72): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7245,71): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7246,64): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7253,67): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7255,64): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7256,71): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7262,71): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7263,64): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7264,67): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/Services/Pbir/PbirScoringService.cs(7265,70): warning CS8602: Dereference of a possibly null reference. [/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/PbirDesignAnalyzer.Core.csproj]
+{
+  "local-theme-directory-visuals": {
+    "gestaltScore": 82.5,
+    "cognitiveLoadScore": 100,
+    "dataInkScore": 100,
+    "accessibilityScore": 86.66666666666666,
+    "visualBestPracticesScore": 80,
+    "stephenFewScore": 80,
+    "enterpriseGovernanceScore": 100,
+    "graphicalPerceptionScore": 80,
+    "tufteScore": 100,
+    "densityScore": 25,
+    "narrativeScore": 100,
+    "layoutScore": 82.5,
+    "themeScore": 80,
+    "governanceScore": 100,
+    "frameworkWeights": {
+      "gestalt": 30,
+      "cognitiveLoad": 20,
+      "dataInk": 15,
+      "graphicalPerception": 0,
+      "accessibility": 15,
+      "visualBestPractices": 20,
+      "governance": 0,
+      "stephenFew": 0,
+      "tufte": 0,
+      "density": 0,
+      "narrative": 0
+    },
+    "compositeScore": 88.75,
+    "feedback": {
+      "gestalt": [
+        {
+          "ok": false,
+          "text": "Grid alignment: 1 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system.",
+          "affectedVisuals": [
+            {
+              "pageName": "Overview",
+              "visualId": "details-chart",
+              "visualType": "barChart"
+            }
+          ],
+          "earnedPoints": 17.5,
+          "possiblePoints": 35,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Figure/ground: KPI cards contrast with supporting charts \u2014 effective visual hierarchy.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Similarity: 2 distinct visual types guide attention without visual noise.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Visual presence: Report contains data visuals.",
+          "affectedVisuals": null,
+          "earnedPoints": 15,
+          "possiblePoints": 15,
+          "findingType": "objective"
+        }
+      ],
+      "cognitiveLoad": [
+        {
+          "ok": true,
+          "text": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density.",
+          "affectedVisuals": null,
+          "earnedPoints": 100,
+          "possiblePoints": 100,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Optimal density: 1 page(s) have \u22644 visuals \u2014 excellent focus.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "dataInk": [
+        {
+          "ok": true,
+          "text": "Data-ink ratio: 100% of visuals carry data \u2014 minimal decorative overhead.",
+          "affectedVisuals": null,
+          "earnedPoints": 100,
+          "possiblePoints": 100,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "objective"
+        }
+      ],
+      "accessibility": [
+        {
+          "ok": false,
+          "text": "WCAG 2.1 AA palette: 1 colour(s) fail contrast ratio \u22654.5:1 against white: #778899. Update the report theme with accessible colours to fix.",
+          "affectedVisuals": null,
+          "earnedPoints": 26.666666666666664,
+          "possiblePoints": 40,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Colorblind-safe palette: No red/green theme pairs simulate to indistinguishable values for deuteranopia.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "objective"
+        }
+      ],
+      "visualBestPractices": [
+        {
+          "ok": true,
+          "text": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
+          "affectedVisuals": null,
+          "earnedPoints": 0,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Colour palette: 3 data colour(s) \u2014 palette is concise.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Data bindings: All data visuals have a chart type assigned.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "objective"
+        }
+      ],
+      "governance": [
+        {
+          "ok": true,
+          "text": "Visual limit: All 1 page(s) are within the configured maximum of 10 data visuals.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027Revenue\u0027.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "objective"
+        }
+      ],
+      "stephenFew": [
+        {
+          "ok": true,
+          "text": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "KPI prominence: KPI/card visual(s) present \u2014 key metric immediately visible.",
+          "affectedVisuals": null,
+          "earnedPoints": 25,
+          "possiblePoints": 25,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance.",
+          "affectedVisuals": null,
+          "earnedPoints": 25,
+          "possiblePoints": 25,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration.",
+          "affectedVisuals": null,
+          "earnedPoints": 0,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "tufte": [
+        {
+          "ok": true,
+          "text": "Data-ink ratio: 2/2 visuals carry data \u2014 strong data-ink discipline.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "graphicalPerception": [
+        {
+          "ok": false,
+          "text": "Perceptual accuracy: 1/2 visuals use position/length encodings \u2014 replace angle/area charts with bar or line charts for more accurate data perception.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 40,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons.",
+          "affectedVisuals": null,
+          "earnedPoints": 35,
+          "possiblePoints": 35,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Comparative structure: Clustered bar/column charts present \u2014 enables direct side-by-side comparison.",
+          "affectedVisuals": null,
+          "earnedPoints": 25,
+          "possiblePoints": 25,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "density": [
+        {
+          "ok": false,
+          "text": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 40,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Content diversity: Only 2 distinct visual type(s) \u2014 add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks.",
+          "affectedVisuals": null,
+          "earnedPoints": 15,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation.",
+          "affectedVisuals": null,
+          "earnedPoints": 0,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "objective"
+        },
+        {
+          "ok": false,
+          "text": "Overview/detail separation: \u0027Overview\u0027 mixes KPI overview cards and supporting detail visuals with only -120 px of vertical separation.",
+          "affectedVisuals": [
+            {
+              "pageName": "Overview",
+              "visualId": "hero-card",
+              "visualType": "card"
+            },
+            {
+              "pageName": "Overview",
+              "visualId": "details-chart",
+              "visualType": "barChart"
+            }
+          ],
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "narrative": [
+        {
+          "ok": true,
+          "text": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027Revenue\u0027).",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "KPI comparison context: KPI pages include at least one target, trend, variance, or supporting comparison so the numbers can be interpreted.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        }
+      ]
+    },
+    "pageCount": 1,
+    "recommendations": [
+      "[High] Accessibility: 1 theme colour(s) fail WCAG 2.1 AA contrast against white: #778899. Update the report theme colours to replace them.",
+      "[Medium] Density: Add more vertical separation between the KPI overview band and detail visuals on \u0027Overview\u0027 so the page reads in layers."
+    ],
+    "reportPath": "/var/folders/67/rl00rw0d1s1_rdn4d5rg36z80000gn/T/ws7a-regression-348758ea019d4c3b8ca7ba929de7f37a/theme-report-project/ThemeRegression.Report",
+    "scoredAt": "2026-06-15T15:41:34.386164+00:00",
+    "dataVisualCount": 2,
+    "navigationVisualCount": 0,
+    "hiddenVisualCount": 0,
+    "visualMetadata": {
+      "pageName": "Overview",
+      "visiblePageTitle": "Revenue",
+      "strictVisiblePageTitle": "Revenue",
+      "canvasWidth": null,
+      "canvasHeight": null,
+      "semanticColorMap": [],
+      "chartIntentSummary": {
+        "intent": "comparison",
+        "confidence": "high",
+        "evidence": [
+          "card",
+          "Revenue"
+        ],
+        "fitStatus": "good",
+        "recommendedAlternatives": []
+      },
+      "visualCount": 2,
+      "visibleTitleVisualCount": 2,
+      "textVisualCount": 0,
+      "slicerCount": 0,
+      "legendVisualCount": 0,
+      "axisLabelVisualCount": 0,
+      "dataLabelVisualCount": 0,
+      "formattedVisualCount": 0,
+      "visuals": [
+        {
+          "visualId": "hero-card",
+          "visualType": "card",
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 120,
+          "isHidden": false,
+          "isNavigationElement": false,
+          "isDecorative": false,
+          "isSlicer": false,
+          "visibleTitleText": "Revenue",
+          "visibleSubtitleText": null,
+          "textBoxText": null,
+          "bestVisibleText": "Revenue",
+          "hasVisibleTitleIntent": true,
+          "hasLegend": null,
+          "hasAxisLabels": null,
+          "hasDataLabels": null,
+          "categoryHints": [],
+          "valueHints": [],
+          "seriesHints": [],
+          "measureHints": [],
+          "backgroundFillColor": null,
+          "fontColor": null,
+          "hasBorder": null,
+          "cornerRadius": null,
+          "hasShadow": null,
+          "semanticColors": [],
+          "chartIntent": {
+            "intent": "comparison",
+            "confidence": "medium",
+            "evidence": [
+              "card",
+              "Revenue"
+            ],
+            "fitStatus": "good",
+            "recommendedAlternatives": []
+          }
+        },
+        {
+          "visualId": "details-chart",
+          "visualType": "barChart",
+          "x": 260,
+          "y": 0,
+          "width": 420,
+          "height": 240,
+          "isHidden": false,
+          "isNavigationElement": false,
+          "isDecorative": false,
+          "isSlicer": false,
+          "visibleTitleText": "Revenue by Segment",
+          "visibleSubtitleText": null,
+          "textBoxText": null,
+          "bestVisibleText": "Revenue by Segment",
+          "hasVisibleTitleIntent": true,
+          "hasLegend": null,
+          "hasAxisLabels": null,
+          "hasDataLabels": null,
+          "categoryHints": [
+            "Segment"
+          ],
+          "valueHints": [
+            "Revenue"
+          ],
+          "seriesHints": [],
+          "measureHints": [
+            "Revenue"
+          ],
+          "backgroundFillColor": null,
+          "fontColor": null,
+          "hasBorder": null,
+          "cornerRadius": null,
+          "hasShadow": null,
+          "semanticColors": [],
+          "chartIntent": {
+            "intent": "comparison",
+            "confidence": "high",
+            "evidence": [
+              "barChart",
+              "Segment",
+              "Revenue",
+              "Revenue by Segment"
+            ],
+            "fitStatus": "good",
+            "recommendedAlternatives": []
+          }
+        }
+      ]
+    },
+    "inferredStorySummary": {
+      "intentProfile": "analyticalDeepDive",
+      "storyArchetype": "comparison",
+      "inferredStory": "This page appears to compare Revenue across segment comparison.",
+      "confidence": "high",
+      "evidence": [
+        "Visible title: Revenue",
+        "1 KPI cards in the top scan path",
+        "Lead visual: barChart using Revenue / Segment",
+        "Lead chart intent: comparison",
+        "Lead visual semantic metadata emphasizes Revenue by Segment"
+      ]
+    },
+    "pageIntentProfile": {
+      "inferredProfile": "analytical",
+      "actionabilityExpectation": "medium",
+      "reviewGuidance": [
+        "Analytical pages should support exploration without hiding the main analytical question.",
+        "Use filters and supporting visuals to explain differences, not just to add density."
+      ],
+      "evidence": [
+        "This page appears to compare Revenue across segment comparison.",
+        "1 KPI card(s) detected",
+        "Profile normalized as analytical"
+      ]
+    },
+    "actionabilityBreakdown": {
+      "score": 40,
+      "targetBenchmarkPresent": false,
+      "exceptionVisibility": true,
+      "urgencySignaling": false,
+      "priorPeriodContext": false,
+      "drillPathPresent": true,
+      "expectationLevel": "medium",
+      "strengths": [
+        "Exceptions or at-risk conditions are surfaced clearly.",
+        "A supporting evidence path exists behind the headline result."
+      ],
+      "gaps": [
+        "Add a target or benchmark next to the KPI so the value can be interpreted.",
+        "Add a recency or urgency cue if this page is expected to trigger action.",
+        "Add prior-period or delta context so users can judge movement, not just the current value."
+      ],
+      "summary": "This analytical page still lacks the decision context needed for confident action."
+    },
+    "benchmarkComparison": {
+      "archetype": "analytical deep dive",
+      "benchmarkLabel": "Analytical deep-dive benchmark",
+      "comparativePosition": "below",
+      "beautifulButUseless": false,
+      "insight": "Compared with a typical analytical deep dive, this page still lacks the decision support expected for this profile.",
+      "strengths": [
+        "The page story reads clearly on the first scan."
+      ],
+      "gaps": [
+        "Add a target or benchmark next to the KPI so the value can be interpreted.",
+        "Add a recency or urgency cue if this page is expected to trigger action."
+      ]
+    },
+    "guidedStoryImprovements": {
+      "highPriorityImprovements": [
+        {
+          "id": "missing-benchmark-target",
+          "title": "Add a benchmark or target",
+          "summary": "The current result appears without a visible target, budget, or benchmark for comparison.",
+          "rationale": "Readers need an explicit reference point to judge whether the current result is strong, weak, or off track.",
+          "expectedImpact": "Clearer decision context around the headline numbers.",
+          "priority": "high",
+          "relatedImpactArea": "benchmark"
+        }
+      ],
+      "mediumPriorityImprovements": [
+        {
+          "id": "missing-prior-period-context",
+          "title": "Add prior-period context",
+          "summary": "The page shows the current result, but not enough context about movement over time.",
+          "rationale": "Prior-period context helps readers judge change, momentum, and whether the current result is improving or slipping.",
+          "expectedImpact": "Stronger trend interpretation and decision context.",
+          "priority": "medium",
+          "relatedImpactArea": "benchmark"
+        }
+      ],
+      "storyImprovementRationale": "The page clearly communicates current performance, but readers cannot tell whether results are good, bad, improving, or declining because benchmark and trend context are missing."
+    },
+    "reportConsistencySummary": null,
+    "pageScores": [
+      {
+        "pageId": "Overview",
+        "pageName": "Overview",
+        "gestaltScore": 82.5,
+        "cognitiveLoadScore": 100,
+        "dataInkScore": 100,
+        "accessibilityScore": 86.66666666666666,
+        "visualBestPracticesScore": 80,
+        "stephenFewScore": 80,
+        "enterpriseGovernanceScore": 100,
+        "tufteScore": 100,
+        "graphicalPerceptionScore": 80,
+        "densityScore": 25,
+        "narrativeScore": 100,
+        "dataVisualCount": 2,
+        "navigationVisualCount": 0,
+        "hiddenVisualCount": 0,
+        "visualMetadata": {
+          "pageName": "Overview",
+          "visiblePageTitle": "Revenue",
+          "strictVisiblePageTitle": "Revenue",
+          "canvasWidth": null,
+          "canvasHeight": null,
+          "semanticColorMap": [],
+          "chartIntentSummary": {
+            "intent": "comparison",
+            "confidence": "high",
+            "evidence": [
+              "card",
+              "Revenue"
+            ],
+            "fitStatus": "good",
+            "recommendedAlternatives": []
+          },
+          "visualCount": 2,
+          "visibleTitleVisualCount": 2,
+          "textVisualCount": 0,
+          "slicerCount": 0,
+          "legendVisualCount": 0,
+          "axisLabelVisualCount": 0,
+          "dataLabelVisualCount": 0,
+          "formattedVisualCount": 0,
+          "visuals": [
+            {
+              "visualId": "hero-card",
+              "visualType": "card",
+              "x": 0,
+              "y": 0,
+              "width": 220,
+              "height": 120,
+              "isHidden": false,
+              "isNavigationElement": false,
+              "isDecorative": false,
+              "isSlicer": false,
+              "visibleTitleText": "Revenue",
+              "visibleSubtitleText": null,
+              "textBoxText": null,
+              "bestVisibleText": "Revenue",
+              "hasVisibleTitleIntent": true,
+              "hasLegend": null,
+              "hasAxisLabels": null,
+              "hasDataLabels": null,
+              "categoryHints": [],
+              "valueHints": [],
+              "seriesHints": [],
+              "measureHints": [],
+              "backgroundFillColor": null,
+              "fontColor": null,
+              "hasBorder": null,
+              "cornerRadius": null,
+              "hasShadow": null,
+              "semanticColors": [],
+              "chartIntent": {
+                "intent": "comparison",
+                "confidence": "medium",
+                "evidence": [
+                  "card",
+                  "Revenue"
+                ],
+                "fitStatus": "good",
+                "recommendedAlternatives": []
+              }
+            },
+            {
+              "visualId": "details-chart",
+              "visualType": "barChart",
+              "x": 260,
+              "y": 0,
+              "width": 420,
+              "height": 240,
+              "isHidden": false,
+              "isNavigationElement": false,
+              "isDecorative": false,
+              "isSlicer": false,
+              "visibleTitleText": "Revenue by Segment",
+              "visibleSubtitleText": null,
+              "textBoxText": null,
+              "bestVisibleText": "Revenue by Segment",
+              "hasVisibleTitleIntent": true,
+              "hasLegend": null,
+              "hasAxisLabels": null,
+              "hasDataLabels": null,
+              "categoryHints": [
+                "Segment"
+              ],
+              "valueHints": [
+                "Revenue"
+              ],
+              "seriesHints": [],
+              "measureHints": [
+                "Revenue"
+              ],
+              "backgroundFillColor": null,
+              "fontColor": null,
+              "hasBorder": null,
+              "cornerRadius": null,
+              "hasShadow": null,
+              "semanticColors": [],
+              "chartIntent": {
+                "intent": "comparison",
+                "confidence": "high",
+                "evidence": [
+                  "barChart",
+                  "Segment",
+                  "Revenue",
+                  "Revenue by Segment"
+                ],
+                "fitStatus": "good",
+                "recommendedAlternatives": []
+              }
+            }
+          ]
+        },
+        "frameworkWeights": {
+          "gestalt": 30,
+          "cognitiveLoad": 20,
+          "dataInk": 15,
+          "graphicalPerception": 0,
+          "accessibility": 15,
+          "visualBestPractices": 20,
+          "governance": 0,
+          "stephenFew": 0,
+          "tufte": 0,
+          "density": 0,
+          "narrative": 0
+        },
+        "compositeScore": 88.75,
+        "feedback": {
+          "gestalt": [
+            {
+              "ok": false,
+              "text": "Grid alignment: 1 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system.",
+              "affectedVisuals": [
+                {
+                  "pageName": "Overview",
+                  "visualId": "details-chart",
+                  "visualType": "barChart"
+                }
+              ],
+              "earnedPoints": 17.5,
+              "possiblePoints": 35,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Figure/ground: KPI cards contrast with supporting charts \u2014 effective visual hierarchy.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Similarity: 2 distinct visual types guide attention without visual noise.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Visual presence: Report contains data visuals.",
+              "affectedVisuals": null,
+              "earnedPoints": 15,
+              "possiblePoints": 15,
+              "findingType": "objective"
+            }
+          ],
+          "cognitiveLoad": [
+            {
+              "ok": true,
+              "text": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density.",
+              "affectedVisuals": null,
+              "earnedPoints": 100,
+              "possiblePoints": 100,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Optimal density: 1 page(s) have \u22644 visuals \u2014 excellent focus.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "dataInk": [
+            {
+              "ok": true,
+              "text": "Data-ink ratio: 100% of visuals carry data \u2014 minimal decorative overhead.",
+              "affectedVisuals": null,
+              "earnedPoints": 100,
+              "possiblePoints": 100,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            }
+          ],
+          "accessibility": [
+            {
+              "ok": false,
+              "text": "WCAG 2.1 AA palette: 1 colour(s) fail contrast ratio \u22654.5:1 against white: #778899. Update the report theme with accessible colours to fix.",
+              "affectedVisuals": null,
+              "earnedPoints": 26.666666666666664,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Colorblind-safe palette: No red/green theme pairs simulate to indistinguishable values for deuteranopia.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "objective"
+            }
+          ],
+          "visualBestPractices": [
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Colour palette: 3 data colour(s) \u2014 palette is concise.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Data bindings: All data visuals have a chart type assigned.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "objective"
+            }
+          ],
+          "governance": [
+            {
+              "ok": true,
+              "text": "Visual limit: All 1 page(s) are within the configured maximum of 10 data visuals.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027Revenue\u0027.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "objective"
+            }
+          ],
+          "stephenFew": [
+            {
+              "ok": true,
+              "text": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "KPI prominence: KPI/card visual(s) present \u2014 key metric immediately visible.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "tufte": [
+            {
+              "ok": true,
+              "text": "Data-ink ratio: 2/2 visuals carry data \u2014 strong data-ink discipline.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "graphicalPerception": [
+            {
+              "ok": false,
+              "text": "Perceptual accuracy: 1/2 visuals use position/length encodings \u2014 replace angle/area charts with bar or line charts for more accurate data perception.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons.",
+              "affectedVisuals": null,
+              "earnedPoints": 35,
+              "possiblePoints": 35,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Comparative structure: Clustered bar/column charts present \u2014 enables direct side-by-side comparison.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "density": [
+            {
+              "ok": false,
+              "text": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Content diversity: Only 2 distinct visual type(s) \u2014 add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks.",
+              "affectedVisuals": null,
+              "earnedPoints": 15,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            },
+            {
+              "ok": false,
+              "text": "Overview/detail separation: \u0027Overview\u0027 mixes KPI overview cards and supporting detail visuals with only -120 px of vertical separation.",
+              "affectedVisuals": [
+                {
+                  "pageName": "Overview",
+                  "visualId": "hero-card",
+                  "visualType": "card"
+                },
+                {
+                  "pageName": "Overview",
+                  "visualId": "details-chart",
+                  "visualType": "barChart"
+                }
+              ],
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "narrative": [
+            {
+              "ok": true,
+              "text": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027Revenue\u0027).",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "KPI comparison context: KPI pages include at least one target, trend, variance, or supporting comparison so the numbers can be interpreted.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            }
+          ]
+        },
+        "recommendations": [
+          "[Medium] Density: Add more vertical separation between the KPI overview band and detail visuals on \u0027Overview\u0027 so the page reads in layers."
+        ],
+        "reportConsistencyNotes": [],
+        "inferredStorySummary": {
+          "intentProfile": "analyticalDeepDive",
+          "storyArchetype": "comparison",
+          "inferredStory": "This page appears to compare Revenue across segment comparison.",
+          "confidence": "high",
+          "evidence": [
+            "Visible title: Revenue",
+            "1 KPI cards in the top scan path",
+            "Lead visual: barChart using Revenue / Segment",
+            "Lead chart intent: comparison",
+            "Lead visual semantic metadata emphasizes Revenue by Segment"
+          ]
+        },
+        "pageIntentProfile": {
+          "inferredProfile": "analytical",
+          "actionabilityExpectation": "medium",
+          "reviewGuidance": [
+            "Analytical pages should support exploration without hiding the main analytical question.",
+            "Use filters and supporting visuals to explain differences, not just to add density."
+          ],
+          "evidence": [
+            "This page appears to compare Revenue across segment comparison.",
+            "1 KPI card(s) detected",
+            "Profile normalized as analytical"
+          ]
+        },
+        "actionabilityBreakdown": {
+          "score": 40,
+          "targetBenchmarkPresent": false,
+          "exceptionVisibility": true,
+          "urgencySignaling": false,
+          "priorPeriodContext": false,
+          "drillPathPresent": true,
+          "expectationLevel": "medium",
+          "strengths": [
+            "Exceptions or at-risk conditions are surfaced clearly.",
+            "A supporting evidence path exists behind the headline result."
+          ],
+          "gaps": [
+            "Add a target or benchmark next to the KPI so the value can be interpreted.",
+            "Add a recency or urgency cue if this page is expected to trigger action.",
+            "Add prior-period or delta context so users can judge movement, not just the current value."
+          ],
+          "summary": "This analytical page still lacks the decision context needed for confident action."
+        },
+        "benchmarkComparison": {
+          "archetype": "analytical deep dive",
+          "benchmarkLabel": "Analytical deep-dive benchmark",
+          "comparativePosition": "below",
+          "beautifulButUseless": false,
+          "insight": "Compared with a typical analytical deep dive, this page still lacks the decision support expected for this profile.",
+          "strengths": [
+            "The page story reads clearly on the first scan."
+          ],
+          "gaps": [
+            "Add a target or benchmark next to the KPI so the value can be interpreted.",
+            "Add a recency or urgency cue if this page is expected to trigger action."
+          ]
+        },
+        "guidedStoryImprovements": {
+          "highPriorityImprovements": [
+            {
+              "id": "missing-benchmark-target",
+              "title": "Add a benchmark or target",
+              "summary": "The current result appears without a visible target, budget, or benchmark for comparison.",
+              "rationale": "Readers need an explicit reference point to judge whether the current result is strong, weak, or off track.",
+              "expectedImpact": "Clearer decision context around the headline numbers.",
+              "priority": "high",
+              "relatedImpactArea": "benchmark"
+            }
+          ],
+          "mediumPriorityImprovements": [
+            {
+              "id": "missing-prior-period-context",
+              "title": "Add prior-period context",
+              "summary": "The page shows the current result, but not enough context about movement over time.",
+              "rationale": "Prior-period context helps readers judge change, momentum, and whether the current result is improving or slipping.",
+              "expectedImpact": "Stronger trend interpretation and decision context.",
+              "priority": "medium",
+              "relatedImpactArea": "benchmark"
+            }
+          ],
+          "storyImprovementRationale": "The page clearly communicates current performance, but readers cannot tell whether results are good, bad, improving, or declining because benchmark and trend context are missing."
+        },
+        "scoringError": null,
+        "isSuccessful": true,
+        "perStateScores": null,
+        "reportConsistency": null
+      }
+    ],
+    "scoredPageId": null,
+    "scoredPageName": null,
+    "perStateScores": null,
+    "currentLayoutState": null,
+    "scoringErrors": {}
+  },
+  "pages-order-report-filters": {
+    "gestaltScore": 82.5,
+    "cognitiveLoadScore": 100,
+    "dataInkScore": 100,
+    "accessibilityScore": 100,
+    "visualBestPracticesScore": 80,
+    "stephenFewScore": 80,
+    "enterpriseGovernanceScore": 100,
+    "graphicalPerceptionScore": 80,
+    "tufteScore": 100,
+    "densityScore": 40,
+    "narrativeScore": 100,
+    "layoutScore": 82.5,
+    "themeScore": 80,
+    "governanceScore": 100,
+    "frameworkWeights": {
+      "gestalt": 30,
+      "cognitiveLoad": 20,
+      "dataInk": 15,
+      "graphicalPerception": 0,
+      "accessibility": 15,
+      "visualBestPractices": 20,
+      "governance": 0,
+      "stephenFew": 0,
+      "tufte": 0,
+      "density": 0,
+      "narrative": 0
+    },
+    "compositeScore": 90.75,
+    "feedback": {
+      "gestalt": [
+        {
+          "ok": false,
+          "text": "Grid alignment: 2 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system.",
+          "affectedVisuals": [
+            {
+              "pageName": "Summary",
+              "visualId": "summary-chart",
+              "visualType": "lineChart"
+            },
+            {
+              "pageName": "Detail",
+              "visualId": "detail-table",
+              "visualType": "tableEx"
+            }
+          ],
+          "earnedPoints": 17.5,
+          "possiblePoints": 35,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Figure/ground: KPI cards contrast with supporting charts \u2014 effective visual hierarchy.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Similarity: 4 distinct visual types guide attention without visual noise.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Visual presence: Report contains data visuals.",
+          "affectedVisuals": null,
+          "earnedPoints": 15,
+          "possiblePoints": 15,
+          "findingType": "objective"
+        }
+      ],
+      "cognitiveLoad": [
+        {
+          "ok": true,
+          "text": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density.",
+          "affectedVisuals": null,
+          "earnedPoints": 100,
+          "possiblePoints": 100,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Optimal density: 2 page(s) have \u22644 visuals \u2014 excellent focus.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "dataInk": [
+        {
+          "ok": true,
+          "text": "Data-ink ratio: 100% of visuals carry data \u2014 minimal decorative overhead.",
+          "affectedVisuals": null,
+          "earnedPoints": 100,
+          "possiblePoints": 100,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "objective"
+        }
+      ],
+      "accessibility": [
+        {
+          "ok": true,
+          "text": "WCAG 2.1 AA palette: No custom theme detected \u2014 using default Power BI theme colours.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Colorblind-safe palette: Fewer than two parseable theme colours \u2014 colourblind pair check skipped.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "objective"
+        }
+      ],
+      "visualBestPractices": [
+        {
+          "ok": true,
+          "text": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
+          "affectedVisuals": null,
+          "earnedPoints": 0,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Colour palette: Default data colour(s) \u2014 palette is concise.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Data bindings: All data visuals have a chart type assigned.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "objective"
+        }
+      ],
+      "governance": [
+        {
+          "ok": true,
+          "text": "Visual limit: All 2 page(s) are within the configured maximum of 10 data visuals.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "objective"
+        },
+        {
+          "ok": true,
+          "text": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027Sales\u0027, \u0027By Category\u0027.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "objective"
+        }
+      ],
+      "stephenFew": [
+        {
+          "ok": true,
+          "text": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "KPI prominence: KPI/card visual(s) present \u2014 key metric immediately visible.",
+          "affectedVisuals": null,
+          "earnedPoints": 25,
+          "possiblePoints": 25,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance.",
+          "affectedVisuals": null,
+          "earnedPoints": 25,
+          "possiblePoints": 25,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration.",
+          "affectedVisuals": null,
+          "earnedPoints": 0,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "tufte": [
+        {
+          "ok": true,
+          "text": "Data-ink ratio: 4/4 visuals carry data \u2014 strong data-ink discipline.",
+          "affectedVisuals": null,
+          "earnedPoints": 40,
+          "possiblePoints": 40,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "graphicalPerception": [
+        {
+          "ok": false,
+          "text": "Perceptual accuracy: 2/4 visuals use position/length encodings \u2014 replace angle/area charts with bar or line charts for more accurate data perception.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 40,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons.",
+          "affectedVisuals": null,
+          "earnedPoints": 35,
+          "possiblePoints": 35,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Comparative structure: Clustered bar/column charts present \u2014 enables direct side-by-side comparison.",
+          "affectedVisuals": null,
+          "earnedPoints": 25,
+          "possiblePoints": 25,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "density": [
+        {
+          "ok": false,
+          "text": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 40,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Content diversity: 4 distinct visual types \u2014 varied chart types support different perceptual tasks.",
+          "affectedVisuals": null,
+          "earnedPoints": 30,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": false,
+          "text": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation.",
+          "affectedVisuals": null,
+          "earnedPoints": 0,
+          "possiblePoints": 30,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring.",
+          "affectedVisuals": null,
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "objective"
+        },
+        {
+          "ok": false,
+          "text": "Overview/detail separation: \u0027Summary\u0027 mixes KPI overview cards and supporting detail visuals with only -80 px of vertical separation.",
+          "affectedVisuals": [
+            {
+              "pageName": "Summary",
+              "visualId": "summary-kpi",
+              "visualType": "card"
+            },
+            {
+              "pageName": "Summary",
+              "visualId": "summary-chart",
+              "visualType": "lineChart"
+            }
+          ],
+          "earnedPoints": null,
+          "possiblePoints": null,
+          "findingType": "strongHeuristic"
+        }
+      ],
+      "narrative": [
+        {
+          "ok": true,
+          "text": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027Sales\u0027, \u0027By Category\u0027).",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "KPI comparison context: KPI pages include at least one target, trend, variance, or supporting comparison so the numbers can be interpreted.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        },
+        {
+          "ok": true,
+          "text": "Overview-to-detail readability: \u0027Summary\u0027 provides a clear overview before the report moves into deeper detail.",
+          "affectedVisuals": null,
+          "earnedPoints": 20,
+          "possiblePoints": 20,
+          "findingType": "strongHeuristic"
+        }
+      ]
+    },
+    "pageCount": 2,
+    "recommendations": [
+      "[Medium] Density: Add more vertical separation between the KPI overview band and detail visuals on \u0027Summary\u0027 so the page reads in layers."
+    ],
+    "reportPath": "/var/folders/67/rl00rw0d1s1_rdn4d5rg36z80000gn/T/ws7a-regression-348758ea019d4c3b8ca7ba929de7f37a/ordered-pages-project/OrderRegression.Report",
+    "scoredAt": "2026-06-15T15:41:34.410193+00:00",
+    "dataVisualCount": 4,
+    "navigationVisualCount": 0,
+    "hiddenVisualCount": 0,
+    "visualMetadata": null,
+    "inferredStorySummary": null,
+    "pageIntentProfile": null,
+    "actionabilityBreakdown": null,
+    "benchmarkComparison": null,
+    "guidedStoryImprovements": {
+      "highPriorityImprovements": [],
+      "mediumPriorityImprovements": [],
+      "storyImprovementRationale": ""
+    },
+    "reportConsistencySummary": {
+      "consistentTitleAnchors": true,
+      "consistentFilterBand": true,
+      "consistentMetricLabels": true,
+      "consistentSemanticColors": true,
+      "overallFinding": "The report follows a stable cross-page pattern.",
+      "affectedPages": [],
+      "issueCount": 0,
+      "issues": [],
+      "findings": []
+    },
+    "pageScores": [
+      {
+        "pageId": "Summary",
+        "pageName": "Summary",
+        "gestaltScore": 82.5,
+        "cognitiveLoadScore": 100,
+        "dataInkScore": 100,
+        "accessibilityScore": 100,
+        "visualBestPracticesScore": 80,
+        "stephenFewScore": 80,
+        "enterpriseGovernanceScore": 100,
+        "tufteScore": 100,
+        "graphicalPerceptionScore": 55,
+        "densityScore": 25,
+        "narrativeScore": 100,
+        "dataVisualCount": 2,
+        "navigationVisualCount": 0,
+        "hiddenVisualCount": 0,
+        "visualMetadata": {
+          "pageName": "Summary",
+          "visiblePageTitle": "Sales",
+          "strictVisiblePageTitle": "Sales",
+          "canvasWidth": null,
+          "canvasHeight": null,
+          "semanticColorMap": [],
+          "chartIntentSummary": {
+            "intent": "comparison",
+            "confidence": "medium",
+            "evidence": [
+              "card",
+              "Sales"
+            ],
+            "fitStatus": "good",
+            "recommendedAlternatives": []
+          },
+          "visualCount": 2,
+          "visibleTitleVisualCount": 2,
+          "textVisualCount": 0,
+          "slicerCount": 0,
+          "legendVisualCount": 0,
+          "axisLabelVisualCount": 0,
+          "dataLabelVisualCount": 0,
+          "formattedVisualCount": 0,
+          "visuals": [
+            {
+              "visualId": "summary-kpi",
+              "visualType": "card",
+              "x": 0,
+              "y": 0,
+              "width": 150,
+              "height": 80,
+              "isHidden": false,
+              "isNavigationElement": false,
+              "isDecorative": false,
+              "isSlicer": false,
+              "visibleTitleText": "Sales",
+              "visibleSubtitleText": null,
+              "textBoxText": null,
+              "bestVisibleText": "Sales",
+              "hasVisibleTitleIntent": true,
+              "hasLegend": null,
+              "hasAxisLabels": null,
+              "hasDataLabels": null,
+              "categoryHints": [],
+              "valueHints": [],
+              "seriesHints": [],
+              "measureHints": [],
+              "backgroundFillColor": null,
+              "fontColor": null,
+              "hasBorder": null,
+              "cornerRadius": null,
+              "hasShadow": null,
+              "semanticColors": [],
+              "chartIntent": {
+                "intent": "comparison",
+                "confidence": "medium",
+                "evidence": [
+                  "card",
+                  "Sales"
+                ],
+                "fitStatus": "good",
+                "recommendedAlternatives": []
+              }
+            },
+            {
+              "visualId": "summary-chart",
+              "visualType": "lineChart",
+              "x": 200,
+              "y": 0,
+              "width": 400,
+              "height": 220,
+              "isHidden": false,
+              "isNavigationElement": false,
+              "isDecorative": false,
+              "isSlicer": false,
+              "visibleTitleText": "Trend",
+              "visibleSubtitleText": null,
+              "textBoxText": null,
+              "bestVisibleText": "Trend",
+              "hasVisibleTitleIntent": true,
+              "hasLegend": null,
+              "hasAxisLabels": null,
+              "hasDataLabels": null,
+              "categoryHints": [],
+              "valueHints": [],
+              "seriesHints": [],
+              "measureHints": [],
+              "backgroundFillColor": null,
+              "fontColor": null,
+              "hasBorder": null,
+              "cornerRadius": null,
+              "hasShadow": null,
+              "semanticColors": [],
+              "chartIntent": {
+                "intent": "trend",
+                "confidence": "medium",
+                "evidence": [
+                  "lineChart",
+                  "Trend"
+                ],
+                "fitStatus": "good",
+                "recommendedAlternatives": []
+              }
+            }
+          ]
+        },
+        "frameworkWeights": {
+          "gestalt": 30,
+          "cognitiveLoad": 20,
+          "dataInk": 15,
+          "graphicalPerception": 0,
+          "accessibility": 15,
+          "visualBestPractices": 20,
+          "governance": 0,
+          "stephenFew": 0,
+          "tufte": 0,
+          "density": 0,
+          "narrative": 0
+        },
+        "compositeScore": 90.75,
+        "feedback": {
+          "gestalt": [
+            {
+              "ok": false,
+              "text": "Grid alignment: 1 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system.",
+              "affectedVisuals": [
+                {
+                  "pageName": "Summary",
+                  "visualId": "summary-chart",
+                  "visualType": "lineChart"
+                }
+              ],
+              "earnedPoints": 17.5,
+              "possiblePoints": 35,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Figure/ground: KPI cards contrast with supporting charts \u2014 effective visual hierarchy.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Similarity: 2 distinct visual types guide attention without visual noise.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Visual presence: Report contains data visuals.",
+              "affectedVisuals": null,
+              "earnedPoints": 15,
+              "possiblePoints": 15,
+              "findingType": "objective"
+            }
+          ],
+          "cognitiveLoad": [
+            {
+              "ok": true,
+              "text": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density.",
+              "affectedVisuals": null,
+              "earnedPoints": 100,
+              "possiblePoints": 100,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Optimal density: 1 page(s) have \u22644 visuals \u2014 excellent focus.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "dataInk": [
+            {
+              "ok": true,
+              "text": "Data-ink ratio: 100% of visuals carry data \u2014 minimal decorative overhead.",
+              "affectedVisuals": null,
+              "earnedPoints": 100,
+              "possiblePoints": 100,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            }
+          ],
+          "accessibility": [
+            {
+              "ok": true,
+              "text": "WCAG 2.1 AA palette: No custom theme detected \u2014 using default Power BI theme colours.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Colorblind-safe palette: Fewer than two parseable theme colours \u2014 colourblind pair check skipped.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "objective"
+            }
+          ],
+          "visualBestPractices": [
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Colour palette: Default data colour(s) \u2014 palette is concise.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Data bindings: All data visuals have a chart type assigned.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "objective"
+            }
+          ],
+          "governance": [
+            {
+              "ok": true,
+              "text": "Visual limit: All 1 page(s) are within the configured maximum of 10 data visuals.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027Sales\u0027.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "objective"
+            }
+          ],
+          "stephenFew": [
+            {
+              "ok": true,
+              "text": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "KPI prominence: KPI/card visual(s) present \u2014 key metric immediately visible.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "tufte": [
+            {
+              "ok": true,
+              "text": "Data-ink ratio: 2/2 visuals carry data \u2014 strong data-ink discipline.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "graphicalPerception": [
+            {
+              "ok": false,
+              "text": "Perceptual accuracy: 1/2 visuals use position/length encodings \u2014 replace angle/area charts with bar or line charts for more accurate data perception.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons.",
+              "affectedVisuals": null,
+              "earnedPoints": 35,
+              "possiblePoints": 35,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Comparative structure: Add a clustered bar or column chart to support direct comparative judgments between categories.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "density": [
+            {
+              "ok": false,
+              "text": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Content diversity: Only 2 distinct visual type(s) \u2014 add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks.",
+              "affectedVisuals": null,
+              "earnedPoints": 15,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            },
+            {
+              "ok": false,
+              "text": "Overview/detail separation: \u0027Summary\u0027 mixes KPI overview cards and supporting detail visuals with only -80 px of vertical separation.",
+              "affectedVisuals": [
+                {
+                  "pageName": "Summary",
+                  "visualId": "summary-kpi",
+                  "visualType": "card"
+                },
+                {
+                  "pageName": "Summary",
+                  "visualId": "summary-chart",
+                  "visualType": "lineChart"
+                }
+              ],
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "narrative": [
+            {
+              "ok": true,
+              "text": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027Sales\u0027).",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "KPI comparison context: KPI pages include at least one target, trend, variance, or supporting comparison so the numbers can be interpreted.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            }
+          ]
+        },
+        "recommendations": [
+          "[Medium] Density: Add more vertical separation between the KPI overview band and detail visuals on \u0027Summary\u0027 so the page reads in layers."
+        ],
+        "reportConsistencyNotes": [],
+        "inferredStorySummary": {
+          "intentProfile": "operationalMonitoring",
+          "storyArchetype": "trend \u002B comparison",
+          "inferredStory": "This page appears to monitor Sales over time and highlight recent movement or exceptions.",
+          "confidence": "medium",
+          "evidence": [
+            "Visible title: Sales",
+            "1 KPI cards in the top scan path",
+            "Lead visual: lineChart",
+            "Lead chart intent: trend",
+            "Lead visual semantic metadata emphasizes Sales"
+          ]
+        },
+        "pageIntentProfile": {
+          "inferredProfile": "operational",
+          "actionabilityExpectation": "high",
+          "reviewGuidance": [
+            "Operational pages should make urgent exceptions easy to spot.",
+            "Use recency, thresholds, or service-level signals so users know what needs intervention now."
+          ],
+          "evidence": [
+            "This page appears to monitor Sales over time and highlight recent movement or exceptions.",
+            "1 KPI card(s) detected",
+            "Profile normalized as operational"
+          ]
+        },
+        "actionabilityBreakdown": {
+          "score": 40,
+          "targetBenchmarkPresent": false,
+          "exceptionVisibility": false,
+          "urgencySignaling": true,
+          "priorPeriodContext": false,
+          "drillPathPresent": true,
+          "expectationLevel": "high",
+          "strengths": [
+            "Urgency or recency cues help users judge whether action is needed now.",
+            "A supporting evidence path exists behind the headline result."
+          ],
+          "gaps": [
+            "Add a target or benchmark next to the KPI so the value can be interpreted.",
+            "Call out the main exception or at-risk segment so the page points to a decision.",
+            "Add prior-period or delta context so users can judge movement, not just the current value."
+          ],
+          "summary": "This operational page still lacks the decision context needed for confident action."
+        },
+        "benchmarkComparison": {
+          "archetype": "operational watchlist",
+          "benchmarkLabel": "Operational monitoring benchmark",
+          "comparativePosition": "below",
+          "beautifulButUseless": true,
+          "insight": "Beautiful but useless: the page looks polished, but the decision path is still weak.",
+          "strengths": [],
+          "gaps": [
+            "Add a target or benchmark next to the KPI so the value can be interpreted.",
+            "Call out the main exception or at-risk segment so the page points to a decision."
+          ]
+        },
+        "guidedStoryImprovements": {
+          "highPriorityImprovements": [
+            {
+              "id": "missing-benchmark-target",
+              "title": "Add a benchmark or target",
+              "summary": "The current result appears without a visible target, budget, or benchmark for comparison.",
+              "rationale": "Readers need an explicit reference point to judge whether the current result is strong, weak, or off track.",
+              "expectedImpact": "Clearer decision context around the headline numbers.",
+              "priority": "high",
+              "relatedImpactArea": "benchmark"
+            }
+          ],
+          "mediumPriorityImprovements": [
+            {
+              "id": "missing-primary-dimension",
+              "title": "Clarify the primary comparison dimension",
+              "summary": "The page does not make the main comparison group explicit enough for quick reading.",
+              "rationale": "A clear primary dimension tells readers how to segment the result and where to look for the key comparison.",
+              "expectedImpact": "Cleaner comparison logic and faster interpretation.",
+              "priority": "medium",
+              "relatedImpactArea": "storytelling"
+            },
+            {
+              "id": "missing-prior-period-context",
+              "title": "Add prior-period context",
+              "summary": "The page shows the current result, but not enough context about movement over time.",
+              "rationale": "Prior-period context helps readers judge change, momentum, and whether the current result is improving or slipping.",
+              "expectedImpact": "Stronger trend interpretation and decision context.",
+              "priority": "medium",
+              "relatedImpactArea": "benchmark"
+            }
+          ],
+          "storyImprovementRationale": "The page clearly communicates current performance, but readers cannot tell whether results are good, bad, improving, or declining because benchmark and trend context are missing."
+        },
+        "scoringError": null,
+        "isSuccessful": true,
+        "perStateScores": null,
+        "reportConsistency": null
+      },
+      {
+        "pageId": "Detail",
+        "pageName": "Detail",
+        "gestaltScore": 52.5,
+        "cognitiveLoadScore": 100,
+        "dataInkScore": 100,
+        "accessibilityScore": 100,
+        "visualBestPracticesScore": 80,
+        "stephenFewScore": 55,
+        "enterpriseGovernanceScore": 100,
+        "tufteScore": 100,
+        "graphicalPerceptionScore": 80,
+        "densityScore": 35,
+        "narrativeScore": 100,
+        "dataVisualCount": 2,
+        "navigationVisualCount": 0,
+        "hiddenVisualCount": 0,
+        "visualMetadata": {
+          "pageName": "Detail",
+          "visiblePageTitle": "By Category",
+          "strictVisiblePageTitle": "By Category",
+          "canvasWidth": null,
+          "canvasHeight": null,
+          "semanticColorMap": [],
+          "chartIntentSummary": {
+            "intent": "comparison",
+            "confidence": "high",
+            "evidence": [
+              "clusteredColumnChart",
+              "By Category"
+            ],
+            "fitStatus": "good",
+            "recommendedAlternatives": []
+          },
+          "visualCount": 2,
+          "visibleTitleVisualCount": 2,
+          "textVisualCount": 0,
+          "slicerCount": 0,
+          "legendVisualCount": 0,
+          "axisLabelVisualCount": 0,
+          "dataLabelVisualCount": 0,
+          "formattedVisualCount": 0,
+          "visuals": [
+            {
+              "visualId": "detail-chart",
+              "visualType": "clusteredColumnChart",
+              "x": 0,
+              "y": 0,
+              "width": 500,
+              "height": 240,
+              "isHidden": false,
+              "isNavigationElement": false,
+              "isDecorative": false,
+              "isSlicer": false,
+              "visibleTitleText": "By Category",
+              "visibleSubtitleText": null,
+              "textBoxText": null,
+              "bestVisibleText": "By Category",
+              "hasVisibleTitleIntent": true,
+              "hasLegend": null,
+              "hasAxisLabels": null,
+              "hasDataLabels": null,
+              "categoryHints": [],
+              "valueHints": [],
+              "seriesHints": [],
+              "measureHints": [],
+              "backgroundFillColor": null,
+              "fontColor": null,
+              "hasBorder": null,
+              "cornerRadius": null,
+              "hasShadow": null,
+              "semanticColors": [],
+              "chartIntent": {
+                "intent": "comparison",
+                "confidence": "medium",
+                "evidence": [
+                  "clusteredColumnChart",
+                  "By Category"
+                ],
+                "fitStatus": "good",
+                "recommendedAlternatives": []
+              }
+            },
+            {
+              "visualId": "detail-table",
+              "visualType": "tableEx",
+              "x": 0,
+              "y": 260,
+              "width": 500,
+              "height": 220,
+              "isHidden": false,
+              "isNavigationElement": false,
+              "isDecorative": false,
+              "isSlicer": false,
+              "visibleTitleText": "Rows",
+              "visibleSubtitleText": null,
+              "textBoxText": null,
+              "bestVisibleText": "Rows",
+              "hasVisibleTitleIntent": true,
+              "hasLegend": null,
+              "hasAxisLabels": null,
+              "hasDataLabels": null,
+              "categoryHints": [],
+              "valueHints": [],
+              "seriesHints": [],
+              "measureHints": [],
+              "backgroundFillColor": null,
+              "fontColor": null,
+              "hasBorder": null,
+              "cornerRadius": null,
+              "hasShadow": null,
+              "semanticColors": [],
+              "chartIntent": {
+                "intent": "comparison",
+                "confidence": "medium",
+                "evidence": [
+                  "tableEx",
+                  "Rows"
+                ],
+                "fitStatus": "good",
+                "recommendedAlternatives": []
+              }
+            }
+          ]
+        },
+        "frameworkWeights": {
+          "gestalt": 30,
+          "cognitiveLoad": 20,
+          "dataInk": 15,
+          "graphicalPerception": 0,
+          "accessibility": 15,
+          "visualBestPractices": 20,
+          "governance": 0,
+          "stephenFew": 0,
+          "tufte": 0,
+          "density": 0,
+          "narrative": 0
+        },
+        "compositeScore": 81.75,
+        "feedback": {
+          "gestalt": [
+            {
+              "ok": false,
+              "text": "Grid alignment: 1 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system.",
+              "affectedVisuals": [
+                {
+                  "pageName": "Detail",
+                  "visualId": "detail-table",
+                  "visualType": "tableEx"
+                }
+              ],
+              "earnedPoints": 17.5,
+              "possiblePoints": 35,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Figure/ground: Add at least one KPI/card visual alongside charts to create a clear focal point.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Similarity: 2 distinct visual types guide attention without visual noise.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Visual presence: Report contains data visuals.",
+              "affectedVisuals": null,
+              "earnedPoints": 15,
+              "possiblePoints": 15,
+              "findingType": "objective"
+            }
+          ],
+          "cognitiveLoad": [
+            {
+              "ok": true,
+              "text": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density.",
+              "affectedVisuals": null,
+              "earnedPoints": 100,
+              "possiblePoints": 100,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Optimal density: 1 page(s) have \u22644 visuals \u2014 excellent focus.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "dataInk": [
+            {
+              "ok": true,
+              "text": "Data-ink ratio: 100% of visuals carry data \u2014 minimal decorative overhead.",
+              "affectedVisuals": null,
+              "earnedPoints": 100,
+              "possiblePoints": 100,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            }
+          ],
+          "accessibility": [
+            {
+              "ok": true,
+              "text": "WCAG 2.1 AA palette: No custom theme detected \u2014 using default Power BI theme colours.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Colorblind-safe palette: Fewer than two parseable theme colours \u2014 colourblind pair check skipped.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "objective"
+            }
+          ],
+          "visualBestPractices": [
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Analytical fit: The report includes trend or comparison visuals that support common decision tasks.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Colour palette: Default data colour(s) \u2014 palette is concise.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Data bindings: All data visuals have a chart type assigned.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "objective"
+            }
+          ],
+          "governance": [
+            {
+              "ok": true,
+              "text": "Visual limit: All 1 page(s) are within the configured maximum of 10 data visuals.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "objective"
+            },
+            {
+              "ok": true,
+              "text": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027By Category\u0027.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "objective"
+            }
+          ],
+          "stephenFew": [
+            {
+              "ok": true,
+              "text": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "KPI prominence: Add a KPI or card visual to make the report\u0027s headline metric immediately visible.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "tufte": [
+            {
+              "ok": true,
+              "text": "Data-ink ratio: 2/2 visuals carry data \u2014 strong data-ink discipline.",
+              "affectedVisuals": null,
+              "earnedPoints": 40,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data.",
+              "affectedVisuals": null,
+              "earnedPoints": 30,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "graphicalPerception": [
+            {
+              "ok": false,
+              "text": "Perceptual accuracy: 1/2 visuals use position/length encodings \u2014 replace angle/area charts with bar or line charts for more accurate data perception.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons.",
+              "affectedVisuals": null,
+              "earnedPoints": 35,
+              "possiblePoints": 35,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Comparative structure: Clustered bar/column charts present \u2014 enables direct side-by-side comparison.",
+              "affectedVisuals": null,
+              "earnedPoints": 25,
+              "possiblePoints": 25,
+              "findingType": "strongHeuristic"
+            }
+          ],
+          "density": [
+            {
+              "ok": false,
+              "text": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 40,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Content diversity: Only 2 distinct visual type(s) \u2014 add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks.",
+              "affectedVisuals": null,
+              "earnedPoints": 15,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": false,
+              "text": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation.",
+              "affectedVisuals": null,
+              "earnedPoints": 0,
+              "possiblePoints": 30,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring.",
+              "affectedVisuals": null,
+              "earnedPoints": null,
+              "possiblePoints": null,
+              "findingType": "objective"
+            }
+          ],
+          "narrative": [
+            {
+              "ok": true,
+              "text": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027By Category\u0027).",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "KPI comparison context: No KPI-heavy pages detected, so comparison context is not missing from a KPI layer.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            },
+            {
+              "ok": true,
+              "text": "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence.",
+              "affectedVisuals": null,
+              "earnedPoints": 20,
+              "possiblePoints": 20,
+              "findingType": "strongHeuristic"
+            }
+          ]
+        },
+        "recommendations": [],
+        "reportConsistencyNotes": [],
+        "inferredStorySummary": {
+          "intentProfile": "analyticalDeepDive",
+          "storyArchetype": "comparison",
+          "inferredStory": "This page appears to compare performance across supporting breakdowns.",
+          "confidence": "medium",
+          "evidence": [
+            "Visible title: By Category",
+            "Lead visual: clusteredColumnChart",
+            "Lead chart intent: comparison",
+            "2 supporting data visuals reinforce the page story"
+          ]
+        },
+        "pageIntentProfile": {
+          "inferredProfile": "analytical",
+          "actionabilityExpectation": "medium",
+          "reviewGuidance": [
+            "Analytical pages should support exploration without hiding the main analytical question.",
+            "Use filters and supporting visuals to explain differences, not just to add density."
+          ],
+          "evidence": [
+            "This page appears to compare performance across supporting breakdowns.",
+            "Profile normalized as analytical"
+          ]
+        },
+        "actionabilityBreakdown": {
+          "score": 40,
+          "targetBenchmarkPresent": false,
+          "exceptionVisibility": true,
+          "urgencySignaling": false,
+          "priorPeriodContext": false,
+          "drillPathPresent": true,
+          "expectationLevel": "medium",
+          "strengths": [
+            "Exceptions or at-risk conditions are surfaced clearly.",
+            "A supporting evidence path exists behind the headline result."
+          ],
+          "gaps": [
+            "Add a target or benchmark next to the KPI so the value can be interpreted.",
+            "Add a recency or urgency cue if this page is expected to trigger action.",
+            "Add prior-period or delta context so users can judge movement, not just the current value."
+          ],
+          "summary": "This analytical page still lacks the decision context needed for confident action."
+        },
+        "benchmarkComparison": {
+          "archetype": "analytical deep dive",
+          "benchmarkLabel": "Analytical deep-dive benchmark",
+          "comparativePosition": "below",
+          "beautifulButUseless": false,
+          "insight": "Compared with a typical analytical deep dive, this page still lacks the decision support expected for this profile.",
+          "strengths": [],
+          "gaps": [
+            "Add a target or benchmark next to the KPI so the value can be interpreted.",
+            "Add a recency or urgency cue if this page is expected to trigger action."
+          ]
+        },
+        "guidedStoryImprovements": {
+          "highPriorityImprovements": [
+            {
+              "id": "missing-benchmark-target",
+              "title": "Add a benchmark or target",
+              "summary": "The current result appears without a visible target, budget, or benchmark for comparison.",
+              "rationale": "Readers need an explicit reference point to judge whether the current result is strong, weak, or off track.",
+              "expectedImpact": "Clearer decision context around the headline numbers.",
+              "priority": "high",
+              "relatedImpactArea": "benchmark"
+            },
+            {
+              "id": "missing-primary-metric",
+              "title": "Make the primary metric more explicit",
+              "summary": "The page lacks one clearly stated metric that anchors the story.",
+              "rationale": "A primary metric gives the page a stable headline measure and makes the rest of the evidence easier to interpret.",
+              "expectedImpact": "Clearer KPI framing and stronger narrative focus.",
+              "priority": "high",
+              "relatedImpactArea": "kpiEffectiveness"
+            },
+            {
+              "id": "missing-primary-dimension",
+              "title": "Clarify the primary comparison dimension",
+              "summary": "The page does not make the main comparison group explicit enough for quick reading.",
+              "rationale": "A clear primary dimension tells readers how to segment the result and where to look for the key comparison.",
+              "expectedImpact": "Cleaner comparison logic and faster interpretation.",
+              "priority": "high",
+              "relatedImpactArea": "storytelling"
+            }
+          ],
+          "mediumPriorityImprovements": [
+            {
+              "id": "missing-prior-period-context",
+              "title": "Add prior-period context",
+              "summary": "The page shows the current result, but not enough context about movement over time.",
+              "rationale": "Prior-period context helps readers judge change, momentum, and whether the current result is improving or slipping.",
+              "expectedImpact": "Stronger trend interpretation and decision context.",
+              "priority": "medium",
+              "relatedImpactArea": "benchmark"
+            }
+          ],
+          "storyImprovementRationale": "The page clearly communicates current performance, but readers cannot tell whether results are good, bad, improving, or declining because benchmark and trend context are missing."
+        },
+        "scoringError": null,
+        "isSuccessful": true,
+        "perStateScores": null,
+        "reportConsistency": null
+      }
+    ],
+    "scoredPageId": null,
+    "scoredPageName": null,
+    "perStateScores": null,
+    "currentLayoutState": null,
+    "scoringErrors": {}
+  }
+}

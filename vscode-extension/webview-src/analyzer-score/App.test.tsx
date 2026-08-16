@@ -2,11 +2,33 @@ import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from './App';
-import type { ScorePanelState } from '../../src/analyzer/contracts/scorePanel';
+import type {
+  ScorePanelState,
+  ScorePanelWebviewToHostMessagePayload,
+} from '../../src/analyzer/contracts/scorePanel';
+import { buildScorePanelState, withScorePanelEnvelope } from '../../src/views/scorePanelProtocol';
 
 const postMessage = jest.fn();
+let originalDispatchEvent: typeof window.dispatchEvent;
 
-const scoreState: ScorePanelState = {
+function expectLastPostedMessage(message: ScorePanelWebviewToHostMessagePayload): void {
+  expect(postMessage).toHaveBeenLastCalledWith(withScorePanelEnvelope(message));
+}
+
+async function dispatchScoreState(state: ScorePanelState): Promise<void> {
+  await act(async () => {
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'scoreState',
+          state,
+        },
+      }),
+    );
+  });
+}
+
+const scoreState: ScorePanelState = buildScorePanelState({
   config: {
     frameworks: [
       { id: 'gestalt', name: 'Gestalt Principles', enabled: true, weight: 60 },
@@ -20,6 +42,17 @@ const scoreState: ScorePanelState = {
   },
   selectedPageIndex: 0,
   intentFeedback: [],
+  fixSelection: {
+    selectedOpportunityIds: [],
+    compatibility: {
+      isCompatible: true,
+      compatibleOpportunityIds: [],
+      blockingOpportunityIds: [],
+      blockingReasons: [],
+    },
+    approvalState: 'NeedsPreview',
+  },
+  fixApplySessions: [],
   reviewPacketPreviewProfile: 'consultant',
   reviewPacketPreviewTemplateVariant: 'brandedConsultant',
   result: {
@@ -100,6 +133,14 @@ const scoreState: ScorePanelState = {
       insight: 'The page is readable, but exception visibility is still weaker than the benchmark.',
       strengths: ['Clear KPI band'],
       gaps: ['Weak exception callout'],
+    },
+    pagePurposeAnalysis: {
+      inferredPurpose: 'Executive',
+      confidence: 'high',
+      actionabilityScore: 58,
+      benchmarkStatus: 'Mixed against expected',
+      topGaps: ['Exception visibility is weak.'],
+      whyThisMatters: 'This page appears intended for executive review but lacks the decision context expected for that audience. Decision makers may misinterpret KPI values without targets or prior-period comparison.',
     },
     reportConsistencySummary: {
       consistentTitleAnchors: false,
@@ -213,6 +254,29 @@ const scoreState: ScorePanelState = {
           },
         ],
       },
+      {
+        id: 'fabric-readiness-good-candidate',
+        title: 'Good Fabric App Candidate',
+        summary: 'The overview page is a promising migration candidate with relatively low redesign effort.',
+        severity: 'info',
+        confidence: 82,
+        scope: 'report',
+        detectionType: 'deterministic',
+        affectedPages: ['Overview'],
+        impactArea: 'layout',
+        frameworkImpact: ['Fabric App Readiness'],
+        recommendation: 'Start with the strongest migration-candidate pages first.',
+        sourceKind: 'fabricAppReadiness',
+        sourceSection: 'issues',
+        evidence: [
+          {
+            kind: 'readiness',
+            label: 'Migration rationale',
+            pageName: 'Overview',
+            detail: 'Overall readiness score 71/100.',
+          },
+        ],
+      },
     ],
     overviewSummary: {
       overallScore: 77,
@@ -271,29 +335,271 @@ const scoreState: ScorePanelState = {
         consistentPages: 1,
         totalPages: 2,
       },
+      readinessSummary: {
+        readinessScore: 71,
+        readinessBand: 'possibleCandidate',
+        candidatePageCount: 1,
+        migrationBlockerCount: 2,
+        estimatedRedesignEffort: 'medium',
+      },
+    },
+    analysisContext: {
+      surfaceType: 'pbirReport',
+      analyzerType: 'fabricAppReadiness',
+      analyzerProfile: 'migrationReadiness',
+      surfaceDisplayName: 'Sales.Report',
+      sourceLocation: '/tmp/Sales.Report',
+      availableAnalyzerTypes: ['pbirDesignReview', 'fabricAppReadiness'],
+      availableAnalyzerProfiles: ['default', 'migrationReadiness'],
+    },
+    readinessAssessment: {
+      overallReadinessScore: 71,
+      readinessBand: 'possibleCandidate',
+      migrationSummary: 'This PBIR report has promising migration candidates, but navigation complexity should be reduced first.',
+      candidatePages: ['Overview'],
+      blockers: [
+        'Navigation complexity is likely too Power BI-specific for direct migration.',
+        'Low accessibility portability requires redesign before migration.',
+      ],
+      unsupportedPatterns: [
+        'Hidden-visual state switching is difficult to translate directly.',
+      ],
+      redesignRequiredAreas: ['navigation portability', 'accessibility portability'],
+      recommendedNextActions: [
+        'Simplify navigation before treating the report as an app candidate.',
+        'Reduce Power BI-only dependencies such as slicer-heavy interaction patterns.',
+      ],
+      estimatedRedesignEffort: 'medium',
+      dimensionScores: {
+        layoutPortability: 75,
+        interactionPortability: 60,
+        narrativePortability: 72,
+        semanticModelSuitability: 74,
+        navigationPortability: 54,
+        governancePortability: 70,
+        accessibilityPortability: 58,
+        visualizationAsCodeOpportunity: 68,
+      },
+      pageAssessments: [
+        {
+          pageName: 'Overview',
+          readinessScore: 80,
+          readinessDimensions: {
+            layoutPortability: 82,
+            interactionPortability: 78,
+            narrativePortability: 80,
+            semanticModelSuitability: 76,
+            navigationPortability: 72,
+            governancePortability: 75,
+            accessibilityPortability: 74,
+            visualizationAsCodeOpportunity: 70,
+          },
+          candidateState: 'strongCandidate',
+          positiveSignals: ['Focused visual scope is easier to recompose as an app surface.'],
+          blockers: [],
+          unsupportedPatterns: [],
+          redesignRequiredAreas: [],
+          migrationNotes: ['Keep the page purpose tight during migration.'],
+          evidence: [
+            {
+              kind: 'portability',
+              label: 'Migration rationale',
+              pageName: 'Overview',
+              detail: 'Overall readiness score 80/100.',
+            },
+          ],
+        },
+        {
+          pageName: 'Details',
+          readinessScore: 42,
+          readinessDimensions: {
+            layoutPortability: 48,
+            interactionPortability: 38,
+            narrativePortability: 46,
+            semanticModelSuitability: 56,
+            navigationPortability: 34,
+            governancePortability: 52,
+            accessibilityPortability: 40,
+            visualizationAsCodeOpportunity: 44,
+          },
+          candidateState: 'redesignRequired',
+          positiveSignals: ['The semantic model can still support a future app shell.'],
+          blockers: ['Heavy slicer-driven interaction does not map cleanly to an app flow.'],
+          unsupportedPatterns: ['Bookmark-style hidden-state switching is difficult to migrate directly.'],
+          redesignRequiredAreas: ['interaction portability', 'navigation portability'],
+          migrationNotes: ['Recompose this page into a simpler task-focused app experience.'],
+          evidence: [
+            {
+              kind: 'portability',
+              label: 'Migration rationale',
+              pageName: 'Details',
+              detail: 'Overall readiness score 42/100.',
+            },
+          ],
+        },
+      ],
+      evidence: [
+        {
+          kind: 'portability',
+          label: 'Migration rationale',
+          pageName: 'Overview',
+          detail: 'Overall readiness score 80/100.',
+        },
+        {
+          kind: 'portability',
+          label: 'Migration rationale',
+          pageName: 'Details',
+          detail: 'Overall readiness score 42/100.',
+        },
+      ],
+      governanceSignals: [
+        {
+          category: 'navigation',
+          severity: 'medium',
+          summary: 'Navigation portability falls below the app-ready threshold.',
+          pageName: 'Details',
+        },
+      ],
     },
     fixPlan: [
       {
         id: 'fix-overview-actionability',
-        title: 'Actionability gap',
-        detail: 'The page includes some decision context but still hides the main exception.',
+        title: 'Add benchmarks and decision context',
+        detail: 'Resolve 2 related findings through one remediation step.',
         severity: 'high',
-        effort: 'medium',
+        effort: 'low',
+        impact: 'high',
+        why: 'Reduces risk of KPI misinterpretation.',
         scope: 'page',
         affectedPages: ['Overview'],
-        recommendedAction: 'Exception visibility is weak.',
-        sourceFindingIds: ['overview-actionability'],
+        recommendedAction: 'Add target benchmarks, prior-period context, and urgency cues.',
+        resolvedOutcomes: ['Benchmark gap', 'Actionability gap'],
+        sourceFindingIds: ['overview-actionability', 'details-benchmark'],
       },
       {
         id: 'fix-cross-page-navigation',
-        title: 'navigation',
+        title: 'Standardize navigation cues',
         detail: 'Navigation patterns differ across the report. Detection is partially detectable from PBIR metadata.',
         severity: 'medium',
         effort: 'high',
+        impact: 'medium',
+        why: 'Makes navigation more predictable across related pages.',
         scope: 'crossPage',
         affectedPages: ['Details'],
         recommendedAction: 'Keep navigation controls in one predictable zone.',
+        resolvedOutcomes: ['Navigation consistency'],
         sourceFindingIds: ['cross-page-navigation'],
+      },
+    ],
+    fixOpportunities: [
+      {
+        id: 'fixopp-overview-title',
+        remediationItemId: 'fix-overview-actionability',
+        title: 'Standardize overview title anchor',
+        category: 'title',
+        summary: 'Normalize the existing title anchor for executive scanning.',
+        confidence: 95,
+        safetyClass: 'safe',
+        affectedPages: ['Overview'],
+        targetObjectIds: ['title-textbox-1'],
+        sourceFindingIds: ['overview-actionability'],
+        expectedResolutions: ['Benchmark gap', 'Actionability gap'],
+        mutations: [
+          {
+            id: 'mutation-1',
+            pageName: 'Overview',
+            targetObjectId: 'title-textbox-1',
+            targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
+            propertyPath: 'position.x',
+            mutationType: 'setPosition',
+            before: 42,
+            after: 24,
+          },
+          {
+            id: 'mutation-2',
+            pageName: 'Overview',
+            targetObjectId: 'title-textbox-1',
+            targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
+            propertyPath: 'title.text',
+            mutationType: 'setTitleText',
+            before: 'Executive Overview',
+            after: 'Overview',
+          },
+        ],
+        previewRows: [
+          {
+            pageName: 'Overview',
+            objectId: 'title-textbox-1',
+            property: 'position.x',
+            before: 42,
+            after: 24,
+          },
+          {
+            pageName: 'Overview',
+            objectId: 'title-textbox-1',
+            property: 'title.text',
+            before: 'Executive Overview',
+            after: 'Overview',
+          },
+        ],
+        rollbackPlan: {
+          id: 'rollback-fixopp-overview-title',
+          fixOpportunityId: 'fixopp-overview-title',
+          fileBackups: [
+            {
+              targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/title-textbox-1/visual.json',
+              beforeContent: '{"position":{"x":42},"title":{"text":"Executive Overview"}}',
+            },
+          ],
+          reverseMutations: [],
+        },
+        state: 'Previewed',
+      },
+      {
+        id: 'fixopp-overview-chart',
+        remediationItemId: 'fix-overview-actionability',
+        title: 'Normalize chart top spacing',
+        category: 'alignment',
+        summary: 'Align the lead chart with the title anchor.',
+        confidence: 95,
+        safetyClass: 'safe',
+        affectedPages: ['Overview'],
+        targetObjectIds: ['chart-hero-1'],
+        sourceFindingIds: ['overview-actionability'],
+        expectedResolutions: ['Actionability gap'],
+        mutations: [
+          {
+            id: 'mutation-3',
+            pageName: 'Overview',
+            targetObjectId: 'chart-hero-1',
+            targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/chart-hero-1/visual.json',
+            propertyPath: 'position.y',
+            mutationType: 'setPosition',
+            before: 120,
+            after: 96,
+          },
+        ],
+        previewRows: [
+          {
+            pageName: 'Overview',
+            objectId: 'chart-hero-1',
+            property: 'position.y',
+            before: 120,
+            after: 96,
+          },
+        ],
+        rollbackPlan: {
+          id: 'rollback-fixopp-overview-chart',
+          fixOpportunityId: 'fixopp-overview-chart',
+          fileBackups: [
+            {
+              targetFile: '/tmp/Sales.Report/definition/pages/Overview/visuals/chart-hero-1/visual.json',
+              beforeContent: '{"position":{"y":120}}',
+            },
+          ],
+          reverseMutations: [],
+        },
+        state: 'Previewed',
       },
     ],
     personaPresentation: {
@@ -454,6 +760,57 @@ const scoreState: ScorePanelState = {
           strengths: ['Clear KPI band'],
           gaps: ['Weak exception callout'],
         },
+        pagePurposeAnalysis: {
+          inferredPurpose: 'Executive',
+          confidence: 'high',
+          actionabilityScore: 58,
+          benchmarkStatus: 'Mixed against expected',
+          topGaps: ['Exception visibility is weak.'],
+          whyThisMatters: 'This page appears intended for executive review but lacks the decision context expected for that audience. Decision makers may misinterpret KPI values without targets or prior-period comparison.',
+        },
+        guidedStoryImprovements: {
+          highPriorityImprovements: [
+            {
+              id: 'story-improvement-title',
+              title: 'Add a clearer page question or title',
+              summary: 'The page does not establish the decision or question early enough.',
+              rationale: 'A visible question anchor tells readers what to interpret before they scan the visuals.',
+              expectedImpact: 'Stronger scan path and faster narrative comprehension.',
+              priority: 'high',
+              relatedImpactArea: 'storytelling',
+            },
+            {
+              id: 'story-improvement-benchmark',
+              title: 'Add a visible benchmark or target',
+              summary: 'Key values still appear without an explicit performance frame.',
+              rationale: 'Readers need a visible point of comparison before deciding whether results are acceptable.',
+              expectedImpact: 'Faster decision framing and less KPI ambiguity.',
+              priority: 'high',
+              relatedImpactArea: 'benchmark',
+            },
+          ],
+          mediumPriorityImprovements: [
+            {
+              id: 'story-improvement-filters',
+              title: 'Tighten the filter path',
+              summary: 'Filters influence the reading path but do not currently reinforce one main takeaway.',
+              rationale: 'A tighter filter path reduces context switching and keeps the main story easier to follow.',
+              expectedImpact: 'Cleaner narrative flow after the lead decision cues are fixed.',
+              priority: 'medium',
+              relatedImpactArea: 'navigation',
+            },
+            {
+              id: 'story-improvement-prior-period',
+              title: 'Add trend or prior-period context',
+              summary: 'Readers cannot tell whether the current result is improving or declining.',
+              rationale: 'Add a prior-period comparison so readers can judge movement over time.',
+              expectedImpact: 'Clearer momentum context around current performance.',
+              priority: 'medium',
+              relatedImpactArea: 'benchmark',
+            },
+          ],
+          storyImprovementRationale: 'The page needs a stronger narrative frame before the visuals can do their job. Lead with the question and benchmark first, then simplify the supporting path.',
+        },
         visualMetadata: {
           pageName: 'Overview',
           visiblePageTitle: 'Executive Overview',
@@ -590,6 +947,14 @@ const scoreState: ScorePanelState = {
           strengths: ['Clean trend visual'],
           gaps: ['Decision support is weak'],
         },
+        pagePurposeAnalysis: {
+          inferredPurpose: 'Analytical',
+          confidence: 'medium',
+          actionabilityScore: 32,
+          benchmarkStatus: 'Below expected',
+          topGaps: ['Add a target or benchmark next to the KPI.', 'Call out the exception that needs action now.', 'Decision support is weak'],
+          whyThisMatters: 'This page appears intended for analytical use but lacks the decision context expected for that audience. Readers may over-trust visual polish even when the decision path is still weaker than expected.',
+        },
         visualMetadata: {
           pageName: 'Details',
           visiblePageTitle: 'Detail Comparison',
@@ -615,7 +980,7 @@ const scoreState: ScorePanelState = {
       },
     ],
   },
-};
+});
 
 const reviewPacketPreview = {
   reportPath: '/tmp/Sales.Report',
@@ -709,16 +1074,38 @@ describe('Analyzer Score App', () => {
   beforeEach(() => {
     postMessage.mockReset();
     HTMLElement.prototype.scrollIntoView = jest.fn();
+    originalDispatchEvent = window.dispatchEvent.bind(window);
+    jest.spyOn(window, 'dispatchEvent').mockImplementation((event: Event) => {
+      if (event instanceof MessageEvent && event.type === 'message' && event.data && typeof event.data === 'object') {
+        const message = event.data as Record<string, unknown>;
+        const normalizedMessage = 'protocolVersion' in message
+          ? message
+          : withScorePanelEnvelope({
+              ...(message as { type: string }),
+              state: message.type === 'scoreState' && message.state && typeof message.state === 'object'
+                && !('protocolVersion' in (message.state as Record<string, unknown>))
+                ? buildScorePanelState(message.state as Omit<ScorePanelState, 'protocolVersion' | 'schemaVersion'>)
+                : message.state,
+            });
+        return originalDispatchEvent(new MessageEvent('message', { data: normalizedMessage }));
+      }
+
+      return originalDispatchEvent(event);
+    });
     (globalThis as unknown as { acquireVsCodeApi: () => { postMessage: typeof postMessage } }).acquireVsCodeApi =
       () => ({
         postMessage,
       });
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('renders the score state and posts tab selection back to the host', async () => {
     render(<App />);
 
-    expect(postMessage).toHaveBeenCalledWith({ type: 'webviewReady' });
+    expect(postMessage).toHaveBeenCalledWith(withScorePanelEnvelope({ type: 'webviewReady' }));
 
     await act(async () => {
       window.dispatchEvent(
@@ -741,14 +1128,22 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/Visual mix: 12 data, 4 navigation, 1 hidden/i)).toBeInTheDocument();
     expect(screen.getByText(/Maturity: Mature/i)).toBeInTheDocument();
     expect(screen.getByText(/Risk: Elevated/i)).toBeInTheDocument();
+    const readinessOverview = screen.getByLabelText('Fabric App migration readiness');
+    expect(within(readinessOverview).getByText('Fabric App migration readiness')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/Possible Candidate/i)).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Readiness score$/i)).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Candidate pages$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/workspace review mode/i)).toHaveValue('default');
     expect(screen.getByText(/Review modes change how findings are prioritized and explained/i)).toBeInTheDocument();
     expect(screen.getByText('Cross-page matrix')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Issues' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fix Plan' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Review Summary' }));
     expect(screen.getAllByText(/The page includes some decision context but still hides the main exception\./i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Fix first:/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Evidence')).toBeInTheDocument();
+    expect(screen.getByLabelText(/issue fabric app readiness filter/i)).toBeInTheDocument();
     expect(screen.getByText('Export')).toBeInTheDocument();
     expect(screen.getByText('Review Summary')).toBeInTheDocument();
     expect(screen.getAllByText('Review Packet Preview').length).toBeGreaterThan(0);
@@ -763,19 +1158,19 @@ describe('Analyzer Score App', () => {
     fireEvent.change(screen.getByLabelText(/preview profile/i), {
       target: { value: 'executive' },
     });
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setReviewPacketPreviewProfile',
       profile: 'executive',
     });
     fireEvent.change(screen.getByLabelText(/consultant template/i), {
       target: { value: 'standard' },
     });
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setReviewPacketPreviewTemplateVariant',
       templateVariant: 'standard',
     });
     fireEvent.click(screen.getByRole('button', { name: /open full packet/i }));
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'openReviewPacketPreview' });
+    expectLastPostedMessage({ type: 'openReviewPacketPreview' });
     expect(screen.getByText('Unreviewed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Not reviewed/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /export review summary/i }).length).toBeGreaterThan(0);
@@ -799,15 +1194,24 @@ describe('Analyzer Score App', () => {
     expect(screen.getAllByText(/Detail Comparison/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(screen.getAllByText(/Affected pages/i).length).toBeGreaterThan(0);
-    expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
-    expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Not reviewed yet\./i)).toBeInTheDocument();
+    expect(screen.getByText('Story Assessment')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    expect(screen.getByText('What We Believe This Page Is Trying To Say')).toBeInTheDocument();
+    expect(screen.getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
+    const topLevelStorySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    expect(within(topLevelStorySection).getByText('Story Type')).toBeInTheDocument();
+    expect(within(topLevelStorySection).getByText('Executive Overview')).toBeInTheDocument();
+    expect(within(topLevelStorySection).getByText('Story Maturity')).toBeInTheDocument();
     expect(screen.getByText(/This page appears to summarize Revenue performance over time/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
+    expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Intent profile: executiveOverview')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Story archetype: executive overview + trend + comparison')).toBeInTheDocument();
     expect(screen.getByText('Page Intent Profile')).toBeInTheDocument();
     expect(screen.getByText(/Actionability score:/i)).toBeInTheDocument();
     expect(screen.getByText(/Benchmark and Archetype/i)).toBeInTheDocument();
+    expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Not reviewed yet\./i)).toBeInTheDocument();
     expect(screen.getAllByText(/exception visibility is still weaker than the benchmark/i).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText(/page intent profile override/i), {
       target: { value: 'operational' },
@@ -816,7 +1220,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Intent Feedback')).toBeInTheDocument();
     expect(screen.getByText(/Does this match your intent\?/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'No' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Overview',
       inferredIntent: 'executiveOverview',
@@ -829,7 +1233,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText(/The page currently reads as executiveOverview/i)).toBeInTheDocument();
     expect(screen.getByText(/Consider tightening the title, lead KPI band, or supporting visuals/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Overview',
       inferredIntent: 'executiveOverview',
@@ -846,14 +1250,15 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Details' }));
 
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'selectTab',
       pageIndex: 2,
     });
     expect(screen.getAllByText(/Detail Comparison/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText((_, node) => node?.textContent === 'Intent profile: analyticalDeepDive')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /partially/i }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Details',
       inferredIntent: 'analyticalDeepDive',
@@ -868,7 +1273,7 @@ describe('Analyzer Score App', () => {
       target: { value: 'Needs a clearer variance narrative before this can be review-ready.' },
     });
     fireEvent.click(screen.getByRole('button', { name: /save note/i }));
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'setIntentFeedback',
       pageName: 'Details',
       inferredIntent: 'analyticalDeepDive',
@@ -878,11 +1283,16 @@ describe('Analyzer Score App', () => {
       note: 'Needs a clearer variance narrative before this can be review-ready.',
     });
     expect(screen.getByText(/Reviewer note saved for this page review\./i)).toBeInTheDocument();
-    expect(screen.getByText('Reviewer Comment Generator')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/reviewer persona/i), {
+    expect(screen.queryByText('Reviewer Comment Generator')).not.toBeInTheDocument();
+    const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
+    evidenceSection.open = true;
+    const reviewCommentarySection = screen.getByText('Review Commentary').closest('details') as HTMLDetailsElement;
+    expect(reviewCommentarySection.open).toBe(false);
+    reviewCommentarySection.open = true;
+    fireEvent.change(within(reviewCommentarySection).getByLabelText(/reviewer persona/i), {
       target: { value: 'strictDesignCritic' },
     });
-    expect(screen.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
+    expect(within(reviewCommentarySection).getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Page Consistency Notes').length).toBeGreaterThan(0);
     expect(screen.getByText(/Metric label naming differs from other pages/i)).toBeInTheDocument();
     const detailMetadataDetails = screen.getByText('Parsed Metadata').closest('details') as HTMLDetailsElement;
@@ -899,7 +1309,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByRole('button', { name: 'Review page Details' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Review page Overview' })).not.toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /export review summary/i })[0]);
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'exportReviewWorkflow' });
+    expectLastPostedMessage({ type: 'exportReviewWorkflow' });
   });
 
   it('updates preview controls from host-owned state and hides consultant template outside consultant mode', async () => {
@@ -967,7 +1377,7 @@ describe('Analyzer Score App', () => {
     fireEvent.click(screen.getByText(/show affected visuals/i));
     fireEvent.click(screen.getByRole('button', { name: /actionbutton/i }));
 
-    expect(postMessage).toHaveBeenLastCalledWith({
+    expectLastPostedMessage({
       type: 'revealVisual',
       pageName: 'Overview',
       visualId: 'd8427472eb598a9b5946',
@@ -990,13 +1400,31 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'refresh' });
+    expectLastPostedMessage({ type: 'refresh' });
+  });
+
+  it('fails clearly when the host protocol version diverges', async () => {
+    render(<App />);
+
+    await act(async () => {
+      originalDispatchEvent(new MessageEvent('message', {
+        data: {
+          type: 'scoreState',
+          protocolVersion: 999,
+          schemaVersion: 1,
+          state: scoreState,
+        },
+      }));
+    });
+
+    expect(await screen.findByText(/score panel protocol mismatch/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Scoring failed' })).toBeInTheDocument();
   });
 
   it('restores persisted intent feedback without changing displayed score', async () => {
     render(<App />);
 
-    expect(postMessage).toHaveBeenCalledWith({ type: 'webviewReady' });
+    expect(postMessage).toHaveBeenCalledWith(withScorePanelEnvelope({ type: 'webviewReady' }));
 
     await act(async () => {
       window.dispatchEvent(
@@ -1029,8 +1457,11 @@ describe('Analyzer Score App', () => {
     });
 
     expect(screen.getByText('Review Summary')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Review Summary' }));
     expect(screen.getByRole('button', { name: /Confirmed/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
     expect(screen.getByText(/Confirmed by you during this session\./i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('Title works, but the supporting chart still needs a clearer takeaway.')).toBeInTheDocument();
@@ -1134,10 +1565,11 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
       target: { value: 'medium' },
     });
-    expect(screen.getByText(/Showing 1 of 3 finding\(s\)\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1 of 4 finding\(s\)\./i)).toBeInTheDocument();
     const issuesWorkspace = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
     expect(within(issuesWorkspace).queryByText('Actionability gap')).not.toBeInTheDocument();
 
@@ -1145,6 +1577,108 @@ describe('Analyzer Score App', () => {
       target: { value: 'impactArea' },
     });
     expect(within(issuesWorkspace).getAllByText('Navigation').length).toBeGreaterThan(0);
+  });
+
+  it('filters and hides Fabric readiness findings without overloading scope', async () => {
+    render(<App />);
+
+    const readinessFilterState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        normalizedFindings: [
+          ...(scoreState.result.normalizedFindings ?? []),
+          {
+            id: 'fabric-readiness-blocker-navigation',
+            title: 'Migration Blocker',
+            summary: 'Navigation complexity is likely too Power BI-specific for direct migration.',
+            severity: 'medium',
+            confidence: 88,
+            scope: 'report',
+            detectionType: 'deterministic',
+            affectedPages: ['Details'],
+            impactArea: 'navigation',
+            frameworkImpact: ['Fabric App Readiness'],
+            recommendation: 'Simplify navigation before treating the report as an app candidate.',
+            sourceKind: 'fabricAppReadiness',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+          {
+            id: 'fabric-readiness-redesign-details',
+            title: 'Redesign Required',
+            summary: 'Details needs redesign before it becomes a strong app migration candidate.',
+            severity: 'medium',
+            confidence: 84,
+            scope: 'page',
+            detectionType: 'deterministic',
+            affectedPages: ['Details'],
+            impactArea: 'layout',
+            frameworkImpact: ['Fabric App Readiness'],
+            recommendation: 'Recompose this page into a simpler task-focused app experience.',
+            sourceKind: 'fabricAppReadiness',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+        ],
+      },
+    } as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: readinessFilterState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
+    fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
+      target: { value: 'all' },
+    });
+    fireEvent.change(screen.getByLabelText(/issue fabric app readiness filter/i), {
+      target: { value: 'blocker' },
+    });
+
+    const issuesWorkspace = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
+    expect(screen.getByText(/Fabric App Readiness: Blocker/i)).toBeInTheDocument();
+    expect(within(issuesWorkspace).getAllByText('Migration Blocker').length).toBeGreaterThan(0);
+    expect(within(issuesWorkspace).queryByText('Redesign Required')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Scope: Report/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/issue fabric app readiness filter/i), {
+      target: { value: 'hidden' },
+    });
+    expect(screen.getByText(/Fabric App Readiness: Hidden/i)).toBeInTheDocument();
+    expect(within(issuesWorkspace).queryByText('Migration Blocker')).not.toBeInTheDocument();
+    expect(within(issuesWorkspace).queryByText('Good Fabric App Candidate')).not.toBeInTheDocument();
+  });
+
+  it('syncs the issue page filter to the selected page tab', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
+    expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+    expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('Details');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overall' }));
+    expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
   });
 
   it('applies workspace persona ordering and matrix-driven issue filters without changing score', async () => {
@@ -1170,15 +1704,19 @@ describe('Analyzer Score App', () => {
 
     const topIssuesCard = screen.getByRole('heading', { name: 'Top issues' }).closest('div') as HTMLElement;
     expect(within(topIssuesCard).getAllByText(/navigation/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
-    expect(within(fixPlan).getAllByRole('heading', { level: 3 })[0]).toHaveTextContent('navigation');
+    expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     fireEvent.click(screen.getByRole('button', { name: /filter issues for details navigation/i }));
     expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('Details');
     expect(screen.getByLabelText(/issue dimension filter/i)).toHaveValue('navigation');
     expect(screen.getByLabelText(/workspace review mode/i)).toHaveValue('governance');
     expect(screen.getByText(/Page: Details/i)).toBeInTheDocument();
     expect(screen.getByText(/Dimension: Navigation/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Details · Navigation')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Standardize navigation cues')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
     expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
@@ -1203,11 +1741,1446 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     const highSeverityGroup = screen.getByText('High severity').closest('details') as HTMLDetailsElement;
     const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
 
     expect(highSeverityGroup.open).toBe(true);
     expect(screen.queryByText('Medium severity')).not.toBeInTheDocument();
     expect(evidenceSection.open).toBe(false);
+  });
+
+  it('renders Fabric readiness as a dedicated overview callout with human-readable labels', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Fabric App migration readiness')).toBeInTheDocument();
+    expect(screen.getAllByText('Possible Candidate').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Readiness: possibleCandidate/i)).not.toBeInTheDocument();
+  });
+
+  it('filters the overview Fabric readiness callout to the selected page', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    const readinessOverview = screen.getByLabelText('Fabric App migration readiness');
+    expect(within(readinessOverview).getByText('Fabric App readiness for Details')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText('Redesign Required')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText('42')).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Blockers$/i)).toBeInTheDocument();
+    expect(within(readinessOverview).getByText(/^Unsupported patterns$/i)).toBeInTheDocument();
+    expect(within(readinessOverview).queryByText(/^Candidate pages$/i)).not.toBeInTheDocument();
+  });
+
+  it('filters overview summary cards to the selected page context', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    const topStrengthsCard = screen.getByRole('heading', { name: 'Top strengths' }).closest('div') as HTMLElement;
+    const topIssuesCard = screen.getByRole('heading', { name: 'Top issues' }).closest('div') as HTMLElement;
+    const topActionsCard = screen.getByRole('heading', { name: 'Top actions' }).closest('div') as HTMLElement;
+
+    expect(within(topStrengthsCard).getByText(/Clean trend visual/i)).toBeInTheDocument();
+    expect(within(topStrengthsCard).queryByText(/Overall design quality is above the working threshold/i)).not.toBeInTheDocument();
+    expect(within(topIssuesCard).getByText(/Beautiful but weakly actionable/i)).toBeInTheDocument();
+    expect(within(topIssuesCard).queryByText(/Actionability gap/i)).not.toBeInTheDocument();
+    expect(within(topActionsCard).getByText(/Decision support is weak/i)).toBeInTheDocument();
+  });
+
+  it('filters Fabric readiness evidence to the selected page', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
+    evidenceSection.open = true;
+
+    const readinessSection = screen.getAllByText('Fabric App Readiness')
+      .map((node) => node.closest('details'))
+      .find((node): node is HTMLDetailsElement => Boolean(node)) as HTMLDetailsElement;
+    readinessSection.open = true;
+
+    const readinessPanel = within(readinessSection);
+
+    expect(readinessPanel.getByText('Fabric App readiness for Details')).toBeInTheDocument();
+    expect(readinessPanel.getByText('Redesign Required')).toBeInTheDocument();
+    expect(readinessPanel.getByText(/Overall readiness score 42\/100\./i)).toBeInTheDocument();
+    expect(readinessPanel.queryByText(/Overall readiness score 80\/100\./i)).not.toBeInTheDocument();
+    expect(readinessPanel.queryByText(/^Candidate pages$/i)).not.toBeInTheDocument();
+  });
+
+  it('moves reviewer commentary under Evidence as collapsed supporting material while preserving persona-aware output', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    expect(screen.queryByText('Reviewer Comment Generator')).not.toBeInTheDocument();
+
+    const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
+    evidenceSection.open = true;
+
+    const reviewCommentarySection = screen.getByText('Review Commentary').closest('details') as HTMLDetailsElement;
+    expect(reviewCommentarySection.open).toBe(false);
+    reviewCommentarySection.open = true;
+
+    const commentaryPanel = within(reviewCommentarySection);
+    expect(commentaryPanel.getByLabelText(/reviewer persona/i)).toHaveValue('consultant');
+    expect(commentaryPanel.getByText(/Consultant review for Details \(analytical\)/i)).toBeInTheDocument();
+    expect(commentaryPanel.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
+
+    fireEvent.change(commentaryPanel.getByLabelText(/reviewer persona/i), {
+      target: { value: 'strictDesignCritic' },
+    });
+
+    expect(commentaryPanel.getAllByText(/beautiful but useless/i).length).toBeGreaterThan(0);
+  });
+
+  it('renders Story Assessment as a single narrative workflow and preserves full reasoning on demand', async () => {
+    render(<App />);
+
+    await dispatchScoreState(scoreState);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+
+    expect(within(storySection).getByText('What We Believe This Page Is Trying To Say')).toBeInTheDocument();
+    expect(within(storySection).getByText(/This page appears to summarize Revenue performance over time, with region comparison as supporting evidence\./i)).toBeInTheDocument();
+    expect(within(storySection).getByText(/This page should help leaders judge performance against expectations and decide whether intervention is needed\./i)).toBeInTheDocument();
+    expect(within(storySection).getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
+    expect(within(storySection).getByText('Story Type')).toBeInTheDocument();
+    expect(within(storySection).getByText('Executive Overview')).toBeInTheDocument();
+    expect(within(storySection).getByText('Story Maturity')).toBeInTheDocument();
+    expect(within(storySection).getByText('Developing')).toBeInTheDocument();
+    expect(within(storySection).getByText('Strong Signals')).toBeInTheDocument();
+    expect(within(storySection).getByText('Missing Signals')).toBeInTheDocument();
+    expect(within(storySection).getByText('Top Story Improvements')).toBeInTheDocument();
+    const topImprovementsBlock = within(storySection).getByText('Top Story Improvements').closest('div') as HTMLElement;
+    expect(within(topImprovementsBlock).getByRole('heading', { name: 'Add a clearer page question or title' })).toBeInTheDocument();
+    expect(within(topImprovementsBlock).getByRole('heading', { name: 'Add a visible benchmark or target' })).toBeInTheDocument();
+    expect(within(topImprovementsBlock).getByRole('heading', { name: 'Tighten the filter path' })).toBeInTheDocument();
+    expect(within(topImprovementsBlock).queryByRole('heading', { name: 'Add trend or prior-period context' })).not.toBeInTheDocument();
+    expect(within(topImprovementsBlock).getByText(/Story Improvement Rationale/i)).toBeInTheDocument();
+    const missingSignalsBlock = within(storySection).getByText('Missing Signals').closest('div') as HTMLElement;
+    expect(within(missingSignalsBlock).getByText('No clear headline question')).toBeInTheDocument();
+    expect(within(missingSignalsBlock).getByText('No visible benchmark or target')).toBeInTheDocument();
+    expect(within(missingSignalsBlock).getByText('No focused filter path reinforcing one main takeaway')).toBeInTheDocument();
+    expect(within(missingSignalsBlock).queryByText('Add a clearer page question or title')).not.toBeInTheDocument();
+    expect(within(missingSignalsBlock).queryByText('Add a visible benchmark or target')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Supported Decision')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Why This Matters')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Decision Risk')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText('Guided Story Improvements')).not.toBeInTheDocument();
+    expect(within(storySection).queryByText(/Story Confidence:/i)).not.toBeInTheDocument();
+
+    const storyIntentHeading = within(storySection).getByText('What We Believe This Page Is Trying To Say');
+    const storyTypeHeading = within(storySection).getByText('Story Type');
+    const storyMaturityHeading = within(storySection).getByText('Story Maturity');
+    const strongSignalsHeading = within(storySection).getByText('Strong Signals');
+    const missingSignalsHeading = within(storySection).getByText('Missing Signals');
+    const topImprovementsHeading = within(storySection).getByText('Top Story Improvements');
+
+    expect(storyIntentHeading.compareDocumentPosition(storyTypeHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(storyTypeHeading.compareDocumentPosition(storyMaturityHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(storyMaturityHeading.compareDocumentPosition(strongSignalsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(strongSignalsHeading.compareDocumentPosition(missingSignalsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(missingSignalsHeading.compareDocumentPosition(topImprovementsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    expect(screen.queryByText('Inferred Page Story')).not.toBeInTheDocument();
+    expect(screen.queryByText('Page Intent Profile')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
+    expect(screen.getByText('Inferred Page Story')).toBeInTheDocument();
+    expect(screen.getByText('Page Intent Profile')).toBeInTheDocument();
+    expect(screen.getByText('Intent Feedback')).toBeInTheDocument();
+  });
+
+  it('keeps story improvements inside Story Assessment and preserves prioritized recommendation wording without internal labels', async () => {
+    render(<App />);
+
+    await dispatchScoreState(scoreState);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    const storyAssessmentSection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    const issuesSection = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
+
+    // Issues now precedes Story Assessment: Issues and Fix Plan moved to the top of the panel
+    // (directly under Overview) so the most actionable sections are reachable without scrolling.
+    expect(issuesSection.compareDocumentPosition(storyAssessmentSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Guided Story Improvements' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Story coaching/i)).not.toBeInTheDocument();
+
+    const improvementsSection = within(storyAssessmentSection).getByText('Top Story Improvements').closest('div') as HTMLElement;
+    const improvementTitles = within(improvementsSection).getAllByRole('heading', { level: 4 });
+    expect(improvementTitles.map((heading) => heading.textContent)).toEqual([
+      'Add a clearer page question or title',
+      'Add a visible benchmark or target',
+      'Tighten the filter path',
+    ]);
+    expect(within(improvementsSection).getByText(/The page does not establish the decision or question early enough\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).getByText(/A visible question anchor tells readers what to interpret before they scan the visuals\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).getByText(/Stronger scan path and faster narrative comprehension\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).getByText(/The page needs a stronger narrative frame before the visuals can do their job\./i)).toBeInTheDocument();
+    expect(within(improvementsSection).queryByText(/Add trend or prior-period context/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/relatedImpactArea/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/Related impact area/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/Priority: high/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/Priority: medium/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/storyArchetype/i)).not.toBeInTheDocument();
+    expect(within(storyAssessmentSection).queryByText(/coherence/i)).not.toBeInTheDocument();
+  });
+
+  it('renders a story navigation action when a top improvement includes a target and posts navigateToTarget on click', async () => {
+    render(<App />);
+
+    await dispatchScoreState({
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        pageScores: scoreState.result.pageScores?.map((page) => page.pageName !== 'Overview'
+          ? page
+          : {
+              ...page,
+              guidedStoryImprovements: {
+                ...page.guidedStoryImprovements!,
+                highPriorityImprovements: page.guidedStoryImprovements!.highPriorityImprovements.map((item, index) => index !== 0
+                  ? item
+                  : {
+                      ...item,
+                      navigationTarget: {
+                        kind: 'page',
+                        pageName: 'Overview',
+                        label: 'Open Overview page',
+                        reason: 'This recommendation affects page framing.',
+                        supportState: 'direct',
+                      },
+                    }),
+              },
+            }),
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    const actionButton = within(storySection).getByRole('button', { name: 'Open target' });
+
+    expect(within(storySection).getByText('Open Overview page')).toBeInTheDocument();
+
+    fireEvent.click(actionButton);
+
+    expectLastPostedMessage({
+      type: 'navigateToTarget',
+      target: {
+        kind: 'page',
+        pageName: 'Overview',
+        label: 'Open Overview page',
+        reason: 'This recommendation affects page framing.',
+        supportState: 'direct',
+      },
+    });
+  });
+
+  it('renders a disabled explanatory state when a story navigation target is unavailable', async () => {
+    render(<App />);
+
+    await dispatchScoreState({
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        pageScores: scoreState.result.pageScores?.map((page) => page.pageName !== 'Overview'
+          ? page
+          : {
+              ...page,
+              guidedStoryImprovements: {
+                ...page.guidedStoryImprovements!,
+                highPriorityImprovements: page.guidedStoryImprovements!.highPriorityImprovements.map((item, index) => index !== 0
+                  ? item
+                  : {
+                      ...item,
+                      navigationTarget: {
+                        kind: 'page',
+                        pageName: 'Overview',
+                        label: 'Target unavailable',
+                        reason: 'No stable page target could be inferred from public metadata.',
+                        supportState: 'unavailable',
+                      },
+                    }),
+              },
+            }),
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    const disabledButton = within(storySection).getByRole('button', { name: 'Target unavailable' });
+
+    expect(disabledButton).toBeDisabled();
+    expect(within(storySection).getByText('No stable page target could be inferred from public metadata.')).toBeInTheDocument();
+  });
+
+  it('does not render a What Changed block when no prior story snapshot exists', async () => {
+    render(<App />);
+
+    await dispatchScoreState(scoreState);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    expect(within(storySection).queryByText('What Changed')).not.toBeInTheDocument();
+  });
+
+  it('renders a What Changed block from the prior snapshot and reuses navigation actions for new recommendations', async () => {
+    render(<App />);
+
+    await dispatchScoreState({
+      ...scoreState,
+      storyAssessmentCurrentSnapshot: {
+        reportPath: '/tmp/Sales.Report',
+        scoredAt: '2026-06-12T00:00:00.000Z',
+        pages: [],
+      },
+      storyAssessmentDiffByPage: {
+        Overview: {
+          pageName: 'Overview',
+          maturityChange: 'improved',
+          resolvedRecommendations: [
+            {
+              id: 'story-improvement-title',
+              title: 'Add a clearer page question or title',
+              summary: 'The page does not establish the decision or question early enough.',
+              rationale: 'A visible question anchor tells readers what to interpret before they scan the visuals.',
+              expectedImpact: 'Stronger scan path and faster narrative comprehension.',
+              priority: 'high',
+              relatedImpactArea: 'storytelling',
+            },
+          ],
+          newRecommendations: [
+            {
+              id: 'story-improvement-benchmark',
+              title: 'Add a visible benchmark or target',
+              summary: 'Key values still appear without an explicit performance frame.',
+              rationale: 'Readers need a visible point of comparison before deciding whether results are acceptable.',
+              expectedImpact: 'Faster decision framing and less KPI ambiguity.',
+              priority: 'high',
+              relatedImpactArea: 'benchmark',
+              navigationTarget: {
+                kind: 'visual',
+                pageName: 'Overview',
+                visualId: 'hero-kpi',
+                label: 'Open lead KPI visual',
+                reason: 'This recommendation is tied to the lead KPI.',
+                supportState: 'direct',
+              },
+            },
+          ],
+          unchangedRecommendations: [],
+          addedStrongSignals: ['Clear exception callout.'],
+          removedStrongSignals: [],
+          addedMissingSignals: [],
+          removedMissingSignals: ['No visible benchmark or target'],
+          summary: 'Story maturity improved. 1 recommendation resolved. 1 new recommendation added.',
+        },
+      },
+      storyAssessmentLastComparedAt: '2026-06-12T00:00:00.000Z',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
+    const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
+    expect(within(storySection).getByText('What Changed')).toBeInTheDocument();
+    expect(within(storySection).getByText('Story maturity improved. 1 recommendation resolved. 1 new recommendation added.')).toBeInTheDocument();
+    expect(within(storySection).getByText('Resolved: Add a clearer page question or title')).toBeInTheDocument();
+    expect(within(storySection).getByText('New: Add a visible benchmark or target')).toBeInTheDocument();
+    expect(within(storySection).getByText('Added strong signal: Clear exception callout.')).toBeInTheDocument();
+    expect(within(storySection).getByText('Removed missing signal: No visible benchmark or target')).toBeInTheDocument();
+
+    fireEvent.click(within(storySection).getByRole('button', { name: 'Open target' }));
+
+    expectLastPostedMessage({
+      type: 'navigateToTarget',
+      target: {
+        kind: 'visual',
+        pageName: 'Overview',
+        visualId: 'hero-kpi',
+        label: 'Open lead KPI visual',
+        reason: 'This recommendation is tied to the lead KPI.',
+        supportState: 'direct',
+      },
+    });
+  });
+
+  it('renders Fix Plan as a differentiated remediation queue with action-specific rationale', async () => {
+    render(<App />);
+
+    const remediationState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        fixPlan: [
+          {
+            id: 'fix-1',
+            title: 'Add benchmarks and decision context',
+            detail: 'Add missing target and prior-period context to the KPI band.',
+            severity: 'high',
+            effort: 'low',
+            impact: 'high',
+            why: 'Reduces risk of KPI misinterpretation.',
+            scope: 'page',
+            affectedPages: ['Overview'],
+            recommendedAction: 'Add target benchmarks, prior-period context, and urgency cues.',
+            resolvedOutcomes: ['Benchmark gap', 'Actionability gap'],
+            sourceFindingIds: ['overview-actionability', 'details-benchmark'],
+          },
+        ],
+      },
+    } as unknown as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: remediationState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getAllByText(/^Impact$/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/^Why:$/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/^Resolves$/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Reduces risk of KPI misinterpretation/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getByText('Benchmark gap')).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('Actionability gap').length).toBeGreaterThan(0);
+  });
+
+  it('explains remediation focus and keeps the queue broader than severity-only issue filters', async () => {
+    render(<App />);
+
+    const remediationState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        normalizedFindings: [
+          {
+            id: 'overview-layout-high',
+            title: 'Grid alignment',
+            summary: 'Top-row KPI cards overlap instead of holding a clean band.',
+            severity: 'high',
+            confidence: 82,
+            scope: 'page',
+            detectionType: 'deterministic',
+            affectedPages: ['Overview'],
+            impactArea: 'layout',
+            frameworkImpact: ['Gestalt Principles'],
+            recommendation: 'Tighten the layout so peer visuals read as a deliberate system.',
+            sourceKind: 'framework',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+          {
+            id: 'overview-density-medium',
+            title: 'Visual density',
+            summary: 'The page is too crowded for fast executive scanning.',
+            severity: 'medium',
+            confidence: 80,
+            scope: 'page',
+            detectionType: 'deterministic',
+            affectedPages: ['Overview'],
+            impactArea: 'density',
+            frameworkImpact: ['Cognitive Load'],
+            recommendation: 'Split dense sections into a smaller number of focal visuals.',
+            sourceKind: 'framework',
+            sourceSection: 'issues',
+            evidence: [],
+          },
+          ...(scoreState.result.normalizedFindings ?? []),
+        ],
+      },
+    } as unknown as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: remediationState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
+    fireEvent.change(screen.getByLabelText(/issue page filter/i), {
+      target: { value: 'Overview' },
+    });
+    fireEvent.change(screen.getByLabelText(/issue dimension filter/i), {
+      target: { value: 'layout' },
+    });
+    fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
+      target: { value: 'high' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Overview · Layout')).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/Actions are grouped by problem area rather than individual findings/i)).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Reduce visual density and align layout')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('1 High · 1 Medium')).toBeInTheDocument();
+  });
+
+  it('updates remediation focus from matrix-driven page and dimension context', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /filter issues for details navigation/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Details · Navigation')).toBeInTheDocument();
+    expect(within(fixPlan).getByText('Standardize navigation cues')).toBeInTheDocument();
+  });
+
+  it('renders deterministic fix opportunities under remediation items and keeps unsupported remediation advisory', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getAllByText('Fix opportunities').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getByText('Standardize overview title anchor')).toBeInTheDocument();
+    expect(within(fixPlan).getAllByText('Previewed').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText('Rollback:').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText('Advisory only: no safe metadata-only fix is currently available for this remediation.').length).toBeGreaterThan(0);
+  });
+
+  it('shows the batch workflow block when deterministic opportunities are available in the current context', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Batch workflow')).toBeInTheDocument();
+    expect(within(fixPlan).getByRole('button', { name: 'Preview selected' })).toBeInTheDocument();
+    expect(within(fixPlan).getByRole('button', { name: 'Approve selected' })).toBeInTheDocument();
+    expect(within(fixPlan).getByRole('button', { name: 'Apply selected' })).toBeInTheDocument();
+  });
+
+  it('hides the batch workflow block when only advisory recommendations are available', async () => {
+    render(<App />);
+
+    const advisoryOnlyState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        fixOpportunities: [],
+      },
+      fixSelection: {
+        selectedOpportunityIds: [],
+        compatibility: {
+          isCompatible: true,
+          compatibleOpportunityIds: [],
+          blockingOpportunityIds: [],
+          blockingReasons: [],
+        },
+        approvalState: 'NeedsPreview',
+      },
+    } as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: advisoryOnlyState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).queryByText('Batch workflow')).not.toBeInTheDocument();
+    expect(within(fixPlan).queryByRole('button', { name: 'Preview selected' })).not.toBeInTheDocument();
+    expect(within(fixPlan).queryByRole('button', { name: 'Approve selected' })).not.toBeInTheDocument();
+    expect(within(fixPlan).queryByRole('button', { name: 'Apply selected' })).not.toBeInTheDocument();
+  });
+
+  it('shows advisory-only messaging when no deterministic opportunities are available', async () => {
+    render(<App />);
+
+    const advisoryOnlyState = {
+      ...scoreState,
+      result: {
+        ...scoreState.result,
+        fixOpportunities: [],
+      },
+    } as ScorePanelState;
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: advisoryOnlyState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getByText('Advisory Recommendations Only')).toBeInTheDocument();
+    expect(within(fixPlan).getByText(/No deterministic opportunities are available in the current context\./i)).toBeInTheDocument();
+  });
+
+  it('renders advisory proposal enrichment separately from deterministic fix execution details', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                proposalEnrichments: [
+                  {
+                    remediationItemId: 'fix-overview-actionability',
+                    status: 'available',
+                    source: 'provider',
+                    enrichersApplied: ['storytelling', 'executiveReadability'],
+                    titleSuggestions: [
+                      {
+                        title: 'Executive Sales Overview',
+                        confidence: 0.82,
+                        rationale: 'Matches the KPI-led page purpose.',
+                      },
+                    ],
+                    explanation: {
+                      shortText: 'Adding benchmark context helps readers interpret the KPI quickly.',
+                      expandedText: 'Without a benchmark, the KPI communicates performance but not whether the result is good or bad.',
+                    },
+                    whyThisMatters: {
+                      text: 'Without a benchmark, users cannot quickly tell whether performance is on target.',
+                    },
+                    advisoryPriority: {
+                      tier: 'highLeverage',
+                      rationale: 'This improves decision context on a high-visibility page.',
+                    },
+                    expectedOutcome: {
+                      text: 'If applied, this change is expected to improve readability and decision context.',
+                      areas: ['readability', 'decision context'],
+                    },
+                    advisoryAlternatives: [
+                      {
+                        title: 'Consolidate the KPI section',
+                        description: 'Instead of adding another KPI card, consider consolidating the KPI section around one benchmarked summary.',
+                      },
+                    ],
+                    validation: {
+                      status: 'passed',
+                      issues: [],
+                    },
+                    provenance: {
+                      providerName: 'Test Provider',
+                      usedFallback: false,
+                      enrichedAt: '2026-06-02T20:00:00.000Z',
+                      sourceFindingIds: ['finding-overview-actionability', 'finding-overview-benchmark'],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
+    expect(within(fixPlan).getAllByText('AI-enriched guidance').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText('Executive Sales Overview').length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Adding benchmark context helps readers interpret the KPI quickly/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Without a benchmark, users cannot quickly tell whether performance is on target/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/High leverage/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/If applied, this change is expected to improve readability and decision context/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/Consolidate the KPI section/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText(/AI-enriched/i).length).toBeGreaterThan(0);
+    expect(within(fixPlan).getAllByText('Expected resolutions:').length).toBeGreaterThan(0);
+  });
+
+  it('supports grouped preview approval apply and session rollback for compatible opportunities', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    fireEvent.click(screen.getByLabelText('Select Standardize overview title anchor'));
+    expectLastPostedMessage({
+      type: 'toggleFixOpportunitySelection',
+      opportunityId: 'fixopp-overview-title',
+    });
+
+    fireEvent.click(screen.getByLabelText('Select Normalize chart top spacing'));
+    expectLastPostedMessage({
+      type: 'toggleFixOpportunitySelection',
+      opportunityId: 'fixopp-overview-chart',
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'NeedsPreview',
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview selected' }));
+    expectLastPostedMessage({ type: 'previewSelectedFixOpportunities' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'Previewed',
+                groupedPreview: {
+                  opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  summary: {
+                    changedFileCount: 2,
+                    changedObjectCount: 2,
+                    expectedOutcomeCount: 2,
+                    touchedFiles: ['a', 'b'],
+                    changedObjects: ['title-textbox-1', 'chart-hero-1'],
+                  },
+                  pageGroups: [
+                    {
+                      pageName: 'Overview',
+                      objectGroups: [
+                        {
+                          objectId: 'title-textbox-1',
+                          pageName: 'Overview',
+                          propertyChanges: [
+                            {
+                              opportunityId: 'fixopp-overview-title',
+                              property: 'position.x',
+                              before: 42,
+                              after: 24,
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                  mutationFacts: [
+                    {
+                      pageName: 'Overview',
+                      objectId: 'title-textbox-1',
+                      property: 'position.x',
+                      before: 42,
+                      after: 24,
+                    },
+                    {
+                      pageName: 'Overview',
+                      objectId: 'chart-hero-1',
+                      property: 'position.y',
+                      before: 120,
+                      after: 96,
+                    },
+                  ],
+                  expectedOutcomes: ['Actionability gap', 'Benchmark gap'],
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Grouped preview')).toBeInTheDocument();
+    expect(screen.getByText('Mutation facts')).toBeInTheDocument();
+    expect(screen.getByText('Grouped by page / object / property')).toBeInTheDocument();
+    expect(screen.getByText('chart-hero-1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected' }));
+    expectLastPostedMessage({ type: 'approveSelectedFixOpportunities' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                ...(scoreState.fixSelection as NonNullable<typeof scoreState.fixSelection>),
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'Approved',
+                groupedPreview: {
+                  opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  summary: {
+                    changedFileCount: 2,
+                    changedObjectCount: 2,
+                    expectedOutcomeCount: 2,
+                    touchedFiles: ['a', 'b'],
+                    changedObjects: ['title-textbox-1', 'chart-hero-1'],
+                  },
+                  pageGroups: [],
+                  mutationFacts: [],
+                  expectedOutcomes: ['Actionability gap', 'Benchmark gap'],
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply selected' }));
+    expectLastPostedMessage({ type: 'applySelectedFixOpportunities' });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                ...(scoreState.fixSelection as NonNullable<typeof scoreState.fixSelection>),
+                selectedOpportunityIds: [],
+                compatibility: {
+                  isCompatible: true,
+                  compatibleOpportunityIds: [],
+                  blockingOpportunityIds: [],
+                  blockingReasons: [],
+                },
+                approvalState: 'NeedsPreview',
+              },
+              fixApplySessions: [
+                {
+                  id: 'session-1',
+                  appliedAt: '2026-06-01T22:40:00.000Z',
+                  opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  opportunityTitles: ['Standardize overview title anchor', 'Normalize chart top spacing'],
+                  rollbackAvailable: true,
+                  rollbackHistory: [],
+                  groupedOutcomeSummary: {
+                    totalEntries: 2,
+                    statuses: [
+                      { status: 'Resolved', count: 1, opportunityIds: ['fixopp-overview-title'] },
+                      { status: 'Unexpected', count: 1, opportunityIds: ['fixopp-overview-chart'] },
+                    ],
+                    appliedWithUnexpectedOutcomeOpportunityIds: ['fixopp-overview-chart'],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Session history')).toBeInTheDocument();
+    expect(screen.getByText(/Resolved 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Unexpected 1/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back session' }));
+    expectLastPostedMessage({
+      type: 'rollbackFixSession',
+      sessionId: 'session-1',
+    });
+  });
+
+  it('blocks incompatible selections with clear conflict messaging and supports regeneration messaging', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              fixSelection: {
+                selectedOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                compatibility: {
+                  isCompatible: false,
+                  compatibleOpportunityIds: [],
+                  blockingOpportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                  blockingReasons: [
+                    {
+                      code: 'overlappingMutation',
+                      message: 'Selected opportunities both change title-textbox-1 at position.x.',
+                      opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+                      targetObjectId: 'title-textbox-1',
+                      propertyPath: 'position.x',
+                    },
+                  ],
+                },
+                approvalState: 'NeedsPreview',
+                message: 'Selected opportunities are stale or drifted. Regenerate them before retrying.',
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    expect(screen.getByText('Compatibility')).toBeInTheDocument();
+    expect(screen.getByText(/Selected opportunities both change title-textbox-1/i)).toBeInTheDocument();
+    expect(screen.getByText(/overlappingMutation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Regenerate them before retrying/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate stale' }));
+    expectLastPostedMessage({
+      type: 'regenerateFixOpportunities',
+      opportunityIds: ['fixopp-overview-title', 'fixopp-overview-chart'],
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show Preview' })[0]);
+    expect(screen.getByRole('columnheader', { name: 'Object' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Property' })).toBeInTheDocument();
+    expect(screen.getAllByText('Overview · title-textbox-1').length).toBeGreaterThan(0);
+    expect(screen.getByText('position.x')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('24')).toBeInTheDocument();
+  });
+
+  it('adapts the matrix between report and page review contexts using qualitative statuses', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: scoreState,
+          },
+        }),
+      );
+    });
+
+    const overallMatrix = screen.getByText('Cross-page matrix').closest('.overview-matrix') as HTMLElement;
+    expect(within(overallMatrix).getByText('Overview')).toBeInTheDocument();
+    expect(within(overallMatrix).getByText('Details')).toBeInTheDocument();
+    expect(within(overallMatrix).getAllByText(/Weak|Watch|Strong|Unknown/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+
+    const pageMatrix = screen.getByText('Cross-page matrix').closest('.overview-matrix') as HTMLElement;
+    expect(within(pageMatrix).getByText('Overview')).toBeInTheDocument();
+    expect(within(pageMatrix).queryByText('Details')).not.toBeInTheDocument();
+    expect(within(pageMatrix).getAllByText(/Weak|Watch|Strong|Unknown/i).length).toBeGreaterThan(0);
+    expect(within(pageMatrix).queryByRole('button', { name: /filter issues for details navigation/i })).not.toBeInTheDocument();
+  });
+
+  it('preserves the active tab across loading and refresh-driven score state updates', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              selectedPageIndex: 2,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByRole('button', { name: 'Details' }).className).toContain('tab-button-active');
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'loading',
+          },
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              selectedPageIndex: 2,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByRole('button', { name: 'Details' }).className).toContain('tab-button-active');
+  });
+
+  it('renders Fabric App review inside the existing workspace without deterministic mutation controls', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                reportPath: '/tmp/executive-fabric-app',
+                pageCount: 2,
+                pageScores: undefined,
+                readinessAssessment: undefined,
+                feedback: {},
+                reportConsistencySummary: undefined,
+                inferredStorySummary: undefined,
+                pageIntentProfile: undefined,
+                actionabilityBreakdown: undefined,
+                benchmarkComparison: undefined,
+                pagePurposeAnalysis: undefined,
+                analysisContext: {
+                  surfaceType: 'fabricApp',
+                  analyzerType: 'fabricAppReview',
+                  analyzerProfile: 'fabricAppQuality',
+                  surfaceDisplayName: 'Executive Fabric App',
+                  sourceLocation: '/tmp/executive-fabric-app',
+                  availableAnalyzerTypes: ['fabricAppReview'],
+                  availableAnalyzerProfiles: ['default', 'fabricAppQuality'],
+                },
+                fabricAppReview: {
+                  qualityScore: 72,
+                  summary: 'Fabric App review produced bounded findings from TypeScript, navigation, tokens, screenshots, and semantic-model evidence.',
+                  remediationGuidance: ['Rename generic routes.', 'Standardize token usage.'],
+                  evidence: [
+                    {
+                      kind: 'navigation',
+                      label: 'Navigation evidence',
+                      summary: 'Executive Overview -> /overview',
+                      filePath: 'src/routes/index.tsx',
+                    },
+                    {
+                      kind: 'designToken',
+                      label: 'Token bypass evidence',
+                      summary: 'Hard-coded color bypass detected: #ff0000.',
+                      filePath: 'src/ExecutiveCard.tsx',
+                    },
+                    {
+                      kind: 'screenshot',
+                      label: 'Screenshot evidence',
+                      summary: 'Executive Overview capture shows a KPI-first landing state.',
+                      filePath: 'screenshots/01 Executive Overview - Default.png',
+                    },
+                    {
+                      kind: 'semanticModel',
+                      label: 'Semantic model evidence',
+                      summary: 'SalesModel query usage anchors Revenue and Margin interactions.',
+                      filePath: 'src/data/queries.ts',
+                    },
+                  ],
+                },
+                fixOpportunities: [],
+                proposalEnrichments: [],
+                normalizedFindings: [
+                  {
+                    id: 'fabric-route-clarity',
+                    title: 'Route labeling is too generic for analytical navigation',
+                    summary: 'Generic labels weaken evidence flow.',
+                    severity: 'medium',
+                    confidence: 82,
+                    scope: 'report',
+                    detectionType: 'deterministic',
+                    affectedPages: [],
+                    impactArea: 'navigation',
+                    frameworkImpact: ['Fabric App Review'],
+                    recommendation: 'Rename generic routes.',
+                    sourceKind: 'fabricAppReview',
+                    sourceSection: 'issues',
+                    evidence: [
+                      {
+                        kind: 'navigation',
+                        label: 'Navigation evidence',
+                        detail: 'src/routes/index.tsx — Detail -> /detail',
+                        filePath: 'src/routes/index.tsx',
+                      },
+                      {
+                        kind: 'screenshot',
+                        label: 'Screenshot evidence',
+                        detail: 'screenshots/01 Executive Overview - Default.png — KPI-first landing state is visible.',
+                        filePath: 'screenshots/01 Executive Overview - Default.png',
+                      },
+                    ],
+                  },
+                  {
+                    id: 'fabric-token-bypass',
+                    title: 'Token inconsistencies were detected',
+                    summary: 'Hard-coded styling bypasses the shared token layer.',
+                    severity: 'medium',
+                    confidence: 82,
+                    scope: 'report',
+                    detectionType: 'deterministic',
+                    affectedPages: [],
+                    impactArea: 'layout',
+                    frameworkImpact: ['Fabric App Review'],
+                    recommendation: 'Standardize token usage.',
+                    sourceKind: 'fabricAppReview',
+                    sourceSection: 'issues',
+                    evidence: [
+                      {
+                        kind: 'designToken',
+                        label: 'Token bypass evidence',
+                        detail: 'src/ExecutiveCard.tsx — Hard-coded color bypass detected: #ff0000.',
+                        filePath: 'src/ExecutiveCard.tsx',
+                      },
+                      {
+                        kind: 'semanticModel',
+                        label: 'Semantic model evidence',
+                        detail: 'src/data/queries.ts — SalesModel query usage anchors Revenue interactions.',
+                        filePath: 'src/data/queries.ts',
+                      },
+                    ],
+                  },
+                ],
+                fixPlan: [
+                  {
+                    id: 'fix-fabric-navigation',
+                    title: 'Improve navigation clarity',
+                    detail: 'Resolve 1 related finding through one remediation step.',
+                    severity: 'medium',
+                    effort: 'medium',
+                    impact: 'medium',
+                    why: 'Clarifies the executive-to-detail scan path.',
+                    scope: 'report',
+                    affectedPages: [],
+                    recommendedAction: 'Rename generic routes.',
+                    resolvedOutcomes: ['Navigation consistency'],
+                    sourceFindingIds: ['fabric-route-clarity'],
+                  },
+                ],
+                overviewSummary: {
+                  ...scoreState.result.overviewSummary!,
+                  overallScore: 72,
+                  executiveSummary: 'This Fabric App has usable analytical structure, but route clarity and token discipline need improvement.',
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.getByText('Optimization Report')).toBeInTheDocument();
+    expect(screen.getByText(/This Fabric App has usable analytical structure/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Route labeling is too generic for analytical navigation').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
+    expect(screen.getByText('Improve navigation clarity')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Evidence'));
+    const fabricEvidenceSummary = screen.getAllByText('Fabric App Review Evidence')[0].closest('summary') as HTMLElement;
+    expect(fabricEvidenceSummary).toBeInTheDocument();
+    fireEvent.click(fabricEvidenceSummary);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('Executive Overview -> /overview') ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('src/ExecutiveCard.tsx') ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Screenshot Evidence').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Semantic Model Evidence').length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('screenshots/01 Executive Overview - Default.png') ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes('src/data/queries.ts') ?? false).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Batch workflow')).not.toBeInTheDocument();
+    expect(screen.getByText('Advisory Recommendations Only')).toBeInTheDocument();
+  });
+
+  it('shows graceful missing-state messaging when screenshot and semantic model evidence are unavailable', async () => {
+    render(<App />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'scoreState',
+            state: {
+              ...scoreState,
+              result: {
+                ...scoreState.result,
+                reportPath: '/tmp/fabric-without-extra-evidence',
+                pageCount: 1,
+                pageScores: undefined,
+                readinessAssessment: undefined,
+                feedback: {},
+                reportConsistencySummary: undefined,
+                inferredStorySummary: undefined,
+                pageIntentProfile: undefined,
+                actionabilityBreakdown: undefined,
+                benchmarkComparison: undefined,
+                pagePurposeAnalysis: undefined,
+                analysisContext: {
+                  surfaceType: 'fabricApp',
+                  analyzerType: 'fabricAppReview',
+                  analyzerProfile: 'fabricAppQuality',
+                  surfaceDisplayName: 'Minimal Fabric App',
+                  sourceLocation: '/tmp/fabric-without-extra-evidence',
+                  availableAnalyzerTypes: ['fabricAppReview'],
+                  availableAnalyzerProfiles: ['default', 'fabricAppQuality'],
+                },
+                fabricAppReview: {
+                  qualityScore: 79,
+                  summary: 'Fabric App review produced bounded findings from TypeScript, navigation, and design-token evidence.',
+                  remediationGuidance: ['Clarify route naming.'],
+                  evidence: [
+                    {
+                      kind: 'navigation',
+                      label: 'Navigation evidence',
+                      summary: 'Overview -> /overview',
+                      filePath: 'src/routes/index.tsx',
+                    },
+                  ],
+                },
+                fixOpportunities: [],
+                proposalEnrichments: [],
+                normalizedFindings: [],
+                fixPlan: [],
+                overviewSummary: {
+                  ...scoreState.result.overviewSummary!,
+                  overallScore: 79,
+                  executiveSummary: 'Core app structure is present, but richer evidence is unavailable for this surface.',
+                },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByText('Evidence'));
+    const fabricEvidenceSummary = screen.getAllByText('Fabric App Review Evidence')[0].closest('summary') as HTMLElement;
+    fireEvent.click(fabricEvidenceSummary);
+
+    expect(screen.getByText('No screenshot evidence is available for this Fabric App review.')).toBeInTheDocument();
+    expect(screen.getByText('No semantic model evidence is available for this Fabric App review.')).toBeInTheDocument();
+  });
+
+  it('hides the Open in PBI Lens action when PBI Lens exposes no report-opening interface', async () => {
+    render(<App />);
+
+    await dispatchScoreState(buildScorePanelState({
+      ...scoreState,
+      renderedReview: {
+        enabled: true,
+        checklist: [
+          {
+            id: 'whitespaceBalance:Overview',
+            category: 'whitespaceBalance',
+            label: 'Whitespace Balance',
+            findingIds: [],
+            pageNames: ['Overview'],
+            guidance: {
+              why: 'Rendered spacing can change the perceived balance of a page.',
+              lookFor: 'Check whether large gaps or tightly packed regions make the page feel uneven.',
+              expectedOutcome: 'Whitespace should separate ideas and keep the page visually balanced.',
+            },
+            status: 'Not Reviewed',
+          },
+        ],
+      },
+      renderedEvidence: {
+        providerId: 'pbiLens',
+        displayName: 'PBI Lens',
+        extensionId: 'duckduck-beps.pbi-lens-vscode',
+        installed: true,
+        activated: true,
+        status: 'InstalledNoProgrammaticSurface',
+        capabilities: {
+          extensionDetected: true,
+          publicApiAvailable: false,
+          cliAvailable: false,
+          mcpAvailable: false,
+          pageScreenshotAvailable: false,
+          reportContextAvailable: false,
+          visualContextAvailable: false,
+        },
+        diagnostics: ['PBI Lens exposes no supported public VS Code API.'],
+      },
+    }));
+
+    expect(screen.getByText('Rendered Review Recommended')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Rendered Review' }));
+    expect(screen.queryByRole('button', { name: 'Open in PBI Lens' })).not.toBeInTheDocument();
+    expect(screen.getByText('Whitespace Balance')).toBeInTheDocument();
+  });
+
+  it('shows the Open in PBI Lens action and posts a message to the host once the capability is available', async () => {
+    render(<App />);
+
+    await dispatchScoreState(buildScorePanelState({
+      ...scoreState,
+      renderedReview: {
+        enabled: true,
+        checklist: [],
+      },
+      renderedEvidence: {
+        providerId: 'pbiLens',
+        displayName: 'PBI Lens',
+        extensionId: 'duckduck-beps.pbi-lens-vscode',
+        installed: true,
+        activated: true,
+        status: 'Available',
+        capabilities: {
+          extensionDetected: true,
+          publicApiAvailable: true,
+          cliAvailable: false,
+          mcpAvailable: false,
+          pageScreenshotAvailable: true,
+          reportContextAvailable: true,
+          visualContextAvailable: true,
+        },
+        diagnostics: [],
+      },
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Rendered Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open in PBI Lens' }));
+    expectLastPostedMessage({ type: 'openInPbiLens' });
   });
 });

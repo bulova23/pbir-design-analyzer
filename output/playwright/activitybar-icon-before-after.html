@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PBIR Design Analyzer Activity Bar Icon</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 48px; background: #181818; color: #f1f1f1; }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 600; }
+    p { margin: 0 0 32px; color: #bcbcbc; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 760px; }
+    .card { padding: 24px; border: 1px solid #3b3b3b; border-radius: 8px; background: #252526; }
+    h2 { margin: 0 0 20px; font-size: 14px; font-weight: 600; color: #d7d7d7; }
+    .sizes { display: flex; align-items: center; gap: 28px; }
+    .sample { display: grid; gap: 8px; justify-items: center; color: #888; font-size: 11px; }
+    .icon { display: grid; place-items: center; width: 64px; height: 64px; background: #333; border-radius: 4px; }
+    svg { width: 16px; height: 16px; color: #f1f1f1; }
+    .large svg { width: 32px; height: 32px; } .huge svg { width: 48px; height: 48px; }
+    .safe { margin-top: 24px; padding-top: 18px; border-top: 1px solid #3b3b3b; font-size: 12px; color: #a8a8a8; }
+  </style>
+</head>
+<body>
+  <h1>Activity Bar icon — before / after</h1>
+  <p>Dark VS Code-like surface · samples shown at 16 px, 32 px, and 48 px</p>
+  <div class="grid">
+    <section class="card"><h2>Before · scaled chart + lens</h2><div class="sizes">
+      <div class="sample"><div class="icon"><svg viewBox="0 0 24 24" fill="none"><use href="#old"/></svg></div><span>16 px</span></div>
+      <div class="sample"><div class="icon large"><svg viewBox="0 0 24 24" fill="none"><use href="#old"/></svg></div><span>32 px</span></div>
+      <div class="sample"><div class="icon huge"><svg viewBox="0 0 24 24" fill="none"><use href="#old"/></svg></div><span>48 px</span></div>
+    </div><div class="safe">Four bars compete with the lens and the left edge feels crowded at Activity Bar scale.</div></section>
+    <section class="card"><h2>After · chart inside lens</h2><div class="sizes">
+      <div class="sample"><div class="icon"><svg viewBox="0 0 24 24" fill="none"><use href="#new"/></svg></div><span>16 px</span></div>
+      <div class="sample"><div class="icon large"><svg viewBox="0 0 24 24" fill="none"><use href="#new"/></svg></div><span>32 px</span></div>
+      <div class="sample"><div class="icon huge"><svg viewBox="0 0 24 24" fill="none"><use href="#new"/></svg></div><span>48 px</span></div>
+    </div><div class="safe">Lens bounds are 2.25–17.75; handle ends at 20.05, leaving 1.45 px edge clearance.</div></section>
+  </div>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute"><defs>
+    <g id="old"><path d="M4 13.5C4 12.67 4.67 12 5.5 12h2c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5h-2C4.67 20 4 19.33 4 18.5v-5Z M10.5 9.5C10.5 8.67 11.17 8 12 8h2c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5h-2c-.83 0-1.5-.67-1.5-1.5v-9Z M17 6.5C17 5.67 17.67 5 18.5 5h2c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-2c-.83 0-1.5-.67-1.5-1.5v-7Z" fill="currentColor"/><path d="M14.75 4.75a4.75 4.75 0 1 0 2.77 8.61l3.06 3.06a.5.5 0 0 0 .71-.71l-3.06-3.06a4.75 4.75 0 0 0-3.48-7.9Z M14.75 6.25a3.25 3.25 0 1 1 0 6.5 3.25 3.25 0 0 1 0-6.5Z" fill="currentColor"/></g>
+    <g id="new"><circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2.5"/><rect x="6.5" y="11" width="1.8" height="4" rx=".9" fill="currentColor"/><rect x="9.1" y="9" width="1.8" height="6" rx=".9" fill="currentColor"/><rect x="11.7" y="7" width="1.8" height="8" rx=".9" fill="currentColor"/><path d="M15.55 15.55 20.05 20.05" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></g>
+  </defs></svg>
+</body>
+</html>
