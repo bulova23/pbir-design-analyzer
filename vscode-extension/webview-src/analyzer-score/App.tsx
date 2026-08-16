@@ -52,7 +52,6 @@ import {
   getProposalEnrichmentSummary,
   hasProposalEnrichmentContent,
 } from './proposalEnrichment';
-import { getRenderedEvidenceStatusMessage, isPbiLensOpenActionAvailable } from '../../src/analyzer/renderedEvidence/presentation';
 
 interface ScoreVsCodeApi {
   postMessage(message: unknown): void;
@@ -2407,13 +2406,11 @@ function renderFixPlanSection(
 
 function renderRenderedReviewSection(
   review: RenderedReviewPanelState | undefined,
-  provider: ScorePanelState['renderedEvidence'],
   postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
   expanded: boolean,
   onToggleExpanded: () => void,
 ): React.ReactNode {
   if (!review?.enabled) return null;
-  const canOpenInPbiLens = isPbiLensOpenActionAvailable(provider);
   return (
     <section aria-label="Rendered review" className="panel-card rendered-review-card">
       <div className="issues-section-head">
@@ -2425,27 +2422,14 @@ function renderRenderedReviewSection(
           </button>
         </div>
         <p className="issues-section-copy">
-          PBI Lens provides rendered observation; PBIR Design Analyzer remains authoritative for design judgment and scoring.
+          These findings are easier to judge from the rendered page than from PBIR metadata alone. Attach a screenshot to each item as evidence when you confirm or reject it.
         </p>
       </div>
       {expanded ? (
       <>
-      {canOpenInPbiLens || review.mutationFollowUp ? (
+      {review.mutationFollowUp ? (
         <div className="issue-detail-block">
-          {canOpenInPbiLens ? (
-            <>
-              <p className="issue-detail-label">Open in PBI Lens</p>
-              <button
-                className="secondary-button"
-                onClick={() => postHostMessage({ type: 'openInPbiLens' })}
-                title="Open the report in PBI Lens"
-                type="button"
-              >
-                Open in PBI Lens
-              </button>
-            </>
-          ) : null}
-          {review.mutationFollowUp ? <p className="fix-plan-recommendation"><strong>After mutation:</strong> {review.mutationFollowUp}</p> : null}
+          <p className="fix-plan-recommendation"><strong>After mutation:</strong> {review.mutationFollowUp}</p>
         </div>
       ) : null}
       {review.checklist.map((item) => (
@@ -4151,12 +4135,6 @@ export default function App(): JSX.Element {
         </section>
       ) : null}
 
-      {getRenderedEvidenceStatusMessage(state.renderedEvidence) ? (
-        <section className="status-card rendered-evidence-status" aria-label="Rendered design evidence status">
-          {getRenderedEvidenceStatusMessage(state.renderedEvidence)}
-        </section>
-      ) : null}
-
       {multiPage ? (
         <nav className="tab-row" aria-label="Score tabs">
           {tabs.map((tab, index) => (
@@ -4383,7 +4361,6 @@ export default function App(): JSX.Element {
 
       {renderRenderedReviewSection(
         viewState.state.renderedReview,
-        viewState.state.renderedEvidence,
         postHostMessage,
         renderedReviewExpanded,
         () => setRenderedReviewExpanded((prev) => !prev),

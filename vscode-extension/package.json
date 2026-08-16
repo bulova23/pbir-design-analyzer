@@ -182,38 +182,10 @@
           "description": "List of approved theme names (case-insensitive). An empty list allows any theme. Reports using a theme not in this list will be blocked from publishing when governance is enabled.",
           "scope": "window"
         },
-        "pbirAnalyzer.enhancedScoring.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Reserve the enhanced rendered-design scoring seam for a supported provider. Deterministic PBIR scoring remains authoritative.",
-          "scope": "window"
-        },
-        "pbirAnalyzer.enhancedScoring.provider": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "pbiLens"
-          ],
-          "default": "auto",
-          "description": "Select the rendered-design evidence provider when a supported programmatic provider becomes available.",
-          "scope": "window"
-        },
-        "pbirAnalyzer.enhancedScoring.suggestPbiLens": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show a one-time optional PBI Lens recommendation when it is not installed.",
-          "scope": "window"
-        },
         "pbirAnalyzer.renderedReview.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable the optional human Rendered Review checklist. Deterministic scoring and governance continue independently.",
-          "scope": "window"
-        },
-        "pbirAnalyzer.renderedReview.suggestPbiLens": {
-          "type": "boolean",
-          "default": true,
-          "description": "Suggest PBI Lens as the optional rendered-review companion.",
           "scope": "window"
         },
         "pbirAnalyzer.renderedReview.showChecklist": {

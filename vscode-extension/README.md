@@ -18,7 +18,7 @@ PBIR Design Analyzer is designed for real review work:
 - **Evidence** so recommendations stay tied to metadata, navigation, screenshots, semantic-model usage, and other supporting evidence
 - **Fabric App Readiness** to assess which PBIR assets are strong candidates for Fabric App evolution and which ones need redesign first
 - **Fabric App Review** to review analytical Fabric Apps through the same workspace
-- **Rendered Review** as an optional human checklist for concerns such as whitespace balance, KPI prominence, and page readability, with PBI Lens as an optional companion for future rendered observation
+- **Rendered Review** as an optional human checklist for concerns such as whitespace balance, KPI prominence, and page readability, with manual screenshot attachment as evidence
 - **AI Proposal Enrichment** to provide clearer explanations, prioritization guidance, business rationale, and expected outcomes without bypassing deterministic execution
 - **Collapsible workspace layout** so reviewers reach Issues and Fix Plan immediately after Overview, with the remaining sections collapsed until opened
 - **Cross-platform support** so the same workspace is available on Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
@@ -34,7 +34,6 @@ PBIR Design Analyzer is designed for real review work:
 ### Improved
 
 - Optimization Report scoring is more resilient to reports exported by different Power BI Desktop versions
-- Rendered Review and PBI Lens integration no longer interrupt scoring; PBI Lens is attempted automatically in the background once installed
 - navigation actions and other in-panel actions now surface a clear error message instead of failing silently
 
 ### Fixes
@@ -143,7 +142,7 @@ Use Story Assessment to understand what a page is trying to communicate and what
 
 ### Rendered Review
 
-Use Rendered Review for a human checklist covering whitespace balance, KPI prominence, title wrapping, crowded visuals, table readability, color harmony, and page readability. PBI Lens is an optional companion for future rendered observation; the checklist and deterministic scoring both work normally without it.
+Use Rendered Review for a human checklist covering whitespace balance, KPI prominence, title wrapping, crowded visuals, table readability, color harmony, and page readability. Attach a screenshot manually as evidence for each item; an external tool such as [PBI Lens](https://github.com/thenguyentrong/pbi-lens) can help you capture those screenshots faster, though PBIR Design Analyzer does not integrate with it.
 
 ### Evidence
 

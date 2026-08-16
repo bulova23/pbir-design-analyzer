@@ -145,7 +145,7 @@ For each checklist item you can:
 - add a reviewer note
 - attach a screenshot as supporting evidence
 
-PBI Lens is an optional companion extension for future rendered observation. PBIR Design Analyzer remains authoritative for design judgment and scoring either way. When PBI Lens has no supported way to open the report programmatically, the Open in PBI Lens action is hidden rather than shown disabled, and the checklist and deterministic scoring both continue to work normally without it.
+Screenshot capture is manual — PBIR Design Analyzer does not automate it. If you want a faster way to capture Power BI report screenshots, an external tool such as [PBI Lens](https://github.com/thenguyentrong/pbi-lens) can help; attach the resulting images here. PBIR Design Analyzer remains authoritative for design judgment and scoring either way.
 
 ## Evidence
 
@@ -212,7 +212,7 @@ Current behavior:
 - matrix dimension filters map to grouped impact areas in the UI
 - Export remains downstream rather than a first-class workspace
 - Guided Story Improvements navigation only reaches a specific visual when one can be stably inferred from public metadata; otherwise it falls back to the page level
-- Rendered Review depends on a future supported PBI Lens interface for automatic rendered observation; today it is a manual, user-supplied checklist
+- Rendered Review is a manual, user-supplied checklist; PBIR Design Analyzer does not capture or analyze screenshots automatically
 - visual overlays and advanced enterprise-governance workflows are planned, not shipped
 
 ## What Is Planned Next

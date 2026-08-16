@@ -4,6 +4,10 @@ All notable changes to PBIR Design Analyzer are recorded here.
 
 ## Unreleased
 
+### Removed
+
+- Removed the PBI Lens capability-detection integration (extension auto-detection, the "Open in PBI Lens" action, and the enhanced-scoring settings that gated it). It never produced usable output — PBI Lens exposes no public VS Code API for this to call into — so it was dead code from the start. The Rendered Review checklist itself is unaffected: it remains a manual, user-supplied screenshot workflow. Anyone who wants a faster way to capture Power BI report screenshots for it can use an external tool such as [PBI Lens](https://github.com/thenguyentrong/pbi-lens); PBIR Design Analyzer does not integrate with it.
+
 ## 0.7.0 — 2026-08-16
 
 ### Story Assessment 2.2

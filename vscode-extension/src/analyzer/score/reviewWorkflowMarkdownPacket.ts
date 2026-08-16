@@ -97,7 +97,7 @@ function renderRenderedReview(lines: string[], data: ReviewWorkflowExportData): 
   const review = data.renderedReview;
   if (!review) return;
   pushSection(lines, '## Rendered Review');
-  lines.push('PBI Lens provides rendered observation. PBIR Design Analyzer remains authoritative for design judgment and scoring.');
+  lines.push('These findings benefit from visual inspection of the rendered report; attach a screenshot when confirming or rejecting each item.');
   lines.push('');
   lines.push('| Category | Pages | Status | Reviewer note | Screenshots |');
   lines.push('|----------|-------|--------|---------------|-------------|');

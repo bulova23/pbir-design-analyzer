@@ -394,11 +394,6 @@ export function parseScorePanelWebviewMessage(value: unknown):
         ? { ok: true, message: { type, itemId, note: readString(value, 'note') ?? '' } }
         : { ok: false, error: 'Score panel rendered review note message is missing itemId.' };
     }
-    case 'openInPbiLens': {
-      const pageName = readString(value, 'pageName');
-      const visualId = readString(value, 'visualId');
-      return { ok: true, message: { type, pageName, visualId } };
-    }
     case 'attachRenderedScreenshot': {
       const itemId = readString(value, 'itemId');
       return itemId

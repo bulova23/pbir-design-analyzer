@@ -1,8 +1,7 @@
 export type RenderedReviewClassification =
   | 'deterministic'
   | 'semantic'
-  | 'renderedReviewRecommended'
-  | 'renderedEvidenceRequired';
+  | 'renderedReviewRecommended';
 
 export type RenderedReviewCategory =
   | 'whitespaceBalance'

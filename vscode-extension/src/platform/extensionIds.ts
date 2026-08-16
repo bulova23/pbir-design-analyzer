@@ -44,10 +44,6 @@ export const PBIR_CONFIG_SECTIONS = {
 } as const;
 
 export const PBIR_SETTINGS = {
-  enhancedScoringEnabled: 'enhancedScoring.enabled',
-  enhancedScoringProvider: 'enhancedScoring.provider',
-  suggestPbiLens: 'enhancedScoring.suggestPbiLens',
   renderedReviewEnabled: 'renderedReview.enabled',
-  renderedReviewSuggestPbiLens: 'renderedReview.suggestPbiLens',
   renderedReviewShowChecklist: 'renderedReview.showChecklist',
 } as const;

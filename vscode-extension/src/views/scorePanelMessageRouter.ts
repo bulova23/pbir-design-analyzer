@@ -27,7 +27,6 @@ export type ScorePanelMessageRouterDependencies = {
   onSetRenderedReviewStatus?: (itemId: string, status: Extract<ScorePanelWebviewToHostMessagePayload, { type: 'setRenderedReviewStatus' }>['status']) => void | Promise<void>;
   onSetRenderedReviewNote?: (itemId: string, note: string) => void | Promise<void>;
   onAttachRenderedScreenshot?: (itemId: string) => void | Promise<void>;
-  onOpenInPbiLens?: (pageName?: string, visualId?: string) => void | Promise<void>;
   onToggleFixOpportunitySelection: (opportunityId: string) => void | Promise<void>;
   onPreviewSelectedFixOpportunities: () => void | Promise<void>;
   onApproveSelectedFixOpportunities: () => void | Promise<void>;
@@ -126,9 +125,6 @@ export const createScorePanelMessageRouter: ScorePanelMessageRouterFactory = Obj
           return;
         case 'attachRenderedScreenshot':
           await deps.onAttachRenderedScreenshot?.(payload.itemId);
-          return;
-        case 'openInPbiLens':
-          await deps.onOpenInPbiLens?.(payload.pageName, payload.visualId);
           return;
         case 'toggleFixOpportunitySelection':
           await deps.onToggleFixOpportunitySelection(payload.opportunityId);

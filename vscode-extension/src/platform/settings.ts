@@ -39,38 +39,20 @@ export function getAnalyzerSetting<T>(key: string, defaultValue: T): T {
   return canonical.get<T>(key, defaultValue);
 }
 
-export interface EnhancedScoringSettings {
-  enabled: boolean;
-  provider: 'auto' | 'pbiLens';
-  suggestPbiLens: boolean;
-}
-
-export interface EnhancedScoringConfiguration {
+export interface AnalyzerConfigurationLike {
   get<T>(key: string, defaultValue: T): T;
 }
 
 export interface RenderedReviewSettings {
   enabled: boolean;
-  suggestPbiLens: boolean;
   showChecklist: boolean;
 }
 
 export function getRenderedReviewSettings(
-  configuration: EnhancedScoringConfiguration = vscode.workspace.getConfiguration(PBIR_CONFIG_SECTIONS.canonical),
+  configuration: AnalyzerConfigurationLike = vscode.workspace.getConfiguration(PBIR_CONFIG_SECTIONS.canonical),
 ): RenderedReviewSettings {
   return {
     enabled: configuration.get('renderedReview.enabled', true),
-    suggestPbiLens: configuration.get('renderedReview.suggestPbiLens', true),
     showChecklist: configuration.get('renderedReview.showChecklist', true),
-  };
-}
-
-export function getEnhancedScoringSettings(
-  configuration: EnhancedScoringConfiguration = vscode.workspace.getConfiguration(PBIR_CONFIG_SECTIONS.canonical),
-): EnhancedScoringSettings {
-  return {
-    enabled: configuration.get('enhancedScoring.enabled', false),
-    provider: configuration.get('enhancedScoring.provider', 'auto'),
-    suggestPbiLens: configuration.get('enhancedScoring.suggestPbiLens', true),
   };
 }

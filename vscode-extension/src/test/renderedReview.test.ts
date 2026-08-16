@@ -76,7 +76,7 @@ describe('rendered review model', () => {
         report: 'sales.pbip',
         page: 'Overview',
         timestamp: '2026-08-15T12:00:00.000Z',
-        provider: 'PBI Lens',
+        provider: 'Manual attachment',
         fileReference: '/tmp/overview.png',
         notes: 'Post-mutation review',
       },
@@ -86,7 +86,7 @@ describe('rendered review model', () => {
     expect(updated).toMatchObject({
       status: 'Confirmed',
       reviewerNote: 'KPI is visually dominant after mutation.',
-      screenshotEvidence: [{ provider: 'PBI Lens', fileReference: '/tmp/overview.png' }],
+      screenshotEvidence: [{ provider: 'Manual attachment', fileReference: '/tmp/overview.png' }],
     });
   });
 });

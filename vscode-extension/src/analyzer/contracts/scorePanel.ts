@@ -1,7 +1,6 @@
 import type { DesignAnalyzerConfig } from '../config/types';
 import type { AnalyzerProfileId, AnalyzerType } from '../analyzers/types';
 import type { SurfaceType } from '../surfaces/types';
-import type { RenderedEvidenceCapabilityReport } from '../renderedEvidence/types';
 import type { RenderedReviewCategory, RenderedReviewChecklistItem, RenderedReviewClassification, RenderedReviewStatus } from '../renderedReview/types';
 
 export type FindingType = 'objective' | 'strongHeuristic' | 'stylePreference';
@@ -1189,7 +1188,6 @@ export interface ScorePanelState extends ScorePanelProtocolEnvelope {
   result: ScoreResult;
   selectedPageIndex: number;
   intentFeedback: IntentFeedbackEntry[];
-  renderedEvidence?: RenderedEvidenceCapabilityReport;
   renderedReview?: RenderedReviewPanelState;
   storyAssessmentCurrentSnapshot?: StoryAssessmentReportSnapshot;
   storyAssessmentDiffByPage?: Record<string, StoryAssessmentDiffResult>;
@@ -1235,7 +1233,6 @@ export type ScorePanelWebviewToHostMessagePayload =
   | { type: 'setRenderedReviewStatus'; itemId: string; status: RenderedReviewStatus }
   | { type: 'setRenderedReviewNote'; itemId: string; note: string }
   | { type: 'attachRenderedScreenshot'; itemId: string }
-  | { type: 'openInPbiLens'; pageName?: string; visualId?: string }
   | { type: 'toggleFixOpportunitySelection'; opportunityId: string }
   | { type: 'previewSelectedFixOpportunities' }
   | { type: 'approveSelectedFixOpportunities' }
