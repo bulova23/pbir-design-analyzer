@@ -75,6 +75,35 @@ describe('PBI Lens capability detection', () => {
     expect(report.diagnostics).toContain('PBI Lens is installed but not activated.');
   });
 
+  it('never reads .exports on an inactive extension, matching VS Code throwing "not known or not activated"', () => {
+    const report = detectPbiLensCapabilities(() => ({
+      id: PBI_LENS_EXTENSION_ID,
+      isActive: false,
+      packageJSON: { version: '0.4.0' },
+      get exports(): unknown {
+        throw new Error(`Extension '${PBI_LENS_EXTENSION_ID}' is not known or not activated`);
+      },
+    }));
+
+    expect(report.status).toBe('Misconfigured');
+    expect(report.capabilities.publicApiAvailable).toBe(false);
+    expect(report.diagnostics).toContain('PBI Lens is installed but not activated.');
+  });
+
+  it('degrades to no public API instead of throwing if .exports still throws while isActive reads true', () => {
+    const report = detectPbiLensCapabilities(() => ({
+      id: PBI_LENS_EXTENSION_ID,
+      isActive: true,
+      packageJSON: { version: '0.4.0' },
+      get exports(): unknown {
+        throw new Error(`Extension '${PBI_LENS_EXTENSION_ID}' is not known or not activated`);
+      },
+    }));
+
+    expect(report.status).toBe('InstalledNoProgrammaticSurface');
+    expect(report.capabilities.publicApiAvailable).toBe(false);
+  });
+
   it('contains extension discovery failures in the provider report', () => {
     const report = detectPbiLensCapabilities(() => {
       throw new Error('extension registry unavailable');
@@ -113,5 +142,51 @@ describe('PBI Lens capability detection', () => {
       status: 'Error',
       evidence: [],
     });
+  });
+
+  it('attempts activation in the background when installed but inactive, without blocking the report', () => {
+    const activate = jest.fn().mockResolvedValue(undefined);
+    const provider = createPbiLensRenderedDesignEvidenceProvider(() => ({
+      id: PBI_LENS_EXTENSION_ID,
+      isActive: false,
+      packageJSON: { version: '0.4.0' },
+      exports: undefined,
+      activate,
+    }));
+
+    const report = provider.getCapabilityReport();
+
+    expect(report.status).toBe('Misconfigured');
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not throw when the background activation attempt itself rejects', async () => {
+    const activate = jest.fn().mockRejectedValue(new Error('activation failed'));
+    const provider = createPbiLensRenderedDesignEvidenceProvider(() => ({
+      id: PBI_LENS_EXTENSION_ID,
+      isActive: false,
+      packageJSON: { version: '0.4.0' },
+      exports: undefined,
+      activate,
+    }));
+
+    expect(() => provider.getCapabilityReport()).not.toThrow();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not attempt activation once the extension is already active', () => {
+    const activate = jest.fn().mockResolvedValue(undefined);
+    const provider = createPbiLensRenderedDesignEvidenceProvider(() => ({
+      id: PBI_LENS_EXTENSION_ID,
+      isActive: true,
+      packageJSON: { version: '0.4.0' },
+      exports: { activate: jest.fn(), deactivate: jest.fn() },
+      activate,
+    }));
+
+    provider.getCapabilityReport();
+
+    expect(activate).not.toHaveBeenCalled();
   });
 });

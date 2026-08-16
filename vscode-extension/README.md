@@ -1,6 +1,6 @@
 # PBIR Design Analyzer
 
-PBIR Design Analyzer 0.6.0 is the current cross-platform Analytics Experience Review Platform release.
+PBIR Design Analyzer 0.7.0 is the current cross-platform Analytics Experience Review Platform release.
 
 It helps consultants, BI architects, analytics teams, Power BI developers, and Fabric developers review PBIR reports and analytical Fabric Apps through one shared workspace.
 
@@ -12,41 +12,36 @@ Most report-review tools stop at scorecards or metadata checks.
 
 PBIR Design Analyzer is designed for real review work:
 
-- **Story Assessment** to show what a page or app experience is trying to communicate, whether the message succeeds, and what gets in the way
+- **Story Assessment** to show what a page or app experience is trying to communicate, whether the message succeeds, what gets in the way, and guided top improvements with one-click navigation to the exact page or visual involved
 - **Issues Workspace** to surface findings across design quality, usability, accessibility, actionability, consistency, navigation, and governance
 - **Fix Plan** to turn findings into remediation steps, advisory recommendations, and deterministic fix opportunities where safe support exists
 - **Evidence** so recommendations stay tied to metadata, navigation, screenshots, semantic-model usage, and other supporting evidence
 - **Fabric App Readiness** to assess which PBIR assets are strong candidates for Fabric App evolution and which ones need redesign first
 - **Fabric App Review** to review analytical Fabric Apps through the same workspace
+- **Rendered Review** as an optional human checklist for concerns such as whitespace balance, KPI prominence, and page readability, with PBI Lens as an optional companion for future rendered observation
 - **AI Proposal Enrichment** to provide clearer explanations, prioritization guidance, business rationale, and expected outcomes without bypassing deterministic execution
+- **Collapsible workspace layout** so reviewers reach Issues and Fix Plan immediately after Overview, with the remaining sections collapsed until opened
 - **Cross-platform support** so the same workspace is available on Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
 
-## What’s New In 0.6.0
+## What’s New In 0.7.0
 
 ### New
 
-- Fabric App Readiness Assessment
-- Fabric App Review Mode foundations
-- screenshot evidence
-- semantic-model evidence
-- analyzable surface architecture
-- surface discovery
-- analyzer registry
-- analyzer profiles
+- Guided Story Improvements inside Story Assessment, with one-click navigation to the exact page or visual behind each recommendation
+- a What Changed summary inside Story Assessment comparing the latest review against the previous one
+- a collapsible workspace layout: Issues and Fix Plan now sit directly under Overview, and Issues, Fix Plan, Review Summary, Story Assessment, and Rendered Review are collapsed by default until opened
 
 ### Improved
 
-- cross-platform support
-- deterministic score diagnostics
-- backend startup reliability
-- runtime detection
-- degraded-mode messaging
+- Optimization Report scoring is more resilient to reports exported by different Power BI Desktop versions
+- Rendered Review and PBI Lens integration no longer interrupt scoring; PBI Lens is attempted automatically in the background once installed
+- navigation actions and other in-panel actions now surface a clear error message instead of failing silently
 
-### Safety
+### Fixes
 
-- deterministic fix-engine hardening
-- safer mutation planning
-- severity outcome correction
+- fixed Attach Screenshot silently doing nothing inside the Rendered Review checklist
+- fixed a transport-layer bug that could cause Optimization Report scoring to fail with a generic bounded-request error
+- fixed inconsistent success and failure reporting when a report import could not be completed
 
 ## What The Platform Reviews
 
@@ -101,16 +96,18 @@ PBIR Design Analyzer is designed for real review work:
 
 1. Open a local PBIP project or `.Report` folder.
 2. Run PBIR Design Analyzer: Score Report.
-3. Start in Story Assessment and Overview to understand overall quality, top risks, and story health.
-4. Use Issues to triage findings by severity, page, dimension, and scope.
-5. Use Fix Plan to sequence remediation and apply supported deterministic fixes where available.
-6. Use Evidence to inspect proof, supporting signals, and migration-readiness rationale.
+3. Start in Overview to understand overall quality, top risks, and story health.
+4. Open Issues, directly beneath Overview, to triage findings by severity, page, dimension, and scope.
+5. Open Fix Plan to sequence remediation and apply supported deterministic fixes where available.
+6. Open Story Assessment for guided top improvements, and Evidence to inspect proof, supporting signals, and migration-readiness rationale.
 
 ## Review Workspace
 
-### Story Assessment And Overview
+Overview stays open by default. Every other section below it, including Issues and Fix Plan, is collapsed until you open it, so you can go straight to the part of the review you need.
 
-Use Story Assessment and Overview to understand:
+### Overview
+
+Use Overview to understand:
 
 - overall analytics experience quality
 - top strengths and top risks
@@ -139,6 +136,14 @@ It brings together:
 - advisory recommendations
 - business rationale
 - deterministic fix opportunities for supported cases
+
+### Story Assessment
+
+Use Story Assessment to understand what a page is trying to communicate and what gets in the way, including guided top improvements with one-click navigation to the exact page or visual involved.
+
+### Rendered Review
+
+Use Rendered Review for a human checklist covering whitespace balance, KPI prominence, title wrapping, crowded visuals, table readability, color harmony, and page readability. PBI Lens is an optional companion for future rendered observation; the checklist and deterministic scoring both work normally without it.
 
 ### Evidence
 
@@ -243,10 +248,10 @@ Most review behavior and scoring emphasis are managed through the extension work
 
 Install the VSIX that matches your operating system and architecture. Each package includes the correct backend binary for its target platform.
 
-Runtime expectation for the public `0.6.0` packages:
+Runtime expectation for the public `0.7.0` packages:
 
 - Windows x64 requires the matching .NET 8 runtime
-- Windows arm64 ships with a self-contained backend for `0.6.0`
+- Windows arm64 ships with a self-contained backend for `0.7.0`
 - Linux x64 requires the matching .NET 8 runtime
 - macOS x64 requires the matching .NET 8 runtime
 - macOS arm64 requires the matching .NET 8 runtime
@@ -259,15 +264,15 @@ If the backend cannot be found or started, the extension enters degraded mode:
 - score, governance, and backend-dependent review commands stay unavailable
 - the status bar and startup messages explain what is missing
 
-## Final 0.6.0 VSIX Files
+## Final 0.7.0 VSIX Files
 
-The final `0.6.0` package set includes:
+The final `0.7.0` package set includes:
 
-- `pbir-design-analyzer-0.6.0-win32-x64.vsix`
-- `pbir-design-analyzer-0.6.0-win32-arm64.vsix`
-- `pbir-design-analyzer-0.6.0-linux-x64.vsix`
-- `pbir-design-analyzer-0.6.0-darwin-x64.vsix`
-- `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
+- `pbir-design-analyzer-0.7.0-win32-x64.vsix`
+- `pbir-design-analyzer-0.7.0-win32-arm64.vsix`
+- `pbir-design-analyzer-0.7.0-linux-x64.vsix`
+- `pbir-design-analyzer-0.7.0-darwin-x64.vsix`
+- `pbir-design-analyzer-0.7.0-darwin-arm64.vsix`
 
 Install the exact file that matches the target operating system and architecture.
 
@@ -279,9 +284,9 @@ If VS Code shows the icon on a light tile in the extension details page, treat t
 
 ## Manual Marketplace Publishing
 
-`0.6.0` is prepared for manual Marketplace upload by the release owner.
+`0.7.0` is prepared for manual Marketplace upload by the release owner.
 
-Keep all five target-specific VSIX files together for the same extension version and manually upload the full set for the `0.6.0` listing.
+Keep all five target-specific VSIX files together for the same extension version and manually upload the full set for the `0.7.0` listing.
 
 ## Scope
 

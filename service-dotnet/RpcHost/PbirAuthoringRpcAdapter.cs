@@ -37,6 +37,13 @@ internal sealed class PbirAuthoringRpcAdapter
             return Failure("invalidRequest", "PBIR-RPC-REQUEST-002", "Only Generate, Import, Analyze, and the curated mutation catalog are exposed through VS Code.");
         }
 
+        if (!parameters.Value.TryGetProperty("schemaVersion", out var schemaVersion) ||
+            schemaVersion.ValueKind != JsonValueKind.String ||
+            !string.Equals(schemaVersion.GetString(), PbirAuthoringRpcContract.SchemaVersionV1, StringComparison.Ordinal))
+        {
+            return Failure("invalidRequest", "PBIR-RPC-REQUEST-003", "The authoring request schema version is unsupported.");
+        }
+
         try
         {
             var request = JsonSerializer.Deserialize<PbirAuthoringRpcRequest>(parameters.Value.GetRawText(), _jsonOptions);

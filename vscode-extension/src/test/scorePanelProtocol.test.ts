@@ -258,4 +258,34 @@ describe('scorePanelProtocol', () => {
       error: expect.stringContaining('Score panel protocol mismatch'),
     });
   });
+
+  it('preserves itemId on an attachRenderedScreenshot message instead of treating it as payload-free', () => {
+    // Regression: 'attachRenderedScreenshot' was previously listed alongside genuinely
+    // payload-free types (webviewReady, refresh, ...), which returned `{ type }` before the
+    // switch below ever ran its dedicated case — silently dropping itemId on every click.
+    const parsed = parseScorePanelWebviewMessage({
+      type: 'attachRenderedScreenshot',
+      protocolVersion: 1,
+      schemaVersion: 1,
+      itemId: 'whitespace-balance:Customer Analysis',
+    });
+
+    expect(parsed).toEqual({
+      ok: true,
+      message: { type: 'attachRenderedScreenshot', itemId: 'whitespace-balance:Customer Analysis' },
+    });
+  });
+
+  it('rejects an attachRenderedScreenshot message with no itemId', () => {
+    const parsed = parseScorePanelWebviewMessage({
+      type: 'attachRenderedScreenshot',
+      protocolVersion: 1,
+      schemaVersion: 1,
+    });
+
+    expect(parsed).toEqual({
+      ok: false,
+      error: 'Score panel rendered screenshot message is missing itemId.',
+    });
+  });
 });

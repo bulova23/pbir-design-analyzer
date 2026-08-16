@@ -5,17 +5,19 @@ import type {
 } from './types';
 import {
   detectPbiLensCapabilities,
+  PBI_LENS_EXTENSION_ID,
   type PbiLensExtensionLookup,
 } from './pbiLensCapabilityDetector';
 
 export function createPbiLensRenderedDesignEvidenceProvider(
   getExtension: PbiLensExtensionLookup,
 ): IRenderedDesignEvidenceProvider {
-  let capabilityReport: RenderedEvidenceCapabilityReport | undefined;
-
   const getCapabilityReport = (): RenderedEvidenceCapabilityReport => {
-    capabilityReport ??= detectPbiLensCapabilities(getExtension);
-    return capabilityReport;
+    const report = detectPbiLensCapabilities(getExtension);
+    if (report.installed && !report.activated) {
+      activateInBackground(getExtension);
+    }
+    return report;
   };
 
   return {
@@ -33,4 +35,20 @@ export function createPbiLensRenderedDesignEvidenceProvider(
       };
     },
   };
+}
+
+// PBI Lens declares no activation events of its own (it relies on VS Code's implicit
+// per-contribution activation), so simply being installed never makes it active. Rendered
+// evidence is an optional scoring enhancement, so activation here is fire-and-forget: if it
+// fails or the extension has no activate() to call, the next capability check just reports the
+// same "installed but not activated" state rather than blocking anything.
+function activateInBackground(getExtension: PbiLensExtensionLookup): void {
+  try {
+    const extension = getExtension(PBI_LENS_EXTENSION_ID);
+    if (typeof extension?.activate === 'function') {
+      void Promise.resolve(extension.activate()).catch(() => undefined);
+    }
+  } catch {
+    // Extension lookup itself failing is already handled by detectPbiLensCapabilities.
+  }
 }

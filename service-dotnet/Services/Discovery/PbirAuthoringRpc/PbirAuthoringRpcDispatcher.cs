@@ -15,18 +15,50 @@ internal sealed class PbirAuthoringRpcDispatcher
 {
     private readonly LocalPbirGenerationProviderService _generation;
     private readonly LocalPbirMutationProviderService _mutation;
+    private readonly PbirProjectService _projectService;
+    private readonly PbirScoringService _scoringService;
     private readonly Dictionary<string, PbirLocalReportImportSnapshot> _snapshots = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (PbirDeployableArtifact Artifact, PbirDeployableManifest Manifest, string ReportDirectory)> _artifacts = new(StringComparer.Ordinal);
 
     internal PbirAuthoringRpcDispatcher()
-        : this(new LocalPbirGenerationProviderService(), new LocalPbirMutationProviderService())
+        : this(
+            new PbirProjectService(NullLogger<PbirProjectService>.Instance),
+            null,
+            new LocalPbirGenerationProviderService(),
+            new LocalPbirMutationProviderService())
+    {
+    }
+
+    internal PbirAuthoringRpcDispatcher(
+        PbirProjectService projectService,
+        PbirScoringService? scoringService)
+        : this(
+            projectService,
+            scoringService,
+            new LocalPbirGenerationProviderService(),
+            new LocalPbirMutationProviderService())
     {
     }
 
     internal PbirAuthoringRpcDispatcher(
         LocalPbirGenerationProviderService generation,
         LocalPbirMutationProviderService mutation)
+        : this(
+            new PbirProjectService(NullLogger<PbirProjectService>.Instance),
+            null,
+            generation,
+            mutation)
     {
+    }
+
+    private PbirAuthoringRpcDispatcher(
+        PbirProjectService projectService,
+        PbirScoringService? scoringService,
+        LocalPbirGenerationProviderService generation,
+        LocalPbirMutationProviderService mutation)
+    {
+        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _scoringService = scoringService ?? new PbirScoringService(_projectService, NullLogger<PbirScoringService>.Instance);
         _generation = generation;
         _mutation = mutation;
     }
@@ -128,13 +160,18 @@ internal sealed class PbirAuthoringRpcDispatcher
             $"snapshot:{contentHash[..24]}",
             new(Path.GetFileName(Path.TrimEndingDirectorySeparator(snapshot.SourceDirectory)), contentHash, snapshot.FileHashes.Count));
         _snapshots[handle.SnapshotId] = snapshot;
+        var invalidDiagnostics = snapshot.Diagnostics.Where(diagnostic => diagnostic.ProjectionStatus == LocalPbirSemanticProjectionStatus.Invalid).ToArray();
         dispatchTimer.Stop();
         return new(
             PbirAuthoringRpcContract.SchemaVersionV1,
             request.Operation,
-            snapshot.IrState.Ir is not null && snapshot.Diagnostics.All(diagnostic => diagnostic.ProjectionStatus != LocalPbirSemanticProjectionStatus.Invalid),
+            snapshot.IrState.Ir is not null && invalidDiagnostics.Length == 0,
             snapshot.Diagnostics.Select(ToDiagnostic).ToArray(),
-            snapshot.IrState.Ir is null ? new(PbirAuthoringRpcErrorCategory.ImportFailed, "PBIR-RPC-IMPORT-002", "The PBIR report did not satisfy the supported import boundary.") : null,
+            snapshot.IrState.Ir is null
+                ? new(PbirAuthoringRpcErrorCategory.ImportFailed, "PBIR-RPC-IMPORT-002", "The PBIR report did not satisfy the supported import boundary.")
+                : invalidDiagnostics.Length > 0
+                    ? new(PbirAuthoringRpcErrorCategory.ImportFailed, "PBIR-RPC-IMPORT-003", $"The PBIR report import found {invalidDiagnostics.Length} invalid semantic binding(s): {invalidDiagnostics[0].Message}")
+                    : null,
             null, null, null,
             new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, 0, 0),
             null,
@@ -163,12 +200,11 @@ internal sealed class PbirAuthoringRpcDispatcher
             if (reportDirectory is null)
                 return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-001", "The report handle or directory could not be resolved for analysis.");
 
-            var location = new PbirProjectService(NullLogger<PbirProjectService>.Instance)
-                .TryGetReportLocation(reportDirectory);
+            var location = _projectService.TryGetReportLocation(reportDirectory);
             if (location is null)
                 return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-ANALYZE-001", "The report could not be resolved for analysis.");
             var analyzerTimer = Stopwatch.StartNew();
-            var score = await new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance)
+            var score = await _scoringService
                 .ScoreAsync(location.ProjectRootPath, request.Analyze!.Config, request.Analyze.PageName);
             analyzerTimer.Stop();
             operationTimer.Stop();
@@ -365,15 +401,14 @@ internal sealed class PbirAuthoringRpcDispatcher
             return Failure(request.Operation, PbirAuthoringRpcErrorCategory.ExecutionFailed, "PBIR-RPC-MUTATE-006", "The mutation could not be materialized safely.");
 
         var outputDirectory = Path.Combine(effectiveRequest.OutputBaseDirectory, effectiveRequest.TargetDirectoryName);
-        var scoreService = new PbirScoringService(new PbirProjectService(NullLogger<PbirProjectService>.Instance), NullLogger<PbirScoringService>.Instance);
-        var beforeLocation = new PbirProjectService(NullLogger<PbirProjectService>.Instance).TryGetReportLocation(snapshot.SourceDirectory);
+        var beforeLocation = _projectService.TryGetReportLocation(snapshot.SourceDirectory);
         if (beforeLocation is null)
             return Failure(request.Operation, PbirAuthoringRpcErrorCategory.AnalyzerFailed, "PBIR-RPC-MUTATE-007", "The source report could not be analyzed before mutation.");
         var analyzerBeforeTimer = Stopwatch.StartNew();
-        var beforeScore = await scoreService.ScoreAsync(beforeLocation.ProjectRootPath);
+        var beforeScore = await _scoringService.ScoreAsync(beforeLocation.ProjectRootPath);
         analyzerBeforeTimer.Stop();
         var analyzerTimer = Stopwatch.StartNew();
-        var score = await scoreService.ScoreAsync(outputDirectory);
+        var score = await _scoringService.ScoreAsync(outputDirectory);
         analyzerTimer.Stop();
         operationTimer.Stop();
         dispatchTimer.Stop();
@@ -491,7 +526,7 @@ internal sealed class PbirAuthoringRpcDispatcher
     private static PbirAuthoringDiagnostic ToDiagnostic(LocalPbirMutationDiagnostic diagnostic) =>
         new(diagnostic.Code, diagnostic.Field, diagnostic.ProjectionStatus == LocalPbirSemanticProjectionStatus.Invalid
             ? PbirAuthoringDiagnosticSeverity.Error
-            : PbirAuthoringDiagnosticSeverity.Warning, "The authoring pipeline reported a bounded diagnostic.");
+            : PbirAuthoringDiagnosticSeverity.Warning, diagnostic.Message);
 
     private static PbirAuthoringMutationPreview CreateMutationPreview(PbirMutationPlan plan, LocalPbirMutationOperation requestedOperation)
     {

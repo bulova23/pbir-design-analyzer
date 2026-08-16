@@ -166,7 +166,13 @@ export class AnalyzerBridgeService extends EventEmitter {
         timeoutHandle = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
       });
 
-      const resultPromise = this.client.sendRequest<T>(method, params, cancellationToken);
+      // vscode-jsonrpc's untyped sendRequest(method, ...args) decides object-vs-positional-array
+      // encoding from args.length, not from whether a trailing arg is undefined — passing an
+      // always-present `cancellationToken` here (even when undefined) makes it wrap `params` in a
+      // positional array, which the backend then rejects as not a bounded JSON object.
+      const resultPromise = cancellationToken
+        ? this.client.sendRequest<T>(method, params, cancellationToken)
+        : this.client.sendRequest<T>(method, params);
       const result = await Promise.race([resultPromise, timeoutPromise]);
       const elapsed = Date.now() - startTime;
 

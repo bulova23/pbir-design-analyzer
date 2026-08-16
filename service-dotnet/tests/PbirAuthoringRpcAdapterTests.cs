@@ -30,8 +30,8 @@ public sealed class PbirAuthoringRpcAdapterTests
     {
         var adapter = new PbirAuthoringRpcAdapter();
 
-        var mutation = await adapter.HandleAsync(JsonDocument.Parse("{\"operation\":\"mutate\"}").RootElement, null, CancellationToken.None);
-        var validation = await adapter.HandleAsync(JsonDocument.Parse("{\"operation\":\"validate\"}").RootElement, null, CancellationToken.None);
+        var mutation = await adapter.HandleAsync(JsonDocument.Parse("{\"schemaVersion\":\"pbir-authoring-rpc/v1\",\"operation\":\"mutate\"}").RootElement, null, CancellationToken.None);
+        var validation = await adapter.HandleAsync(JsonDocument.Parse("{\"schemaVersion\":\"pbir-authoring-rpc/v1\",\"operation\":\"validate\"}").RootElement, null, CancellationToken.None);
 
         Assert.Equal("unsupportedAuthoring", mutation.GetProperty("error").GetProperty("category").GetString());
         Assert.Equal("invalidRequest", validation.GetProperty("error").GetProperty("category").GetString());

@@ -33,6 +33,40 @@ class FakeLanguageClient {
   }
 }
 
+/**
+ * vscode-jsonrpc's untyped `sendRequest(method, ...args)` decides object-vs-positional-array
+ * param encoding from `args.length`, not from whether a trailing arg is `undefined`. This fake
+ * mirrors that arity sensitivity (unlike FakeLanguageClient's fixed 2-param stub above) so a
+ * regression that reintroduces an always-present trailing `cancellationToken` argument fails here
+ * instead of only surfacing against the real VS Code backend.
+ */
+class ArityRecordingLanguageClient {
+  private listener: ((event: { oldState: number; newState: number }) => void) | undefined;
+  readonly recordedArgCounts: number[] = [];
+
+  onDidChangeState(listener: (event: { oldState: number; newState: number }) => void): void {
+    this.listener = listener;
+  }
+
+  async sendRequest(...args: unknown[]): Promise<unknown> {
+    const [method] = args;
+    if (method === 'model/ping') {
+      return { success: true, data: { status: 'ready' } };
+    }
+
+    this.recordedArgCounts.push(args.length);
+    return { succeeded: true };
+  }
+
+  isRunning(): boolean {
+    return true;
+  }
+
+  async stop(): Promise<void> {
+    this.listener?.({ oldState: 2, newState: 0 });
+  }
+}
+
 describe('AnalyzerBridgeService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -161,5 +195,19 @@ describe('AnalyzerBridgeService', () => {
     expect(joined).not.toContain('/tmp/Sales.Report');
     expect(joined).not.toContain('raw finding');
     expect(joined).not.toContain('/tmp/evidence.json');
+  });
+
+  it('sends a bare two-argument request when no cancellation token is provided', async () => {
+    const bridge = AnalyzerBridgeService.getInstance();
+    const client = new ArityRecordingLanguageClient();
+
+    await bridge.initialize(client as never);
+    await bridge.executeAuthoringRequest({ schemaVersion: 'pbir-authoring-rpc/v1', operation: 'import' });
+    await bridge.executeRequest('model/pbir/getTree', { reportPath: '/tmp/Sales.Report' });
+
+    // vscode-jsonrpc wraps params in a positional array whenever more than one argument follows
+    // the method name — even an explicit `undefined` cancellation token counts as "more than one".
+    // Exactly 2 arguments (method, params) is what keeps params encoded as a bare object.
+    expect(client.recordedArgCounts).toEqual([2, 2]);
   });
 });

@@ -67,7 +67,10 @@ internal sealed class AnalyzerRpcDispatcher : IRpcRequestHandler
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _materializationAdapter = materializationAdapter ?? new PbirMaterializationRpcAdapter(
             new PowerBIModelingService.Services.Discovery.PbirMaterializationOrchestrationService());
-        _authoringAdapter = authoringAdapter ?? new PbirAuthoringRpcAdapter();
+        _authoringAdapter = authoringAdapter ?? new PbirAuthoringRpcAdapter(
+            new PowerBIModelingService.PbirAuthoringRpc.PbirAuthoringRpcDispatcher(
+                services.ProjectService,
+                services.ScoringService));
     }
 
     public async Task<RpcHandlerResult> HandleAsync(

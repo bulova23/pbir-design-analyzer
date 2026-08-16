@@ -2,6 +2,383 @@
 
 ## Active Session
 
+- 2026-08-16 Version bump to 0.7.0 and documentation refresh:
+  - bumped `vscode-extension/package.json` and `package-lock.json` from 0.6.0
+    to 0.7.0 (the lockfile's top-level version had already drifted to a stale
+    0.5.0 before this session; corrected while here)
+  - finalized `docs/CHANGELOG.md`'s Unreleased section (Story Assessment 2.2,
+    Guided Story Improvements — carried over from an earlier session, not
+    this one) into a 0.7.0 — 2026-08-16 entry, added new subsections for this
+    session's fixes (Optimization Report scoring reliability, Rendered
+    Review, Story Assessment navigation, workspace layout), corrected one
+    stale ordering claim ("between Story Assessment and Issues" — no longer
+    true post-reorder), and added a fresh empty Unreleased placeholder
+  - updated `vscode-extension/README.md` (the packaged extension's Details
+    tab) and root `README.md`: version bump throughout, rewrote the What's
+    New / Highlights sections for 0.7.0, added Rendered Review + PBI Lens
+    optionality + collapsible-layout coverage to the extension README's
+    feature list (previously undocumented there), reordered
+    Quick-Start/Review-Workspace prose to match the new Issues/Fix-Plan-first
+    section order
+  - substantially refreshed `docs/HOW_TO_USE.md`, which had drifted to
+    describe a 5-section 0.2.0-era workspace with no mention of Story
+    Assessment, Fabric App Readiness/Review, Guided Story Improvements,
+    Rendered Review, or PBI Lens at all; now documents all 8 current sections
+    in actual UI order with the collapsible-by-default behavior
+  - updated `AGENTS.md`: fixed the stale "0.2.0" current-architecture and
+    roadmap references, added Review Summary/Story Assessment/Rendered
+    Review to the documented section list, and added a new architectural
+    boundary rule about `PbirScorePanel.handleMessage` needing its try/catch
+    (the fail-loud fix from earlier this session) since VS Code's
+    `webview.onDidReceiveMessage` is fire-and-forget
+  - did not find anything to update in root `CLAUDE.md` (it only contains
+    `@`-includes, no version-specific content) or a separate "Features"
+    file — VS Code's Extensions view Features tab is standard, auto-
+    generated from `package.json` `contributes` metadata, which this session
+    didn't change, so nothing there needed a hand edit
+  - backend's internal `BackendVersion` constant (`RpcHost/Program.cs`,
+    currently "0.1.11") was left untouched — it's versioned independently
+    from the extension and the user's request was scoped to "the extension"
+  - full validation before packaging: extension Jest 535 passed, webview
+    Jest 70 passed, TypeScript compile clean, backend Release 1000 passed /
+    11 expected skips
+  - ran `npm run package:all`; all five target VSIXes built and verified at
+    0.7.0 (win32-x64, win32-arm64, linux-x64, darwin-x64, darwin-arm64);
+    confirmed the packaged package.json version and bundled readme.md content
+    inside the darwin-arm64 artifact directly by unzipping it
+  - reinstalled the darwin-arm64 0.7.0 build locally via the VS Code
+    Insiders CLI; old 0.6.0-and-earlier VSIX files were left in place
+    (untouched, not deleted) since removing them wasn't requested
+  - next step: user should reload the window and spot-check the Extensions
+    view Details tab renders the updated 0.7.0 content correctly, then decide
+    whether to commit this release-prep work (everything remains uncommitted
+    per this session's established pattern) and whether to hand the other
+    four platform VSIXes to the release owner for manual Marketplace upload
+
+- 2026-08-16 Collapsible section header layout fix:
+  - user flagged that "Show X" toggle buttons landed inconsistently — some
+    directly under the title (Issues, Story Assessment), some floated to the
+    right on the same row as the description (Fix Plan, Rendered Review)
+  - root cause: `.issues-section-head` is `display:flex;
+    justify-content:space-between; flex-wrap:wrap` with THREE flex items
+    (title div, description paragraph, button) as siblings. Whether the
+    button wrapped to its own line (left-aligned) or stayed on the same row
+    (pushed right by space-between) depended entirely on each section's
+    combined title+description text width at the current viewport — an
+    incidental, content-length-driven layout, not a deliberate one
+  - fix: moved the toggle button to be a child of the title `<div>` itself
+    (grouped with the kicker + h2 in a new `.issues-section-title-group`
+    flex column), for Issues, Fix Plan, Story Assessment, and Rendered
+    Review — leaving only two flex items (title-group, description) in
+    `.issues-section-head`, making the button's position under the title
+    deterministic regardless of text length. Review Summary already grouped
+    its button this way and needed no change
+  - full validation: extension Jest 535 passed, webview Jest 70 passed,
+    TypeScript clean
+  - rebuilt and reinstalled `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
+
+- 2026-08-16 "Open target" silent failure + collapsible/reordered panel sections:
+  - user reported Story Assessment's "Open target" buttons doing absolutely
+    nothing (no toast, no sidebar change) — traced via user confirmation that
+    the button visibly received focus (real click occurred) with zero
+    downstream effect, ruling out a click-never-registers CSS bug and pointing
+    at something after the click silently failing
+  - root cause: `PbirScorePanel.handleMessage` awaited
+    `this.messageRouter.route(message)` with no try/catch, and VS Code's
+    `webview.onDidReceiveMessage` callback is fire-and-forget — nothing awaits
+    it host-side. Any exception thrown anywhere in the router chain
+    (navigateToTarget's tree traversal, RPC calls, opening a moved file, etc.)
+    became an unhandled promise rejection visible only in the extension
+    host's own console, never to the user. This is a systemic gap affecting
+    every action routed through handleMessage, not just this one button
+  - fix: wrapped the router call in try/catch; failures now log to the
+    diagnostics output channel and show `vscode.window.showErrorMessage`
+    with the real error detail, converting future silent failures into
+    actionable ones instead of guessing further
+  - added a router-level regression test proving a thrown/rejected handler
+    exception propagates out of `route()` uncaught (the precondition that
+    makes the new catch load-bearing) — full integration through the private
+    `handleMessage` wasn't unit-tested (constructing a full `PbirScorePanel`
+    harness was disproportionate to the fix)
+  - separately implemented the user's approved collapsible-panel design:
+    every section below Overview (Issues, Fix Plan, Review Summary, Story
+    Assessment, Rendered Review) is now collapsed by default behind a
+    "Show X"/"Hide X" toggle button, matching the pre-existing "Show/Hide
+    Full Reasoning" convention already used inside Story Assessment; Issues
+    and Fix Plan were also reordered to sit directly under Overview (ahead of
+    Review Summary/Story Assessment/Rendered Review) per the user's explicit
+    request. Evidence was already a native `<details>` collapsible and was
+    left untouched; Export stays always-visible as a short call-to-action
+  - implementation went through two false starts worth remembering: (1)
+    wrapping each section in an EXTERNAL `<details>`/`<summary>` with a new
+    title duplicated the section's existing internal `<h2>`, breaking both
+    visual redundancy and `heading.closest('section')`-based test queries
+    once the heading moved outside the section; (2) removing the internal
+    `<h2>` broke `getByRole('heading', ...)` assertions app-wide. Landed on
+    boolean `expanded`/`onToggleExpanded` state per section (no new
+    `<details>`), keeping every `<section>`/`<h2>` exactly where it always
+    was and only conditionally rendering the body beneath the header —
+    zero structural risk to existing DOM-navigation patterns
+  - `focusIssues`/`focusRecommendations` (the "Review Fix Plan (N)" jump
+    button and issue-filter deep links) now also force their section's
+    `expanded` state true before scrolling, so jumping to a collapsed
+    section actually reveals content instead of scrolling to an empty header
+  - updated ~30 existing webview tests to click the relevant "Show X" button
+    before asserting on now-collapsed content; one test's document-order
+    assertion was flipped deliberately (Issues now precedes Story Assessment
+    per the reorder, not the reverse)
+  - full validation: extension Jest 535 passed, webview Jest 70 passed,
+    TypeScript compile clean, production webview build (vite) clean; backend
+    untouched this round
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload and confirm both fixes live — "Open target" should now
+    either navigate correctly or show a specific error toast (not silence),
+    and the panel should open with only Overview expanded, Issues/Fix Plan
+    directly beneath it
+
+- 2026-08-16 Rendered Review panel — hid the "Open in PBI Lens" action:
+  - user asked to hide it (not disable-with-explanation) since the
+    programmatic open capability doesn't exist yet and the disabled button
+    plus its explanatory text were adding confusion for no benefit
+  - `renderRenderedReviewSection` (webview-src/analyzer-score/App.tsx) now
+    only renders the "Open in PBI Lens" label/button block when
+    `isPbiLensOpenActionAvailable` is true; the "PBI Lens is unavailable..."
+    explanatory paragraph was removed entirely rather than kept for a hidden
+    control. The `mutationFollowUp` guidance text is independent of the
+    button (it's a manual-checking tip, not tied to a missing API) and still
+    renders on its own if present
+  - added two webview tests: one proving the button+label are absent when
+    `reportContextAvailable` is false (verified fails pre-fix — old code
+    rendered a disabled button — passes post-fix), one proving the button
+    renders and posts `{ type: 'openInPbiLens' }` when the capability is
+    true. This whole area had zero test coverage before today's session
+  - full validation: extension Jest 534 passed, webview Jest 70 passed,
+    TypeScript clean; backend untouched
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload and confirm the Rendered Review section no longer
+    shows the PBI Lens button/explanation, while the checklist (status,
+    notes, Attach Screenshot) still works
+
+- 2026-08-16 Rendered Review panel — "none of the buttons work" triage:
+  - "Attach Screenshot" was a genuine, confirmed bug: `scorePanelProtocol.ts`'s
+    `parseScorePanelWebviewMessage` listed `'attachRenderedScreenshot'` in its
+    payload-free fast-path list (alongside webviewReady/refresh/etc.), which
+    returned early with `{ type }` before the switch statement's own correct
+    `case 'attachRenderedScreenshot'` (which extracts `itemId`) ever ran — dead
+    code, masked by an `as ScorePanelWebviewToHostMessagePayload` cast. Every
+    click silently dropped `itemId`, so the host's `find(item => item.id ===
+    undefined)` never matched and the handler no-opped with no error shown.
+    Fixed by removing it from the fast-path list; added two regression tests
+    (verified fail pre-fix/pass post-fix) proving itemId survives and that a
+    missing itemId is still rejected with a real error
+  - "Open in PBI Lens" is NOT a bug — it's correctly disabled because
+    `capabilities.reportContextAvailable` is hardcoded false everywhere in
+    `pbiLensCapabilityDetector.ts` (no adapter exists yet); the UI already
+    explains this inline ("PBI Lens is unavailable through a supported
+    programmatic interface")
+  - the status dropdown/select for checklist items is a controlled React
+    component (`<select value={item.status}>`) fed only by state pushed from
+    the host — traced the webview code and found no local/optimistic state
+    path, so its displaying "Reviewed" in the user's own screenshot is direct
+    proof the round trip does work; no bug found there despite the user's
+    "none of the buttons work" framing covering it too
+  - full validation: extension Jest 534 passed, webview Jest 68 passed,
+    TypeScript clean; backend untouched
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload and confirm Attach Screenshot now works; the reviewer
+    note textarea is uncontrolled (`defaultValue` + onBlur-only send) and
+    wasn't specifically verified — if notes still don't seem to save, check
+    whether blur is firing before whatever the user clicks next
+
+- 2026-08-15 Optimization Report scoring — unrelated crash from optional PBI
+  Lens integration, after the architectural fix above got real reports
+  scoring again:
+  - `detectPbiLensCapabilities` (analyzer/renderedEvidence/pbiLensCapabilityDetector.ts)
+    read `extension.exports` immediately after an installed PBI Lens extension
+    was found, outside its only try/catch. VS Code's real `Extension.exports`
+    getter throws `Extension '<id>' is not known or not activated` for an
+    installed-but-not-yet-active extension rather than returning undefined —
+    confirmed by grepping the exact string out of
+    extensionHostProcess.js/extensionHostWorkerMain.js in the installed VS
+    Code Insiders build. PBI Lens (`duckduck-beps.pbi-lens-vscode`, confirmed
+    correctly installed at 0.4.0 — valid manifest, main entry present,
+    contributes `pbiLens.capturePage`/`openReport`/etc., `activationEvents: []`
+    meaning it only activates lazily via its own contributions) was installed
+    but not yet active in the user's session, so this unguarded read threw
+    and killed the entire `refresh()` scoring flow via its outer catch —
+    exactly contradicting the intent that PBI Lens is an optional
+    better-visual-scoring enhancement, never a scoring requirement
+  - fix: check `isActive` before ever touching `.exports`; only probe exports
+    when active, and still catch (defense-in-depth) since some VS Code builds
+    may throw even with `isActive` racily true. Reuses the existing
+    (already-correct) "Misconfigured"/"installed but not activated" status
+    path instead of a new one
+  - also removed the provider's permanent capability-report memoization
+    (`capabilityReport ??= ...`) — it cached the first detection forever, so
+    even a later activation would never be reflected — and added a
+    fire-and-forget best-effort `extension.activate()` call whenever the
+    report comes back installed-but-inactive, so PBI Lens self-activates
+    during normal scoring use without requiring the user to manually run one
+    of its commands first
+  - added regression tests reproducing the exact throwing-`.exports` crash
+    (verified fails pre-fix, passes post-fix) plus tests for the new
+    background-activation behavior (fire-and-forget, non-throwing, skipped
+    once already active)
+  - full validation: extension Jest 532 passed, webview Jest 68 passed,
+    TypeScript compile clean; backend untouched this round
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - could not directly trigger PBI Lens's activation inside the user's live
+    VS Code window (no UI-automation tool reaches a native Electron app, no
+    CLI flag runs a command in an already-open window) — the background
+    activate() call added above is the durable fix; the user can also
+    activate it immediately by running any PBI Lens command once
+  - next step: reload the window and re-score; capability report should now
+    read Misconfigured→(activating)→InstalledNoProgrammaticSurface across a
+    couple of refreshes instead of crashing scoring entirely
+
+- 2026-08-15 Optimization Report scoring — architectural root cause: stopped
+  patching after the third distinct failure surfaced from the same design
+  choice (per systematic-debugging Phase 4.5, 3+ fixes revealing new problems
+  in the same place means question the architecture, not add a 4th patch).
+  - the "single authoritative Import → Analyze(snapshot) contract" adopted in
+    an earlier session routes ALL Optimization Report scoring through
+    `PbirAuthoringEnvelopeReader` (Services/Discovery/PbirAuthoringEnvelopeReader.cs),
+    which hard-rejects any report.json/pages.json/page.json/visual.json whose
+    `$schema` URL isn't byte-identical to a pinned v1.0.0 string
+    (`IsSupportedSchema`). Any real report exported by a Power BI Desktop
+    version using a different schema version fails EVERY owned file at once
+    — reproduced with a user report needing 279 diagnostics, and independently
+    reproduced by hand-crafting a v1.1.0-schema fixture (4 files, all rejected)
+  - this envelope exists for the round-trip-safe Generate/Mutate authoring
+    surface, where exact schema fidelity matters for safe serialization back
+    to disk. Scoring is read-only and never needed it — confirmed
+    `PbirScorePanel.refresh()` never reads anything from Import's response
+    (`importResult.pages`/`visuals` were always discarded); only
+    `response.analyzer.result` (the ScoreResult) is used
+  - the same `pbir/authoring`/`analyze` operation already has a supported,
+    already-tested compatibility input (`analyze.reportDirectory`) that skips
+    Import/the envelope entirely and calls `PbirScoringService.ScoreAsync`
+    directly — the exact same call the legacy `model/pbir/scoreReport` route
+    and Design Studio's Mutate before/after scoring use. Verified with the
+    real binary: the v1.1.0-schema fixture that Import rejected scores
+    successfully via `analyze.reportDirectory`
+  - fix: `PbirScorePanel.ts`'s `executePbirOptimizationScore` now sends a
+    single `analyze` request with `reportDirectory` instead of Import then
+    Analyze(snapshot); `buildPbirOptimizationImportRequest` and the
+    snapshot-shaped `buildPbirOptimizationAnalyzeRequest` were removed —
+    nothing else in the codebase referenced them. Rewrote
+    `pbirScorePanelScoring.test.ts` for the single-call contract; added a
+    failed-Analyze-stops-after-one-call case. No backend changes needed —
+    reused the existing `reportDirectory` compatibility path as-is
+  - full validation: extension Jest 527 passed, webview Jest 68 passed,
+    backend Release 1000 passed / 11 expected skips (unchanged — no backend
+    edits this round), TypeScript compile clean
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - this reverses the "Import → Analyze(snapshot) single authoritative
+    contract" decision for the Optimization Report specifically; Design
+    Studio's Generate/Mutate flow (PbirAuthoringWorkflow.ts) is untouched and
+    still legitimately needs Import→snapshot for round-trip-safe mutation
+  - next step: reload the window and re-score the four PBITest report
+    folders; if any of the four still fail, the message should now be
+    scoring-engine-specific, not an authoring-envelope rejection
+
+- 2026-08-15 Optimization Report scoring — second, unrelated defect found after
+  the transport-arity fix: `PbirAuthoringRpcDispatcher.Import()`
+  (Services/Discovery/PbirAuthoringRpc/PbirAuthoringRpcDispatcher.cs) computed
+  `succeeded` from two conditions (`IrState.Ir is not null` AND no diagnostic
+  has `ProjectionStatus == Invalid`) but only populated `error` from the first
+  condition. Any real report with a supported visual type (card/table/etc.)
+  whose query-state binding doesn't cleanly project — ambiguous role mapping,
+  missing projection field, wrong Measure/Column kind, empty entity/property —
+  returns `succeeded:false, error:null`, which the panel renders as the generic
+  "Scoring failed — no result returned." with zero diagnostic content. A tiny
+  empty-visuals fixture (used in earlier sessions and my own first smoke test)
+  never exercises this path, which is why it went undetected until a real
+  report was tried.
+  - reproduced against the real compiled binary with a card visual whose
+    projection field has neither Measure nor Column (Services/Discovery/
+    PbirLocalReportReader.cs's ReadBindings marks this Invalid) — confirmed
+    `succeeded:false, error:null` before the fix, proper error.summary after
+  - fix: Import() now derives `error` from the same invalid-diagnostics check
+    used for `succeeded`, with a summary naming the count and first invalid
+    diagnostic's real message. Also fixed `ToDiagnostic(LocalPbirMutationDiagnostic)`,
+    which was discarding the diagnostic's actual `Message` in favor of a
+    generic "The authoring pipeline reported a bounded diagnostic." placeholder
+    — without this the new error.summary would still be uninformative.
+  - added `Dispatcher_AuthoringImport_ReturnsErrorSummaryWhenSemanticBindingIsInvalid`
+    to RpcHostScopeBoundaryTests.cs; audited GenerateAsync/MutateAsync/Validate
+    for the same succeeded/error mismatch shape — their conditions are
+    exhaustive and consistent, this was the only instance
+  - full validation: backend Release 1000 passed / 11 expected skips / 0
+    failed, extension Jest 526 passed, webview Jest 68 passed
+  - rebuilt and repackaged `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`,
+    reinstalled via the VS Code Insiders CLI
+  - next step: reload the window and re-score the real report; if it now
+    fails, the panel should show a specific diagnostic-backed message instead
+    of the generic fallback — that message is the next lead, not another
+    silent dead end
+
+- 2026-08-15 Optimization Report scoring — actual root cause (transport-layer,
+  not routing) found and fixed after the reinstalled VSIX still failed:
+  - `AnalyzerBridgeService.sendRequest` always forwarded a `cancellationToken`
+    positional argument to `client.sendRequest(method, params, cancellationToken)`
+    even when undefined. vscode-jsonrpc's untyped `sendRequest(method, ...args)`
+    decides object-vs-positional-array param encoding from `args.length`, not
+    from whether a trailing arg is `undefined` — so every call without a real
+    token got `params` wrapped as `[params, null]`, an array. The backend's
+    `ValueKind == Object` guard then rejected it ("must be a bounded JSON
+    object"), or — on the legacy scoreReport route — `TryGetProperty` silently
+    returned null on the array, producing "Parameter 'reportPath' is required."
+    Both historical errors were the same transport bug hitting two different
+    backend code paths; the routing-level fixes in prior sessions never
+    addressed it, hence the endless flip-flopping.
+  - fix: `AnalyzerBridgeService.sendRequest` (services/rpc/AnalyzerBridgeService.ts)
+    now omits the trailing arg entirely when no cancellation token is supplied,
+    so `client.sendRequest` is always called with exactly 2 args in that case.
+  - added a regression test using a variadic `ArityRecordingLanguageClient` fake
+    (the existing `FakeLanguageClient` stub has a fixed 2-param signature and
+    silently drops extra args, which is why this was invisible to the suite);
+    confirmed the new test fails against the pre-fix code (records 3 args) and
+    passes post-fix (records 2)
+  - verified the real backend contract separately by driving the compiled
+    `ModelingLanguageServer.dll` over actual stdio JSON-RPC framing with a temp
+    PBIR fixture — Import → Analyze succeeded, confirming the backend side was
+    always correct and the defect was entirely client-side
+  - full validation: extension Jest 526 passed, webview Jest 68 passed,
+    TypeScript compile clean, backend Release 999 passed / 11 expected skips
+  - rebuilt backend + extension + webview from clean, repackaged
+    `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`, installed via the
+    VS Code Insiders app-bundled CLI
+  - next step: reload the VS Code Insiders window and score a real report;
+    no real PBIR fixture exists in-repo for automated UI verification
+
+- 2026-08-15 Optimization Report scoring contract regression fixed at the
+  routing boundary: `PbirScorePanel` now uses one Import → Analyze(snapshot)
+  flow through `pbir/authoring`; the legacy `model/pbir/scoreReport` route
+  remains only for explicit compatibility callers.
+- Added request-builder/workflow regression coverage for both historical
+  failures, safe operation/source-kind diagnostics, explicit schema-version
+  validation, and a real AnalyzerRpcDispatcher Import → Analyze(snapshot) route.
+- Unified authoring Analyze and mutation before/after scoring with the host-owned
+  PbirProjectService/PbirScoringService instead of constructing a second scorer.
+- Validation: focused authoring/RPC tests 28 passed; extension Jest 525 passed;
+  webview Jest 68 passed; full backend 1000 passed / 11 expected Windows skips / 0
+  failed; TypeScript, production build, changed-file lint, diff check, and
+  darwin-arm64 VSIX packaging passed.
+- Exact VSIX artifact: `vscode-extension/pbir-design-analyzer-0.6.0-darwin-arm64.vsix`;
+  installed with the local VS Code CLI. No real PBIR fixture was configured, so
+  manual score-render verification remains unavailable.
+- Changes remain uncommitted and unstaged; generated tracked backend binaries
+  were changed by the production build and should be handled as generated
+  artifacts during handoff.
+
+## Active Session
+
 - 2026-08-15 RC1 stabilization and product repositioning closeout:
   - audited frozen HEAD `6a1fe4eb` without adding product functionality
   - fresh backend validation: 996 passed, 11 expected Windows skips, 0 failed;

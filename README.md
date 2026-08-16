@@ -1,6 +1,6 @@
 # <img src="vscode-extension/resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
 
-PBIR Design Analyzer 0.6.0 is the current cross-platform Analytics Experience Review Platform release.
+PBIR Design Analyzer 0.7.0 is the current cross-platform Analytics Experience Review Platform release.
 
 It helps teams review PBIR reports and analytical Fabric Apps through one workspace built around Story Assessment, Issues, Fix Plan, Evidence, Fabric App Readiness, Fabric App Review, and AI Proposal Enrichment.
 
@@ -99,42 +99,34 @@ scoring, governance, and deterministic remediation. When no supported PBI Lens
 interface is available, the checklist remains visible and deterministic
 scoring continues normally.
 
-## 0.6.0 Highlights
+## 0.7.0 Highlights
 
 ### New
 
-- Fabric App Readiness Assessment
-- Fabric App Review Mode foundations
-- screenshot evidence
-- semantic-model evidence
-- analyzable surface architecture
-- surface discovery
-- analyzer registry
-- analyzer profiles
+- Guided Story Improvements inside Story Assessment, with one-click navigation to the exact page or visual behind each recommendation
+- a What Changed summary inside Story Assessment comparing the latest review against the previous one
+- a collapsible workspace layout: Issues and Fix Plan now sit directly under Overview, and Issues, Fix Plan, Review Summary, Story Assessment, and Rendered Review are collapsed by default until opened
 
 ### Improved
 
-- cross-platform VSIX packages for Windows x64, Windows arm64, Linux x64, macOS x64, and macOS arm64
-- backend startup detection and runtime checks
-- clearer degraded-mode messaging when the backend is unavailable
-- stronger review positioning for PBIR reports and analytical Fabric Apps
-- deterministic score diagnostics and report fingerprinting
+- Optimization Report scoring is more resilient to reports exported by different Power BI Desktop versions
+- Rendered Review and PBI Lens integration no longer interrupt scoring; PBI Lens is attempted automatically in the background once installed
+- navigation actions and other in-panel actions now surface a clear error message instead of failing silently
 
-### Safety
+### Fixes
 
-- deterministic fix-engine hardening
-- safer mutation planning with unsupported title and semantic-color writes held back
-- corrected severity outcome reporting
+- fixed Attach Screenshot silently doing nothing inside the Rendered Review checklist
+- fixed a transport-layer bug that could cause Optimization Report scoring to fail with a generic bounded-request error
+- fixed inconsistent success and failure reporting when a report import could not be completed
 
 ## Review Workflow
 
 1. Open a PBIP project or .Report folder.
 2. Score the report or page.
-3. Use Story Assessment and Overview to understand the intended narrative, top risks, and migration-readiness signals.
-4. Use Issues to triage findings by severity, page, dimension, and scope.
-5. Use Fix Plan to sequence remediation and apply supported deterministic fixes where available.
-6. Use Evidence to inspect proof before acting on recommendations.
-7. Export or share review outputs after the review is complete.
+3. Start in Overview for the intended narrative, top risks, and migration-readiness signals.
+4. Use Issues and Fix Plan, directly beneath Overview, to triage findings and sequence remediation.
+5. Open Story Assessment for guided top improvements and Evidence to inspect proof before acting on recommendations.
+6. Export or share review outputs after the review is complete.
 
 ## Deterministic Execution Boundary
 
@@ -190,10 +182,10 @@ The platform includes cross-page matrix navigation so reviewers can move from hi
 
 Each packaged release ships as a platform-targeted VSIX with the matching backend binary for that operating system and architecture.
 
-Runtime expectation for the public `0.6.0` packages:
+Runtime expectation for the public `0.7.0` packages:
 
 - Windows x64 requires the matching .NET 8 runtime
-- Windows arm64 ships with a self-contained backend for `0.6.0`
+- Windows arm64 ships with a self-contained backend for `0.7.0`
 - Linux x64 requires the matching .NET 8 runtime
 - macOS x64 requires the matching .NET 8 runtime
 - macOS arm64 requires the matching .NET 8 runtime
@@ -208,7 +200,7 @@ If the backend runtime is missing or cannot start, the extension falls back to d
 
 ## Cross-Platform Score Determinism
 
-`0.6.0` treats score determinism as a release gate.
+`0.7.0` treats score determinism as a release gate.
 
 - the same report fingerprint must produce the same score, issue counts, readiness score, analyzer metadata, and findings on every supported platform
 - theme, locale, path separators, newline style, filesystem traversal order, and machine architecture must not change scoring outcomes
@@ -224,15 +216,15 @@ node scripts/compare-score-diagnostics.mjs /path/to/first.json /path/to/second.j
 
 If the fingerprints match, the score outputs must match. If the fingerprints differ, treat the report copies as non-identical input.
 
-## Final 0.6.0 Package Set
+## Final 0.7.0 Package Set
 
-Manual release packaging for `0.6.0` should produce these five files:
+Manual release packaging for `0.7.0` should produce these five files:
 
-- `pbir-design-analyzer-0.6.0-win32-x64.vsix`
-- `pbir-design-analyzer-0.6.0-win32-arm64.vsix`
-- `pbir-design-analyzer-0.6.0-linux-x64.vsix`
-- `pbir-design-analyzer-0.6.0-darwin-x64.vsix`
-- `pbir-design-analyzer-0.6.0-darwin-arm64.vsix`
+- `pbir-design-analyzer-0.7.0-win32-x64.vsix`
+- `pbir-design-analyzer-0.7.0-win32-arm64.vsix`
+- `pbir-design-analyzer-0.7.0-linux-x64.vsix`
+- `pbir-design-analyzer-0.7.0-darwin-x64.vsix`
+- `pbir-design-analyzer-0.7.0-darwin-arm64.vsix`
 
 Install the VSIX that matches the target operating system and architecture.
 
@@ -244,12 +236,12 @@ If VS Code shows the icon on a light tile in the extension details page, treat t
 
 ## Manual Marketplace Publishing
 
-`0.6.0` is prepared for manual Marketplace upload. Do not rely on repo-side publication automation for this release.
+`0.7.0` is prepared for manual Marketplace upload. Do not rely on repo-side publication automation for this release.
 
 Manual release flow:
 
 1. Rebuild and inspect the five target-specific VSIX files.
-2. Keep all five artifacts for the same `0.6.0` extension listing.
+2. Keep all five artifacts for the same `0.7.0` extension listing.
 3. Upload the matching package for each supported target during manual Marketplace publication.
 4. Keep the Windows arm64 self-contained package in the release set alongside the framework-dependent Windows x64, Linux x64, macOS x64, and macOS arm64 packages.
 5. Do not alter the icon asset unless the packaged icon no longer matches the source file.

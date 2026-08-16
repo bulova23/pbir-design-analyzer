@@ -1138,6 +1138,8 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Cross-page matrix')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Issues' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fix Plan' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Review Summary' }));
     expect(screen.getAllByText(/The page includes some decision context but still hides the main exception\./i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Fix first:/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Evidence')).toBeInTheDocument();
@@ -1193,6 +1195,7 @@ describe('Analyzer Score App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(screen.getAllByText(/Affected pages/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Story Assessment')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     expect(screen.getByText('What We Believe This Page Is Trying To Say')).toBeInTheDocument();
     expect(screen.getAllByText(/Decision makers may misinterpret KPI values/i).length).toBeGreaterThan(0);
     const topLevelStorySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
@@ -1454,8 +1457,10 @@ describe('Analyzer Score App', () => {
     });
 
     expect(screen.getByText('Review Summary')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Review Summary' }));
     expect(screen.getByRole('button', { name: /Confirmed/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     fireEvent.click(screen.getByRole('button', { name: /show full reasoning/i }));
     expect(screen.getByText(/Review status:/i)).toBeInTheDocument();
     expect(screen.getByText(/Confirmed by you during this session\./i)).toBeInTheDocument();
@@ -1560,6 +1565,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
       target: { value: 'medium' },
     });
@@ -1629,6 +1635,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     fireEvent.change(screen.getByLabelText(/issue severity filter/i), {
       target: { value: 'all' },
     });
@@ -1664,6 +1671,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('all');
 
     fireEvent.click(screen.getByRole('button', { name: 'Details' }));
@@ -1696,9 +1704,11 @@ describe('Analyzer Score App', () => {
 
     const topIssuesCard = screen.getByRole('heading', { name: 'Top issues' }).closest('div') as HTMLElement;
     expect(within(topIssuesCard).getAllByText(/navigation/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     fireEvent.click(screen.getByRole('button', { name: /filter issues for details navigation/i }));
     expect(screen.getByLabelText(/issue page filter/i)).toHaveValue('Details');
     expect(screen.getByLabelText(/issue dimension filter/i)).toHaveValue('navigation');
@@ -1731,6 +1741,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     const highSeverityGroup = screen.getByText('High severity').closest('details') as HTMLDetailsElement;
     const evidenceSection = screen.getByText('Evidence').closest('details') as HTMLDetailsElement;
 
@@ -1887,6 +1898,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
 
     expect(within(storySection).getByText('What We Believe This Page Is Trying To Say')).toBeInTheDocument();
@@ -1947,10 +1959,13 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     const storyAssessmentSection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
     const issuesSection = screen.getByRole('heading', { name: 'Issues' }).closest('section') as HTMLElement;
 
-    expect(storyAssessmentSection.compareDocumentPosition(issuesSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Issues now precedes Story Assessment: Issues and Fix Plan moved to the top of the panel
+    // (directly under Overview) so the most actionable sections are reachable without scrolling.
+    expect(issuesSection.compareDocumentPosition(storyAssessmentSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Guided Story Improvements' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Story coaching/i)).not.toBeInTheDocument();
 
@@ -2006,6 +2021,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
     const actionButton = within(storySection).getByRole('button', { name: 'Open target' });
 
@@ -2057,6 +2073,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
     const disabledButton = within(storySection).getByRole('button', { name: 'Target unavailable' });
 
@@ -2071,6 +2088,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
     expect(within(storySection).queryByText('What Changed')).not.toBeInTheDocument();
   });
@@ -2132,6 +2150,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Story Assessment' }));
     const storySection = screen.getByRole('heading', { name: 'Story Assessment' }).closest('section') as HTMLElement;
     expect(within(storySection).getByText('What Changed')).toBeInTheDocument();
     expect(within(storySection).getByText('Story maturity improved. 1 recommendation resolved. 1 new recommendation added.')).toBeInTheDocument();
@@ -2192,6 +2211,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getAllByText(/^Impact$/i).length).toBeGreaterThan(0);
     expect(within(fixPlan).getAllByText(/^Why:$/i).length).toBeGreaterThan(0);
@@ -2257,6 +2277,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Issues' }));
     fireEvent.change(screen.getByLabelText(/issue page filter/i), {
       target: { value: 'Overview' },
     });
@@ -2267,6 +2288,7 @@ describe('Analyzer Score App', () => {
       target: { value: 'high' },
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
     expect(within(fixPlan).getByText('Overview · Layout')).toBeInTheDocument();
@@ -2291,6 +2313,7 @@ describe('Analyzer Score App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /filter issues for details navigation/i }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getByText('Remediation Focus')).toBeInTheDocument();
     expect(within(fixPlan).getByText('Details · Navigation')).toBeInTheDocument();
@@ -2311,6 +2334,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getAllByText('Fix opportunities').length).toBeGreaterThan(0);
     expect(within(fixPlan).getByText('Standardize overview title anchor')).toBeInTheDocument();
@@ -2333,6 +2357,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getByText('Batch workflow')).toBeInTheDocument();
     expect(within(fixPlan).getByRole('button', { name: 'Preview selected' })).toBeInTheDocument();
@@ -2372,6 +2397,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).queryByText('Batch workflow')).not.toBeInTheDocument();
     expect(within(fixPlan).queryByRole('button', { name: 'Preview selected' })).not.toBeInTheDocument();
@@ -2401,6 +2427,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getByText('Advisory Recommendations Only')).toBeInTheDocument();
     expect(within(fixPlan).getByText(/No deterministic opportunities are available in the current context\./i)).toBeInTheDocument();
@@ -2471,6 +2498,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     const fixPlan = screen.getByRole('heading', { name: 'Fix Plan' }).closest('section') as HTMLElement;
     expect(within(fixPlan).getAllByText('AI-enriched guidance').length).toBeGreaterThan(0);
     expect(within(fixPlan).getAllByText('Executive Sales Overview').length).toBeGreaterThan(0);
@@ -2497,6 +2525,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     fireEvent.click(screen.getByLabelText('Select Standardize overview title anchor'));
     expectLastPostedMessage({
       type: 'toggleFixOpportunitySelection',
@@ -2739,6 +2768,7 @@ describe('Analyzer Score App', () => {
       );
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     expect(screen.getByText('Compatibility')).toBeInTheDocument();
     expect(screen.getByText(/Selected opportunities both change title-textbox-1/i)).toBeInTheDocument();
     expect(screen.getByText(/overlappingMutation/i)).toBeInTheDocument();
@@ -2986,6 +3016,7 @@ describe('Analyzer Score App', () => {
     expect(screen.getByText('Optimization Report')).toBeInTheDocument();
     expect(screen.getByText(/This Fabric App has usable analytical structure/i)).toBeInTheDocument();
     expect(screen.getAllByText('Route labeling is too generic for analytical navigation').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show Fix Plan' }));
     expect(screen.getByText('Improve navigation clarity')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Evidence'));
     const fabricEvidenceSummary = screen.getAllByText('Fabric App Review Evidence')[0].closest('summary') as HTMLElement;
@@ -3068,5 +3099,88 @@ describe('Analyzer Score App', () => {
 
     expect(screen.getByText('No screenshot evidence is available for this Fabric App review.')).toBeInTheDocument();
     expect(screen.getByText('No semantic model evidence is available for this Fabric App review.')).toBeInTheDocument();
+  });
+
+  it('hides the Open in PBI Lens action when PBI Lens exposes no report-opening interface', async () => {
+    render(<App />);
+
+    await dispatchScoreState(buildScorePanelState({
+      ...scoreState,
+      renderedReview: {
+        enabled: true,
+        checklist: [
+          {
+            id: 'whitespaceBalance:Overview',
+            category: 'whitespaceBalance',
+            label: 'Whitespace Balance',
+            findingIds: [],
+            pageNames: ['Overview'],
+            guidance: {
+              why: 'Rendered spacing can change the perceived balance of a page.',
+              lookFor: 'Check whether large gaps or tightly packed regions make the page feel uneven.',
+              expectedOutcome: 'Whitespace should separate ideas and keep the page visually balanced.',
+            },
+            status: 'Not Reviewed',
+          },
+        ],
+      },
+      renderedEvidence: {
+        providerId: 'pbiLens',
+        displayName: 'PBI Lens',
+        extensionId: 'duckduck-beps.pbi-lens-vscode',
+        installed: true,
+        activated: true,
+        status: 'InstalledNoProgrammaticSurface',
+        capabilities: {
+          extensionDetected: true,
+          publicApiAvailable: false,
+          cliAvailable: false,
+          mcpAvailable: false,
+          pageScreenshotAvailable: false,
+          reportContextAvailable: false,
+          visualContextAvailable: false,
+        },
+        diagnostics: ['PBI Lens exposes no supported public VS Code API.'],
+      },
+    }));
+
+    expect(screen.getByText('Rendered Review Recommended')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Rendered Review' }));
+    expect(screen.queryByRole('button', { name: 'Open in PBI Lens' })).not.toBeInTheDocument();
+    expect(screen.getByText('Whitespace Balance')).toBeInTheDocument();
+  });
+
+  it('shows the Open in PBI Lens action and posts a message to the host once the capability is available', async () => {
+    render(<App />);
+
+    await dispatchScoreState(buildScorePanelState({
+      ...scoreState,
+      renderedReview: {
+        enabled: true,
+        checklist: [],
+      },
+      renderedEvidence: {
+        providerId: 'pbiLens',
+        displayName: 'PBI Lens',
+        extensionId: 'duckduck-beps.pbi-lens-vscode',
+        installed: true,
+        activated: true,
+        status: 'Available',
+        capabilities: {
+          extensionDetected: true,
+          publicApiAvailable: true,
+          cliAvailable: false,
+          mcpAvailable: false,
+          pageScreenshotAvailable: true,
+          reportContextAvailable: true,
+          visualContextAvailable: true,
+        },
+        diagnostics: [],
+      },
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Rendered Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open in PBI Lens' }));
+    expectLastPostedMessage({ type: 'openInPbiLens' });
   });
 });

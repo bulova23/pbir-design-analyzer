@@ -2,7 +2,7 @@
   "name": "pbir-design-analyzer",
   "displayName": "PBIR Design Analyzer",
   "description": "Cross-platform Analytics Experience Review Platform for PBIR reports and Fabric apps, with story assessment, Issues, Fix Plan, evidence, AI proposal enrichment, and migration readiness.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "bcrowell",
   "icon": "resources/icon.png",
   "repository": {

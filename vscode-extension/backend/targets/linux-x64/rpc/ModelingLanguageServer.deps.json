@@ -10,6 +10,7 @@
       "ModelingLanguageServer/1.0.0": {
         "dependencies": {
           "Microsoft.Extensions.Logging": "9.0.0",
+          "PbirDesignAnalyzer.Core": "1.0.0",
           "Serilog": "3.1.1",
           "Serilog.Extensions.Logging": "8.0.0",
           "Serilog.Sinks.Console": "5.0.1"
@@ -120,6 +121,17 @@
             "fileVersion": "9.0.24.52809"
           }
         }
+      },
+      "PbirDesignAnalyzer.Core/1.0.0": {
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.0"
+        },
+        "runtime": {
+          "PbirDesignAnalyzer.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
       }
     }
   },
@@ -198,6 +210,11 @@
       "sha512": "sha512-ddppcFpnbohLWdYKr/ZeLZHmmI+DXFgZ3Snq+/E7SwcdW4UnvxmaugkwGywvGVWkHPGCSZjCP+MLzu23AL5SDw==",
       "path": "system.diagnostics.diagnosticsource/9.0.0",
       "hashPath": "system.diagnostics.diagnosticsource.9.0.0.nupkg.sha512"
+    },
+    "PbirDesignAnalyzer.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
     }
   }
 }

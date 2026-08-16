@@ -319,7 +319,6 @@ export function parseScorePanelWebviewMessage(value: unknown):
     'uploadScreenshots',
     'exportReviewWorkflow',
     'openReviewPacketPreview',
-    'attachRenderedScreenshot',
     'previewSelectedFixOpportunities',
     'approveSelectedFixOpportunities',
     'applySelectedFixOpportunities',

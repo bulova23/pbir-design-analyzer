@@ -10,7 +10,6 @@ import type {
   ScorePanelHostToWebviewMessagePayload,
   ScorePanelState,
   ScorePanelWebviewToHostMessagePayload,
-  ScoreRequestPayload,
   ScoreResult,
   RenderedReviewPanelState,
 } from '../analyzer/contracts/scorePanel';
@@ -23,6 +22,7 @@ import { enrichFixPlanWithAdvisoryContent } from '../analyzer/proposalEnrichment
 import { detectAnalyzableSurface } from '../analyzer/surfaces/discovery';
 import { telemetry, bucketScore } from '../telemetry/reporter';
 import { AnalyzerBridgeService } from '../services/rpc/AnalyzerBridgeService';
+import type { PbirAuthoringResponse } from '../services/rpc/PbirAuthoringWorkflow';
 import { getDiagnosticsOutputChannel } from '../platform/outputChannels';
 import {
   getRecordedBackendIssue,
@@ -64,16 +64,45 @@ import {
 import { maybeRecommendPbiLens } from '../analyzer/renderedEvidence/recommendation';
 import { buildRenderedReviewChecklist, updateRenderedReviewItem } from '../analyzer/renderedReview/reviewModel';
 
-export function buildPbirScoreRequest(
+// Scoring reads a report; it never needs the round-trip-safe Import/Mutate snapshot contract, whose
+// authoring envelope only accepts an exact pinned schema version and hard-rejects any report exported
+// by a Power BI Desktop version outside that pin. Analyze's reportDirectory input is the same direct
+// path used by the legacy model/pbir/scoreReport route and by Design Studio's Mutate before/after
+// scoring — it exists precisely so read-only scoring never has to pass through that envelope.
+export function buildPbirOptimizationAnalyzeRequest(
   reportPath: string,
   config: DesignAnalyzerConfig,
   pageName?: string,
-): ScoreRequestPayload {
+): Record<string, unknown> {
   return {
-    reportPath,
-    config,
-    ...(pageName ? { pageName } : {}),
+    schemaVersion: 'pbir-authoring-rpc/v1',
+    operation: 'analyze',
+    analyze: {
+      reportDirectory: reportPath,
+      config,
+      ...(pageName ? { pageName } : {}),
+    },
   };
+}
+
+type PbirOptimizationScoringBridge = Pick<AnalyzerBridgeService, 'executeAuthoringRequest'>;
+
+export async function executePbirOptimizationScore(
+  bridge: PbirOptimizationScoringBridge,
+  reportPath: string,
+  config: DesignAnalyzerConfig,
+  pageName?: string,
+  log: (message: string) => void = () => undefined,
+): Promise<PbirAuthoringResponse> {
+  const response = await bridge.executeAuthoringRequest<PbirAuthoringResponse>(
+    buildPbirOptimizationAnalyzeRequest(reportPath, config, pageName),
+  );
+  logOptimizationRequest(log);
+  return response;
+}
+
+function logOptimizationRequest(log: (message: string) => void): void {
+  log('[OptimizationScoring] rpcRoute=pbir/authoring schemaVersion=pbir-authoring-rpc/v1 operation=Analyze sourceKind=ReportReference reportPathPresent=true snapshotHandlePresent=false artifactHandlePresent=false authoringRequestPresent=false selectedReportIdentityPresent=true');
 }
 
 export class PbirScorePanel {
@@ -293,7 +322,18 @@ export class PbirScorePanel {
   }
 
   private async handleMessage(message: unknown): Promise<void> {
-    await this.messageRouter.route(message);
+    // webview.onDidReceiveMessage is fire-and-forget in VS Code — nothing awaits this callback,
+    // so an uncaught exception anywhere in the router chain becomes an unhandled promise rejection
+    // that only ever reaches the extension host's own console, never the user. Every action routed
+    // through here (navigate-to-target, attach screenshot, fix workflow, etc.) must fail loudly
+    // instead of silently doing nothing on click.
+    try {
+      await this.messageRouter.route(message);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      PbirScorePanel.diagnosticsOutput.appendLine(`[MessageRouter] Unhandled error routing webview message: ${detail}`);
+      void vscode.window.showErrorMessage(`PBIR Design Analyzer: the action failed unexpectedly. ${detail}`);
+    }
   }
 
   private buildPresentationResult(result: ScoreResult): ScoreResult {
@@ -658,21 +698,24 @@ export class PbirScorePanel {
         return;
       }
 
-      const requestPayload = buildPbirScoreRequest(this.reportPath, savedConfig, this.pageName);
-      const response = (await this.bridge.executeRequest(
-        'model/pbir/scoreReport',
-        requestPayload,
-      )) as { success: boolean; error?: string; data?: ScoreResult };
-      if (!response?.success || !response.data) {
+      const response = await executePbirOptimizationScore(
+        this.bridge,
+        this.reportPath,
+        savedConfig,
+        this.pageName,
+        (message) => PbirScorePanel.diagnosticsOutput.appendLine(message),
+      );
+      if (!response.succeeded || !response.analyzer?.result) {
         this.postMessage({
           type: 'error',
-          message: response?.error ?? 'Scoring failed — no result returned.',
+          message: response.error?.summary ?? 'Scoring failed — no result returned.',
         });
         return;
       }
+      const scoreResult = response.analyzer?.result;
 
       const normalizedResult = await enrichFixPlanWithAdvisoryContent(
-        normalizeScoreResultPayload(response.data),
+        normalizeScoreResultPayload(scoreResult),
         {
           providerMode: 'disabled',
           enabledEnrichers: ['storytelling', 'executiveReadability'],

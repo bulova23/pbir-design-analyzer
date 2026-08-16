@@ -1,5 +1,25 @@
 # Session Summaries
 
+# 2026-08-15 — Optimization Report scoring contract regression
+
+- Traced the alternating failures to two real routes: the current score panel
+  used legacy `model/pbir/scoreReport` with a path, while the earlier handle fix
+  used `pbir/authoring` Import → Analyze; the bounded-object diagnostic belongs
+  only to malformed authoring params.
+- Re-established one authoritative Optimization Report path through Import →
+  Analyze with the opaque snapshot handle. Backend-owned snapshot resolution
+  reaches the existing scoring service; direct path analysis remains a separate
+  compatibility adapter.
+- Injected the host-owned project/scoring services into authoring Analyze and
+  mutation before/after scoring; added schema-version envelope validation and a
+  real AnalyzerRpcDispatcher Import → Analyze(snapshot) integration test.
+- Added bounded route/schema/source-kind/handle diagnostics. Focused backend
+  28 passed; extension 525 passed; webview 68 passed; full backend 999 passed
+  with 11 expected Windows skips; compile/build/lint/diff/package passed.
+- Installed the exact darwin-arm64 VSIX with the local VS Code CLI. No real PBIR
+  fixture was configured, so manual score rendering remains unverified.
+- No commit or staging performed.
+
 # 2026-08-15 — Activity Bar Icon Redesign
 
 - Replaced only the VS Code Activity Bar SVG with a purpose-built monochrome

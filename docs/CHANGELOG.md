@@ -4,6 +4,8 @@ All notable changes to PBIR Design Analyzer are recorded here.
 
 ## Unreleased
 
+## 0.7.0 — 2026-08-16
+
 ### Story Assessment 2.2
 
 - Added shared score-panel navigation targets for Story Assessment recommendations with additive protocol support for generic target navigation.
@@ -28,9 +30,30 @@ All notable changes to PBIR Design Analyzer are recorded here.
   - Missing Primary Metric
   - Missing Primary Dimension
   - Scattered Filters
-- Added a compact Guided Story Improvements subsection in the score panel between Story Assessment and Issues.
+- Added a compact Guided Story Improvements subsection inside Story Assessment.
 - Kept archetypes, semantic coherence, confidence breakdown, competing-story diagnostics, special-page labels, raw evidence IDs, and other research-stage Story Assessment internals out of the public contract and UI.
 - Fed Issues and Fix Plan from the safe Guided Story Improvements layer without changing non-story finding behavior.
+
+### Optimization Report Scoring Reliability
+
+- Fixed a transport-layer bug where an Optimization Report scoring request could be silently rewritten into an invalid shape whenever no cancellation token was supplied, causing scoring to fail with a generic bounded-request error.
+- Reworked Optimization Report scoring to analyze the report directly instead of first importing it through the stricter round-trip-safe authoring contract, so reports exported by different Power BI Desktop versions no longer fail with an unrelated schema-mismatch error.
+- Fixed a bug where a failed report import could leave the success and failure state inconsistent, showing reviewers a generic no-result message instead of the real cause.
+
+### Rendered Review
+
+- Fixed a bug where clicking Attach Screenshot in the Rendered Review checklist silently did nothing.
+- PBI Lens integration no longer interrupts scoring when PBI Lens is installed but not yet activated. The extension now attempts to activate it automatically in the background.
+- The Open in PBI Lens action is now hidden entirely when no supported PBI Lens interface is available, instead of showing a disabled button.
+
+### Story Assessment Navigation
+
+- Fixed a bug where Story Assessment navigation actions could silently do nothing on click, with no error shown. Navigation failures and other in-panel action failures now surface a clear error message instead of failing silently.
+
+### Workspace Layout
+
+- Issues, Fix Plan, Review Summary, Story Assessment, and Rendered Review are now collapsed by default with a Show and Hide toggle, reducing how far reviewers need to scroll to reach the section they want.
+- Issues and Fix Plan moved directly under Overview, ahead of Review Summary, Story Assessment, and Rendered Review.
 
 ## 0.6.0 — 2026-06-10
 

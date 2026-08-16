@@ -26,11 +26,14 @@ Rank all findings by long-term risk.
 
 ## Current Product Architecture
 
-The `0.2.0` release centers on a modernized score-panel workspace:
+The `0.7.0` release centers on a modernized score-panel workspace. `Overview` stays expanded by default; every other section is collapsed behind a Show/Hide toggle until opened, in this order:
 
 - `Overview`
 - `Issues`
 - `Fix Plan`
+- `Review Summary`
+- `Story Assessment`
+- `Rendered Review`
 - `Evidence`
 - secondary `Export`
 
@@ -62,10 +65,11 @@ Key architecture layers:
 - selected page state must always be clamped against the current score payload page count; stale page references are a correctness bug
 - Fabric review and Fabric readiness scoring constants now live in explicit configuration with provenance; preserve default outputs unless an override is intentionally introduced and documented
 - external Power BI agent skills or prompts may be used as research input only; do not import external skill code, prompts, or autonomous execution patterns into this repo
+- `PbirScorePanel.handleMessage` must keep its try/catch around webview message routing; `webview.onDidReceiveMessage` is fire-and-forget in VS Code, so an unhandled exception anywhere in the router chain becomes a silent no-op click for the user instead of a visible error
 
 ## Roadmap References
 
-Deferred next-epic roadmap after `0.2.0`:
+Deferred next-epic roadmap after `0.7.0`:
 
 1. Consultant Deliverables & Export Platform
 2. Visual Intelligence & Screenshot Analysis

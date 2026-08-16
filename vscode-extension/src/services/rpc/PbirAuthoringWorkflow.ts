@@ -23,6 +23,8 @@ export type PbirAuthoringResponse = {
   importResult?: { snapshot: { schemaVersion: string; snapshotId: string; sourceIdentity: { sourceDirectoryName: string; contentHash: string; fileCount: number } }; pages: Array<{ pageId: string; displayName: string }>; visuals?: Array<{ visualId: string; pageId: string; visualType: string; order: number; layout?: { x: number; y: number; width: number; height: number } }> };
 };
 
+export type PbirAuthoringSnapshotHandle = NonNullable<NonNullable<PbirAuthoringResponse['importResult']>['snapshot']>;
+
 export type PbirAuthoringMutationPreview = {
   previewId?: string;
   mutationKind: string;

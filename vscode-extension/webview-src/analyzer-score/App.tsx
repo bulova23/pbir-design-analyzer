@@ -891,6 +891,8 @@ function renderIssuesWorkspace(
     onGroupingModeChange: (value: IssueGroupingMode) => void;
     onClearFilters: () => void;
     onResetToPersonaDefaults: () => void;
+    expanded: boolean;
+    onToggleExpanded: () => void;
   },
 ): React.ReactNode {
   const {
@@ -903,16 +905,12 @@ function renderIssuesWorkspace(
     onGroupingModeChange,
     onClearFilters,
     onResetToPersonaDefaults,
+    expanded,
+    onToggleExpanded,
   } = props;
   if (findings.length === 0) {
     return (
       <section aria-label="Issues workspace" className="panel-card issues-card">
-        <div className="issues-section-head">
-          <div>
-            <p className="section-kicker">Primary review surface</p>
-            <h2>Issues</h2>
-          </div>
-        </div>
         <p className="empty-text">No normalized issues were generated for this view.</p>
       </section>
     );
@@ -924,14 +922,19 @@ function renderIssuesWorkspace(
   return (
     <section aria-label="Issues workspace" className="panel-card issues-card">
       <div className="issues-section-head">
-        <div>
+        <div className="issues-section-title-group">
           <p className="section-kicker">Primary review surface</p>
           <h2>Issues</h2>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Issues' : 'Show Issues'}
+          </button>
         </div>
         <p className="issues-section-copy">
           Review the highest-priority problems first, then expand evidence only when needed.
         </p>
       </div>
+      {expanded ? (
+      <>
       <div className="issues-toolbar">
         <label>
           Severity
@@ -1107,6 +1110,8 @@ function renderIssuesWorkspace(
           </details>
         ))}
       </div>
+      </>
+      ) : null}
     </section>
   );
 }
@@ -1811,6 +1816,8 @@ function renderPagePurposeAnalysisSection(props: {
   noteSaved: boolean;
   expanded: boolean;
   onToggleExpanded: () => void;
+  sectionExpanded: boolean;
+  onToggleSectionExpanded: () => void;
 }): React.ReactNode {
   const {
     analysis,
@@ -1831,6 +1838,8 @@ function renderPagePurposeAnalysisSection(props: {
     noteSaved,
     expanded,
     onToggleExpanded,
+    sectionExpanded,
+    onToggleSectionExpanded,
   } = props;
 
   if (!analysis) {
@@ -1867,14 +1876,19 @@ function renderPagePurposeAnalysisSection(props: {
   return (
     <section className="panel-card page-purpose-card">
       <div className="issues-section-head">
-        <div>
+        <div className="issues-section-title-group">
           <p className="section-kicker">Story assessment</p>
           <h2>Story Assessment</h2>
+          <button className="secondary-button" onClick={onToggleSectionExpanded} type="button">
+            {sectionExpanded ? 'Hide Story Assessment' : 'Show Story Assessment'}
+          </button>
         </div>
         <p className="issues-section-copy">
           Read the page like a consultant: what it appears to say, what supports that story, what weakens it, and what should change first.
         </p>
       </div>
+      {sectionExpanded ? (
+      <>
       <div className="page-purpose-summary">
         <div className="page-purpose-block">
           <h3>What We Believe This Page Is Trying To Say</h3>
@@ -1975,6 +1989,8 @@ function renderPagePurposeAnalysisSection(props: {
           </section>
         </div>
       ) : null}
+      </>
+      ) : null}
     </section>
   );
 }
@@ -1993,6 +2009,8 @@ function renderFixPlanSection(
   onApplySelected: () => void,
   onRollbackSession: (sessionId: string) => void,
   onRegenerate: (opportunityIds?: string[]) => void,
+  expanded: boolean,
+  onToggleExpanded: () => void,
 ): React.ReactNode {
   const fixPlan = queue.items;
   const currentContextOpportunities = (fixOpportunities ?? []).filter((opportunity) => (
@@ -2008,14 +2026,19 @@ function renderFixPlanSection(
   return (
     <section aria-label="Fix plan" className="panel-card fix-plan-card">
       <div className="issues-section-head">
-        <div>
+        <div className="issues-section-title-group">
           <p className="section-kicker">Consultant workflow</p>
           <h2>Fix Plan</h2>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Fix Plan' : 'Show Fix Plan'}
+          </button>
         </div>
         <p className="issues-section-copy">
           Convert the selected problem area into a sequenced remediation queue.
         </p>
       </div>
+      {expanded ? (
+      <>
       <div className="issue-detail-block">
         <p className="issue-detail-label">Remediation Focus</p>
         <p>{queue.focus.label}</p>
@@ -2376,6 +2399,8 @@ function renderFixPlanSection(
           ))}
         </ol>
       )}
+      </>
+      ) : null}
     </section>
   );
 }
@@ -2384,34 +2409,45 @@ function renderRenderedReviewSection(
   review: RenderedReviewPanelState | undefined,
   provider: ScorePanelState['renderedEvidence'],
   postHostMessage: (message: ScorePanelWebviewToHostMessagePayload) => void,
+  expanded: boolean,
+  onToggleExpanded: () => void,
 ): React.ReactNode {
   if (!review?.enabled) return null;
   const canOpenInPbiLens = isPbiLensOpenActionAvailable(provider);
   return (
     <section aria-label="Rendered review" className="panel-card rendered-review-card">
       <div className="issues-section-head">
-        <div>
+        <div className="issues-section-title-group">
           <p className="section-kicker">Human observation</p>
           <h2>Rendered Review Recommended</h2>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Rendered Review' : 'Show Rendered Review'}
+          </button>
         </div>
         <p className="issues-section-copy">
           PBI Lens provides rendered observation; PBIR Design Analyzer remains authoritative for design judgment and scoring.
         </p>
       </div>
-      <div className="issue-detail-block">
-        <p className="issue-detail-label">Open in PBI Lens</p>
-        <button
-          className="secondary-button"
-          disabled={!canOpenInPbiLens}
-          onClick={() => postHostMessage({ type: 'openInPbiLens' })}
-          title={canOpenInPbiLens ? 'Open the report in PBI Lens' : 'No supported PBI Lens report-opening interface is available'}
-          type="button"
-        >
-          Open in PBI Lens
-        </button>
-        {!canOpenInPbiLens ? <p className="issues-section-copy">PBI Lens is unavailable through a supported programmatic interface. The checklist remains available for manual review.</p> : null}
-        {review.mutationFollowUp ? <p className="fix-plan-recommendation"><strong>After mutation:</strong> {review.mutationFollowUp}</p> : null}
-      </div>
+      {expanded ? (
+      <>
+      {canOpenInPbiLens || review.mutationFollowUp ? (
+        <div className="issue-detail-block">
+          {canOpenInPbiLens ? (
+            <>
+              <p className="issue-detail-label">Open in PBI Lens</p>
+              <button
+                className="secondary-button"
+                onClick={() => postHostMessage({ type: 'openInPbiLens' })}
+                title="Open the report in PBI Lens"
+                type="button"
+              >
+                Open in PBI Lens
+              </button>
+            </>
+          ) : null}
+          {review.mutationFollowUp ? <p className="fix-plan-recommendation"><strong>After mutation:</strong> {review.mutationFollowUp}</p> : null}
+        </div>
+      ) : null}
       {review.checklist.map((item) => (
         <article className="issue-detail-block" key={item.id}>
           <div className="issues-section-head">
@@ -2440,6 +2476,8 @@ function renderRenderedReviewSection(
           {item.screenshotEvidence?.length ? <p className="issues-section-copy">{item.screenshotEvidence.length} screenshot evidence record(s) attached.</p> : null}
         </article>
       ))}
+      </>
+      ) : null}
     </section>
   );
 }
@@ -2904,8 +2942,10 @@ function renderReviewSummary(props: {
   onFilterChange: (next: ReviewStatus | 'all') => void;
   onSelectPage: (pageName: string) => void;
   onExport: () => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }): React.ReactNode {
-  const { entries, activeFilter, onFilterChange, onSelectPage, onExport } = props;
+  const { entries, activeFilter, onFilterChange, onSelectPage, onExport, expanded, onToggleExpanded } = props;
   if (entries.length === 0) {
     return null;
   }
@@ -2943,7 +2983,11 @@ function renderReviewSummary(props: {
           >
             Export Review Summary
           </button>
+          <button className="secondary-button" onClick={onToggleExpanded} type="button">
+            {expanded ? 'Hide Review Summary' : 'Show Review Summary'}
+          </button>
         </div>
+        {expanded ? (
         <div className="review-summary-stats">
           <div className="review-stat-card">
             <strong>{entries.length}</strong>
@@ -2970,7 +3014,10 @@ function renderReviewSummary(props: {
             <span>Unreviewed</span>
           </div>
         </div>
+        ) : null}
       </div>
+      {expanded ? (
+      <>
       <div aria-label="Review status filters" className="review-filter-row" role="group">
         {filters.map((filter) => (
           <button
@@ -3023,6 +3070,8 @@ function renderReviewSummary(props: {
           );
         })}
       </div>
+      </>
+      ) : null}
     </section>
   );
 }
@@ -3823,6 +3872,11 @@ export default function App(): JSX.Element {
   const [reviewerPersonaByPage, setReviewerPersonaByPage] = React.useState<Record<string, ReviewerPersona>>({});
   const [workspacePersona, setWorkspacePersona] = React.useState<ReviewPresentationPersona>('default');
   const [pagePurposeExpanded, setPagePurposeExpanded] = React.useState(false);
+  const [storyAssessmentSectionExpanded, setStoryAssessmentSectionExpanded] = React.useState(false);
+  const [issuesExpanded, setIssuesExpanded] = React.useState(false);
+  const [fixPlanExpanded, setFixPlanExpanded] = React.useState(false);
+  const [reviewSummaryExpanded, setReviewSummaryExpanded] = React.useState(false);
+  const [renderedReviewExpanded, setRenderedReviewExpanded] = React.useState(false);
   const [reviewStatusFilter, setReviewStatusFilter] = React.useState<ReviewStatus | 'all'>('all');
   const [issueFilters, setIssueFilters] = React.useState<IssueFilterState>({
     severity: 'all',
@@ -4046,10 +4100,12 @@ export default function App(): JSX.Element {
     });
   };
   const focusRecommendations = () => {
+    setFixPlanExpanded(true);
     fixPlanSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     fixPlanSectionRef.current?.focus({ preventScroll: true });
   };
   const focusIssues = () => {
+    setIssuesExpanded(true);
     issuesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     issuesSectionRef.current?.focus({ preventScroll: true });
   };
@@ -4170,6 +4226,63 @@ export default function App(): JSX.Element {
         <section className="status-card status-card-warn">{selectedPage.scoringError}</section>
       ) : null}
 
+      <section ref={issuesSectionRef} tabIndex={-1}>
+        {renderIssuesWorkspace({
+          findings: visibleFindings,
+          filters: issueFilters,
+          groupingMode: issueGroupingMode,
+          pageOptions: pageScores.map((page) => page.pageName),
+          activeFilterSummary,
+          onFilterChange: (key, value) => {
+            setIssueFiltersDirty(true);
+            setIssueFilters((prev) => ({ ...prev, [key]: value as never }));
+          },
+          onGroupingModeChange: setIssueGroupingMode,
+          onClearFilters: () => {
+            setIssueFiltersDirty(false);
+            setIssueFilters({
+              severity: 'all',
+              pageName: 'all',
+              dimension: 'all',
+              impactArea: 'all',
+              scope: 'all',
+              detectionType: 'all',
+              readinessRole: 'all',
+            });
+          },
+          onResetToPersonaDefaults: () => {
+            setIssueFiltersDirty(false);
+            setIssueFilters(personaDefaults);
+          },
+          expanded: issuesExpanded,
+          onToggleExpanded: () => setIssuesExpanded((prev) => !prev),
+        })}
+      </section>
+
+      <div ref={fixPlanSectionRef} tabIndex={-1}>
+        {renderFixPlanSection(
+          remediationQueue,
+          result.fixOpportunities,
+          result.proposalEnrichments,
+          viewState.state.fixSelection,
+          viewState.state.fixApplySessions ?? [],
+          expandedOpportunityIds,
+          (opportunityId) => setExpandedOpportunityIds((prev) => (
+            prev.includes(opportunityId)
+              ? prev.filter((id) => id !== opportunityId)
+              : [...prev, opportunityId]
+          )),
+          (opportunityId) => postHostMessage({ type: 'toggleFixOpportunitySelection', opportunityId }),
+          () => postHostMessage({ type: 'previewSelectedFixOpportunities' }),
+          () => postHostMessage({ type: 'approveSelectedFixOpportunities' }),
+          () => postHostMessage({ type: 'applySelectedFixOpportunities' }),
+          (sessionId) => postHostMessage({ type: 'rollbackFixSession', sessionId }),
+          (opportunityIds) => postHostMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
+          fixPlanExpanded,
+          () => setFixPlanExpanded((prev) => !prev),
+        )}
+      </div>
+
       {overallView && multiPage ? renderReviewSummary({
         entries: reviewEntries,
         activeFilter: reviewStatusFilter,
@@ -4189,6 +4302,8 @@ export default function App(): JSX.Element {
           postHostMessage({ type: 'selectTab', pageIndex: nextTab });
         },
         onExport: () => postHostMessage({ type: 'exportReviewWorkflow' }),
+        expanded: reviewSummaryExpanded,
+        onToggleExpanded: () => setReviewSummaryExpanded((prev) => !prev),
       }) : null}
 
       {storySummary && pagePurposeAnalysis ? renderPagePurposeAnalysisSection({
@@ -4262,61 +4377,17 @@ export default function App(): JSX.Element {
         noteSaved: savedStoryNoteKey === storyConfirmationKey,
         expanded: pagePurposeExpanded,
         onToggleExpanded: () => setPagePurposeExpanded((prev) => !prev),
+        sectionExpanded: storyAssessmentSectionExpanded,
+        onToggleSectionExpanded: () => setStoryAssessmentSectionExpanded((prev) => !prev),
       }) : null}
-      <section ref={issuesSectionRef} tabIndex={-1}>
-        {renderIssuesWorkspace({
-          findings: visibleFindings,
-          filters: issueFilters,
-          groupingMode: issueGroupingMode,
-          pageOptions: pageScores.map((page) => page.pageName),
-          activeFilterSummary,
-          onFilterChange: (key, value) => {
-            setIssueFiltersDirty(true);
-            setIssueFilters((prev) => ({ ...prev, [key]: value as never }));
-          },
-          onGroupingModeChange: setIssueGroupingMode,
-          onClearFilters: () => {
-            setIssueFiltersDirty(false);
-            setIssueFilters({
-              severity: 'all',
-              pageName: 'all',
-              dimension: 'all',
-              impactArea: 'all',
-              scope: 'all',
-              detectionType: 'all',
-              readinessRole: 'all',
-            });
-          },
-          onResetToPersonaDefaults: () => {
-            setIssueFiltersDirty(false);
-            setIssueFilters(personaDefaults);
-          },
-        })}
-      </section>
 
-      {renderRenderedReviewSection(viewState.state.renderedReview, viewState.state.renderedEvidence, postHostMessage)}
-
-      <div ref={fixPlanSectionRef} tabIndex={-1}>
-        {renderFixPlanSection(
-          remediationQueue,
-          result.fixOpportunities,
-          result.proposalEnrichments,
-          viewState.state.fixSelection,
-          viewState.state.fixApplySessions ?? [],
-          expandedOpportunityIds,
-          (opportunityId) => setExpandedOpportunityIds((prev) => (
-            prev.includes(opportunityId)
-              ? prev.filter((id) => id !== opportunityId)
-              : [...prev, opportunityId]
-          )),
-          (opportunityId) => postHostMessage({ type: 'toggleFixOpportunitySelection', opportunityId }),
-          () => postHostMessage({ type: 'previewSelectedFixOpportunities' }),
-          () => postHostMessage({ type: 'approveSelectedFixOpportunities' }),
-          () => postHostMessage({ type: 'applySelectedFixOpportunities' }),
-          (sessionId) => postHostMessage({ type: 'rollbackFixSession', sessionId }),
-          (opportunityIds) => postHostMessage({ type: 'regenerateFixOpportunities', opportunityIds }),
-        )}
-      </div>
+      {renderRenderedReviewSection(
+        viewState.state.renderedReview,
+        viewState.state.renderedEvidence,
+        postHostMessage,
+        renderedReviewExpanded,
+        () => setRenderedReviewExpanded((prev) => !prev),
+      )}
 
       <details className="panel-card evidence-section">
         <summary className="collapsible-summary">
