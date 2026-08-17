@@ -143,8 +143,8 @@
     {
       "PageName": "Intro",
       "CompositeScore": 67,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -154,7 +154,7 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 1,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -197,12 +197,12 @@
     {
       "PageName": "Validation Page",
       "CompositeScore": 74.5,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -428,12 +428,12 @@
     {
       "PageName": "Duplicate of Validation Page",
       "CompositeScore": 78.5,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 40
     }
   ],
@@ -478,9 +478,9 @@
       },
       {
         "PageName": "Intro",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -627,7 +627,7 @@
       },
       {
         "PageName": "Validation Page",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=ValidationSandbox; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
@@ -1392,7 +1392,7 @@
       },
       {
         "PageName": "Duplicate of Validation Page",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=ValidationSandbox; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",

@@ -112,8 +112,8 @@
     {
       "PageName": "Order Detail",
       "CompositeScore": 68.25,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -123,14 +123,14 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 0,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Commissions",
       "CompositeScore": 67.55,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -141,7 +141,7 @@
         "scattered-filters"
       ],
       "recommendationCount": 0,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -288,7 +288,7 @@
         "PageName": "Overview",
         "DetectedStory": "This page appears to monitor performance over time and highlight recent movement or exceptions.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -384,7 +384,7 @@
       },
       {
         "PageName": "Order Detail",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -434,7 +434,7 @@
       },
       {
         "PageName": "Commissions",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -635,7 +635,7 @@
         "PageName": "P8",
         "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",

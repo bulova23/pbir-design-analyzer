@@ -7006,7 +7006,7 @@ public sealed class PbirScoringService
     }
 
     private static bool IsTableLikeVisual(VisualData visual) =>
-        visual.Type is "table" or "matrix";
+        visual.Type?.Trim().ToLowerInvariant() is "table" or "tableex" or "matrix" or "pivottable";
 
     private static bool ContainsOperationalMonitoringCue(string? title) =>
         ContainsTextKeyword(title, "monitor") ||
@@ -7015,7 +7015,7 @@ public sealed class PbirScoringService
         ContainsTextKeyword(title, "weekly") ||
         ContainsTextKeyword(title, "performance");
 
-    private static string ClassifyAnalyticalTask(
+    private static string? ClassifyAnalyticalTask(
         string visualType,
         IReadOnlyList<string> categoryHints,
         IReadOnlyList<string> seriesHints,
@@ -7023,7 +7023,7 @@ public sealed class PbirScoringService
         string? title)
     {
         var normalizedVisualType = visualType?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (normalizedVisualType is "table" or "matrix")
+        if (normalizedVisualType is "table" or "tableex" or "matrix" or "pivottable")
         {
             return "table-reference";
         }
@@ -7033,7 +7033,7 @@ public sealed class PbirScoringService
             return "relationship";
         }
 
-        if (normalizedVisualType is "piechart" or "donutchart" or "stackedcolumnchart" or "stackedbarchart" or "stackedareachart" or "funnel" or "funnelchart")
+        if (normalizedVisualType is "piechart" or "donutchart" or "stackedcolumnchart" or "stackedbarchart" or "stackedareachart" or "funnel" or "funnelchart" or "ribbonchart")
         {
             return "composition";
         }
@@ -7054,6 +7054,33 @@ public sealed class PbirScoringService
             normalizedVisualType is "barchart" or "columnchart" or "waterfallchart" or "card" or "kpivisual" or "multirowcard")
         {
             return "comparison";
+        }
+
+        if (normalizedVisualType is "gauge")
+        {
+            return "indicator";
+        }
+
+        if (normalizedVisualType is "map" or "filledmap" or "shapemap" or "azuremap")
+        {
+            return "geospatial";
+        }
+
+        if (normalizedVisualType is "decompositiontreevisual")
+        {
+            return "decomposition";
+        }
+
+        if (normalizedVisualType is "keydriversvisual")
+        {
+            return "influencers";
+        }
+
+        if (normalizedVisualType is "ainarrativesvisual")
+        {
+            // Narrative text, not an analytical chart shape — exclude from chart-intent classification,
+            // same as hidden/navigation/decorative/slicer visuals.
+            return null;
         }
 
         return "comparison";

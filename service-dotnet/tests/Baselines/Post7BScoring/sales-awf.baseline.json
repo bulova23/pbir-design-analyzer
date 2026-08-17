@@ -205,8 +205,8 @@
     {
       "PageName": "Open Orders",
       "CompositeScore": 78.25,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -216,7 +216,7 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -240,8 +240,8 @@
     {
       "PageName": "Pg 2 of Monday Rpt",
       "CompositeScore": 69.5,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -252,7 +252,7 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -276,8 +276,8 @@
     {
       "PageName": "Hot List",
       "CompositeScore": 69,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -287,14 +287,14 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 0,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Bulk Sales",
       "CompositeScore": 65.4,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -305,18 +305,18 @@
         "scattered-filters"
       ],
       "recommendationCount": 0,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Accts Receivable",
       "CompositeScore": 69.32,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -340,8 +340,8 @@
     {
       "PageName": "Customer Order Pattern",
       "CompositeScore": 73.8,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -352,7 +352,7 @@
         "scattered-filters"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -435,8 +435,8 @@
     {
       "PageName": "InterCompany",
       "CompositeScore": 74.25,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -447,7 +447,7 @@
         "scattered-filters"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -493,8 +493,8 @@
     {
       "PageName": "allocated frt proof",
       "CompositeScore": 76.5,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -505,7 +505,7 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -522,34 +522,34 @@
     {
       "PageName": "Inv ToolTip",
       "CompositeScore": 69.5,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Plan ToolTip",
       "CompositeScore": 80,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Over 90 Day ToolTip",
       "CompositeScore": 69.5,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -572,12 +572,12 @@
     {
       "PageName": "NewCustomerToolTip",
       "CompositeScore": 80,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -609,7 +609,7 @@
         "PageName": "Sales KPI",
         "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -703,9 +703,9 @@
       },
       {
         "PageName": "Open Orders",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -800,9 +800,9 @@
       },
       {
         "PageName": "Pg 2 of Monday Rpt",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -900,7 +900,7 @@
       },
       {
         "PageName": "Hot List",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -948,7 +948,7 @@
       },
       {
         "PageName": "Bulk Sales",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -998,7 +998,7 @@
       },
       {
         "PageName": "Accts Receivable",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=CustomerSegmentationDiagnostic; Confidence=High; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=DowngradedBySpecialPageType; SuppressedBySpecialPageType=True",
@@ -1097,7 +1097,7 @@
       },
       {
         "PageName": "Customer Order Pattern",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -1381,7 +1381,7 @@
       },
       {
         "PageName": "InterCompany",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -1472,7 +1472,7 @@
         "PageName": "Elapsed Time",
         "DetectedStory": "This page appears to summarize headline performance for quick executive review.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=PerformanceMonitor; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -1561,9 +1561,9 @@
       },
       {
         "PageName": "allocated frt proof",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -1653,7 +1653,7 @@
       },
       {
         "PageName": "Inv ToolTip",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
@@ -1695,7 +1695,7 @@
       },
       {
         "PageName": "Plan ToolTip",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
@@ -1737,7 +1737,7 @@
       },
       {
         "PageName": "Over 90 Day ToolTip",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
@@ -1828,7 +1828,7 @@
       },
       {
         "PageName": "NewCustomerToolTip",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Tooltip; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",

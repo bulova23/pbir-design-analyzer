@@ -106,8 +106,8 @@
     {
       "PageName": "By Class",
       "CompositeScore": 63.11,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-primary-metric",
         "missing-primary-dimension"
@@ -117,14 +117,14 @@
         "scattered-filters"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 40
     },
     {
       "PageName": "Scholar RR Scores",
       "CompositeScore": 74.5,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -136,14 +136,14 @@
         "scattered-filters"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "At-Risk Program Tracker",
       "CompositeScore": 70.68,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -154,14 +154,14 @@
         "scattered-filters"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Current - At-Risk list of Scholars by Grade",
       "CompositeScore": 74.25,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -171,14 +171,14 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 40
     },
     {
       "PageName": "By Teacher",
       "CompositeScore": 79.12,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -190,14 +190,14 @@
         "scattered-filters"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Teacher Growth",
       "CompositeScore": 78.25,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -209,14 +209,14 @@
         "scattered-filters"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "At Risk with Time Slicer",
       "CompositeScore": 74.07,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -228,14 +228,14 @@
         "scattered-filters"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Historical - At-Risk list of Scholars by Grade",
       "CompositeScore": 73.92,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-benchmark-target",
         "missing-primary-metric",
@@ -245,14 +245,14 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 40
     },
     {
       "PageName": "Scholars per Grade",
       "CompositeScore": 72.12,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -263,14 +263,14 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Scholars per At-Risk Level",
       "CompositeScore": 72.12,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -281,7 +281,7 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
@@ -298,8 +298,8 @@
     {
       "PageName": "Page 1",
       "CompositeScore": 69.5,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -310,14 +310,14 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Strengths and Gaps",
       "CompositeScore": 69.5,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -328,25 +328,25 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     },
     {
       "PageName": "Duplicate of By Class",
       "CompositeScore": 63.03,
-      "detectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [],
       "mediumPriorityGuidedStoryImprovementIds": [],
       "recommendationCount": 2,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 40
     },
     {
       "PageName": "Page 2",
       "CompositeScore": 69.5,
-      "detectedStory": "This page appears to compare performance across supporting breakdowns.",
-      "storyArchetype": "comparison",
+      "detectedStory": "This page appears to be a detailed reference view for performance.",
+      "storyArchetype": "detail reference",
       "highPriorityGuidedStoryImprovementIds": [
         "missing-title-question-anchor",
         "missing-benchmark-target",
@@ -357,7 +357,7 @@
         "missing-prior-period-context"
       ],
       "recommendationCount": 3,
-      "benchmarkArchetype": "analytical deep dive",
+      "benchmarkArchetype": "appendix reference",
       "actionabilityScore": 20
     }
   ],
@@ -365,7 +365,7 @@
     "pages": [
       {
         "PageName": "By Class",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -415,7 +415,7 @@
       },
       {
         "PageName": "Scholar RR Scores",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -467,7 +467,7 @@
       },
       {
         "PageName": "At-Risk Program Tracker",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
@@ -517,9 +517,9 @@
       },
       {
         "PageName": "Current - At-Risk list of Scholars by Grade",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Split; DominantConcept=current; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "WeakDiagnosticOnly",
@@ -567,9 +567,9 @@
       },
       {
         "PageName": "By Teacher",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -619,9 +619,9 @@
       },
       {
         "PageName": "Teacher Growth",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -671,9 +671,9 @@
       },
       {
         "PageName": "At Risk with Time Slicer",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -723,9 +723,9 @@
       },
       {
         "PageName": "Historical - At-Risk list of Scholars by Grade",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Split; DominantConcept=grade; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "WeakDiagnosticOnly",
@@ -773,9 +773,9 @@
       },
       {
         "PageName": "Scholars per Grade",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -823,9 +823,9 @@
       },
       {
         "PageName": "Scholars per At-Risk Level",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -915,9 +915,9 @@
       },
       {
         "PageName": "Page 1",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -965,9 +965,9 @@
       },
       {
         "PageName": "Strengths and Gaps",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",
@@ -1015,7 +1015,7 @@
       },
       {
         "PageName": "Duplicate of By Class",
-        "DetectedStory": "This page appears to support exploratory analysis of performance, using multiple views and filters to explain differences.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=ValidationSandbox; Confidence=Medium; TreatAsPrimaryNarrativePage=False; SuppressNormalStoryGaps=True; SuppressGenericArchetypePromotion=True",
         "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=SecondaryToSpecialPageType; SuppressedBySpecialPageType=True",
@@ -1052,9 +1052,9 @@
       },
       {
         "PageName": "Page 2",
-        "DetectedStory": "This page appears to compare performance across supporting breakdowns.",
+        "DetectedStory": "This page appears to be a detailed reference view for performance.",
         "SpecialPageResult": "PageType=Unknown; Confidence=Low; TreatAsPrimaryNarrativePage=True; SuppressNormalStoryGaps=False; SuppressGenericArchetypePromotion=False",
-        "ArchetypeClassification": "Best Fit=Comparison; SurfaceScope=PbirSpecific; PromotionState=Internal",
+        "ArchetypeClassification": "Best Fit=NarrativeWalkthrough; SurfaceScope=PbirSpecific; PromotionState=Internal",
         "ArchetypeSuppressionStatus": "Disposition=Normal; SuppressedBySpecialPageType=False",
         "SemanticCoherenceResult": "Classification=Sparse; DominantConcept=; Confidence=Low; PromotionState=Internal; ScoringMode=PrimaryNarrative",
         "CompetingStoryStatus": "None",

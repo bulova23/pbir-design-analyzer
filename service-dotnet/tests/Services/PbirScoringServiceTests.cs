@@ -858,6 +858,58 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Contains("clusteredColumnChart", visualIntent.RecommendedAlternatives);
     }
 
+    [Theory]
+    [InlineData("gauge", "indicator")]
+    [InlineData("map", "geospatial")]
+    [InlineData("filledMap", "geospatial")]
+    [InlineData("shapeMap", "geospatial")]
+    [InlineData("azureMap", "geospatial")]
+    [InlineData("decompositionTreeVisual", "decomposition")]
+    [InlineData("keyDriversVisual", "influencers")]
+    [InlineData("ribbonChart", "composition")]
+    [InlineData("tableEx", "table-reference")]
+    [InlineData("pivotTable", "table-reference")]
+    public async Task ScoreAsync_VisualMetadata_ClassifiesNativeVisualTypesBeyondComparisonFallback(
+        string visualType, string expectedIntent)
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            $$$"""
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"{{{visualType}}}","x":0,"y":0,"width":420,"height":220,
+               "title":{"visible":true,"text":"Test Visual"},
+               "fieldRoles":{"category":["Region"],"value":["Revenue"]}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var visualIntent = Assert.Single(result.VisualMetadata!.Visuals).ChartIntent;
+        Assert.NotNull(visualIntent);
+        Assert.Equal(expectedIntent, visualIntent!.Intent);
+        Assert.NotEqual("comparison", visualIntent.Intent);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualMetadata_ExcludesAiNarrativesVisualFromChartIntent()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Page 1","visuals":[
+              {"id":"v1","type":"aiNarrativesVisual","x":0,"y":0,"width":420,"height":220,
+               "title":{"visible":true,"text":"Narrative"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var visual = Assert.Single(result.VisualMetadata!.Visuals);
+        Assert.Null(visual.ChartIntent);
+    }
+
     [Fact]
     public async Task ScoreAsync_MalformedFormattingMetadata_DoesNotFailScoring()
     {
@@ -1658,6 +1710,40 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Contains("detailed reference", detail.InferredStorySummary.InferredStory, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(detail.InferredStorySummary.Evidence, evidence =>
             evidence.Contains("table", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("tableEx")]
+    [InlineData("pivotTable")]
+    public async Task ScoreAsync_PageScores_DetailReferenceArchetypeMatchesRealTableAndMatrixVisualTypes(string visualType)
+    {
+        // A slicer plus a non-table second data visual (scatterChart) forces the page through the
+        // "analyticalDeepDive" branch (InferPageIntentProfile) whenever the table-like visual isn't
+        // recognized as table-like — isolating IsTableLikeVisual's own tableCount check from the
+        // dominant-chart-intent fallback that InferPageIntentProfile also uses, so this only passes
+        // when IsTableLikeVisual itself recognizes the real production visualType value.
+        var tempDir = CreateTempPbirFolderFromPages(
+            ("section-1",
+            $$$"""
+            {"displayName":"Transaction Detail","visuals":[
+              {"id":"title1","type":"textbox","x":0,"y":0,"width":460,"height":40,
+               "textbox":{"visible":true,"text":"Transaction Detail"}},
+              {"id":"table1","type":"{{{visualType}}}","x":0,"y":80,"width":600,"height":420,
+               "title":{"visible":true,"text":"Transaction Detail Table"},
+               "fieldRoles":{"category":["Customer","Order Date"],"value":["Revenue"],"measure":["Revenue"]}},
+              {"id":"scatter1","type":"scatterChart","x":620,"y":80,"width":360,"height":420,
+               "title":{"visible":true,"text":"Revenue vs Margin"},
+               "fieldRoles":{"category":["Customer"],"value":["Revenue","Margin"],"measure":["Revenue","Margin"]}},
+              {"id":"slicer1","type":"slicer","x":0,"y":520,"width":220,"height":80}
+            ]}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var detail = Assert.Single(result.PageScores!.Where(page => page.PageName == "Transaction Detail"));
+        Assert.NotNull(detail.InferredStorySummary);
+        Assert.Equal("detailReference", detail.InferredStorySummary!.IntentProfile);
     }
 
     [Fact]
