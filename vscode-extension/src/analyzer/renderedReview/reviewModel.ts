@@ -114,6 +114,16 @@ const CATEGORY_RULES: Array<{
       expectedOutcome: 'A reviewer should understand the page purpose and next action without excessive effort.',
     },
   },
+  {
+    category: 'unsupportedVisualType',
+    label: 'Unsupported visual type',
+    terms: [], // routed by evidence kind below, not by keyword matching
+    guidance: {
+      why: 'This visual type is not semantically analyzed by deterministic scoring — it may be a Deneb chart, an HTML Content visual, or another custom/AppSource visual.',
+      lookFor: 'Confirm the visual renders as intended and communicates what it should.',
+      expectedOutcome: 'The visual should be legible, correctly styled, and free of unexpected behavior.',
+    },
+  },
 ];
 
 function textFor(finding: NormalizedFinding): string {
@@ -131,6 +141,10 @@ export function classifyRenderedReviewFinding(finding: NormalizedFinding): {
 } {
   if (finding.evidence.some((evidence) => evidence.kind === 'semanticModel') || /semantic/i.test(finding.sourceKind)) {
     return { classification: 'semantic' };
+  }
+
+  if (finding.evidence.some((evidence) => evidence.kind === 'customVisual')) {
+    return { classification: 'renderedReviewRecommended', category: 'unsupportedVisualType' };
   }
 
   const rule = findRule(finding);
