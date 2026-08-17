@@ -17,6 +17,13 @@ public static class CustomVisualEvidenceExtractor
             return null;
         }
 
+        // Deneb and HTML Content are the only two AppSource visuals with a dedicated extractor,
+        // detected by the vendor-chosen GUID prefix each one's own manifest declares (verified
+        // against their real, open-source pbiviz.json files — "deneb<GUID>" and
+        // "htmlContent<GUID>" respectively, not fixed strings). Any other AppSource/custom
+        // visual type — including an older, differently-GUID'd "HTML Viewer" visual, or any
+        // future custom visual — deliberately falls through to the generic bucket below rather
+        // than being guessed at.
         if (visualType.StartsWith("deneb", StringComparison.OrdinalIgnoreCase))
         {
             return ExtractDeneb(visual, visualType);
@@ -47,6 +54,10 @@ public static class CustomVisualEvidenceExtractor
             DenebIsRawVegaProvider = isRawVega,
         };
 
+        // v1 scope limit, not a bug: Vega-Lite specs have a flat mark/encoding shape this
+        // extractor parses below; raw Vega specs use a structurally different marks[]/axes[]/
+        // legends[] grammar this extractor doesn't parse. A raw-Vega Deneb visual gets this
+        // lighter "provider present, not structurally analyzed" record instead of a guess.
         if (isRawVega)
         {
             return evidence;

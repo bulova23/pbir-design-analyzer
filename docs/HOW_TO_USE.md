@@ -139,6 +139,8 @@ Use Show Full Reasoning inside Story Assessment for the deeper detail behind the
 
 Rendered Review is an optional human checklist for concerns that are easier to judge from the rendered page than from PBIR metadata alone: whitespace balance, KPI prominence, title wrapping, crowded visuals, table readability, color harmony, and page readability.
 
+It also covers unsupported visual types — Deneb (Vega/Vega-Lite) visuals, HTML Content visuals, and any other custom/AppSource visual type deterministic scoring can't semantically analyze. For Deneb and HTML Content specifically, PBIR Design Analyzer extracts what it safely can from the visual's own configuration (Deneb: mark type, encodings, tooltip/legend/axis/title presence; HTML Content: security-relevant formatting flags and static template content) and surfaces it as an advisory finding — but the actual rendered result still needs a human look, the same as any other checklist item.
+
 For each checklist item you can:
 
 - set a review status
