@@ -4,6 +4,10 @@ All notable changes to PBIR Design Analyzer are recorded here.
 
 ## Unreleased
 
+### Added
+
+- Deneb (Vega/Vega-Lite) and HTML Content visuals are now detected and evidence-extracted instead of silently scored as if they were native comparison charts. Deneb visuals get structural evidence (mark type, encodings, tooltip/legend/axis/title presence) parsed from the embedded Vega-Lite spec; HTML Content visuals get evidence from their formatting-pane security flags and static template content. Any other non-native visual type falls into a generic "not analyzed" classification. All of this is advisory-only — zero score-weight impact — and routed into the existing Rendered Review checklist under a new "Unsupported visual type" category so a reviewer can attach a screenshot to confirm the rendered outcome.
+
 ### Removed
 
 - Removed the PBI Lens capability-detection integration (extension auto-detection, the "Open in PBI Lens" action, and the enhanced-scoring settings that gated it). It never produced usable output — PBI Lens exposes no public VS Code API for this to call into — so it was dead code from the start. The Rendered Review checklist itself is unaffected: it remains a manual, user-supplied screenshot workflow. Anyone who wants a faster way to capture Power BI report screenshots for it can use an external tool such as [PBI Lens](https://github.com/thenguyentrong/pbi-lens); PBIR Design Analyzer does not integrate with it.

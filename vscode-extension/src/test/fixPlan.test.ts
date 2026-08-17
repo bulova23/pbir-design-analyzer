@@ -1,5 +1,6 @@
-import type { NormalizedFinding } from '../analyzer/contracts/scorePanel';
+import type { CustomVisualEvidence, NormalizedFinding, PageVisualMetadataSummary } from '../analyzer/contracts/scorePanel';
 import { buildFixPlan } from '../analyzer/score/fixPlan';
+import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
 
 describe('buildFixPlan', () => {
   it('builds a grouped remediation queue linked back to normalized findings', () => {
@@ -204,5 +205,88 @@ describe('buildFixPlan', () => {
     expect(queue[3]).toMatchObject({
       title: 'Standardize navigation cues',
     });
+  });
+
+  it('excludes custom-visual findings, which have no deterministic fix action, from the Fix Plan', () => {
+    const customVisualFinding: NormalizedFinding = {
+      id: 'custom-visual-overview-v1',
+      title: 'Deneb visual missing tooltip encoding',
+      summary: 'This Deneb chart has no tooltip encoding.',
+      severity: 'medium',
+      confidence: 90,
+      scope: 'page',
+      detectionType: 'deterministic',
+      affectedPages: ['Overview'],
+      impactArea: 'metadata',
+      frameworkImpact: [],
+      recommendation: 'Review the Deneb visual manually.',
+      sourceKind: 'customVisual',
+      sourceSection: 'issues',
+      evidence: [
+        {
+          kind: 'customVisual',
+          label: 'Deneb visual',
+          pageName: 'Overview',
+          visualId: 'v1',
+          detail: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+        },
+      ],
+    };
+
+    expect(buildFixPlan([customVisualFinding])).toEqual([]);
+  });
+
+  it('excludes a real custom-visual finding produced by buildNormalizedFindings from the Fix Plan', () => {
+    const evidence: CustomVisualEvidence = {
+      kind: 'deneb',
+      visualType: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+      denebMarkType: 'line',
+      denebHasTooltip: false,
+    };
+
+    const visualMetadata: PageVisualMetadataSummary = {
+      pageName: 'Overview',
+      semanticColorMap: [],
+      visualCount: 1,
+      visibleTitleVisualCount: 0,
+      textVisualCount: 0,
+      slicerCount: 0,
+      legendVisualCount: 0,
+      axisLabelVisualCount: 0,
+      dataLabelVisualCount: 0,
+      formattedVisualCount: 0,
+      visuals: [
+        {
+          visualId: 'v1',
+          visualType: evidence.visualType,
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          isHidden: false,
+          isNavigationElement: false,
+          isDecorative: false,
+          isSlicer: false,
+          hasVisibleTitleIntent: false,
+          categoryHints: [],
+          valueHints: [],
+          seriesHints: [],
+          measureHints: [],
+          semanticColors: [],
+          customVisualEvidence: evidence,
+        },
+      ],
+    };
+
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata,
+    } as never);
+
+    const customVisualFinding = findings.find((finding) => finding.evidence.some((item) => item.kind === 'customVisual'));
+    expect(customVisualFinding).toBeDefined();
+
+    const queue = buildFixPlan(findings);
+    expect(queue.some((item) => item.sourceFindingIds.includes(customVisualFinding!.id))).toBe(false);
   });
 });

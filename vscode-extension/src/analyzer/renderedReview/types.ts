@@ -13,7 +13,8 @@ export type RenderedReviewCategory =
   | 'tableReadability'
   | 'visualBalance'
   | 'colorHarmony'
-  | 'pageReadability';
+  | 'pageReadability'
+  | 'unsupportedVisualType';
 
 export type RenderedReviewStatus = 'Not Reviewed' | 'Reviewed' | 'Confirmed' | 'Rejected' | 'Deferred';
 

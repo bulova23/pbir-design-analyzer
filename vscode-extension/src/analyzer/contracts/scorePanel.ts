@@ -51,6 +51,7 @@ export interface NormalizedFindingEvidenceReference {
     | 'framework'
     | 'audit'
     | 'metadata'
+    | 'customVisual'
     | 'consistency'
     | 'quickFix'
     | 'benchmark'
@@ -374,6 +375,33 @@ export interface ReviewWorkflowExportData {
   };
 }
 
+export interface DenebEncodingEvidence {
+  channel: string;
+  fieldOrMeasure: string;
+}
+
+export type CustomVisualEvidenceKind = 'deneb' | 'htmlContent' | 'genericCustom';
+
+export interface CustomVisualEvidence {
+  kind: CustomVisualEvidenceKind;
+  visualType: string;
+  denebMarkType?: string;
+  denebEncodings?: DenebEncodingEvidence[];
+  denebHasAxisTitles?: boolean;
+  denebHasLegend?: boolean;
+  denebHasTooltip?: boolean;
+  denebHasTitle?: boolean;
+  denebIsRawVegaProvider?: boolean;
+  denebSpecUnparseable?: boolean;
+  htmlShowRawHtml?: boolean;
+  htmlOverrideInlineStyling?: boolean;
+  htmlEnableDiagnostics?: boolean;
+  htmlFormat?: string;
+  htmlStaticTemplateHasScriptTag?: boolean;
+  htmlStaticTemplateHasExternalResource?: boolean;
+  htmlContentIsDynamicallyBound?: boolean;
+}
+
 export interface VisualMetadataItem {
   visualId: string;
   visualType: string;
@@ -404,6 +432,7 @@ export interface VisualMetadataItem {
   hasShadow?: boolean;
   semanticColors: SemanticColorAssignment[];
   chartIntent?: ChartIntentSummary;
+  customVisualEvidence?: CustomVisualEvidence;
 }
 
 export interface PageVisualMetadataSummary {

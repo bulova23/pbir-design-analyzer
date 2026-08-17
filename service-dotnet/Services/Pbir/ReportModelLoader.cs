@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using PowerBIModelingService.Services.Pbir.CustomVisualEvidence;
 using PowerBIModelingService.Services.Pbir.Models;
 
 namespace PowerBIModelingService.Services.Pbir;
@@ -136,6 +137,7 @@ internal sealed class ReportModelLoader
             var isHidden = ReadBooleanNode(visualObject["isHidden"]) ?? false;
             visuals.Add(CreateVisualData(
                 visualJson: visualObject,
+                visual: visualObject,
                 visualId: visualId,
                 visualType: visualObject["type"]?.GetValue<string>() ?? string.Empty,
                 x: TryDouble(visualObject, "x"),
@@ -182,6 +184,7 @@ internal sealed class ReportModelLoader
 
                 visuals.Add(CreateVisualData(
                     visualJson: visualJson,
+                    visual: visual,
                     visualId: visualName,
                     visualType: visualType,
                     x: x,
@@ -293,6 +296,7 @@ internal sealed class ReportModelLoader
 
     private VisualData CreateVisualData(
         JsonObject visualJson,
+        JsonObject? visual,
         string visualId,
         string visualType,
         double x,
@@ -316,6 +320,7 @@ internal sealed class ReportModelLoader
             FieldRoles = ParseVisualFieldRoleMetadata(visualJson, visualId, sourceContext),
             Formatting = ParseVisualFormattingMetadata(visualJson, visualId, sourceContext),
             Filter = ParseVisualFilterTopologyMetadata(visualJson, visualId, sourceContext),
+            CustomVisualEvidence = visual is null ? null : CustomVisualEvidenceExtractor.Extract(visual, visualType),
         };
     }
 

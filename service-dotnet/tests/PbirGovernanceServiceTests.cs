@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using PowerBIModelingService.Services.Pbir;
+using PowerBIModelingService.Services.Pbir.CustomVisualEvidence;
 using PowerBIModelingService.Services.Pbir.Models;
 using Xunit;
 
@@ -442,5 +443,15 @@ public sealed class PbirGovernanceServiceTests : IDisposable
             SlicerCount = slicerCount,
             Visuals = visualItems,
         };
+    }
+
+    [Fact]
+    public void NativeVisualTypeCatalog_IsNative_RecognizesKnownNativeTypesCaseInsensitively()
+    {
+        Assert.True(NativeVisualTypeCatalog.IsNative("barChart"));
+        Assert.True(NativeVisualTypeCatalog.IsNative("BARCHART"));
+        Assert.True(NativeVisualTypeCatalog.IsNative("tableEx"));
+        Assert.False(NativeVisualTypeCatalog.IsNative("deneb7E15AEF80B9E4D4F8E12924291ECE89A"));
+        Assert.False(NativeVisualTypeCatalog.IsNative("htmlContent443BE3AD55E043BF878BED274D3A6865"));
     }
 }

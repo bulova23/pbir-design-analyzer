@@ -1,4 +1,10 @@
-import type { NormalizedFinding, NormalizedFindingSeverity, ScoreResult } from '../analyzer/contracts/scorePanel';
+import type {
+  CustomVisualEvidence,
+  NormalizedFinding,
+  NormalizedFindingSeverity,
+  PageVisualMetadataSummary,
+  ScoreResult,
+} from '../analyzer/contracts/scorePanel';
 import { buildNormalizedFindings } from '../analyzer/score/normalizedFindings';
 
 describe('normalized finding contract', () => {
@@ -221,5 +227,259 @@ describe('buildNormalizedFindings', () => {
     } as ScoreResult);
 
     expect(findings.map((finding) => finding.title)).toEqual(['A issue', 'Z issue']);
+  });
+});
+
+describe('buildCustomVisualFindings (via buildNormalizedFindings)', () => {
+  function visualMetadata(evidence: CustomVisualEvidence): PageVisualMetadataSummary {
+    return {
+      pageName: 'Overview',
+      semanticColorMap: [],
+      visualCount: 1,
+      visibleTitleVisualCount: 0,
+      textVisualCount: 0,
+      slicerCount: 0,
+      legendVisualCount: 0,
+      axisLabelVisualCount: 0,
+      dataLabelVisualCount: 0,
+      formattedVisualCount: 0,
+      visuals: [
+        {
+          visualId: 'v1',
+          visualType: evidence.visualType,
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          isHidden: false,
+          isNavigationElement: false,
+          isDecorative: false,
+          isSlicer: false,
+          hasVisibleTitleIntent: false,
+          categoryHints: [],
+          valueHints: [],
+          seriesHints: [],
+          measureHints: [],
+          semanticColors: [],
+          customVisualEvidence: evidence,
+        },
+      ],
+    };
+  }
+
+  it('emits a finding for a Deneb visual missing a tooltip encoding', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'deneb',
+        visualType: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+        denebMarkType: 'line',
+        denebHasTooltip: false,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.detectionType).toBe('deterministic');
+    expect(finding!.summary.toLowerCase()).toContain('tooltip');
+  });
+
+  it('emits a finding for a Deneb visual with an unparseable specification', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'deneb',
+        visualType: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+        denebSpecUnparseable: true,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.title.toLowerCase()).toContain('unreadable specification');
+    expect(finding!.summary.toLowerCase()).toContain('could not be parsed');
+  });
+
+  it('emits a finding for a Deneb visual authored in raw Vega', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'deneb',
+        visualType: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+        denebIsRawVegaProvider: true,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.title.toLowerCase()).toContain('raw vega');
+  });
+
+  it('emits a Deneb finding with the no-gaps fallback wording when all structural checks pass', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'deneb',
+        visualType: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+        denebHasTooltip: true,
+        denebHasLegend: true,
+        denebHasAxisTitles: true,
+        denebHasTitle: true,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.summary.toLowerCase()).toContain('though its specification includes');
+    expect(finding!.summary.toLowerCase()).not.toContain('structural gaps found');
+  });
+
+  it('emits a finding for an HTML Content visual with a scripted static template', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'htmlContent',
+        visualType: 'htmlContent443BE3AD55E043BF878BED274D3A6865',
+        htmlStaticTemplateHasScriptTag: true,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.summary.toLowerCase()).toContain('script');
+  });
+
+  it('emits a finding for a dynamically bound HTML Content visual with static-template flags', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'htmlContent',
+        visualType: 'htmlContent443BE3AD55E043BF878BED274D3A6865',
+        htmlContentIsDynamicallyBound: true,
+        htmlStaticTemplateHasExternalResource: true,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.summary.toLowerCase()).toContain('bound to a measure or field');
+    expect(finding!.summary.toLowerCase()).toContain('external resource');
+  });
+
+  it('emits a finding for a dynamically bound HTML Content visual with no static-template flags', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'htmlContent',
+        visualType: 'htmlContent443BE3AD55E043BF878BED274D3A6865',
+        htmlContentIsDynamicallyBound: true,
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.summary.toLowerCase()).toContain('bound to a measure or field');
+    expect(finding!.summary.toLowerCase()).not.toContain('its static template contains');
+  });
+
+  it('emits a finding for a static HTML Content visual with the no-flagged-content fallback wording', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'htmlContent',
+        visualType: 'htmlContent443BE3AD55E043BF878BED274D3A6865',
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.summary.toLowerCase()).toContain('no flagged content');
+  });
+
+  it('emits a generic not-analyzed finding for an unrecognized custom visual', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: visualMetadata({
+        kind: 'genericCustom',
+        visualType: 'PBI_CV_1234567890ABCDEF',
+      }),
+    } as never);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.summary.toLowerCase()).toContain('not analyzed');
+  });
+
+  it('does not emit a custom-visual finding when no visual carries customVisualEvidence', () => {
+    const findings = buildNormalizedFindings({
+      scoredPageName: 'Overview',
+      visualMetadata: {
+        pageName: 'Overview',
+        semanticColorMap: [],
+        visualCount: 0,
+        visibleTitleVisualCount: 0,
+        textVisualCount: 0,
+        slicerCount: 0,
+        legendVisualCount: 0,
+        axisLabelVisualCount: 0,
+        dataLabelVisualCount: 0,
+        formattedVisualCount: 0,
+        visuals: [],
+      },
+    } as never);
+
+    expect(findings.some((f) => f.evidence.some((e) => e.kind === 'customVisual'))).toBe(false);
+  });
+
+  it('emits custom-visual findings in full-report mode via pageScores', () => {
+    const findings = buildNormalizedFindings({
+      gestaltScore: 0,
+      cognitiveLoadScore: 0,
+      dataInkScore: 0,
+      accessibilityScore: 0,
+      visualBestPracticesScore: 0,
+      stephenFewScore: 0,
+      enterpriseGovernanceScore: 0,
+      tufteScore: 0,
+      graphicalPerceptionScore: 0,
+      densityScore: 0,
+      narrativeScore: 0,
+      compositeScore: 0,
+      feedback: {},
+      pageCount: 1,
+      recommendations: [],
+      reportPath: '/tmp/report',
+      scoredAt: '2026-05-30T00:00:00.000Z',
+      pageScores: [
+        {
+          pageName: 'Overview',
+          gestaltScore: 0,
+          cognitiveLoadScore: 0,
+          dataInkScore: 0,
+          accessibilityScore: 0,
+          visualBestPracticesScore: 0,
+          stephenFewScore: 0,
+          enterpriseGovernanceScore: 0,
+          tufteScore: 0,
+          graphicalPerceptionScore: 0,
+          densityScore: 0,
+          narrativeScore: 0,
+          compositeScore: 0,
+          feedback: {},
+          recommendations: [],
+          visualMetadata: visualMetadata({
+            kind: 'deneb',
+            visualType: 'deneb7E15AEF80B9E4D4F8E12924291ECE89A',
+            denebMarkType: 'line',
+            denebHasTooltip: false,
+          }),
+        },
+      ],
+    } as ScoreResult);
+
+    const finding = findings.find((f) => f.evidence.some((e) => e.kind === 'customVisual'));
+    expect(finding).toBeDefined();
+    expect(finding!.affectedPages).toEqual(['Overview']);
+    expect(finding!.summary.toLowerCase()).toContain('tooltip');
   });
 });

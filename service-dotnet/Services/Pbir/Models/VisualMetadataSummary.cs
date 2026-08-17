@@ -187,4 +187,7 @@ public sealed class VisualMetadataItem
 
     /// <summary>Gets or sets the inferred chart intent summary for this visual, when available.</summary>
     public ChartIntentSummary? ChartIntent { get; init; }
+
+    /// <summary>Gets or sets evidence extracted for a non-native (custom/AppSource) visual type, when applicable.</summary>
+    public CustomVisualEvidence.CustomVisualEvidence? CustomVisualEvidence { get; init; }
 }
