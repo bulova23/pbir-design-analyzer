@@ -1,6 +1,7 @@
 import type {
   ActionabilityBreakdown,
   BenchmarkComparisonSummary,
+  CustomVisualEvidence,
   FrameworkFeedbackItem,
   GuidedStoryImprovement,
   GuidedStoryImprovements,
@@ -9,8 +10,10 @@ import type {
   NormalizedFindingImpactArea,
   NormalizedFindingSeverity,
   PageScore,
+  PageVisualMetadataSummary,
   ReportConsistencyFinding,
   ScoreResult,
+  VisualMetadataItem,
 } from '../contracts/scorePanel';
 import { normalizeFrameworkId } from './presentation';
 import { classifyRenderedReviewFinding } from '../renderedReview/reviewModel';
@@ -314,6 +317,116 @@ function buildBenchmarkFinding(
   };
 }
 
+function describeCustomVisualEvidence(evidence: CustomVisualEvidence): {
+  title: string;
+  summary: string;
+  recommendation: string;
+} {
+  if (evidence.kind === 'deneb') {
+    if (evidence.denebSpecUnparseable) {
+      return {
+        title: 'Deneb visual has an unreadable specification',
+        summary: 'The embedded Vega/Vega-Lite specification could not be parsed, so this visual is not semantically analyzed.',
+        recommendation: 'Verify this visual renders correctly and review it manually.',
+      };
+    }
+
+    if (evidence.denebIsRawVegaProvider) {
+      return {
+        title: 'Deneb visual uses raw Vega — not semantically analyzed',
+        summary: 'This Deneb visual is authored in the raw Vega grammar rather than Vega-Lite, which this analyzer does not structurally parse yet.',
+        recommendation: 'Review this visual manually.',
+      };
+    }
+
+    const gaps: string[] = [];
+    if (evidence.denebHasTooltip === false) gaps.push('no tooltip encoding');
+    if (evidence.denebHasLegend === false) gaps.push('no legend');
+    if (evidence.denebHasAxisTitles === false) gaps.push('no axis titles');
+    if (evidence.denebHasTitle === false) gaps.push('no chart title');
+
+    return {
+      title: 'Deneb visual is not semantically analyzed',
+      summary: gaps.length > 0
+        ? `Deterministic scoring cannot see inside this Deneb visual's chart shape. Structural gaps found: ${gaps.join(', ')}.`
+        : "Deterministic scoring cannot see inside this Deneb visual's chart shape, though its specification includes a tooltip, legend, axis titles, and a title.",
+      recommendation: 'Attach a screenshot in Rendered Review to confirm the rendered outcome visually.',
+    };
+  }
+
+  if (evidence.kind === 'htmlContent') {
+    const flags: string[] = [];
+    if (evidence.htmlStaticTemplateHasScriptTag) flags.push('an inline <script> block');
+    if (evidence.htmlStaticTemplateHasExternalResource) flags.push('a reference to an external resource');
+    if (evidence.htmlShowRawHtml) flags.push('raw HTML rendering enabled');
+
+    return {
+      title: 'HTML Content visual is not semantically analyzed',
+      summary: evidence.htmlContentIsDynamicallyBound
+        ? `This HTML Content visual's content is bound to a measure or field, so its rendered output cannot be statically inspected.${flags.length > 0 ? ` Its static template contains ${flags.join(' and ')}.` : ''}`
+        : `This HTML Content visual's static template contains ${flags.length > 0 ? flags.join(' and ') : 'no flagged content'}.`,
+      recommendation: "Verify this visual's behavior manually and attach a screenshot in Rendered Review.",
+    };
+  }
+
+  return {
+    title: `Custom visual type not analyzed: ${evidence.visualType}`,
+    summary: 'This visual type is not on the native list and has no dedicated evidence extractor, so it is not analyzed.',
+    recommendation: 'Attach a screenshot in Rendered Review to confirm the rendered outcome visually.',
+  };
+}
+
+function buildCustomVisualFinding(pageName: string, visual: VisualMetadataItem): NormalizedFinding | null {
+  const evidence = visual.customVisualEvidence;
+  if (!evidence) {
+    return null;
+  }
+
+  const { title, summary, recommendation } = describeCustomVisualEvidence(evidence);
+
+  return {
+    id: `custom-visual-${sanitizeIdPart(pageName)}-${sanitizeIdPart(visual.visualId)}`,
+    title,
+    summary,
+    severity: 'medium',
+    confidence: 90,
+    scope: 'page',
+    detectionType: 'deterministic',
+    affectedPages: [pageName],
+    impactArea: 'metadata',
+    frameworkImpact: [],
+    recommendation,
+    sourceKind: 'customVisual',
+    sourceSection: 'issues',
+    evidence: [
+      {
+        kind: 'customVisual',
+        label: evidence.kind === 'deneb' ? 'Deneb visual' : evidence.kind === 'htmlContent' ? 'HTML Content visual' : 'Custom visual',
+        pageName,
+        visualId: visual.visualId,
+        detail: evidence.visualType,
+      },
+    ],
+  };
+}
+
+function pushCustomVisualFindings(
+  findings: NormalizedFinding[],
+  pageName: string | undefined,
+  visualMetadata: PageVisualMetadataSummary | undefined,
+): void {
+  if (!pageName || !visualMetadata) {
+    return;
+  }
+
+  for (const visual of visualMetadata.visuals) {
+    const finding = buildCustomVisualFinding(pageName, visual);
+    if (finding) {
+      findings.push(finding);
+    }
+  }
+}
+
 function guidedPriorityToSeverity(priority: GuidedStoryImprovement['priority']): NormalizedFindingSeverity {
   switch (priority) {
     case 'high':
@@ -373,7 +486,7 @@ function pushGuidedStoryImprovementFindings(
   return improvements.length > 0;
 }
 
-function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison' | 'guidedStoryImprovements'>): void {
+function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, 'pageName' | 'feedback' | 'actionabilityBreakdown' | 'benchmarkComparison' | 'guidedStoryImprovements' | 'visualMetadata'>): void {
   for (const [frameworkKey, items] of Object.entries(page.feedback ?? {}).sort(([left], [right]) => compareText(left, right))) {
     for (const item of items) {
       const finding = buildFrameworkFinding(frameworkKey, item, page.pageName);
@@ -402,6 +515,8 @@ function pushPageFindings(findings: NormalizedFinding[], page: Pick<PageScore, '
       findings.push(benchmarkFinding);
     }
   }
+
+  pushCustomVisualFindings(findings, page.pageName, page.visualMetadata);
 }
 
 function dedupeFindings(findings: NormalizedFinding[]): NormalizedFinding[] {
@@ -515,6 +630,8 @@ export function buildNormalizedFindings(result: ScoreResult): NormalizedFinding[
         findings.push(benchmarkFinding);
       }
     }
+
+    pushCustomVisualFindings(findings, result.scoredPageName, result.visualMetadata);
   }
 
   return dedupeFindings(findings)
