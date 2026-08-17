@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using PowerBIModelingService.Services.Pbir.CustomVisualEvidence;
 using PowerBIModelingService.Services.Pbir.Models;
 
 namespace PowerBIModelingService.Services.Pbir;
@@ -307,27 +308,6 @@ public sealed class PbirGovernanceService
     }
 
     /// <summary>
-    /// Known first-party Power BI visual type identifiers (case-insensitive). Anything outside this
-    /// set is treated as a custom (third-party) visual for the <c>allowCustomVisuals</c> rule.
-    /// </summary>
-    private static readonly HashSet<string> _knownVisualTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "barChart", "columnChart", "clusteredBarChart", "clusteredColumnChart",
-        "stackedBarChart", "stackedColumnChart", "hundredPercentStackedBarChart", "hundredPercentStackedColumnChart",
-        "lineChart", "areaChart", "stackedAreaChart", "lineStackedColumnComboChart", "lineClusteredColumnComboChart",
-        "pieChart", "donutChart",
-        "scatterChart", "treemap", "waterfallChart", "funnel", "gauge",
-        "card", "multiRowCard", "kpi",
-        "tableEx", "pivotTable", "matrix",
-        "slicer", "filterSlicer", "advancedSlicer",
-        "map", "filledMap", "shapeMap", "azureMap",
-        "image", "textbox", "shape", "basicShape", "actionButton", "navigationButton",
-        "pageNavigator", "bookmarkNavigator",
-        "decompositionTreeVisual", "qnaVisual", "keyDriversVisual", "aiNarrativesVisual",
-        "ribbonChart",
-    };
-
-    /// <summary>
     /// Evaluates dynamic governance rules from <see cref="GovernancePolicy.DynamicRules"/> against the
     /// scored report. Each recognized rule reads the relevant facts from <paramref name="score"/>
     /// (per-page visual counts, hidden visuals, slicers, pie usage, custom visual presence, white space,
@@ -508,7 +488,7 @@ public sealed class PbirGovernanceService
             var customTypes = metadata.Visuals
                 .Where(v => !v.IsHidden && !string.IsNullOrWhiteSpace(v.VisualType))
                 .Select(v => v.VisualType)
-                .Where(t => !_knownVisualTypes.Contains(t))
+                .Where(t => !NativeVisualTypeCatalog.IsNative(t))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
