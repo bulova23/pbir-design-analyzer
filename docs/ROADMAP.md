@@ -453,6 +453,14 @@ Status:
   - no Fabric App mutation path was introduced
 - next step for this initiative is deeper Fabric App review, not code generation or migration automation
 
+### Rayfin (Microsoft Fabric) — Deferred Evaluation
+
+Microsoft announced [Rayfin](https://github.com/microsoft/rayfin) at Build 2026: an open-source, early-access SDK/CLI for generating full-stack applications hosted on Microsoft Fabric — a TypeScript frontend plus a Fabric SQL database or Power BI semantic-model backend, Entra ID auth, and a generated GraphQL API, deployed as a Fabric workspace item.
+
+This is a different artifact from the `Fabric App Readiness Assessment` and `Fabric App Review Mode Foundations` above, which both operate on PBIR-adjacent surfaces (a PBIR report, or a generic web repo used as a stand-in surface). A Rayfin app has no PBIR content and no fixed declarative report schema — the frontend is arbitrary generated TypeScript/React code, so the static evidence-extraction approach this analyzer is built around does not transfer directly. Scoring a Rayfin app's UI would most likely require either a render-and-review approach (screenshot the running app and evaluate it, since there is no spec to parse) or a separate static code/accessibility review of the generated frontend — a different kind of analyzer than PBIR Design Analyzer is today. The one plausible overlap is evaluating a Rayfin app's Power BI semantic-model backend, if present, with this analyzer's existing semantic-model evidence capability.
+
+Status: not started. Rayfin is early access (~2 months old as of this writing) and its architecture is still likely to change. Revisit once it stabilizes and real Rayfin app samples are available to design against, rather than building against announcement-stage documentation.
+
 ## Guardrails
 
 ### Phase 40 — Advanced Chart Authoring and Reusable Visual Templates

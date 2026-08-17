@@ -1,5 +1,12 @@
 # Current Focus
 
+## 2026-08-16 Fabric App and special-visual capability review
+
+- Fabric App Review is a real but bounded advisory analyzer over local TypeScript repos; it does not execute or inspect deployed apps and does not reuse PBIR scoring for app visuals.
+- HTML/Deneb/custom visuals are tolerated structurally and can contribute generic metadata/layout signals, but there is no dedicated parser for HTML/CSS/JS or Deneb Vega/Vega-Lite semantics. Screenshot review is the manual/optional rendered fallback.
+- Session note: `.agent-memory/sessions/2026-08-16-fabric-apps-and-special-visuals-review.md`
+- Next step: decide whether to add bounded special-visual evidence adapters, deeper Fabric App runtime/evidence acquisition, or keep the current advisory scope explicit for v1.0.
+
 ## Active Session
 
 - 2026-08-16 Version bump to 0.7.0 and documentation refresh:
