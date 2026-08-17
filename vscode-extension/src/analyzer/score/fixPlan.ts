@@ -341,7 +341,7 @@ export function buildFixPlan(findings: NormalizedFinding[] | undefined): FixPlan
   }
 
   const grouped = findings
-    .filter((finding) => finding.sourceSection === 'issues')
+    .filter((finding) => finding.sourceSection === 'issues' && !finding.evidence.some((evidence) => evidence.kind === 'customVisual'))
     .reduce<Map<string, NormalizedFinding[]>>((lookup, finding) => {
       const key = buildGroupKey(finding);
       const existing = lookup.get(key) ?? [];
