@@ -2897,6 +2897,7 @@ public sealed class PbirScoringService
         HasShadow = visual.Formatting.HasShadow,
         SemanticColors = semanticAssignments.ToList(),
         ChartIntent = chartIntent,
+        CustomVisualEvidence = visual.CustomVisualEvidence,
     };
 
     private static List<SemanticColorAssignment> ExtractSemanticColorAssignments(PageData page)
@@ -3068,7 +3069,8 @@ public sealed class PbirScoringService
 
     private static ChartIntentSummary? InferChartIntent(VisualData visual, PageData page)
     {
-        if (visual.IsHidden || visual.IsNavigationElement || visual.IsDecorative || visual.IsSlicer)
+        if (visual.IsHidden || visual.IsNavigationElement || visual.IsDecorative || visual.IsSlicer
+            || visual.CustomVisualEvidence is not null)
         {
             return null;
         }

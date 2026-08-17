@@ -32,6 +32,7 @@ internal sealed record VisualData
     public VisualFieldRoleMetadata FieldRoles { get; init; } = VisualFieldRoleMetadata.Empty;
     public VisualFormattingMetadata Formatting { get; init; } = VisualFormattingMetadata.Empty;
     public FilterTopologyMetadata Filter { get; init; } = FilterTopologyMetadata.Empty;
+    public CustomVisualEvidence.CustomVisualEvidence? CustomVisualEvidence { get; init; }
 
     public bool IsSlicer => Type is "slicer" or "advancedSlicerVisual";
     public bool IsKpiCard => Type is "card" or "kpiVisual" or "multiRowCard";

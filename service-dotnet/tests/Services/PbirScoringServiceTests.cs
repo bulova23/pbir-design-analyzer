@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using PowerBIModelingService.Services;
 using PowerBIModelingService.Services.Pbir;
+using PowerBIModelingService.Services.Pbir.CustomVisualEvidence;
 using PowerBIModelingService.Services.Pbir.Models;
 using Xunit;
 
@@ -655,6 +656,42 @@ public sealed class PbirScoringServiceTests : IDisposable
         Assert.Equal(
             new[] { "visual-a", "visual-m", "visual-z" },
             result.VisualMetadata!.Visuals.Select(visual => visual.VisualId).ToArray());
+    }
+
+    [Fact]
+    public async Task ScoreAsync_VisualMetadata_AttachesCustomVisualEvidenceAndSkipsChartIntentForDeneb()
+    {
+        var tempDir = CreateTempPbirFolderWithDirectoryVisuals(
+            """{"displayName":"Page 1"}""",
+            ("deneb1",
+            """
+            {"name":"deneb1","position":{"x":0,"y":0,"width":320,"height":180},
+             "visual":{"visualType":"deneb7E15AEF80B9E4D4F8E12924291ECE89A",
+               "objects":{"vega":{
+                 "provider":{"expr":{"Literal":{"Value":"'vegaLite'"}}},
+                 "jsonSpec":{"expr":{"Literal":{"Value":"'{\"mark\":\"bar\",\"encoding\":{\"x\":{\"field\":\"Category\"},\"y\":{\"field\":\"Total Sales\"}}}'"}}}
+               }}}}
+            """),
+            ("bar1",
+            """
+            {"name":"bar1","position":{"x":320,"y":0,"width":320,"height":180},
+             "visual":{"visualType":"barChart"},
+             "fieldRoles":{"category":["Region"],"value":["Revenue"]}}
+            """));
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.NotNull(result.VisualMetadata);
+        var denebItem = result.VisualMetadata!.Visuals.Single(v => v.VisualId == "deneb1");
+        Assert.NotNull(denebItem.CustomVisualEvidence);
+        Assert.Equal("deneb", denebItem.CustomVisualEvidence!.Kind);
+        Assert.Equal("bar", denebItem.CustomVisualEvidence.DenebMarkType);
+        Assert.Null(denebItem.ChartIntent);
+
+        var barItem = result.VisualMetadata.Visuals.Single(v => v.VisualId == "bar1");
+        Assert.Null(barItem.CustomVisualEvidence);
+        Assert.NotNull(barItem.ChartIntent);
     }
 
     [Fact]
