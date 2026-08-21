@@ -1,8 +1,30 @@
 {
   "target": "win32-x64",
   "version": "0.7.0",
-  "packageSha256": "02838ef66ad687c5df7fe58cb51deb37230e4745bb92d4b955a7366cc69ca104",
-  "fixturePath": "/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/tests/Fixtures/Characterization/MinimalReport.Report",
-  "runtimeProof": false,
-  "acceptanceLayer": "package-only"
+  "packageSha256": "0b5b9e4bf842691b5de2f09ebf426ae1870f15abf33acd80ba86b7587d42d0bd",
+  "fixturePath": "D:\\a\\pbir-design-analyzer\\pbir-design-analyzer\\service-dotnet\\tests\\Fixtures\\Characterization\\MinimalReport.Report",
+  "runtimeProof": true,
+  "runtimeMode": "native",
+  "acceptanceLayer": "packaged-workflow",
+  "backendSha256": "fa2b614b2a0c0bf625618fe4741627db4b4be16748226cd39b4dcb2cca1d8c1a",
+  "protocolNegotiation": true,
+  "ping": {
+    "success": true,
+    "data": {
+      "status": "ready",
+      "connected": false,
+      "version": "0.1.11"
+    }
+  },
+  "compositeScore": 71.25,
+  "normalizedFingerprint": "9d3393ff372deb045ee228dabefa31053a8119ff9e4ae0ddddd66d3209b7c9a9",
+  "mutationWorkflow": "PASS",
+  "rollbackWorkflow": "PASS",
+  "exportWorkflow": "PASS",
+  "workflowFixturePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\pbir-packaged-acceptance-PS2Ktw\\workflow\\output\\Generated.Report",
+  "workflowFixtureSha256": "515876d7a55374589dded915243d27588e9b0a368e2e3748a6c989f20c9dd7b6",
+  "hostedWorkflowRun": 32511720555,
+  "hostedJob": 96864952609,
+  "hostedRunner": "windows-latest / Windows Server 2025",
+  "hostedCommit": "8d652c4c36b0e6a351c33f846aa2f241223d2148"
 }

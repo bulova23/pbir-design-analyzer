@@ -1,13 +1,14 @@
 # Current Focus
 
-## Active Session — 2026-08-21 v1.0 GitHub governance verification
+## Active Session — 2026-08-21 hosted packaged acceptance closeout
 
-- GitHub repository: `bulova23/pbir-design-analyzer`; branch `main`.
+- GitHub repository: `bulova23/pbir-design-analyzer`; branch `codex/hosted-v1-readiness-validation-2026-08-21`.
 - Ruleset `main-production-protection` ID `21156915` is active for `refs/heads/main` and verifies PR-only merges, one approval, stale-review dismissal, conversation resolution, strict up-to-date checks, real CI contexts, deletion blocking, and force-push blocking.
 - Ruleset `release-tag-protection` ID `21156927` is active for `refs/tags/v*` and blocks deletion/non-fast-forward tag updates while allowing release tag creation.
 - The legacy branch-protection endpoint remains 404; rulesets are the authoritative protection model.
-- Readiness remains **NOT READY** because hosted native Windows acceptance is still outstanding. Evidence: `docs/release-evidence/v1.0-readiness-report.md`.
-- Next action: run the hosted native packaged-acceptance matrix, then update readiness evidence; do not tag or publish.
+- Hosted CI run `32511720555` passed release gates, all three build-test jobs, package verification for all five targets, and packaged runtime acceptance for linux-x64, win32-x64, and darwin-arm64. The win32-x64 job `96864952609` proved native Windows Server 2025 execution and uploaded durable evidence.
+- The macOS Intel `macos-13` leg remained queued and was canceled after the required Windows, Linux, and macOS arm64 legs completed; local Rosetta darwin-x64 proof remains recorded. Windows ARM64 remains package-only.
+- Readiness evidence is updated to READY WITH DOCUMENTED LIMITATION; do not tag or publish from this validation branch. Next action is protected-PR review/merge only if the release owner accepts the documented macOS Intel runner and Windows ARM64 limitations.
 
 ## Prior Active Session — 2026-08-21 v1.0 readiness gate closeout
 
