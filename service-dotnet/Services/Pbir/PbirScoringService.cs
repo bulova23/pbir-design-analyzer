@@ -1470,8 +1470,8 @@ public sealed class PbirScoringService
             .SelectMany(page => page.Visuals.Select(visual => (page, visual)))
             .Where(entry => !entry.visual.IsHidden)
             .Where(entry =>
-                TryNormalizeHex(entry.visual.Formatting.BackgroundFillColor) is not null &&
-                TryNormalizeHex(entry.visual.Formatting.FontColor) is not null)
+                AccessibilityColorMath.TryNormalizeHex(entry.visual.Formatting.BackgroundFillColor) is not null &&
+                AccessibilityColorMath.TryNormalizeHex(entry.visual.Formatting.FontColor) is not null)
             .ToList();
 
         if (pairs.Count == 0)
@@ -1490,8 +1490,8 @@ public sealed class PbirScoringService
 
         foreach (var (page, visual) in pairs)
         {
-            var bg = TryNormalizeHex(visual.Formatting.BackgroundFillColor)!;
-            var fg = TryNormalizeHex(visual.Formatting.FontColor)!;
+            var bg = AccessibilityColorMath.TryNormalizeHex(visual.Formatting.BackgroundFillColor)!;
+            var fg = AccessibilityColorMath.TryNormalizeHex(visual.Formatting.FontColor)!;
             try
             {
                 if (WcagContrastCalculator.MeetsNormalTextAA(bg, fg))
@@ -1555,7 +1555,7 @@ public sealed class PbirScoringService
         List<string> recs)
     {
         var normalized = themeColors
-            .Select(TryNormalizeHex)
+            .Select(AccessibilityColorMath.TryNormalizeHex)
             .Where(hex => hex is not null)
             .Select(hex => hex!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1577,8 +1577,8 @@ public sealed class PbirScoringService
         {
             for (int j = i + 1; j < normalized.Count; j++)
             {
-                if (LooksLikeRedGreenPair(normalized[i], normalized[j]) &&
-                    SimulatesToSimilarUnderDeuteranopia(normalized[i], normalized[j]))
+                if (AccessibilityColorMath.LooksLikeRedGreenPair(normalized[i], normalized[j]) &&
+                    AccessibilityColorMath.SimulatesToSimilarUnderDeuteranopia(normalized[i], normalized[j]))
                 {
                     problemPairs.Add((normalized[i], normalized[j]));
                 }
@@ -1609,87 +1609,6 @@ public sealed class PbirScoringService
             FindingTypes.StrongHeuristic));
 
         return 0;
-    }
-
-    /// <summary>
-    /// Returns a normalized #RRGGBB string when the input is a parseable hex colour;
-    /// returns <c>null</c> for null, empty, or malformed inputs. Tolerates the # prefix
-    /// being optional and the 3-digit shorthand (#RGB).
-    /// </summary>
-    private static string? TryNormalizeHex(string? hex)
-    {
-        if (string.IsNullOrWhiteSpace(hex)) return null;
-        var trimmed = hex.Trim().TrimStart('#');
-        if (trimmed.Length == 3)
-        {
-            trimmed = $"{trimmed[0]}{trimmed[0]}{trimmed[1]}{trimmed[1]}{trimmed[2]}{trimmed[2]}";
-        }
-        if (trimmed.Length != 6) return null;
-        for (int i = 0; i < 6; i++)
-        {
-            if (!Uri.IsHexDigit(trimmed[i])) return null;
-        }
-        return "#" + trimmed.ToUpperInvariant();
-    }
-
-    /// <summary>
-    /// Returns <c>true</c> when one colour reads as predominantly red and the other as predominantly green
-    /// (the classic red/green colourblindness failure pattern). Uses a coarse RGB dominance heuristic.
-    /// </summary>
-    private static bool LooksLikeRedGreenPair(string a, string b) =>
-        (IsRedDominant(a) && IsGreenDominant(b)) || (IsGreenDominant(a) && IsRedDominant(b));
-
-    private static bool IsRedDominant(string hex)
-    {
-        var (r, g, bl) = HexToRgb(hex);
-        return r > g + 40 && r > bl + 40;
-    }
-
-    private static bool IsGreenDominant(string hex)
-    {
-        var (r, g, bl) = HexToRgb(hex);
-        return g > r + 40 && g > bl + 40;
-    }
-
-    /// <summary>
-    /// Applies a simple deuteranopia simulation (Brettel/Viénot-style projection collapsed to a
-    /// linearised channel mix) and reports whether the two simulated colours fall within a small
-    /// perceptual distance. Intentionally conservative — only flag pairs that are clearly at risk.
-    /// </summary>
-    private static bool SimulatesToSimilarUnderDeuteranopia(string a, string b)
-    {
-        var simA = SimulateDeuteranopia(a);
-        var simB = SimulateDeuteranopia(b);
-        double dr = simA.R - simB.R;
-        double dg = simA.G - simB.G;
-        double db = simA.B - simB.B;
-        double distance = Math.Sqrt(dr * dr + dg * dg + db * db);
-        // sRGB values in [0,1]; 0.15 is a coarse perceptual threshold for "looks similar".
-        return distance < 0.15;
-    }
-
-    private static (double R, double G, double B) SimulateDeuteranopia(string hex)
-    {
-        var (rByte, gByte, bByte) = HexToRgb(hex);
-        double r = rByte / 255.0;
-        double g = gByte / 255.0;
-        double b = bByte / 255.0;
-        // Approximate deuteranopia projection in sRGB space (linear approximation of the
-        // Brettel/Viénot model). Sufficient for "indistinguishable hue" warnings; not a full
-        // CIE simulation.
-        double simR = 0.625 * r + 0.375 * g + 0.0 * b;
-        double simG = 0.700 * r + 0.300 * g + 0.0 * b;
-        double simB = 0.0 * r + 0.300 * g + 0.700 * b;
-        return (Math.Clamp(simR, 0, 1), Math.Clamp(simG, 0, 1), Math.Clamp(simB, 0, 1));
-    }
-
-    private static (int R, int G, int B) HexToRgb(string hex)
-    {
-        var h = hex.TrimStart('#');
-        return (
-            Convert.ToInt32(h[..2], 16),
-            Convert.ToInt32(h[2..4], 16),
-            Convert.ToInt32(h[4..], 16));
     }
 
     // ── 5. Visual Best Practices score ──────────────────────────────────────
@@ -2907,8 +2826,8 @@ public sealed class PbirScoringService
         foreach (var visual in page.Visuals.Where(visual => !visual.IsHidden && !visual.IsNavigationElement && !visual.IsDecorative))
         {
             var signalColor = FirstNonBlank(
-                TryNormalizeHex(visual.Formatting.FontColor),
-                TryNormalizeHex(visual.Formatting.BackgroundFillColor));
+                AccessibilityColorMath.TryNormalizeHex(visual.Formatting.FontColor),
+                AccessibilityColorMath.TryNormalizeHex(visual.Formatting.BackgroundFillColor));
             if (string.IsNullOrWhiteSpace(signalColor))
             {
                 continue;
@@ -7212,8 +7131,8 @@ public sealed class PbirScoringService
             .SelectMany(ExtractSemanticColorAssignments)
             .Where(assignment => assignment.SemanticKey.StartsWith("status:", StringComparison.OrdinalIgnoreCase))
             .Where(assignment =>
-                (IsNegativeStatusSemanticKey(assignment.SemanticKey) && IsGreenDominant(assignment.Color)) ||
-                (IsPositiveStatusSemanticKey(assignment.SemanticKey) && IsRedDominant(assignment.Color)))
+                (IsNegativeStatusSemanticKey(assignment.SemanticKey) && AccessibilityColorMath.IsGreenDominant(assignment.Color)) ||
+                (IsPositiveStatusSemanticKey(assignment.SemanticKey) && AccessibilityColorMath.IsRedDominant(assignment.Color)))
             .GroupBy(assignment => new { assignment.SourcePageName, assignment.SemanticKey, assignment.Color })
             .Select(group => new StatusSemanticIssue(group.Key.SourcePageName, group.Key.SemanticKey, group.Key.Color, group.ToList()))
             .ToList();
