@@ -11,9 +11,9 @@ describe('scorePanelStateService', () => {
   it('resets score-bound state for a Design Studio handoff shell', () => {
     const service = createScorePanelStateService();
     service.setSelectedPageIndex(2, 3);
-    service.setCurrentResult({ compositeScore: 85 } as any);
-    service.setSavedConfig({ includeInsights: true } as any);
-    service.setPendingMessages([{ type: 'loading' } as any]);
+    service.setCurrentResult({ compositeScore: 85 } as never);
+    service.setSavedConfig({ includeInsights: true } as never);
+    service.setPendingMessages([{ type: 'loading' } as never]);
 
     service.resetForHandoff();
 

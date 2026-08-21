@@ -1,7 +1,6 @@
 import type {
   MaterializationAnalyzerHandoffContract,
   MaterializationHandoffReference,
-  MaterializationMode,
   MaterializationProvenanceEntry,
   MaterializationRequest,
   MaterializedSurfaceCandidate,

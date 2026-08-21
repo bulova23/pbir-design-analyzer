@@ -257,6 +257,7 @@ export function assessFabricAppReadiness(
   _profile: AnalyzerProfileId = 'migrationReadiness',
   scoringConfig: FabricScoringConfig = getDefaultFabricScoringConfig(),
 ): FabricAppReadinessAssessment {
+  void _profile;
   const pageAssessments = (result.pageScores ?? []).map((page) => buildPageAssessment(result, page, scoringConfig));
   const overallReadinessScore = pageAssessments.length > 0
     ? Math.round(pageAssessments.reduce((sum, page) => sum + page.readinessScore, 0) / pageAssessments.length)

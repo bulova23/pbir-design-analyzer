@@ -235,6 +235,7 @@ export async function reviewFabricAppSurface(
   _profile: AnalyzerProfileId = 'fabricAppQuality',
   scoringConfig: FabricScoringConfig = getDefaultFabricScoringConfig(),
 ): Promise<FabricAppReviewResult> {
+  void _profile;
   if (surface.surfaceType !== 'fabricApp') {
     throw new Error('FabricAppReviewAnalyzer accepts only Fabric App surfaces.');
   }

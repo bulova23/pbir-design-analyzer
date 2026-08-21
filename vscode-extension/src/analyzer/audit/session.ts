@@ -106,7 +106,7 @@ export function assignCapture(
   captureId: string,
   targetPageName: string,
 ): void {
-  let capture = extractCapture(session, captureId);
+  const capture = extractCapture(session, captureId);
   if (!capture) {
     return;
   }

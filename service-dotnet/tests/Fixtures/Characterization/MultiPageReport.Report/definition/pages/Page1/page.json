@@ -1,0 +1,1 @@
+{"displayName":"Overview","visuals":[{"id":"title","type":"textbox","x":0,"y":0,"width":640,"height":48,"textbox":{"visible":true,"text":"Overview"}},{"id":"revenue","type":"barChart","x":0,"y":80,"width":640,"height":320,"fieldRoles":{"category":[{"displayName":"Region"}],"measure":[{"displayName":"Revenue"}]}}]}

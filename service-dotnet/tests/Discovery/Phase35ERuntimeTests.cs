@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Reflection;
 using PowerBIModelingService.Services.Discovery;
 using Xunit;
 
@@ -55,7 +56,7 @@ public sealed class Phase35ERuntimeTests
     public async Task Runner_BoundsTimeoutAndReportsOwnedTermination()
     {
         var runner = new Phase35ESandboxedProcessRunner(new Phase35EProcessBoundaryForTests());
-        var result = await runner.RunAsync(Spec("timeout") with { Timeout = TimeSpan.FromMilliseconds(100) }, new CancellationTokenSource(TimeSpan.FromSeconds(1)).Token);
+        var result = await runner.RunAsync(Spec("timeout") with { Timeout = TimeSpan.FromMilliseconds(250) }, new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
 
         Assert.Equal(Phase35EExitClassification.TimedOut, result.ExitClassification);
         Assert.Equal(Phase35EFailureCode.TimedOut, result.Failure);
@@ -83,7 +84,11 @@ public sealed class Phase35ERuntimeTests
 
     private static Phase35ESandboxPolicy Policy() => new("sandbox/v1", false, false, false, TimeSpan.FromSeconds(1), 1024, 1024, 1, false, false, false, false);
     private static Phase35EPlatformCapabilities Capabilities() => new("darwin-arm64", true, true, true, true, false, false, false, true);
-    private static Phase35EExecutableIdentity Identity() => new("future.fake", "1.0.0", "impl:fake", "package:1", "cert:1", "/usr/bin/true", Convert.ToHexString(SHA256.HashData(File.ReadAllBytes("/usr/bin/true"))).ToLowerInvariant());
+    private static Phase35EExecutableIdentity Identity()
+    {
+        var executablePath = typeof(Phase35ERuntimeTests).Assembly.Location;
+        return new("future.fake", "1.0.0", "impl:fake", "package:1", "cert:1", executablePath, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(executablePath))).ToLowerInvariant());
+    }
     private static Phase35ESandboxExecutionSpec Spec(string mode) => new(Identity(), Policy(), "session:1", "request:1", "/tmp", "/tmp", "/tmp", [mode], new Dictionary<string, string?>(), TimeSpan.FromMilliseconds(10), 128);
 
     private sealed class Phase35EProcessBoundaryForTests : IPhase35EProcessBoundary

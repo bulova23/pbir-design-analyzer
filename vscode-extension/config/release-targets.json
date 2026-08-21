@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "release-targets/v1",
+  "targets": [
+    {
+      "target": "win32-x64",
+      "runtimeId": "win-x64",
+      "executableName": "ModelingLanguageServer.exe",
+      "selfContained": false
+    },
+    {
+      "target": "win32-arm64",
+      "runtimeId": "win-arm64",
+      "executableName": "ModelingLanguageServer.exe",
+      "selfContained": true
+    },
+    {
+      "target": "linux-x64",
+      "runtimeId": "linux-x64",
+      "executableName": "ModelingLanguageServer",
+      "selfContained": false
+    },
+    {
+      "target": "darwin-x64",
+      "runtimeId": "osx-x64",
+      "executableName": "ModelingLanguageServer",
+      "selfContained": false
+    },
+    {
+      "target": "darwin-arm64",
+      "runtimeId": "osx-arm64",
+      "executableName": "ModelingLanguageServer",
+      "selfContained": false
+    }
+  ]
+}

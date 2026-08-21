@@ -40,7 +40,7 @@ function extractCSharpAutoPropertyNames(source: string, className: string): stri
   expect(classIndex).toBeGreaterThanOrEqual(0);
 
   const classText = source.slice(classIndex);
-  const propertyPattern = /public\s+[A-Za-z0-9_<>,?.\[\]\s]+\s+([A-Za-z0-9_]+)\s*\{/g;
+  const propertyPattern = /public\s+[A-Za-z0-9_<>,?.[\]\s]+\s+([A-Za-z0-9_]+)\s*\{/g;
   const propertyNames = new Set<string>();
   let match: RegExpExecArray | null;
 

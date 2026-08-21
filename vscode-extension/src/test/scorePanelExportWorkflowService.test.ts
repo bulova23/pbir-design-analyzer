@@ -22,12 +22,12 @@ describe('scorePanelExportWorkflowService', () => {
       openTextDocument: jest.fn(),
       executeCommand: jest.fn(),
       getReportPath: () => '/Reports/Sales.Report',
-      context: {} as any,
+      context: {} as never,
       getCurrentResult: () => undefined,
       getReviewPacketPreviewOptions: () => ({
         profile: 'consultant',
         templateVariant: 'default',
-      } as any),
+      } as never),
     });
 
     await service.openReviewPacketPreview();

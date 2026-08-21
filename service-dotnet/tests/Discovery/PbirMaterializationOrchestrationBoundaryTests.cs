@@ -12,7 +12,7 @@ namespace PowerBIModelingService.Tests.Discovery;
 public sealed class PbirMaterializationOrchestrationBoundaryTests
 {
     [Fact]
-    public void Orchestrator_DependsOnlyOnCanonicalPhase29AndPhase30Services()
+    public void Orchestrator_DependsOnlyOnCanonicalMaterializationServices()
     {
         var fields = typeof(PbirMaterializationOrchestrationService)
             .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
@@ -24,7 +24,8 @@ public sealed class PbirMaterializationOrchestrationBoundaryTests
             {
                 typeof(PbirDeployableSerializerService),
                 typeof(PbirDeployableMaterializationPreviewService),
-                typeof(PbirDeployableMaterializationApplyService)
+                typeof(PbirDeployableMaterializationApplyService),
+                typeof(PbirDeployableMaterializationRollbackService)
             },
             fields);
         Assert.DoesNotContain(typeof(IPbirDeployableMaterializationFileSystem), fields);

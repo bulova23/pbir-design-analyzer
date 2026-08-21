@@ -311,7 +311,17 @@ internal sealed record PbirAuthoringMutateResult(
     [property: JsonPropertyName("changedPageCount")] int ChangedPageCount,
     [property: JsonPropertyName("changedVisualCount")] int ChangedVisualCount,
     [property: JsonPropertyName("preview")] PbirAuthoringMutationPreview? Preview = null,
-    [property: JsonPropertyName("comparison")] PbirAuthoringAnalyzerComparison? Comparison = null);
+    [property: JsonPropertyName("comparison")] PbirAuthoringAnalyzerComparison? Comparison = null,
+    [property: JsonPropertyName("materialization")] PbirAuthoringMaterializationHandle? Materialization = null);
+
+internal sealed record PbirAuthoringMaterializationHandle(
+    [property: JsonPropertyName("outputBaseDirectory")] string OutputBaseDirectory,
+    [property: JsonPropertyName("targetDirectoryName")] string TargetDirectoryName,
+    [property: JsonPropertyName("targetKey")] string TargetKey,
+    [property: JsonPropertyName("transactionId")] string TransactionId,
+    [property: JsonPropertyName("transactionHash")] string TransactionHash,
+    [property: JsonPropertyName("currentReceiptHash")] string CurrentReceiptHash,
+    [property: JsonPropertyName("currentTargetStateHash")] string CurrentTargetStateHash);
 
 internal sealed record PbirAuthoringValidateResult(
     [property: JsonPropertyName("isValid")] bool IsValid,

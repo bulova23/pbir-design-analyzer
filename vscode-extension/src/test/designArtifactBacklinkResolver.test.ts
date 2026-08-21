@@ -1,7 +1,3 @@
-import type {
-  GuidedStoryImprovement,
-  NormalizedFinding,
-} from '../analyzer/contracts/scorePanel';
 import type { CrossPageNarrativeAnalyzerOutput } from '../design-studio/state/refinementStore';
 import { resolveDesignArtifactBacklinks } from '../design-studio/navigation/designArtifactBacklinkResolver';
 import type { DraftState } from '../design-studio/state/draftStore';
@@ -63,52 +59,6 @@ async function createDraftState(context: ExtensionContext, threadId: string): Pr
   await submitConceptBaselineForApproval(context, threadId);
   await approveConceptBaseline(context, threadId);
   return generateDraftArtifacts(context, threadId);
-}
-
-function improvement(overrides: Partial<GuidedStoryImprovement> = {}): GuidedStoryImprovement {
-  return {
-    id: 'gsi-1',
-    title: 'Clarify the main question',
-    summary: 'The page does not clearly frame the decision it supports.',
-    rationale: 'The narrative setup is weak.',
-    expectedImpact: 'Leaders understand the intended action faster.',
-    priority: 'high',
-    relatedImpactArea: 'storytelling',
-    navigationTarget: {
-      kind: 'page',
-      pageName: 'Executive overview',
-      label: 'Executive overview',
-      reason: 'Story clarity issue',
-      supportState: 'direct',
-    },
-    ...overrides,
-  };
-}
-
-function finding(overrides: Partial<NormalizedFinding> = {}): NormalizedFinding {
-  return {
-    id: 'finding-1',
-    title: 'Navigation flow is fragmented',
-    summary: 'Users do not have a clear path from summary to detail.',
-    severity: 'high',
-    confidence: 0.93,
-    scope: 'crossPage',
-    detectionType: 'deterministic',
-    affectedPages: ['Executive overview'],
-    impactArea: 'navigation',
-    frameworkImpact: ['narrative'],
-    recommendation: 'Simplify the navigation sequence and clarify section ownership.',
-    sourceKind: 'storyAssessment',
-    sourceSection: 'issues',
-    evidence: [
-      {
-        kind: 'storyAssessment',
-        label: 'Story flow breakdown',
-        pageName: 'Executive overview',
-      },
-    ],
-    ...overrides,
-  };
 }
 
 describe('designArtifactBacklinkResolver', () => {

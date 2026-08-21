@@ -172,7 +172,7 @@ export interface DesignStudioPreviewReviewSafetyGateResult {
   reasons: string[];
 }
 
-interface PersistedDesignStudioPreviewReviewState extends DesignStudioPreviewReviewState {}
+type PersistedDesignStudioPreviewReviewState = DesignStudioPreviewReviewState;
 
 function threadKey(threadId: string): string {
   return crypto.createHash('md5').update(threadId).digest('hex').slice(0, 16);

@@ -31,7 +31,7 @@ export interface PrepareForReviewState {
   history: PrepareForReviewHistoryEntry[];
 }
 
-interface PersistedPrepareForReviewState extends PrepareForReviewState {}
+type PersistedPrepareForReviewState = PrepareForReviewState;
 
 export interface CreateReviewCandidateOptions {
   threadId: string;

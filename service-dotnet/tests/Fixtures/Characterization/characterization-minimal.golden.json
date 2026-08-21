@@ -1,0 +1,369 @@
+{
+  "fixtureId": "characterization-minimal",
+  "schemaVersion": "score-characterization/v1",
+  "pageCount": 1,
+  "dataVisualCount": 1,
+  "navigationVisualCount": 0,
+  "hiddenVisualCount": 0,
+  "compositeScore": 71.25,
+  "scores": {
+    "accessibility": 100,
+    "cognitiveLoad": 100,
+    "composite": 71.25,
+    "dataInk": 50,
+    "density": 35,
+    "enterpriseGovernance": 100,
+    "gestalt": 42.5,
+    "graphicalPerception": 100,
+    "narrative": 100,
+    "stephenFew": 55,
+    "tufte": 80,
+    "visualBestPractices": 80
+  },
+  "feedback": [
+    {
+      "framework": "accessibility",
+      "ok": true,
+      "text": "WCAG 2.1 AA palette: No custom theme detected \u2014 using default Power BI theme colours.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "WCAG 2.1 AA palette: No custom theme detected \u2014 using default Power BI theme colours."
+    },
+    {
+      "framework": "accessibility",
+      "ok": true,
+      "text": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "On-canvas text contrast: No visuals expose both background and font colour metadata \u2014 unable to evaluate. Awarding full marks; theme palette check still applies."
+    },
+    {
+      "framework": "accessibility",
+      "ok": true,
+      "text": "Colorblind-safe palette: Fewer than two parseable theme colours \u2014 colourblind pair check skipped.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Colorblind-safe palette: Fewer than two parseable theme colours \u2014 colourblind pair check skipped."
+    },
+    {
+      "framework": "cognitiveLoad",
+      "ok": true,
+      "text": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Visual density: All pages have \u22646 visuals \u2014 comfortable viewing density."
+    },
+    {
+      "framework": "cognitiveLoad",
+      "ok": true,
+      "text": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Navigation treatment: Navigation controls count at 25% of a standard visual in cognitive load scoring."
+    },
+    {
+      "framework": "cognitiveLoad",
+      "ok": true,
+      "text": "Optimal density: 1 page(s) have \u22644 visuals \u2014 excellent focus.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Optimal density: 1 page(s) have \u22644 visuals \u2014 excellent focus."
+    },
+    {
+      "framework": "dataInk",
+      "ok": false,
+      "text": "Data-ink ratio: 50% of visuals carry data; 1 decorative visual(s) remain (50% of total) \u2014 remove images, shapes, and text boxes that don\u0027t carry data.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": [
+        {
+          "PageName": "Overview",
+          "VisualId": "title",
+          "VisualType": "textbox"
+        }
+      ],
+      "evidence": "Data-ink ratio: 50% of visuals carry data; 1 decorative visual(s) remain (50% of total) \u2014 remove images, shapes, and text boxes that don\u0027t carry data."
+    },
+    {
+      "framework": "dataInk",
+      "ok": true,
+      "text": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Navigation treatment: No navigation visuals were excluded from Data-Ink Ratio."
+    },
+    {
+      "framework": "dataInk",
+      "ok": false,
+      "text": "Decorative types present: textbox \u2014 consider removal to improve data-ink ratio.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Decorative types present: textbox \u2014 consider removal to improve data-ink ratio."
+    },
+    {
+      "framework": "density",
+      "ok": false,
+      "text": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Visual density: 2.0 weighted visuals per page on average \u2014 below ideal range (3\u20138); consider adding related metrics."
+    },
+    {
+      "framework": "density",
+      "ok": false,
+      "text": "Content diversity: Only 2 distinct visual type(s) \u2014 add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Content diversity: Only 2 distinct visual type(s) \u2014 add complementary chart types (e.g. KPI card, line chart, table) to support multiple analytical tasks."
+    },
+    {
+      "framework": "density",
+      "ok": false,
+      "text": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Navigation support: No slicers found \u2014 add at least one slicer to enable interactive filtering and improve dashboard navigation."
+    },
+    {
+      "framework": "density",
+      "ok": true,
+      "text": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Navigation treatment: 0 navigation visual(s) counted at 25% weight in dashboard density scoring."
+    },
+    {
+      "framework": "gestalt",
+      "ok": false,
+      "text": "Grid alignment: 1 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": [
+        {
+          "PageName": "Overview",
+          "VisualId": "revenue",
+          "VisualType": "barChart"
+        }
+      ],
+      "evidence": "Grid alignment: 1 page(s) have off-grid visuals \u2014 tighten the layout so peer visuals read as a deliberate system."
+    },
+    {
+      "framework": "gestalt",
+      "ok": false,
+      "text": "Figure/ground: Add at least one KPI/card visual alongside charts to create a clear focal point.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Figure/ground: Add at least one KPI/card visual alongside charts to create a clear focal point."
+    },
+    {
+      "framework": "gestalt",
+      "ok": false,
+      "text": "Similarity: Only one visual type in use \u2014 add 2\u20135 distinct chart types for grouping cues.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Similarity: Only one visual type in use \u2014 add 2\u20135 distinct chart types for grouping cues."
+    },
+    {
+      "framework": "gestalt",
+      "ok": true,
+      "text": "Visual presence: Report contains data visuals.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Visual presence: Report contains data visuals."
+    },
+    {
+      "framework": "governance",
+      "ok": true,
+      "text": "Visual limit: All 1 page(s) are within the configured maximum of 10 data visuals.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Visual limit: All 1 page(s) are within the configured maximum of 10 data visuals."
+    },
+    {
+      "framework": "governance",
+      "ok": true,
+      "text": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Pie chart policy: No pie or donut charts detected, matching the configured governance rule."
+    },
+    {
+      "framework": "governance",
+      "ok": true,
+      "text": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027Revenue Overview\u0027.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Page title policy: All evaluated pages anchor a meaningful title in the top band of the canvas, satisfying the configured governance rule. Example titles: \u0027Revenue Overview\u0027."
+    },
+    {
+      "framework": "graphicalPerception",
+      "ok": true,
+      "text": "Perceptual accuracy: 1/1 visuals use position/length encodings \u2014 high perceptual accuracy (Cleveland \u0026 McGill).",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Perceptual accuracy: 1/1 visuals use position/length encodings \u2014 high perceptual accuracy (Cleveland \u0026 McGill)."
+    },
+    {
+      "framework": "graphicalPerception",
+      "ok": true,
+      "text": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Radial avoidance: No pie/donut charts \u2014 using bar/column charts provides more accurate quantitative comparisons."
+    },
+    {
+      "framework": "graphicalPerception",
+      "ok": true,
+      "text": "Comparative structure: Clustered bar/column charts present \u2014 enables direct side-by-side comparison.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Comparative structure: Clustered bar/column charts present \u2014 enables direct side-by-side comparison."
+    },
+    {
+      "framework": "narrative",
+      "ok": true,
+      "text": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027Revenue Overview\u0027).",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Visible page purpose: Every evaluated page exposes a clear visible title or question anchor (\u0027Revenue Overview\u0027)."
+    },
+    {
+      "framework": "narrative",
+      "ok": true,
+      "text": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Headline outcome clarity: Each evaluated page signals what the user should focus on first, either through a KPI layer or a clearly framed lead visual."
+    },
+    {
+      "framework": "narrative",
+      "ok": true,
+      "text": "KPI comparison context: No KPI-heavy pages detected, so comparison context is not missing from a KPI layer.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "KPI comparison context: No KPI-heavy pages detected, so comparison context is not missing from a KPI layer."
+    },
+    {
+      "framework": "narrative",
+      "ok": true,
+      "text": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Supporting evidence flow: Pages pair the lead outcome with at least one supporting detail visual or are already focused on a single explanatory view."
+    },
+    {
+      "framework": "narrative",
+      "ok": true,
+      "text": "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Overview-to-detail readability: The page tells users what matters first and provides immediate supporting evidence."
+    },
+    {
+      "framework": "stephenFew",
+      "ok": true,
+      "text": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "One-screen rule: All pages have \u22648 visuals \u2014 within Stephen Few\u0027s recommended density."
+    },
+    {
+      "framework": "stephenFew",
+      "ok": false,
+      "text": "KPI prominence: Add a KPI or card visual to make the report\u0027s headline metric immediately visible.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "KPI prominence: Add a KPI or card visual to make the report\u0027s headline metric immediately visible."
+    },
+    {
+      "framework": "stephenFew",
+      "ok": true,
+      "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Pie avoidance: No pie/donut charts \u2014 aligns with Stephen Few\u0027s strict guidance."
+    },
+    {
+      "framework": "stephenFew",
+      "ok": false,
+      "text": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Contextual slicer: Few recommends filtering controls \u2014 add a slicer to support audience exploration."
+    },
+    {
+      "framework": "tufte",
+      "ok": false,
+      "text": "Data-ink ratio: 1/2 visuals carry data; 1 decorative visual(s) remain (50% of total) \u2014 remove images, shapes, and text boxes that don\u0027t carry data.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Data-ink ratio: 1/2 visuals carry data; 1 decorative visual(s) remain (50% of total) \u2014 remove images, shapes, and text boxes that don\u0027t carry data."
+    },
+    {
+      "framework": "tufte",
+      "ok": true,
+      "text": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Pie avoidance: No pie/donut charts \u2014 aligns with Tufte\u0027s guidance on precise quantitative comparison."
+    },
+    {
+      "framework": "tufte",
+      "ok": true,
+      "text": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Decoration minimalism: Minimal use of non-data elements \u2014 ink is maximally devoted to data."
+    },
+    {
+      "framework": "visualBestPractices",
+      "ok": true,
+      "text": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Pie avoidance: No pie/donut charts \u2014 bar/column charts make comparisons easier."
+    },
+    {
+      "framework": "visualBestPractices",
+      "ok": true,
+      "text": "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Analytical fit: KPI-heavy and overview pages include fitting comparison or variance context."
+    },
+    {
+      "framework": "visualBestPractices",
+      "ok": false,
+      "text": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.).",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Slicer: Add a slicer to allow filtering by dimension (date, region, product, etc.)."
+    },
+    {
+      "framework": "visualBestPractices",
+      "ok": true,
+      "text": "Colour palette: Default data colour(s) \u2014 palette is concise.",
+      "findingType": "strongHeuristic",
+      "affectedVisuals": null,
+      "evidence": "Colour palette: Default data colour(s) \u2014 palette is concise."
+    },
+    {
+      "framework": "visualBestPractices",
+      "ok": true,
+      "text": "Data bindings: All data visuals have a chart type assigned.",
+      "findingType": "objective",
+      "affectedVisuals": null,
+      "evidence": "Data bindings: All data visuals have a chart type assigned."
+    }
+  ],
+  "recommendations": [
+    "[Medium] Data-Ink: 50% of visuals are decorative (images, shapes, text boxes). Remove non-essential decorative elements."
+  ],
+  "diagnostics": {},
+  "evidence": [
+    "Visible title: Revenue Overview",
+    "Lead visual: barChart using Revenue / Region",
+    "Lead chart intent: comparison",
+    "Lead visual semantic metadata emphasizes Revenue by Region"
+  ],
+  "readiness": 40,
+  "deterministicFingerprint": "98fa5e717eeaeada46392584838f05b7e6b50a7e35516151a97917a3f03e3a8e"
+}

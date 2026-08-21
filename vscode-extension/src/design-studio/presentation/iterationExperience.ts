@@ -3,7 +3,6 @@ import type {
   DesignArtifactApprovalState,
   DesignIterationRecord,
   IterationComparisonSnapshot,
-  IterationRecommendationSnapshot,
   RecommendationState,
   RefinementAnalyzerSource,
   ValidationResultStatus,
@@ -157,7 +156,6 @@ function describeListChanges(
 ): string[] {
   const changes: string[] = [];
   const before = new Set(beforeValues);
-  const after = new Set(afterValues);
 
   for (const value of afterValues) {
     if (!before.has(value)) {

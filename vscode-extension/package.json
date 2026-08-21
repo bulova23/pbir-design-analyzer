@@ -274,6 +274,10 @@
     "clean:backend:targets": "node scripts/clean-backend-targets.mjs",
     "build:backend": "node scripts/build-backend.mjs",
     "verify:backend:targets": "node scripts/verify-backend-targets.mjs",
+    "validate:release-contract": "node scripts/validate-release-contract.mjs",
+    "validate:protocol-contracts": "node scripts/validate-protocol-contracts.mjs",
+    "generate:contract": "node ../scripts/generate-score-panel-contract.mjs",
+    "validate:contract": "node ../scripts/generate-score-panel-contract.mjs --check && node ../scripts/validate-score-panel-contract.mjs",
     "precompile": "node scripts/clean-paths.mjs out dist",
     "compile": "tsc -p ./",
     "bundle:extension": "node scripts/bundle-extension.mjs",
@@ -290,7 +294,12 @@
     "vscode:watch": "node scripts/run-parallel.mjs \"npm run watch\" \"npm run watch:extension\"",
     "lint": "eslint src --ext ts",
     "package": "node scripts/package-vsix.mjs",
-    "package:all": "node scripts/package-vsix.mjs --all"
+    "package:all": "node scripts/package-vsix.mjs --all",
+    "verify:vsix": "node scripts/verify-vsix.mjs",
+    "acceptance:package": "node scripts/package-acceptance.mjs",
+    "acceptance:host": "node scripts/packaged-host-acceptance.mjs",
+    "validate:docs": "node ../scripts/validate-documentation.mjs",
+    "create:artifact-manifest": "node ../scripts/create-artifact-manifest.mjs"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

@@ -18,7 +18,7 @@ describe('scorePanelFixWorkflowService', () => {
       refresh: jest.fn(),
       postCurrentScoreState,
       showWarningMessage: jest.fn(),
-      getCurrentResult: () => ({ fixOpportunities: [] } as any),
+      getCurrentResult: () => ({ fixOpportunities: [] } as never),
       getFixOpportunityHistory: () => new Map(),
       getSelectedFixOpportunityIds: () => [],
       setSelectedFixOpportunityIds: jest.fn(),

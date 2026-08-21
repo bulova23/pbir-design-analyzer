@@ -1,5 +1,26 @@
 # Current Focus
 
+## Active Session — 2026-08-21 hosted packaged acceptance closeout
+
+- GitHub repository: `bulova23/pbir-design-analyzer`; branch `codex/hosted-v1-readiness-validation-2026-08-21`.
+- Ruleset `main-production-protection` ID `21156915` is active for `refs/heads/main` and verifies PR-only merges, one approval, stale-review dismissal, conversation resolution, strict up-to-date checks, real CI contexts, deletion blocking, and force-push blocking.
+- Ruleset `release-tag-protection` ID `21156927` is active for `refs/tags/v*` and blocks deletion/non-fast-forward tag updates while allowing release tag creation.
+- The legacy branch-protection endpoint remains 404; rulesets are the authoritative protection model.
+- Hosted CI run `32511720555` passed release gates, all three build-test jobs, package verification for all five targets, and packaged runtime acceptance for linux-x64, win32-x64, and darwin-arm64. The win32-x64 job `96864952609` proved native Windows Server 2025 execution and uploaded durable evidence.
+- The macOS Intel `macos-13` leg remained queued and was canceled after the required Windows, Linux, and macOS arm64 legs completed; local Rosetta darwin-x64 proof remains recorded. Windows ARM64 remains package-only.
+- Readiness evidence is updated to READY WITH DOCUMENTED LIMITATION; do not tag or publish from this validation branch. Next action is protected-PR review/merge only if the release owner accepts the documented macOS Intel runner and Windows ARM64 limitations.
+
+## Prior Active Session — 2026-08-21 v1.0 readiness gate closeout
+
+- Validating `docs/pbir-analysis.md` against commit `a67af7ad` and live repository state.
+- Approved execution is in progress; preserve unrelated dirty work and do not add roadmap capabilities.
+- Completed: classified and repaired the current cross-platform CI failures, added LF/path portability controls, centralized the five-target release manifest, and fixed stale release-guide links.
+- Completed: added a sanitized scoring fixture/golden fingerprint, VSIX content verification, protocol literal freshness validation, source-level architecture guards, and installed fast pre-commit/moderate pre-push hooks.
+- Completed this closeout: five synthetic PBIR characterization classes with manifest hashes and six read-only compact goldens; deterministic repeat and deliberate mismatch proof; generated JSON-Schema-backed C#/TypeScript contract with six compatibility fixtures and freshness/negative proof; extracted packaged-backend initialize/ping/score acceptance; a disposable packaged generate/import/preview/apply/rollback/export workflow; native-runner acceptance jobs for Linux x64, Windows x64, macOS x64, and macOS arm64; security baseline, artifact manifest, documentation validator, CodeQL workflow, and release-gate workflow.
+- Validation: ESLint zero errors; backend Release **1034 passed / 11 expected Windows skips**; extension Jest 532 and webview Jest 68; TypeScript, contract, docs, release-target, protocol, YAML, architecture, five-target packaging, VSIX verification, packaged workflow, installed-host activation, security policy, and diff checks passed. Additional packaged workflow proof passed for linux-x64 in an x86_64 container and darwin-x64 under Rosetta, both with the same normalized fingerprint.
+- External handoff: GitHub rulesets were subsequently verified active in the governance session; the historical statement that settings were unchanged is retained as session history.
+- Readiness decision at `a67af7ad88bf2e7d6fd4bc162be84731d5ae1390`: **NOT READY**. Repository-controlled native acceptance is wired into CI/release; local evidence covers darwin-arm64 native, darwin-x64 Rosetta, linux-x64 container execution, and darwin-arm64 installed-host activation, but Windows runtime and hosted execution are not evidenced. GitHub `main` is also unprotected. Authoritative evidence: `docs/release-evidence/v1.0-readiness-report.md`. Exact next action: execute the native packaged-acceptance matrix, then rerun readiness.
+
 ## 2026-08-16 Fabric App and special-visual capability review
 
 - Fabric App Review is a real but bounded advisory analyzer over local TypeScript repos; it does not execute or inspect deployed apps and does not reuse PBIR scoring for app visuals.

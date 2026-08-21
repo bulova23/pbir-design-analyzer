@@ -1,8 +1,5 @@
 import type {
-  ActionabilityBreakdown,
-  BenchmarkComparisonSummary,
   GuidedStoryImprovement,
-  PageIntentProfile,
   PageScore,
   ScoreResult,
   StoryAssessmentDiffResult,

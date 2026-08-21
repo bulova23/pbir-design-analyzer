@@ -1,0 +1,7 @@
+{
+  "target": "darwin-arm64",
+  "version": "0.7.0",
+  "acceptanceLayer": "installed-vscode-host",
+  "activated": true,
+  "backendRelativePath": "extension/backend/rpc/ModelingLanguageServer"
+}

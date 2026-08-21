@@ -34,6 +34,7 @@ public sealed class RpcHostScopeBoundaryTests
         "pbir/materialization/apply",
         "pbir/materialization/preview",
         "pbir/materialization/recovery/inspect",
+        "pbir/materialization/rollback",
         "shutdown",
         "textDocument/didChange",
         "textDocument/didClose",

@@ -51,6 +51,7 @@ internal sealed class AnalyzerRpcDispatcher : IRpcRequestHandler
         PbirMaterializationRpcContract.PreviewOperation,
         PbirMaterializationRpcContract.ApplyOperation,
         PbirMaterializationRpcContract.RecoveryOperation,
+        PbirMaterializationRpcContract.RollbackOperation,
         PbirAuthoringRpcHostContract.Operation,
     };
 
@@ -109,7 +110,8 @@ internal sealed class AnalyzerRpcDispatcher : IRpcRequestHandler
                 .ConfigureAwait(false)),
             PbirMaterializationRpcContract.PreviewOperation or
             PbirMaterializationRpcContract.ApplyOperation or
-            PbirMaterializationRpcContract.RecoveryOperation => RpcHandlerResult.Success(
+            PbirMaterializationRpcContract.RecoveryOperation or
+            PbirMaterializationRpcContract.RollbackOperation => RpcHandlerResult.Success(
                 await HandleMaterializationAsync(request.Method, request.Params, request.ParamsUtf8, cancellationToken).ConfigureAwait(false)),
             PbirAuthoringRpcHostContract.Operation => RpcHandlerResult.Success(
                 await _authoringAdapter.HandleAsync(request.Params, request.ParamsUtf8, cancellationToken).ConfigureAwait(false)),

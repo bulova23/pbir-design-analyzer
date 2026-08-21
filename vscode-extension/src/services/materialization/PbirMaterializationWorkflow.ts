@@ -2,6 +2,7 @@ export const PBIR_MATERIALIZATION_ROUTES = {
   preview: 'pbir/materialization/preview',
   apply: 'pbir/materialization/apply',
   recovery: 'pbir/materialization/recovery/inspect',
+  rollback: 'pbir/materialization/rollback',
 } as const;
 
 export type PbirMaterializationRoute = typeof PBIR_MATERIALIZATION_ROUTES[keyof typeof PBIR_MATERIALIZATION_ROUTES];
@@ -14,6 +15,7 @@ export const PBIR_MATERIALIZATION_OUTCOMES = [
   'conflict',
   'recovery-required',
   'applied',
+  'rolled-back',
   'stale-preview',
   'invalid-request',
   'unsafe-destination',
@@ -57,6 +59,9 @@ export interface PbirMaterializationRpcResponse {
   lineage?: unknown;
   targetStateHash?: string;
   resultHash?: string;
+  transactionHash?: string;
+  currentReceiptHash?: string;
+  targetKey?: string;
   diagnostics: PbirMaterializationRpcDiagnostic[];
 }
 
@@ -108,7 +113,8 @@ function isRpcResponse(value: unknown): value is PbirMaterializationRpcResponse 
     && typeof candidate.operation === 'string'
     && (PBIR_MATERIALIZATION_ROUTES.preview === candidate.operation
       || PBIR_MATERIALIZATION_ROUTES.apply === candidate.operation
-      || PBIR_MATERIALIZATION_ROUTES.recovery === candidate.operation)
+      || PBIR_MATERIALIZATION_ROUTES.recovery === candidate.operation
+      || PBIR_MATERIALIZATION_ROUTES.rollback === candidate.operation)
     && typeof candidate.outcome === 'string'
     && (PBIR_MATERIALIZATION_OUTCOMES as readonly string[]).includes(candidate.outcome)
     && typeof candidate.rollbackAvailable === 'boolean'

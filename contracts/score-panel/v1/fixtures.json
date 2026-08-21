@@ -1,0 +1,53 @@
+[
+  {
+    "name": "current-valid-score",
+    "payload": {
+      "protocolVersion": 1,
+      "schemaVersion": 1,
+      "type": "scoreState",
+      "state": { "result": { "pageCount": 1, "compositeScore": 71.25 }, "selectedPageIndex": 0 }
+    },
+    "valid": true
+  },
+  {
+    "name": "additive-unknown-field",
+    "payload": {
+      "protocolVersion": 1,
+      "schemaVersion": 1,
+      "type": "scoreState",
+      "futureField": "ignored",
+      "state": { "result": { "pageCount": 1, "compositeScore": 71.25 }, "selectedPageIndex": 0 }
+    },
+    "valid": true
+  },
+  {
+    "name": "nullable-optional-mutation",
+    "payload": {
+      "protocolVersion": 1,
+      "schemaVersion": 1,
+      "type": "mutationResult",
+      "mutation": { "operation": "rollback", "requestId": "r1", "previewHash": "h1", "transactionId": null }
+    },
+    "valid": true
+  },
+  {
+    "name": "missing-required-envelope-field",
+    "payload": { "schemaVersion": 1, "type": "scoreState" },
+    "valid": false
+  },
+  {
+    "name": "incompatible-protocol-version",
+    "payload": { "protocolVersion": 2, "schemaVersion": 1, "type": "refresh" },
+    "valid": false
+  },
+  {
+    "name": "invalid-mutation-operation",
+    "payload": {
+      "protocolVersion": 1,
+      "schemaVersion": 1,
+      "type": "mutationResult",
+      "mutation": { "operation": "execute", "requestId": "r1", "previewHash": "h1" }
+    },
+    "valid": false
+  }
+]

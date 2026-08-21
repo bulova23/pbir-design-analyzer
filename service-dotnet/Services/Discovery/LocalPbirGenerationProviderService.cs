@@ -1550,7 +1550,7 @@ internal sealed class LocalPbirGenerationProviderService
 
     private static bool IsSafeDatasetPath(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path) || Path.IsPathFullyQualified(path) ||
+        if (string.IsNullOrWhiteSpace(path) || Path.IsPathRooted(path) ||
             (path.Length >= 2 && char.IsLetter(path[0]) && path[1] == ':') ||
             path.Contains('\\') || path.Contains("//", StringComparison.Ordinal) ||
             path.Split('/').Any(segment => segment is "." or ".."))

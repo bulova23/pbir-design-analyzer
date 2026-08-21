@@ -7,6 +7,35 @@ on:
     branches: [ main ]
 
 jobs:
+  release-contract:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: targets
+        name: Load supported release targets
+        shell: bash
+        run: |
+          targets=$(node -e "process.stdout.write(JSON.stringify(require('./vscode-extension/config/release-targets.json').targets.map((target) => target.target)))")
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  release-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+      - working-directory: vscode-extension
+        run: npm ci
+      - working-directory: vscode-extension
+        run: npm run validate:contract && npm run validate:docs
+      - run: node scripts/run-pbir-characterization.mjs
+      - run: git diff --check
+
   build-test:
     strategy:
       fail-fast: false
@@ -25,7 +54,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -42,7 +71,11 @@ jobs:
 
   package-targets:
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: [build-test, release-contract]
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.release-contract.outputs.targets) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +88,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -63,18 +96,87 @@ jobs:
         working-directory: vscode-extension
         run: npm ci
 
+      - name: Build webview assets for bundle-runtime tests
+        working-directory: vscode-extension
+        run: npm run build:webview
+
       - name: Run extension tests
         working-directory: vscode-extension
         run: npm test
 
-      - name: Package target VSIX files
+      - name: Validate protocol contracts
         working-directory: vscode-extension
-        run: npm run package:all
+        run: npm run validate:protocol-contracts
+
+      - name: Validate generated contract and compatibility fixtures
+        working-directory: vscode-extension
+        run: npm run validate:contract
+
+      - name: Package target VSIX file
+        working-directory: vscode-extension
+        run: node scripts/package-vsix.mjs --target ${{ matrix.target }}
+
+      - name: Verify packaged VSIX contents
+        working-directory: vscode-extension
+        run: node scripts/verify-vsix.mjs --target ${{ matrix.target }}
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:
           name: pbir-design-analyzer-vsix-targets
           path: vscode-extension/*.vsix
+          if-no-files-found: error
+          retention-days: 14
+
+  packaged-runtime-acceptance:
+    needs: [build-test]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+          - os: macos-14
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Build packaged target
+        working-directory: vscode-extension
+        run: node scripts/package-vsix.mjs --target ${{ matrix.target }}
+
+      - name: Verify packaged VSIX contents
+        working-directory: vscode-extension
+        run: node scripts/verify-vsix.mjs --target ${{ matrix.target }}
+
+      - name: Execute packaged backend and workflow
+        working-directory: vscode-extension
+        run: node scripts/package-acceptance.mjs --target ${{ matrix.target }}
+
+      - name: Upload packaged acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-acceptance-${{ matrix.target }}
+          path: docs/release-evidence/packaged-acceptance-${{ matrix.target }}.json
           if-no-files-found: error
           retention-days: 14

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "release-artifact-manifest/v1",
+  "sourceCommit": "a67af7ad88bf2e7d6fd4bc162be84731d5ae1390",
+  "extensionVersion": "0.7.0",
+  "nodeVersion": "v26.7.0",
+  "dotnetVersion": "10.0.400",
+  "fixtureId": "characterization-minimal",
+  "fixtureManifest": "service-dotnet/tests/Fixtures/Characterization/manifest.json",
+  "artifacts": [
+    {
+      "target": "win32-x64",
+      "runtimeId": "win-x64",
+      "package": {
+        "path": "vscode-extension/pbir-design-analyzer-0.7.0-win32-x64.vsix",
+        "sha256": "02838ef66ad687c5df7fe58cb51deb37230e4745bb92d4b955a7366cc69ca104"
+      },
+      "backend": {
+        "path": "extension/backend/rpc/ModelingLanguageServer.exe",
+        "sha256": "acea4a7d69d0c14f6d1a90d5874025a578f8eddaa052d0096410ee972704332b"
+      }
+    },
+    {
+      "target": "win32-arm64",
+      "runtimeId": "win-arm64",
+      "package": {
+        "path": "vscode-extension/pbir-design-analyzer-0.7.0-win32-arm64.vsix",
+        "sha256": "d92295a597258cd5c592b7018d47f1f196e5fd24911fd76787318392e58b4e59"
+      },
+      "backend": {
+        "path": "extension/backend/rpc/ModelingLanguageServer.exe",
+        "sha256": "44b23452214d40a15519f7c2386dbe3d70c203fd26a9c298f4a9ca2d96352583"
+      }
+    },
+    {
+      "target": "linux-x64",
+      "runtimeId": "linux-x64",
+      "package": {
+        "path": "vscode-extension/pbir-design-analyzer-0.7.0-linux-x64.vsix",
+        "sha256": "14e1b24765869e8005012d1bda9633941fc52dfa2920254211d532b35ce46579"
+      },
+      "backend": {
+        "path": "extension/backend/rpc/ModelingLanguageServer",
+        "sha256": "8d72d17ae7f652faa266f4378e0390cf64f3909647cb643b57c0476503071616"
+      }
+    },
+    {
+      "target": "darwin-x64",
+      "runtimeId": "osx-x64",
+      "package": {
+        "path": "vscode-extension/pbir-design-analyzer-0.7.0-darwin-x64.vsix",
+        "sha256": "55d7ba10661a8820f786e448bcbca4304e5a85c829b33217bcf2c42215b59e6e"
+      },
+      "backend": {
+        "path": "extension/backend/rpc/ModelingLanguageServer",
+        "sha256": "fff6879f0f5fa933f68505311f9f76f71e14944a562f2be9a2a8d242701cfaca"
+      }
+    },
+    {
+      "target": "darwin-arm64",
+      "runtimeId": "osx-arm64",
+      "package": {
+        "path": "vscode-extension/pbir-design-analyzer-0.7.0-darwin-arm64.vsix",
+        "sha256": "a15e26dff17e37f3ff10eacd74daa2138793f652b0eea78ca1bc47c94c25ca5b"
+      },
+      "backend": {
+        "path": "extension/backend/rpc/ModelingLanguageServer",
+        "sha256": "e065245536dc4bbbc6bff89cbf3735aa6202703ff419a5ee93d03da2104c4ed5"
+      }
+    }
+  ],
+  "sbom": {
+    "status": "not generated; optional under current v1.0 policy"
+  },
+  "provenance": {
+    "status": "workflow identity and source commit recorded; signed attestation not configured"
+  }
+}

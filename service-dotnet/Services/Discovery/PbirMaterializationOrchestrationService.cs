@@ -10,23 +10,36 @@ internal sealed class PbirMaterializationOrchestrationService
     private readonly PbirDeployableSerializerService _serializer;
     private readonly PbirDeployableMaterializationPreviewService _previewService;
     private readonly PbirDeployableMaterializationApplyService _applyService;
+    private readonly PbirDeployableMaterializationRollbackService _rollbackService;
 
     internal PbirMaterializationOrchestrationService()
         : this(
             new PbirDeployableSerializerService(),
             new PbirDeployableMaterializationPreviewService(),
-            new PbirDeployableMaterializationApplyService())
+            new PbirDeployableMaterializationApplyService(),
+            new PbirDeployableMaterializationRollbackService())
     {
     }
 
     internal PbirMaterializationOrchestrationService(
         PbirDeployableSerializerService serializer,
         PbirDeployableMaterializationPreviewService previewService,
-        PbirDeployableMaterializationApplyService applyService)
+        PbirDeployableMaterializationApplyService applyService,
+        PbirDeployableMaterializationRollbackService? rollbackService = null)
     {
         _serializer = serializer;
         _previewService = previewService;
         _applyService = applyService;
+        _rollbackService = rollbackService ?? new PbirDeployableMaterializationRollbackService();
+    }
+
+    internal PbirDeployableMaterializationRollbackState Rollback(
+        PbirDeployableMaterializationRollbackRequest request,
+        string outputBaseDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return _rollbackService.Rollback(request, outputBaseDirectory);
     }
 
     internal PbirMaterializationOrchestrationResult Preview(
@@ -191,7 +204,10 @@ internal sealed class PbirMaterializationOrchestrationService
                 applied.Result.Lineage,
                 applied.Result.CommittedTargetStateHash,
                 applied.Result.Hashes.SelfHash,
-                PbirMaterializationOrchestrationDiagnostics.Empty);
+                PbirMaterializationOrchestrationDiagnostics.Empty,
+                applied.Result.TransactionHash,
+                applied.Result.CurrentReceiptHash,
+                currentState.Preview.TargetKey);
         }
         catch (OperationCanceledException)
         {

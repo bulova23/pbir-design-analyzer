@@ -40,7 +40,7 @@ export interface RefinementState {
   history: RefinementHistoryEntry[];
 }
 
-interface PersistedRefinementState extends RefinementState {}
+type PersistedRefinementState = RefinementState;
 
 interface BaseRefinementIngestion {
   analyzerRunId: string;

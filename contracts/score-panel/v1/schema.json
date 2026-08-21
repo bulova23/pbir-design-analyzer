@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbir-design-analyzer.dev/contracts/score-panel/v1/schema.json",
+  "title": "PBIR Design Analyzer score-panel contract",
+  "type": "object",
+  "required": ["protocolVersion", "schemaVersion", "type"],
+  "properties": {
+    "protocolVersion": { "const": 1 },
+    "schemaVersion": { "const": 1 },
+    "type": {
+      "type": "string",
+      "enum": ["loading", "error", "auditAnalyzing", "auditState", "scoreState", "webviewReady", "refresh", "scoreReport", "mutationPreview", "mutationResult"]
+    },
+    "message": { "type": "string" },
+    "captureId": { "type": "string" },
+    "state": { "$ref": "#/$defs/scoreState" },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "reportPath": { "type": "string" },
+    "mutation": { "$ref": "#/$defs/mutation" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "scoreState": {
+      "type": "object",
+      "required": ["result", "selectedPageIndex"],
+      "properties": {
+        "result": {
+          "type": "object",
+          "required": ["pageCount", "compositeScore"],
+          "properties": {
+            "pageCount": { "type": "integer", "minimum": 0 },
+            "compositeScore": { "type": "number", "minimum": 0, "maximum": 100 },
+            "normalizedFindings": { "type": "array" },
+            "readiness": { "type": ["string", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "selectedPageIndex": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "mutation": {
+      "type": "object",
+      "required": ["operation", "requestId", "previewHash"],
+      "properties": {
+        "operation": { "type": "string", "enum": ["preview", "apply", "rollback"] },
+        "requestId": { "type": "string", "minLength": 1 },
+        "previewHash": { "type": "string", "minLength": 1 },
+        "transactionId": { "type": ["string", "null"] },
+        "rollbackAvailable": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

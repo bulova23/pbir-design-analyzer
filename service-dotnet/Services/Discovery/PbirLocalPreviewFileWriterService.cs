@@ -88,7 +88,7 @@ internal sealed class PbirLocalPreviewFileWriterService
             writtenFiles.Add(new PbirLocalPreviewWrittenFile(
                 ArtifactType: plannedFile.ArtifactType,
                 RelativePath: plannedFile.RelativePath,
-                IntendedPath: plannedFile.IntendedPath,
+                IntendedPath: NormalizePath(plannedFile.IntendedPath),
                 PhysicalPath: physicalPath,
                 ContentType: plannedFile.ContentType,
                 SourceHash: plannedFile.SourceHash,

@@ -1,5 +1,4 @@
 import type {
-  FabricAppReadinessAssessment,
   FabricAppPageCandidateState,
   FabricAppReadinessBand,
   FabricAppReadinessDimensionScores,

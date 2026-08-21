@@ -23,7 +23,7 @@ internal sealed class PbirLocalReportReader
         var definition = Path.Combine(sourceDirectory, "definition");
         foreach (var filePath in Directory.Exists(definition) ? Directory.GetFiles(definition, "*.json", SearchOption.AllDirectories) : [])
         {
-            var relative = filePath[(definition.Length + 1)..];
+            var relative = NormalizeRelativePath(filePath[(definition.Length + 1)..]);
             files[relative] = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(filePath))).ToLowerInvariant();
         }
         var pagesMetadataPath = Path.Combine(definition, "pages", "pages.json");
@@ -53,7 +53,7 @@ internal sealed class PbirLocalReportReader
             foreach (var visualPath in Directory.GetFiles(visualDirectory, "visual.json", SearchOption.AllDirectories).OrderBy(x => x, StringComparer.Ordinal))
             {
                 var visualIdentity = new DirectoryInfo(Path.GetDirectoryName(visualPath)!).Name;
-                var visual = ReadJson(visualPath, files, diagnostics, visualPath[(definition.Length + 1)..]);
+                var visual = ReadJson(visualPath, files, diagnostics, NormalizeRelativePath(visualPath[(definition.Length + 1)..]));
                 if (visual is null) continue;
                 if (!HasSchema(visual.RootElement, PbirDeployableSchemaLock.VisualContainerSchemaUrl)) { diagnostics.Add(new("PBIR42-IMPORT-004", visualPath, "Unsupported visual schema.")); continue; }
                 var visualNode = visual.RootElement.GetProperty("visual");
@@ -170,5 +170,9 @@ internal sealed class PbirLocalReportReader
         element.TryGetProperty("$schema", out var schema) &&
         schema.ValueKind == JsonValueKind.String &&
         schema.GetString() == expected;
+
+    private static string NormalizeRelativePath(string path) =>
+        path.Replace('\\', '/').TrimStart('/');
+
     private static PbirLocalReportImportSnapshot Empty(string source, IReadOnlyDictionary<string, string> files, IReadOnlyList<LocalPbirMutationDiagnostic> diagnostics) => new(PbirLocalReportImportContract.SchemaVersionV1, source, new(null, new(PbirIntermediateRepresentationValidationDiagnostics.Empty), PbirIntermediateRepresentationReadinessState.Blocked), new Dictionary<string, string>(), new Dictionary<string, string>(), files, diagnostics);
 }

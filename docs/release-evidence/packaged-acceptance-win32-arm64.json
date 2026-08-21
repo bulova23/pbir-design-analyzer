@@ -1,0 +1,8 @@
+{
+  "target": "win32-arm64",
+  "version": "0.7.0",
+  "packageSha256": "d92295a597258cd5c592b7018d47f1f196e5fd24911fd76787318392e58b4e59",
+  "fixturePath": "/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/tests/Fixtures/Characterization/MinimalReport.Report",
+  "runtimeProof": false,
+  "acceptanceLayer": "package-only"
+}

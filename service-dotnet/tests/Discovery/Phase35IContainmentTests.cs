@@ -50,7 +50,7 @@ public sealed class Phase35IContainmentTests
     [Fact]
     public void EvidenceUsesCanonicalHashAndCorrelatesPhase35HAudit()
     {
-        var result = new Phase35IContainmentResult("exec:1", "session:1", Phase35ILifecycleResult.Completed, null, true, true, "audit:hash", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1));
+        var result = new Phase35IContainmentResult("exec:1", "session:1", Phase35ILifecycleResult.Completed, null, false, true, "audit:hash", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1));
         var evidence = new Phase35IEvidenceBuilder().Build(result, Phase35ITestData.Request(), Phase35ITestData.Profile(), Phase35ITestData.Runner(), new("env", "handles"), new("limits"));
 
         Assert.Equal(Phase35IProofStatus.PartiallyProven, evidence.ProofStatus);
@@ -81,7 +81,7 @@ public sealed class Phase35IContainmentTests
         var root = Path.Combine(Path.GetTempPath(), "phase35i-worker");
 
         Assert.Throws<InvalidOperationException>(() => binder.Bind(root, "session:1", Phase35ITestData.Runner() with { ExecutableRelativePath = "../outside.exe" }));
-        Assert.EndsWith(Path.Combine("sessions", "session:1"), binder.BindSessionRoot(root, "session:1"), StringComparison.Ordinal);
+        Assert.EndsWith(Path.Combine("sessions", "session%3A1"), binder.BindSessionRoot(root, "session:1"), StringComparison.Ordinal);
     }
 }
 

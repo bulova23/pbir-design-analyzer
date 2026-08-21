@@ -1,4 +1,4 @@
-import PDFDocument = require('pdfkit');
+import PDFDocument from 'pdfkit';
 import type {
   ReviewWorkflowExportData,
   ReviewWorkflowExportProfile,

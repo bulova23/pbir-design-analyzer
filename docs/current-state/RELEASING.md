@@ -1,5 +1,13 @@
 # Releasing PBIR Design Analyzer
 
+The current release target contract is maintained in [vscode-extension/config/release-targets.json](../../vscode-extension/config/release-targets.json). For the current 0.7.0 package, the contract names these artifacts:
+
+- pbir-design-analyzer-0.7.0-win32-x64.vsix
+- pbir-design-analyzer-0.7.0-win32-arm64.vsix
+- pbir-design-analyzer-0.7.0-linux-x64.vsix
+- pbir-design-analyzer-0.7.0-darwin-x64.vsix
+- pbir-design-analyzer-0.7.0-darwin-arm64.vsix
+
 This repo publishes releases to two places:
 
 - GitHub Releases, with platform-targeted `.vsix` files attached as downloadable assets
@@ -20,7 +28,7 @@ Source-owned:
 - release and packaging metadata under:
   - `vscode-extension/package.json`
   - `README.md`
-  - `docs/RELEASING.md`
+  - `docs/current-state/RELEASING.md`
 
 Generated but not source-authored:
 
@@ -164,6 +172,10 @@ Supported targets are:
 - `darwin-arm64`
 
 ## Packaged Runtime Validation
+
+### macOS Intel acceptance policy
+
+The `darwin-x64` package remains part of the five-target release set, but the hosted `macos-13` runner is not a release gate because it can remain queued indefinitely. The CI and release workflows therefore validate the package contents and target contract for `darwin-x64`; runtime acceptance is supplied by the retained local Rosetta packaged-workflow proof. Do not classify this target as unvalidated, and do not reintroduce a queued hosted Intel leg without a supported runner.
 
 Bucket A removed runtime fallback to repo-local `service-dotnet/RpcHost/bin/Debug/...` and `Release/...` outputs.
 

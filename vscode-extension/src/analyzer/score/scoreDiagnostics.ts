@@ -208,7 +208,7 @@ function findReportRoot(selectionPath: string): string {
   }
 
   let currentPath = absolutePath;
-  while (true) {
+  while (currentPath !== '') {
     if (
       fs.existsSync(path.join(currentPath, 'definition.pbir'))
       || fs.existsSync(path.join(currentPath, 'definition', 'report.json'))
@@ -235,6 +235,8 @@ function findReportRoot(selectionPath: string): string {
     }
     currentPath = parentPath;
   }
+
+  return absolutePath;
 }
 
 export function buildReportFingerprint(selectionPath: string): ReportFingerprint {

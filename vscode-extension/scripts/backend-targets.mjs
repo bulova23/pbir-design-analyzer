@@ -1,35 +1,13 @@
-export const backendTargets = [
-  {
-    target: 'win32-x64',
-    runtimeId: 'win-x64',
-    executableName: 'ModelingLanguageServer.exe',
-    selfContained: false,
-  },
-  {
-    target: 'win32-arm64',
-    runtimeId: 'win-arm64',
-    executableName: 'ModelingLanguageServer.exe',
-    selfContained: true,
-  },
-  {
-    target: 'linux-x64',
-    runtimeId: 'linux-x64',
-    executableName: 'ModelingLanguageServer',
-    selfContained: false,
-  },
-  {
-    target: 'darwin-x64',
-    runtimeId: 'osx-x64',
-    executableName: 'ModelingLanguageServer',
-    selfContained: false,
-  },
-  {
-    target: 'darwin-arm64',
-    runtimeId: 'osx-arm64',
-    executableName: 'ModelingLanguageServer',
-    selfContained: false,
-  },
-];
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const releaseContract = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, 'vscode-extension', 'config', 'release-targets.json'), 'utf8'),
+);
+
+export const backendTargets = releaseContract.targets;
 
 export const backendTargetMap = new Map(
   backendTargets.map((descriptor) => [descriptor.target, descriptor]),

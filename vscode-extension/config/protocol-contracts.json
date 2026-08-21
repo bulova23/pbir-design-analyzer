@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "protocol-contracts/v1",
+  "contracts": [
+    {
+      "id": "score-panel-envelope",
+      "sources": ["src/views/scorePanelProtocol.ts"],
+      "requiredLiterals": ["GENERATED_PROTOCOL_VERSION", "GENERATED_SCHEMA_VERSION"]
+    },
+    {
+      "id": "pbir-authoring-rpc",
+      "sources": ["../service-dotnet/Services/Discovery/PbirAuthoringRpc/PbirAuthoringRpcContract.cs", "src/services/rpc/PbirAuthoringWorkflow.ts"],
+      "requiredLiterals": ["pbir-authoring-rpc/v1"]
+    },
+    {
+      "id": "pbir-materialization-rpc",
+      "sources": ["../service-dotnet/RpcHost/PbirMaterializationRpcContracts.cs", "src/services/materialization/PbirMaterializationWorkflow.ts"],
+      "requiredLiterals": ["pbir-local-materialization-preview-request/v1", "pbir-local-materialization-apply-request/v1", "pbir-local-materialization-recovery-inspect-request/v1", "pbir-local-materialization-response/v1"]
+    }
+  ]
+}

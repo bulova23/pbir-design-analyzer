@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "security-baseline/v1",
+  "policy": {
+    "directHighOrCritical": "fail-unless-approved-exception",
+    "transitiveHighOrCritical": "baseline-required",
+    "baselineOwner": "release-owner",
+    "baselineExpiry": "2026-12-31",
+    "secretScan": "fail-on-detection",
+    "staticAnalysis": "fail-on-error"
+  },
+  "approvedExceptions": [
+    {"package":"vite","severity":"high","scope":"dev-only","reason":"Current Vite major is pinned by the existing Node 18/toolchain contract; upgrade requires a separate compatibility change.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"System.Net.Http","severity":"high","scope":"transitive-test-runtime","reason":"Legacy transitive dependency is isolated to the net8.0-windows test graph; remediation requires dependency graph review.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"System.Text.RegularExpressions","severity":"high","scope":"transitive-test-runtime","reason":"Legacy transitive dependency is isolated to the net8.0-windows test graph; remediation requires dependency graph review.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"brace-expansion","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive ESLint tooling dependency; upgrade is constrained by the current Node 18 toolchain and must be revisited before expiry.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"fast-uri","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive schema/tooling dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"form-data","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive test/tooling dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"js-yaml","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive test/tooling dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"linkify-it","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive documentation/tooling dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"nanoid","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive build dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"postcss","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive build dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"tmp","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive test dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"undici","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive test/tooling dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"},
+    {"package":"ws","severity":"high","scope":"transitive-dev-tooling","reason":"Transitive development server dependency, not packaged in the extension runtime.","owner":"release-owner","expires":"2026-12-31"}
+  ]
+}
