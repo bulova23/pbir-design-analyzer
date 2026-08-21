@@ -17,7 +17,7 @@ function runVite(configPath) {
     ['vite', 'build', ...(watchMode ? ['--watch'] : []), '--config', configPath],
     {
       stdio: 'inherit',
-      shell: false,
+      shell: process.platform === 'win32',
     },
   );
 }
