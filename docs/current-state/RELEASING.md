@@ -173,6 +173,10 @@ Supported targets are:
 
 ## Packaged Runtime Validation
 
+### macOS Intel acceptance policy
+
+The `darwin-x64` package remains part of the five-target release set, but the hosted `macos-13` runner is not a release gate because it can remain queued indefinitely. The CI and release workflows therefore validate the package contents and target contract for `darwin-x64`; runtime acceptance is supplied by the retained local Rosetta packaged-workflow proof. Do not classify this target as unvalidated, and do not reintroduce a queued hosted Intel leg without a supported runner.
+
 Bucket A removed runtime fallback to repo-local `service-dotnet/RpcHost/bin/Debug/...` and `Release/...` outputs.
 
 That means release validation must assume:
