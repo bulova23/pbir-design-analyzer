@@ -61,7 +61,7 @@ describe('score diagnostics', () => {
     const diagnostics = buildScoreDeterminismDiagnostics({
       reportPath: reportRoot,
       extensionVersion: '0.5.0',
-      backendVersion: '0.1.11',
+      backendVersion: '1.0.0',
       result: {
         gestaltScore: 80,
         cognitiveLoadScore: 80,

@@ -12,7 +12,7 @@ const changedTypeScript = staged.filter((file) => /^vscode-extension\/src\/.*\.(
 
 run('git', ['diff', '--cached', '--check']);
 if (changedTypeScript.length > 0) {
-  run('npx', ['eslint', ...changedTypeScript.map((file) => file.slice(`${extensionRoot}/`.length)), '--no-warn-ignored'], extensionRoot);
+  run('npx', ['eslint', ...changedTypeScript.map((file) => file.slice(`${extensionRoot}/`.length))], extensionRoot);
 }
 if (staged.some((file) => file.startsWith('vscode-extension/') || file === 'README.md' || file.startsWith('docs/'))) {
   run('node', ['scripts/validate-release-contract.mjs'], extensionRoot);

@@ -12,6 +12,15 @@ All notable changes to PBIR Design Analyzer are recorded here.
 
 - Removed the PBI Lens capability-detection integration (extension auto-detection, the "Open in PBI Lens" action, and the enhanced-scoring settings that gated it). It never produced usable output — PBI Lens exposes no public VS Code API for this to call into — so it was dead code from the start. The Rendered Review checklist itself is unaffected: it remains a manual, user-supplied screenshot workflow. Anyone who wants a faster way to capture Power BI report screenshots for it can use an external tool such as [PBI Lens](https://github.com/thenguyentrong/pbi-lens); PBIR Design Analyzer does not integrate with it.
 
+## 1.0.0 — 2026-08-21
+
+### Release validation and governance
+
+- Completed the protected merge and post-merge release validation for the five-target package set.
+- Added the documented solo-maintainer governance exception while retaining pull-request enforcement, required CI checks, review conversation resolution, branch protections, protected release tags, and zero bypass actors.
+- Recorded hosted packaged acceptance for Linux x64, Windows x64, and macOS arm64; retained local Rosetta evidence for macOS Intel and package-only classification for Windows ARM64.
+- Preserved deterministic scoring, characterization, contract, packaging, security, and artifact evidence as release gates.
+
 ## 0.7.0 — 2026-08-16
 
 ### Story Assessment 2.2

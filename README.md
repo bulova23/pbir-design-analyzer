@@ -1,6 +1,6 @@
 # <img src="vscode-extension/resources/icon.png" alt="PBIR Design Analyzer logo" width="28" style="vertical-align: middle;" /> PBIR Design Analyzer
 
-PBIR Design Analyzer 0.7.0 is the current cross-platform Analytics Experience Review Platform release.
+PBIR Design Analyzer 1.0.0 is the current cross-platform Analytics Experience Review Platform release.
 
 It helps teams review PBIR reports and analytical Fabric Apps through one workspace built around Story Assessment, Issues, Fix Plan, Evidence, Fabric App Readiness, Fabric App Review, and AI Proposal Enrichment.
 
@@ -89,7 +89,7 @@ screenshots can use an external tool such as
 resulting images here. PBIR Design Analyzer remains authoritative for design
 judgment, scoring, governance, and deterministic remediation either way.
 
-## 0.7.0 Highlights
+## 1.0.0 Highlights
 
 ### New
 
@@ -171,10 +171,10 @@ The platform includes cross-page matrix navigation so reviewers can move from hi
 
 Each packaged release ships as a platform-targeted VSIX with the matching backend binary for that operating system and architecture.
 
-Runtime expectation for the public `0.7.0` packages:
+Runtime expectation for the public `1.0.0` packages:
 
 - Windows x64 requires the matching .NET 8 runtime
-- Windows arm64 ships with a self-contained backend for `0.7.0`
+- Windows arm64 ships with a self-contained backend for `1.0.0`
 - Linux x64 requires the matching .NET 8 runtime
 - macOS x64 requires the matching .NET 8 runtime
 - macOS arm64 requires the matching .NET 8 runtime
@@ -189,7 +189,7 @@ If the backend runtime is missing or cannot start, the extension falls back to d
 
 ## Cross-Platform Score Determinism
 
-`0.7.0` treats score determinism as a release gate.
+`1.0.0` treats score determinism as a release gate.
 
 - the same report fingerprint must produce the same score, issue counts, readiness score, analyzer metadata, and findings on every supported platform
 - theme, locale, path separators, newline style, filesystem traversal order, and machine architecture must not change scoring outcomes
@@ -205,15 +205,15 @@ node scripts/compare-score-diagnostics.mjs /path/to/first.json /path/to/second.j
 
 If the fingerprints match, the score outputs must match. If the fingerprints differ, treat the report copies as non-identical input.
 
-## Final 0.7.0 Package Set
+## Final 1.0.0 Package Set
 
-Manual release packaging for `0.7.0` should produce these five files:
+Manual release packaging for `1.0.0` should produce these five files:
 
-- `pbir-design-analyzer-0.7.0-win32-x64.vsix`
-- `pbir-design-analyzer-0.7.0-win32-arm64.vsix`
-- `pbir-design-analyzer-0.7.0-linux-x64.vsix`
-- `pbir-design-analyzer-0.7.0-darwin-x64.vsix`
-- `pbir-design-analyzer-0.7.0-darwin-arm64.vsix`
+- `pbir-design-analyzer-1.0.0-win32-x64.vsix`
+- `pbir-design-analyzer-1.0.0-win32-arm64.vsix`
+- `pbir-design-analyzer-1.0.0-linux-x64.vsix`
+- `pbir-design-analyzer-1.0.0-darwin-x64.vsix`
+- `pbir-design-analyzer-1.0.0-darwin-arm64.vsix`
 
 Install the VSIX that matches the target operating system and architecture.
 
@@ -225,12 +225,12 @@ If VS Code shows the icon on a light tile in the extension details page, treat t
 
 ## Manual Marketplace Publishing
 
-`0.7.0` is prepared for manual Marketplace upload. Do not rely on repo-side publication automation for this release.
+`1.0.0` is prepared for manual Marketplace upload. Do not rely on repo-side publication automation for this release.
 
 Manual release flow:
 
 1. Rebuild and inspect the five target-specific VSIX files.
-2. Keep all five artifacts for the same `0.7.0` extension listing.
+2. Keep all five artifacts for the same `1.0.0` extension listing.
 3. Upload the matching package for each supported target during manual Marketplace publication.
 4. Keep the Windows arm64 self-contained package in the release set alongside the framework-dependent Windows x64, Linux x64, macOS x64, and macOS arm64 packages.
 5. Do not alter the icon asset unless the packaged icon no longer matches the source file.
