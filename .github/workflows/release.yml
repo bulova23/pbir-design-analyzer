@@ -100,7 +100,7 @@ jobs:
 
       - name: Verify packaged VSIX contents
         working-directory: vscode-extension
-        run: node scripts/verify-vsix.mjs "pbir-design-analyzer-$(node -p \"require('./package.json').version\")-${{ matrix.target }}.vsix"
+        run: node scripts/verify-vsix.mjs --target ${{ matrix.target }}
 
       - name: Record packaged acceptance disposition
         working-directory: vscode-extension
@@ -170,7 +170,7 @@ jobs:
 
       - name: Verify packaged VSIX contents
         working-directory: vscode-extension
-        run: node scripts/verify-vsix.mjs "pbir-design-analyzer-$(node -p \"require('./package.json').version\")-${{ matrix.target }}.vsix"
+        run: node scripts/verify-vsix.mjs --target ${{ matrix.target }}
 
       - name: Execute packaged backend and workflow
         working-directory: vscode-extension

@@ -4,7 +4,11 @@ import { execFileSync } from 'child_process';
 
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const manifest = JSON.parse(fs.readFileSync('config/release-targets.json', 'utf8'));
-const requestedPath = process.argv[2];
+const targetArgumentIndex = process.argv.indexOf('--target');
+const requestedTarget = targetArgumentIndex >= 0 ? process.argv[targetArgumentIndex + 1] : undefined;
+const requestedPath = requestedTarget
+  ? `pbir-design-analyzer-${packageJson.version}-${requestedTarget}.vsix`
+  : process.argv[2];
 const vsixPath = path.resolve(requestedPath ?? `pbir-design-analyzer-${packageJson.version}.vsix`);
 
 if (!fs.existsSync(vsixPath)) {
