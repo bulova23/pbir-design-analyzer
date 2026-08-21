@@ -65,7 +65,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -89,6 +89,10 @@ jobs:
       - name: Run extension tests
         working-directory: vscode-extension
         run: npm test
+
+      - name: Build webview assets for bundle-runtime tests
+        working-directory: vscode-extension
+        run: npm run build:webview
 
       - name: Package target VSIX
         working-directory: vscode-extension
@@ -141,7 +145,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -198,7 +202,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
           cache-dependency-path: vscode-extension/package-lock.json
 
