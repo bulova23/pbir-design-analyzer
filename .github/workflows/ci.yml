@@ -174,3 +174,11 @@ jobs:
       - name: Execute packaged backend and workflow
         working-directory: vscode-extension
         run: node scripts/package-acceptance.mjs --target ${{ matrix.target }}
+
+      - name: Upload packaged acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-acceptance-${{ matrix.target }}
+          path: docs/release-evidence/packaged-acceptance-${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 14
