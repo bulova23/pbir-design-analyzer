@@ -32,7 +32,7 @@ public sealed class ScoringCharacterizationTests
         var expectedJson = JsonDocument.Parse(expected).RootElement.GetRawText();
         Assert.Equal(
             expectedJson.Replace("\r\n", "\n", StringComparison.Ordinal),
-            actualJson);
+            actualJson.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
     private static object CreateSnapshot(ScoreResult result)
