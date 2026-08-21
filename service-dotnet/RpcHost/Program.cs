@@ -15,7 +15,7 @@ namespace PowerBIModelingService.RpcHost;
 /// </summary>
 public static class Program
 {
-    internal const string BackendVersion = "0.1.11";
+    internal const string BackendVersion = "1.0.0";
 
     public static async Task<int> Main()
     {

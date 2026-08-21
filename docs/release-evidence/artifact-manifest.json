@@ -1,6 +1,6 @@
 {
   "schemaVersion": "release-artifact-manifest/v1",
-  "sourceCommit": "a67af7ad88bf2e7d6fd4bc162be84731d5ae1390",
+  "sourceCommit": "7389c63fced90eff3008d2a918bf2212354178f1",
   "extensionVersion": "0.7.0",
   "nodeVersion": "v26.7.0",
   "dotnetVersion": "10.0.400",
@@ -12,11 +12,11 @@
       "runtimeId": "win-x64",
       "package": {
         "path": "vscode-extension/pbir-design-analyzer-0.7.0-win32-x64.vsix",
-        "sha256": "02838ef66ad687c5df7fe58cb51deb37230e4745bb92d4b955a7366cc69ca104"
+        "sha256": "870020a4e7d1c1f33a4f18961005e94444253d90ddfca945384d590b7a2095e1"
       },
       "backend": {
         "path": "extension/backend/rpc/ModelingLanguageServer.exe",
-        "sha256": "acea4a7d69d0c14f6d1a90d5874025a578f8eddaa052d0096410ee972704332b"
+        "sha256": "e0ead5665ee2824e25709557ca080766de98523999663ed5d4c7d1b9244ede1c"
       }
     },
     {
@@ -24,11 +24,11 @@
       "runtimeId": "win-arm64",
       "package": {
         "path": "vscode-extension/pbir-design-analyzer-0.7.0-win32-arm64.vsix",
-        "sha256": "d92295a597258cd5c592b7018d47f1f196e5fd24911fd76787318392e58b4e59"
+        "sha256": "7c08a60fcd607944bb1dcb8a79e1ec5b220004e10ef3b1e99eaeebac5a96ba04"
       },
       "backend": {
         "path": "extension/backend/rpc/ModelingLanguageServer.exe",
-        "sha256": "44b23452214d40a15519f7c2386dbe3d70c203fd26a9c298f4a9ca2d96352583"
+        "sha256": "88893d781b1edbf1f0b364b3e35870e90145605263f79869044a2d2ba1bfc3d3"
       }
     },
     {
@@ -36,7 +36,7 @@
       "runtimeId": "linux-x64",
       "package": {
         "path": "vscode-extension/pbir-design-analyzer-0.7.0-linux-x64.vsix",
-        "sha256": "14e1b24765869e8005012d1bda9633941fc52dfa2920254211d532b35ce46579"
+        "sha256": "387a6b0c5a82aa4acb79ba755fb5297f73793c094c3ca3f6a25649424abc3523"
       },
       "backend": {
         "path": "extension/backend/rpc/ModelingLanguageServer",
@@ -48,7 +48,7 @@
       "runtimeId": "osx-x64",
       "package": {
         "path": "vscode-extension/pbir-design-analyzer-0.7.0-darwin-x64.vsix",
-        "sha256": "55d7ba10661a8820f786e448bcbca4304e5a85c829b33217bcf2c42215b59e6e"
+        "sha256": "58e3c84198750a8f703ab000e07fbc786e964ca4dcd6e07987bda5a62d2a869a"
       },
       "backend": {
         "path": "extension/backend/rpc/ModelingLanguageServer",
@@ -60,7 +60,7 @@
       "runtimeId": "osx-arm64",
       "package": {
         "path": "vscode-extension/pbir-design-analyzer-0.7.0-darwin-arm64.vsix",
-        "sha256": "a15e26dff17e37f3ff10eacd74daa2138793f652b0eea78ca1bc47c94c25ca5b"
+        "sha256": "8ed8fdf6506dc58bb56f5f47b4a23f56e5ffd067aa8a657e7ed4f99660cb60fb"
       },
       "backend": {
         "path": "extension/backend/rpc/ModelingLanguageServer",

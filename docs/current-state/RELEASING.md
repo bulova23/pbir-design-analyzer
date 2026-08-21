@@ -1,12 +1,12 @@
 # Releasing PBIR Design Analyzer
 
-The current release target contract is maintained in [vscode-extension/config/release-targets.json](../../vscode-extension/config/release-targets.json). For the current 0.7.0 package, the contract names these artifacts:
+The current release target contract is maintained in [vscode-extension/config/release-targets.json](../../vscode-extension/config/release-targets.json). For the current 1.0.0 package, the contract names these artifacts:
 
-- pbir-design-analyzer-0.7.0-win32-x64.vsix
-- pbir-design-analyzer-0.7.0-win32-arm64.vsix
-- pbir-design-analyzer-0.7.0-linux-x64.vsix
-- pbir-design-analyzer-0.7.0-darwin-x64.vsix
-- pbir-design-analyzer-0.7.0-darwin-arm64.vsix
+- pbir-design-analyzer-1.0.0-win32-x64.vsix
+- pbir-design-analyzer-1.0.0-win32-arm64.vsix
+- pbir-design-analyzer-1.0.0-linux-x64.vsix
+- pbir-design-analyzer-1.0.0-darwin-x64.vsix
+- pbir-design-analyzer-1.0.0-darwin-arm64.vsix
 
 This repo publishes releases to two places:
 
