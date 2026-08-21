@@ -96,13 +96,13 @@ jobs:
         working-directory: vscode-extension
         run: npm ci
 
-      - name: Run extension tests
-        working-directory: vscode-extension
-        run: npm test
-
       - name: Build webview assets for bundle-runtime tests
         working-directory: vscode-extension
         run: npm run build:webview
+
+      - name: Run extension tests
+        working-directory: vscode-extension
+        run: npm test
 
       - name: Validate protocol contracts
         working-directory: vscode-extension

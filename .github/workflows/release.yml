@@ -86,13 +86,13 @@ jobs:
       - name: Run backend tests
         run: dotnet test service-dotnet/tests/Tests.csproj -c Release
 
-      - name: Run extension tests
-        working-directory: vscode-extension
-        run: npm test
-
       - name: Build webview assets for bundle-runtime tests
         working-directory: vscode-extension
         run: npm run build:webview
+
+      - name: Run extension tests
+        working-directory: vscode-extension
+        run: npm test
 
       - name: Package target VSIX
         working-directory: vscode-extension
