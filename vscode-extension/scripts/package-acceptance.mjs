@@ -8,7 +8,7 @@ import { backendTargets } from './backend-targets.mjs';
 const extensionRoot = process.cwd();
 const repoRoot = path.resolve(extensionRoot, '..');
 const version = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8')).version;
-const target = process.argv[process.argv.indexOf('--target') + 1] ?? backendTargets.find((item) => `${process.platform}-${process.arch}` === item.target.replace('win32', 'win').replace('darwin', 'darwin'))?.target;
+const target = process.argv[process.argv.indexOf('--target') + 1] ?? backendTargets.find((item) => `${process.platform}-${process.arch}` === item.target.replace('win32', 'win'))?.target;
 const descriptor = backendTargets.find((item) => item.target === target);
 if (!descriptor) throw new Error(`Unknown or unavailable target: ${target ?? '(none)'}`);
 const vsixPath = path.join(extensionRoot, `pbir-design-analyzer-${version}-${target}.vsix`);
