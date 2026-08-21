@@ -1,0 +1,1 @@
+{"displayName":"Custom Visuals","visuals":[{"id":"custom","type":"customVisual","customVisualType":"deneb","x":0,"y":0,"width":640,"height":320,"config":{"name":"synthetic"}},{"id":"html","type":"htmlContent","x":0,"y":340,"width":640,"height":120,"content":"<p>safe synthetic evidence</p>"}]}

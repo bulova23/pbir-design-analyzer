@@ -30,6 +30,11 @@ internal sealed class PbirMaterializationRpcAdapter
         JsonElement payload,
         CancellationToken cancellationToken)
     {
+        if (operation == PbirMaterializationRpcContract.RollbackOperation)
+        {
+            return Task.FromResult(HandleRollback(payload, cancellationToken));
+        }
+
         if (!TryRead(payload, operation, cancellationToken, out var request, out var invalid))
         {
             return Task.FromResult(invalid!);
@@ -55,6 +60,54 @@ internal sealed class PbirMaterializationRpcAdapter
             var requestId = ReadString(payload, "requestId") ?? string.Empty;
             return Task.FromResult(PbirMaterializationRpcValidation.Fault(requestId, operation));
         }
+    }
+
+    private PbirMaterializationRpcResponse HandleRollback(JsonElement payload, CancellationToken cancellationToken)
+    {
+        var requestId = ReadString(payload, "requestId") ?? string.Empty;
+        var allowed = new[] { "schemaVersion", "requestId", "operation", "outputBaseDirectory", "targetDirectoryName", "targetKey", "transactionId", "expectedTransactionHash", "expectedCurrentReceiptHash", "expectedCurrentTargetStateHash", "rollbackApproved", "executionPolicy" };
+        if (payload.ValueKind != JsonValueKind.Object ||
+            PbirMaterializationRpcValidation.HasDuplicateProperties(payload) ||
+            payload.EnumerateObject().Any(property => !allowed.Contains(property.Name, StringComparer.Ordinal)))
+        {
+            return PbirMaterializationRpcValidation.Invalid(requestId, PbirMaterializationRpcContract.RollbackOperation, "PBIR-RPC-ROLLBACK-001", "request");
+        }
+
+        try
+        {
+            var request = JsonSerializer.Deserialize<PbirMaterializationRpcRollbackRequest>(payload.GetRawText(), PbirMaterializationRpcValidation.SerializerOptions);
+            if (request is null || request.SchemaVersion != PbirMaterializationRpcContract.RollbackRequestSchemaVersion ||
+                request.Operation != PbirMaterializationRpcContract.RollbackOperation ||
+                !PbirMaterializationRpcValidation.IsSafeIdentifier(request.RequestId) ||
+                !PbirMaterializationRpcValidation.IsSafeTransactionIdentifier(request.TransactionId) ||
+                !request.RollbackApproved || request.ExecutionPolicy.HasExternalAuthority ||
+                !request.ExecutionPolicy.FilesystemMutationAllowed || string.IsNullOrWhiteSpace(request.OutputBaseDirectory) ||
+                !Path.IsPathFullyQualified(request.OutputBaseDirectory) || string.IsNullOrWhiteSpace(request.TargetDirectoryName) ||
+                string.IsNullOrWhiteSpace(request.TargetKey) || string.IsNullOrWhiteSpace(request.ExpectedTransactionHash) ||
+                string.IsNullOrWhiteSpace(request.ExpectedCurrentTargetStateHash))
+            {
+                return PbirMaterializationRpcValidation.Invalid(requestId, PbirMaterializationRpcContract.RollbackOperation, "PBIR-RPC-ROLLBACK-002", "request");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var state = _orchestration.Rollback(new(
+                PbirDeployableMaterializationRollbackRequestContract.SchemaVersionV1,
+                request.RequestId, request.TransactionId, request.TargetDirectoryName, request.TargetKey,
+                request.ExpectedTransactionHash, request.ExpectedCurrentReceiptHash,
+                request.ExpectedCurrentTargetStateHash, request.RollbackApproved, request.ExecutionPolicy),
+                request.OutputBaseDirectory);
+            var result = state.Result;
+            return new(
+                PbirMaterializationRpcContract.ResponseSchemaVersion,
+                request.RequestId,
+                PbirMaterializationRpcContract.RollbackOperation,
+                state.Readiness == PbirDeployableMaterializationReadinessState.RolledBack ? "rolled-back" : "failure",
+                null, result?.TransactionId, null, false, [], null,
+                result?.RestoredTargetStateHash, result?.Hashes.SelfHash,
+                state.Diagnostics.Items.Select(item => new PbirMaterializationRpcDiagnostic(item.Code, item.Path, item.Message)).ToArray());
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception) { return PbirMaterializationRpcValidation.Fault(requestId, PbirMaterializationRpcContract.RollbackOperation); }
     }
 
     private static bool TryRead(
@@ -241,7 +294,10 @@ internal sealed class PbirMaterializationRpcAdapter
             result.Lineage,
             result.TargetStateHash,
             result.ResultHash,
-            diagnostics);
+            diagnostics,
+            result.TransactionHash,
+            result.CurrentReceiptHash,
+            result.TargetKey);
     }
 
     private static string? ReadString(JsonElement value, string propertyName) =>

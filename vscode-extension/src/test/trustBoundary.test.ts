@@ -213,7 +213,7 @@ describe('designStudio trust boundary guardrails', () => {
     await selectConceptBaseline(context, 'thread-workflow-guardrails', conceptState.currentConcept.alternateConcepts[0].id);
     await submitConceptBaselineForApproval(context, 'thread-workflow-guardrails');
     await approveConceptBaseline(context, 'thread-workflow-guardrails');
-    const pendingDraft = await generateDraftArtifacts(context, 'thread-workflow-guardrails');
+    await generateDraftArtifacts(context, 'thread-workflow-guardrails');
 
     await expect(createApprovedDraftMaterializationRequest(context, {
       threadId: 'thread-workflow-guardrails',

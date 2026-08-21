@@ -76,7 +76,7 @@ internal sealed class PbirDeployableSerializerCanonicalJson
             writeDocument(writer);
         }
 
-        return $"{Encoding.UTF8.GetString(stream.ToArray())}\n";
+        return $"{Encoding.UTF8.GetString(stream.ToArray()).Replace("\r\n", "\n", StringComparison.Ordinal)}\n";
     }
 
     internal string CreatePageIdentity(string irId, string pageIdentity)

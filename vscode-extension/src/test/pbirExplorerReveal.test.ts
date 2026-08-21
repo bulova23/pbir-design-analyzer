@@ -26,7 +26,7 @@ describe('pbirExplorerReveal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    registerPbirExplorerReveal(provider as any, { reveal } as any);
+    registerPbirExplorerReveal(provider as never, { reveal } as never);
   });
 
   it('reveals and opens the resolved page target file', async () => {

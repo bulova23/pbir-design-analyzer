@@ -42,6 +42,7 @@
     <EmbeddedResource Remove="Fixtures/Phase35ESandboxFixture/bin/**" />
     <EmbeddedResource Remove="Fixtures/Phase35ESandboxFixture/obj/**" />
     <Content Include="Fixtures/PbirSchemas/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Fixtures/Characterization/**/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

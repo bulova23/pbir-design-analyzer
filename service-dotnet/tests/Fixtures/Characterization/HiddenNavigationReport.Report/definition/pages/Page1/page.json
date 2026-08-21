@@ -1,0 +1,1 @@
+{"displayName":"Overview","visuals":[{"id":"go","type":"button","x":0,"y":0,"width":160,"height":40,"action":{"type":"pageNavigation","target":"HiddenPage"}},{"id":"revenue","type":"barChart","x":0,"y":80,"width":640,"height":320,"fieldRoles":{"category":[{"displayName":"Region"}],"measure":[{"displayName":"Revenue"}]}}]}

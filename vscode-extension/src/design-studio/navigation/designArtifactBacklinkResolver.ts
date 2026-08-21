@@ -1,9 +1,7 @@
 import type {
   CrossPageNarrativeAnalyzerOutput,
   DesignArtifactBacklinkRecord,
-  DraftLayoutArtifact,
   DraftNavigationArtifact,
-  DraftPageArtifact,
   DraftState,
   NormalizedFindingImpactArea,
   PageConcept,

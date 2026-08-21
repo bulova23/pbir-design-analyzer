@@ -60,15 +60,6 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-async function readJsonFile(filePath: string): Promise<JsonRecord | undefined> {
-  try {
-    const parsed = JSON.parse(await fs.promises.readFile(filePath, 'utf8')) as unknown;
-    return isRecord(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function toWorkspaceRelativePath(targetPath: string, workspaceRoot: string): string {
   if (!workspaceRoot) {
     return targetPath;

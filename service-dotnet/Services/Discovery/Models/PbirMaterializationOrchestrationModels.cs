@@ -93,4 +93,7 @@ internal sealed record PbirMaterializationOrchestrationResult(
     [property: JsonPropertyName("lineage")] PbirDeployableMaterializationLineage? Lineage,
     [property: JsonPropertyName("targetStateHash")] string? TargetStateHash,
     [property: JsonPropertyName("resultHash")] string? ResultHash,
-    [property: JsonPropertyName("diagnostics")] PbirMaterializationOrchestrationDiagnostics Diagnostics);
+    [property: JsonPropertyName("diagnostics")] PbirMaterializationOrchestrationDiagnostics Diagnostics,
+    [property: JsonPropertyName("transactionHash")] string? TransactionHash = null,
+    [property: JsonPropertyName("currentReceiptHash")] string? CurrentReceiptHash = null,
+    [property: JsonPropertyName("targetKey")] string? TargetKey = null);

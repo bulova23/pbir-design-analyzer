@@ -61,7 +61,7 @@ export interface IterationState {
   iterations: DesignIterationRecord[];
 }
 
-interface PersistedIterationState extends IterationState {}
+type PersistedIterationState = IterationState;
 
 export interface RecordIterationInput {
   threadId: string;
@@ -82,7 +82,7 @@ export interface RecordIterationInput {
   };
 }
 
-export interface IterationCompletionEvaluation extends IterationWorkflowCompletion {}
+export type IterationCompletionEvaluation = IterationWorkflowCompletion;
 export type AtomicAnalyzerResultAttachment =
   | { ok: true; iterationState: IterationState }
   | { ok: false; error: string };

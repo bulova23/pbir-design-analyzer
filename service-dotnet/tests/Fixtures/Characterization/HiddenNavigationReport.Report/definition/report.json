@@ -1,0 +1,1 @@
+{"id":"characterization-hidden-navigation","name":"Synthetic Hidden Navigation","pages":["Page1","HiddenPage"],"bookmarks":[{"name":"OverviewBookmark","target":"Page1"}],"interactions":[{"source":"go","target":"HiddenPage"}]}

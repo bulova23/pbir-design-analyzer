@@ -10,9 +10,10 @@ import type {
   StoryConfidence,
 } from '../analyzer/contracts/scorePanel';
 import type { RenderedReviewStatus } from '../analyzer/renderedReview/types';
+import { GENERATED_PROTOCOL_VERSION, GENERATED_SCHEMA_VERSION } from '../generated/scorePanelContract';
 
-export const SCORE_PANEL_PROTOCOL_VERSION = 1;
-export const SCORE_PANEL_SCHEMA_VERSION = 1;
+export const SCORE_PANEL_PROTOCOL_VERSION = GENERATED_PROTOCOL_VERSION;
+export const SCORE_PANEL_SCHEMA_VERSION = GENERATED_SCHEMA_VERSION;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

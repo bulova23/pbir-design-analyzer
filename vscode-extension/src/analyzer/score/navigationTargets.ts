@@ -3,7 +3,6 @@ import type {
   GuidedStoryImprovement,
   GuidedStoryImprovements,
   NormalizedFinding,
-  PageScore,
   PageVisualMetadataSummary,
   ScorePanelNavigationTarget,
   ScoreResult,

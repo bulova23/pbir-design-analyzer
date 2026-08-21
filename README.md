@@ -240,7 +240,7 @@ Manual release flow:
 - [Detailed How-To Guide](docs/HOW_TO_USE.md)
 - [Extension README](vscode-extension/README.md)
 - [Changelog](docs/CHANGELOG.md)
-- [Release Guide](docs/RELEASING.md)
+- [Release Guide](docs/current-state/RELEASING.md)
 - [0.5.0 Release Summary](docs/releases/2026-06-05-0-5-0-release-summary.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Rendered Review guide](docs/integrations/rendered-review-guide.md)
@@ -275,7 +275,7 @@ Source-owned files:
 - extension manifest and release docs:
   - `vscode-extension/package.json`
   - `README.md`
-  - `docs/RELEASING.md`
+  - `docs/current-state/RELEASING.md`
 
 Generated backend files:
 

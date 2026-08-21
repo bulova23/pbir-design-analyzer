@@ -34,7 +34,7 @@ export interface ReviewDesignState {
   history: ReviewDesignExecutionRecord[];
 }
 
-interface PersistedReviewDesignState extends ReviewDesignState {}
+type PersistedReviewDesignState = ReviewDesignState;
 
 function threadKey(threadId: string): string {
   return crypto.createHash('md5').update(threadId).digest('hex').slice(0, 16);

@@ -20,7 +20,6 @@ import type {
   DesignStudioConceptComparisonViewModel,
   DesignStudioConceptFlowStepViewModel,
   DesignStudioConceptKpiNodeViewModel,
-  DesignStudioConceptNavigationNodeViewModel,
   DesignStudioConceptReviewViewModel,
   DesignStudioDraftNavigationReviewViewModel,
   DesignStudioDraftPageReviewViewModel,

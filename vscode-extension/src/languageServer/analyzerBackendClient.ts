@@ -10,6 +10,11 @@ import {
   State,
 } from 'vscode-languageclient/node';
 import { getBackendOutputChannel, getBackendTraceOutputChannel } from '../platform/outputChannels';
+import releaseContract from '../../config/release-targets.json';
+
+const backendTargetMap = new Map<string, BackendRuntimeDescriptor>(
+  releaseContract.targets.map((target) => [target.target, target as BackendRuntimeDescriptor]),
+);
 
 export interface BackendRuntimeDescriptor {
   runtimeId: 'win-x64' | 'win-arm64' | 'linux-x64' | 'osx-x64' | 'osx-arm64';
@@ -172,55 +177,21 @@ export function getBackendRuntimeDescriptor(
   platform: NodeJS.Platform = process.platform,
   arch: string = process.arch,
 ): { descriptor: BackendRuntimeDescriptor } | { issue: BackendResolutionIssue } {
-  if (platform === 'win32' && arch === 'x64') {
-    return {
-      descriptor: {
-        runtimeId: 'win-x64',
-        target: 'win32-x64',
-        executableName: 'ModelingLanguageServer.exe',
-        selfContained: false,
-      },
-    };
-  }
-  if (platform === 'win32' && arch === 'arm64') {
-    return {
-      descriptor: {
-        runtimeId: 'win-arm64',
-        target: 'win32-arm64',
-        executableName: 'ModelingLanguageServer.exe',
-        selfContained: true,
-      },
-    };
-  }
-  if (platform === 'linux' && arch === 'x64') {
-    return {
-      descriptor: {
-        runtimeId: 'linux-x64',
-        target: 'linux-x64',
-        executableName: 'ModelingLanguageServer',
-        selfContained: false,
-      },
-    };
-  }
-  if (platform === 'darwin' && arch === 'x64') {
-    return {
-      descriptor: {
-        runtimeId: 'osx-x64',
-        target: 'darwin-x64',
-        executableName: 'ModelingLanguageServer',
-        selfContained: false,
-      },
-    };
-  }
-  if (platform === 'darwin' && arch === 'arm64') {
-    return {
-      descriptor: {
-        runtimeId: 'osx-arm64',
-        target: 'darwin-arm64',
-        executableName: 'ModelingLanguageServer',
-        selfContained: false,
-      },
-    };
+  const target = platform === 'win32' && arch === 'x64'
+    ? 'win32-x64'
+    : platform === 'win32' && arch === 'arm64'
+      ? 'win32-arm64'
+      : platform === 'linux' && arch === 'x64'
+        ? 'linux-x64'
+        : platform === 'darwin' && arch === 'x64'
+          ? 'darwin-x64'
+          : platform === 'darwin' && arch === 'arm64'
+            ? 'darwin-arm64'
+            : undefined;
+
+  const targetConfig = target ? backendTargetMap.get(target) : undefined;
+  if (targetConfig) {
+    return { descriptor: targetConfig };
   }
 
   return {

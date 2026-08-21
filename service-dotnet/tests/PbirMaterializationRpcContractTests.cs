@@ -15,14 +15,15 @@ namespace PowerBIModelingService.Tests;
 public sealed class PbirMaterializationRpcContractTests
 {
     [Fact]
-    public void Contract_ExposesOnlyTheThreeAuthorizedOperations()
+    public void Contract_ExposesOnlyTheAuthorizedOperations()
     {
         Assert.Equal(
             new[]
             {
                 "pbir/materialization/apply",
                 "pbir/materialization/preview",
-                "pbir/materialization/recovery/inspect"
+                "pbir/materialization/recovery/inspect",
+                "pbir/materialization/rollback"
             },
             PbirMaterializationRpcContract.SupportedOperations.OrderBy(value => value));
     }

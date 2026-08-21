@@ -1,0 +1,1 @@
+{"displayName":"Detail","visuals":[{"id":"title","type":"textbox","x":0,"y":0,"width":640,"height":48,"textbox":{"visible":true,"text":"Detail"}},{"id":"trend","type":"lineChart","x":0,"y":80,"width":640,"height":320,"fieldRoles":{"category":[{"displayName":"Date"}],"measure":[{"displayName":"Revenue"}]}}]}

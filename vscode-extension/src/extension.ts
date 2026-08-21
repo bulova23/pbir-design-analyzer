@@ -134,6 +134,7 @@ export async function activate(context: vscode.ExtensionContext) {
           daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is ready';
           break;
         case BridgeState.ERROR:
+          {
           const recordedIssue = getRecordedBackendIssue();
           const degradedMessage = recordedIssue?.message
             ?? 'PBIR Design Analyzer backend stopped. Local tree browsing remains available.';
@@ -146,6 +147,7 @@ export async function activate(context: vscode.ExtensionContext) {
               ?? 'PBIR Design Analyzer backend stopped. Scoring and governance commands are unavailable until the extension is reloaded. Local tree browsing remains available.',
           );
           break;
+          }
         case BridgeState.UNINITIALIZED:
           daemonStatusBar.text = '$(warning) PBIR Design Analyzer: Backend stopped';
           daemonStatusBar.tooltip = 'PBIR Design Analyzer backend is not initialized';

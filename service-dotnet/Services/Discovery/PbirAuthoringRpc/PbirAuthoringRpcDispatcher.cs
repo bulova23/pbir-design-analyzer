@@ -391,7 +391,10 @@ internal sealed class PbirAuthoringRpcDispatcher
             $"{effectiveRequest.MutationId}-preview",
             "preview", input), cancellationToken);
         if (materializationPreview.ValidatedPreview is null || materializationPreview.Outcome is not (PbirMaterializationOrchestrationOutcome.Absent or PbirMaterializationOrchestrationOutcome.Empty or PbirMaterializationOrchestrationOutcome.ExactMatch))
-            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-005", "The mutation destination has a materialization conflict.");
+        {
+            var previewDiagnostics = string.Join(",", materializationPreview.Diagnostics.Items.Select(item => item.Code).Take(4));
+            return Failure(request.Operation, PbirAuthoringRpcErrorCategory.MutationConflict, "PBIR-RPC-MUTATE-005", $"The mutation destination has a materialization conflict ({materializationPreview.Outcome};{previewDiagnostics}).");
+        }
         var applied = orchestration.Apply(new(
             PbirMaterializationOrchestrationApplyRequestContract.SchemaVersionV1,
             effectiveRequest.MutationId,
@@ -421,13 +424,25 @@ internal sealed class PbirAuthoringRpcDispatcher
             CreateAnalyzerSummary(score, score.PageScores?.Count ?? 0, score.DataVisualCount),
             new(dispatchTimer.ElapsedMilliseconds, operationTimer.ElapsedMilliseconds, serializerTimer.ElapsedMilliseconds, analyzerTimer.ElapsedMilliseconds, planningTimer.ElapsedMilliseconds, previewTimer.ElapsedMilliseconds, analyzerBeforeTimer.ElapsedMilliseconds),
             null, null,
-            new(artifact, plan.AffectedPages.Count, plan.AffectedVisuals.Count, semanticPreview,
+            new(
+                artifact,
+                plan.AffectedPages.Count,
+                plan.AffectedVisuals.Count,
+                semanticPreview,
                 new(
                     CreateAnalyzerSummary(beforeScore, beforeScore.PageScores?.Count ?? 0, beforeScore.DataVisualCount),
                     CreateAnalyzerSummary(score, score.PageScores?.Count ?? 0, score.DataVisualCount),
                     score.CompositeScore - beforeScore.CompositeScore,
                     snapshot.IrState.Ir!.Pages.Select(page => page.PageId).Except(plan.AffectedPages, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
-                    snapshot.IrState.Ir.Visuals.Select(visual => visual.VisualId).Except(plan.AffectedVisuals, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray())), null, null);
+                    snapshot.IrState.Ir.Visuals.Select(visual => visual.VisualId).Except(plan.AffectedVisuals, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray()),
+                new PbirAuthoringMaterializationHandle(
+                    effectiveRequest.OutputBaseDirectory,
+                    effectiveRequest.TargetDirectoryName,
+                    applied.TargetKey ?? string.Empty,
+                    applied.TransactionId ?? string.Empty,
+                    applied.TransactionHash ?? string.Empty,
+                    applied.CurrentReceiptHash ?? string.Empty,
+                    applied.TargetStateHash ?? string.Empty)));
         _ = resolved;
         return response;
     }

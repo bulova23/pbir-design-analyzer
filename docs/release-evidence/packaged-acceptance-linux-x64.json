@@ -1,0 +1,26 @@
+{
+  "target": "linux-x64",
+  "version": "0.7.0",
+  "packageSha256": "14e1b24765869e8005012d1bda9633941fc52dfa2920254211d532b35ce46579",
+  "fixturePath": "/repo/service-dotnet/tests/Fixtures/Characterization/MinimalReport.Report",
+  "runtimeProof": true,
+  "runtimeMode": "container-linux-x64",
+  "acceptanceLayer": "packaged-workflow",
+  "backendSha256": "8d72d17ae7f652faa266f4378e0390cf64f3909647cb643b57c0476503071616",
+  "protocolNegotiation": true,
+  "ping": {
+    "success": true,
+    "data": {
+      "status": "ready",
+      "connected": false,
+      "version": "0.1.11"
+    }
+  },
+  "compositeScore": 71.25,
+  "normalizedFingerprint": "9d3393ff372deb045ee228dabefa31053a8119ff9e4ae0ddddd66d3209b7c9a9",
+  "mutationWorkflow": "PASS",
+  "rollbackWorkflow": "PASS",
+  "exportWorkflow": "PASS",
+  "workflowFixturePath": "/tmp/pbir-packaged-acceptance-EAi2SR/workflow/output/Generated.Report",
+  "workflowFixtureSha256": "515876d7a55374589dded915243d27588e9b0a368e2e3748a6c989f20c9dd7b6"
+}

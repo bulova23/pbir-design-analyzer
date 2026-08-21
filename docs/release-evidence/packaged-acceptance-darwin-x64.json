@@ -1,0 +1,26 @@
+{
+  "target": "darwin-x64",
+  "version": "0.7.0",
+  "packageSha256": "55d7ba10661a8820f786e448bcbca4304e5a85c829b33217bcf2c42215b59e6e",
+  "fixturePath": "/Users/bcrowell/Documents/GitHub/pbir-design-analyzer/service-dotnet/tests/Fixtures/Characterization/MinimalReport.Report",
+  "runtimeProof": true,
+  "runtimeMode": "rosetta-x86_64",
+  "acceptanceLayer": "packaged-workflow",
+  "backendSha256": "fff6879f0f5fa933f68505311f9f76f71e14944a562f2be9a2a8d242701cfaca",
+  "protocolNegotiation": true,
+  "ping": {
+    "success": true,
+    "data": {
+      "status": "ready",
+      "connected": false,
+      "version": "0.1.11"
+    }
+  },
+  "compositeScore": 71.25,
+  "normalizedFingerprint": "9d3393ff372deb045ee228dabefa31053a8119ff9e4ae0ddddd66d3209b7c9a9",
+  "mutationWorkflow": "PASS",
+  "rollbackWorkflow": "PASS",
+  "exportWorkflow": "PASS",
+  "workflowFixturePath": "/var/folders/67/rl00rw0d1s1_rdn4d5rg36z80000gn/T/pbir-packaged-acceptance-oJCYBp/workflow/output/Generated.Report",
+  "workflowFixtureSha256": "515876d7a55374589dded915243d27588e9b0a368e2e3748a6c989f20c9dd7b6"
+}

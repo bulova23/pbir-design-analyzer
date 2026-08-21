@@ -127,7 +127,8 @@ internal static class PbirMaterializationRpcValidation
             null,
             null,
             null,
-            [new(code, field, "The request was rejected safely.")]);
+            [new(code, field, "The request was rejected safely.")],
+            null, null, null);
 
     internal static PbirMaterializationRpcResponse Fault(string requestId, string operation) =>
         new(
@@ -143,5 +144,6 @@ internal static class PbirMaterializationRpcValidation
             null,
             null,
             null,
-            [new("PBIR-RPC-FAULT-001", "request", "The local PBIR operation failed safely.")]);
+            [new("PBIR-RPC-FAULT-001", "request", "The local PBIR operation failed safely.")],
+            null, null, null);
 }
