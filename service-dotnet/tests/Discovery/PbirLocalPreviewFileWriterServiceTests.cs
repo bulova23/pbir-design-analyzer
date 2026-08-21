@@ -53,7 +53,9 @@ public sealed class PbirLocalPreviewFileWriterServiceTests
 
             Assert.True(File.Exists(physicalPath), $"Expected {physicalPath} to exist.");
             Assert.Equal(physicalPath, writtenFile.PhysicalPath);
-            Assert.Equal(plannedFile.IntendedPath, writtenFile.IntendedPath);
+            Assert.Equal(
+                plannedFile.IntendedPath.Replace('\\', '/'),
+                writtenFile.IntendedPath.Replace('\\', '/'));
             Assert.Equal(plannedFile.ContentType, writtenFile.ContentType);
             Assert.Equal(plannedFile.ByteLength, writtenFile.ByteLength);
             Assert.Equal(plannedFile.HashSha256, writtenFile.HashSha256);

@@ -29,7 +29,10 @@ public sealed class ScoringCharacterizationTests
         var expected = await File.ReadAllTextAsync(goldenPath);
 
         var actualJson = JsonSerializer.Serialize(actual, new JsonSerializerOptions { WriteIndented = true });
-        Assert.Equal(JsonDocument.Parse(expected).RootElement.GetRawText(), actualJson);
+        var expectedJson = JsonDocument.Parse(expected).RootElement.GetRawText();
+        Assert.Equal(
+            expectedJson.Replace("\r\n", "\n", StringComparison.Ordinal),
+            actualJson);
     }
 
     private static object CreateSnapshot(ScoreResult result)
