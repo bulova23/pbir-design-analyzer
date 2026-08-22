@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "release-assets/v1",
+  "releaseCommit": "4c56eaf37f4829640051ec121d9f6f5103aa7084",
+  "tag": "v1.0.0",
+  "tagObject": "cf95f81941e636072292761908015b880eed727f",
+  "releaseWorkflowRunId": 32534183564,
+  "releaseWorkflowResult": "failure",
+  "releaseWorkflowFailure": "Marketplace publication step stopped because VSCE_PAT is not configured; release-contract, build-targets, native-packaged-acceptance, and GitHub Release creation passed.",
+  "githubRelease": {
+    "id": 374710589,
+    "name": "PBIR Design Analyzer v1.0.0",
+    "tag": "v1.0.0",
+    "publishedAt": "2026-08-21T22:47:25Z",
+    "url": "https://github.com/bulova23/pbir-design-analyzer/releases/tag/v1.0.0"
+  },
+  "assets": [
+    {
+      "target": "win32-x64",
+      "name": "pbir-design-analyzer-1.0.0-win32-x64.vsix",
+      "assetId": 524354487,
+      "size": 2819904,
+      "sha256": "2a3c5338df21a5a9fe075885ed24bf3d2a0eea11b046c8791992169cbce74f6a"
+    },
+    {
+      "target": "win32-arm64",
+      "name": "pbir-design-analyzer-1.0.0-win32-arm64.vsix",
+      "assetId": 524354483,
+      "size": 35508963,
+      "sha256": "7be9eedddcce281078cb03d728b62a12f45b3867baa81fd341efbf1885a76901"
+    },
+    {
+      "target": "linux-x64",
+      "name": "pbir-design-analyzer-1.0.0-linux-x64.vsix",
+      "assetId": 524354485,
+      "size": 2783046,
+      "sha256": "05c09ac054e387513c0d66861a305b38d9b8931b981192ea48d2d1149c9191a8"
+    },
+    {
+      "target": "darwin-x64",
+      "name": "pbir-design-analyzer-1.0.0-darwin-x64.vsix",
+      "assetId": 524354482,
+      "size": 2782164,
+      "sha256": "44e4b621cd7dca932c390fec2c87dfb9dff58e9ee9553261f613e503d7acd234"
+    },
+    {
+      "target": "darwin-arm64",
+      "name": "pbir-design-analyzer-1.0.0-darwin-arm64.vsix",
+      "assetId": 524354484,
+      "size": 2781208,
+      "sha256": "89dc84a5de98807112323c4eb8f1c702d9d8fc4598f9bd5c3ac0214a3447ebe8"
+    }
+  ],
+  "marketplace": {
+    "publisher": "bcrowell",
+    "extension": "pbir-design-analyzer",
+    "status": "requires-authorized-operator",
+    "publishedVersion": null,
+    "reason": "Repository release policy requires manual Marketplace publication for this release and no VSCE_PAT credential is configured."
+  },
+  "platformAcceptance": {
+    "win32-x64": "hosted native",
+    "win32-arm64": "manual native; hosted ARM64 runner unavailable",
+    "linux-x64": "hosted native",
+    "darwin-x64": "manual Rosetta; hosted Intel runner unavailable",
+    "darwin-arm64": "hosted native plus installed host"
+  },
+  "governance": {
+    "mainRulesetId": 21156915,
+    "tagRulesetId": 21156927,
+    "mainRuleset": "active",
+    "tagRuleset": "active",
+    "bypassActors": 0,
+    "tagMovement": "protected"
+  }
+}
