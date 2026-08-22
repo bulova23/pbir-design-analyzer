@@ -1,7 +1,10 @@
 {
   "schemaVersion": "release-artifact-manifest/v1",
-  "sourceCommit": "a67af7ad88bf2e7d6fd4bc162be84731d5ae1390",
-  "extensionVersion": "0.7.0",
+  "sourceCommit": "4c56eaf37f4829640051ec121d9f6f5103aa7084",
+  "extensionVersion": "1.0.0",
+  "workflowRunId": 32533118593,
+  "securityWorkflowRunId": 32533118569,
+  "artifactSource": "GitHub Actions CI package-targets artifacts; artifact IDs are recorded per target",
   "nodeVersion": "v26.7.0",
   "dotnetVersion": "10.0.400",
   "fixtureId": "characterization-minimal",
@@ -11,35 +14,35 @@
       "target": "win32-x64",
       "runtimeId": "win-x64",
       "package": {
-        "path": "vscode-extension/pbir-design-analyzer-0.7.0-win32-x64.vsix",
-        "sha256": "02838ef66ad687c5df7fe58cb51deb37230e4745bb92d4b955a7366cc69ca104"
+        "path": "CI artifact 9464624887 / pbir-design-analyzer-1.0.0-win32-x64.vsix",
+        "sha256": "c8d22c80d7623cb113e336a5a1d76f95540b3db105dff46e819b6d78ff6f24fa"
       },
       "backend": {
-        "path": "extension/backend/rpc/ModelingLanguageServer.exe",
-        "sha256": "acea4a7d69d0c14f6d1a90d5874025a578f8eddaa052d0096410ee972704332b"
+        "path": "embedded in CI artifact 9464624887",
+        "sha256": "90b4e4e00e8d6ec87c36917b99218a5a820f9a4d2a957ae977cd507c5b3232f9"
       }
     },
     {
       "target": "win32-arm64",
       "runtimeId": "win-arm64",
       "package": {
-        "path": "vscode-extension/pbir-design-analyzer-0.7.0-win32-arm64.vsix",
-        "sha256": "d92295a597258cd5c592b7018d47f1f196e5fd24911fd76787318392e58b4e59"
+        "path": "CI artifact 9464626755 / pbir-design-analyzer-1.0.0-win32-arm64.vsix",
+        "sha256": "1bbe51bf85824e892c62b91eb98d1db9fe454c6151b76f9e6b80e16df9dc4027"
       },
       "backend": {
-        "path": "extension/backend/rpc/ModelingLanguageServer.exe",
-        "sha256": "44b23452214d40a15519f7c2386dbe3d70c203fd26a9c298f4a9ca2d96352583"
+        "path": "embedded in CI artifact 9464626755",
+        "sha256": "f4947cfee827ef0cb3c7a9725c637c14b4bb4826e12d0c5a4cdd851d7ec34200"
       }
     },
     {
       "target": "linux-x64",
       "runtimeId": "linux-x64",
       "package": {
-        "path": "vscode-extension/pbir-design-analyzer-0.7.0-linux-x64.vsix",
-        "sha256": "14e1b24765869e8005012d1bda9633941fc52dfa2920254211d532b35ce46579"
+        "path": "CI artifact 9464627952 / pbir-design-analyzer-1.0.0-linux-x64.vsix",
+        "sha256": "cb1e9b75070f16ee2f148b658af0c8eacd08d88bd3b2b737e3ab25a65127173d"
       },
       "backend": {
-        "path": "extension/backend/rpc/ModelingLanguageServer",
+        "path": "embedded in CI artifact 9464627952",
         "sha256": "8d72d17ae7f652faa266f4378e0390cf64f3909647cb643b57c0476503071616"
       }
     },
@@ -47,11 +50,11 @@
       "target": "darwin-x64",
       "runtimeId": "osx-x64",
       "package": {
-        "path": "vscode-extension/pbir-design-analyzer-0.7.0-darwin-x64.vsix",
-        "sha256": "55d7ba10661a8820f786e448bcbca4304e5a85c829b33217bcf2c42215b59e6e"
+        "path": "CI artifact 9464627241 / pbir-design-analyzer-1.0.0-darwin-x64.vsix",
+        "sha256": "31d7995075d6e7f4abffbfaf038322d58cabe1acce592002c7cb7897dc3472cb"
       },
       "backend": {
-        "path": "extension/backend/rpc/ModelingLanguageServer",
+        "path": "embedded in CI artifact 9464627241",
         "sha256": "fff6879f0f5fa933f68505311f9f76f71e14944a562f2be9a2a8d242701cfaca"
       }
     },
@@ -59,11 +62,11 @@
       "target": "darwin-arm64",
       "runtimeId": "osx-arm64",
       "package": {
-        "path": "vscode-extension/pbir-design-analyzer-0.7.0-darwin-arm64.vsix",
-        "sha256": "a15e26dff17e37f3ff10eacd74daa2138793f652b0eea78ca1bc47c94c25ca5b"
+        "path": "CI artifact 9464625829 / pbir-design-analyzer-1.0.0-darwin-arm64.vsix",
+        "sha256": "b478b3f8954a163b66cbea54f5cb9d22ca82b901c88e2c5f87630b574a92176a"
       },
       "backend": {
-        "path": "extension/backend/rpc/ModelingLanguageServer",
+        "path": "embedded in CI artifact 9464625829",
         "sha256": "e065245536dc4bbbc6bff89cbf3735aa6202703ff419a5ee93d03da2104c4ed5"
       }
     }
@@ -72,6 +75,45 @@
     "status": "not generated; optional under current v1.0 policy"
   },
   "provenance": {
-    "status": "workflow identity and source commit recorded; signed attestation not configured"
-  }
+    "status": "workflow identity, source commit, and artifact IDs recorded; signed attestation not configured"
+  },
+  "runtimeAcceptance": [
+    {
+      "target": "win32-x64",
+      "workflowArtifactId": 9464622283,
+      "jobId": 96929458550,
+      "packageSha256": "bf8362b156e7a580ded4d48f603cfea84122f43f44f89eb32fb88eeeee9b9035",
+      "backendSha256": "3a11c77f37726c85e1bffe2e9c3496aaa07bf85d422f10bf6ac04f66950fce52",
+      "runtime": "hosted Windows x64 native",
+      "fixtureFingerprint": "9d3393ff372deb045ee228dabefa31053a8119ff9e4ae0ddddd66d3209b7c9a9"
+    },
+    {
+      "target": "linux-x64",
+      "workflowArtifactId": 9464606916,
+      "jobId": 96929458579,
+      "packageSha256": "cf57aa682be19732a6558c59da1f83969ab6849a6546cc4b5855e12692865600",
+      "backendSha256": "8d72d17ae7f652faa266f4378e0390cf64f3909647cb643b57c0476503071616",
+      "runtime": "hosted Linux x64 native",
+      "fixtureFingerprint": "9d3393ff372deb045ee228dabefa31053a8119ff9e4ae0ddddd66d3209b7c9a9"
+    },
+    {
+      "target": "darwin-arm64",
+      "workflowArtifactId": 9464605133,
+      "jobId": 96929458437,
+      "packageSha256": "42db264708d996332d30e4af397029dba0a42b0186602eeace6c0f6f5c71a351",
+      "backendSha256": "4d452be519633312b10ed5fac57f7056244e13c22ad8df76572825e8ec3c1de5",
+      "runtime": "hosted macOS arm64 native plus installed host proof",
+      "fixtureFingerprint": "9d3393ff372deb045ee228dabefa31053a8119ff9e4ae0ddddd66d3209b7c9a9"
+    }
+  ],
+  "manualAcceptance": [
+    {
+      "target": "win32-arm64",
+      "runtime": "manual runtime validation required; hosted native runner unavailable"
+    },
+    {
+      "target": "darwin-x64",
+      "runtime": "manual Rosetta validation; hosted Intel runner unavailable"
+    }
+  ]
 }

@@ -1,5 +1,27 @@
 # Session Summaries
 
+# 2026-08-21 — Baseline recovery and AccessibilityColorMath extraction
+
+- Created isolated `architecture/post-v1-decomposition` from immutable `v1.0.0` `4c56eaf37f4829640051ec121d9f6f5103aa7084`; preserved the original dirty worktree and imported only the approved architecture design/plan.
+- Extracted the seven pure accessibility color helpers into `AccessibilityColorMath`; added direct tests and a narrow source-level ownership guard.
+- Focused tests passed (160), full backend tests passed (1,054 with 11 expected skips), contract checks passed, and characterization Runs 1/2 matched all baseline fingerprints. Golden changes: NONE. Behavior status: NONE.
+- Evidence: `.agent-memory/sessions/2026-08-21-accessibility-color-math-extraction-recovered.md` in the implementation branch.
+
+# 2026-08-21 — Solo-maintainer merge and post-merge validation
+
+- Documented the approved solo-maintainer exception in the v1.0 readiness report, preserving PR enforcement, all eight required checks, conversation resolution, branch/tag protections, and zero bypass actors.
+- Merged PR #6 through the protected GitHub workflow at `7389c63fced90eff3008d2a918bf2212354178f1`; resulting protected `main` matches that SHA.
+- Post-merge CI `32521799882` and Security `32521799883` passed all required build/test/package/acceptance, release-gate, dependency, and CodeQL jobs. Local merged-main tests, characterization, contracts, docs, security, package, and VSIX checks passed.
+- Prepared PR #7 for 1.0.0 version alignment; it is open with checks in progress. No tag, GitHub Release, Marketplace publication, or direct main push occurred.
+
+# 2026-08-21 — Final protected-PR governance decision
+
+- Live GitHub audit confirms PR #6 (`72e7287698eb50be162b0eb23a76eb047bd405fc`) is OPEN, MERGEABLE, `REVIEW_REQUIRED`, and `BLOCKED`; all required CI/package/security checks in run `32516901572` pass.
+- Main ruleset `21156915` requires one approval and preserves all required checks, review-thread resolution, strict branch currency, force-update/deletion protection, and zero bypass actors. Tag ruleset `21156927` remains active with tag deletion/non-fast-forward protection and zero bypass actors.
+- Only `bulova23` has discoverable admin/push access. Recorded reviews are comments only; no approving review or actual merge commit exists. No ruleset, merge, tag, release, or Marketplace action was performed.
+- Decision: **BLOCKED** pending independent authorized approval or explicit authorization for a documented solo-maintainer exception.
+- Third consecutive audit reconfirmed the same state; goal formally closed as blocked. No ruleset, merge, tag, release, or Marketplace action occurred.
+
 # 2026-08-21 — GitHub v1.0 governance verification
 
 - Read-only inspection found existing active rulesets 21156915 and 21156927, while the legacy branch-protection endpoint returned 404.
@@ -2469,3 +2491,35 @@ skips, and the known unrelated Phase 35E timeout flake.
 - 2026-08-21: Closed repository-controlled corpus/contract/security/artifact/docs controls. Added five synthetic PBIR fixture classes, six immutable goldens, manifest hashes/provenance, deterministic repeat and negative mismatch proof; generated score-panel contract authority with six compatibility fixtures/freshness/negative proof; packaged VSIX backend initialize/ping/score acceptance; security baseline with expiring owned exceptions; artifact manifest; docs validator; CodeQL/security workflow; and release characterization gates. Final local gate: backend 1034/11 skips, extension/webview 532/68, TypeScript/lint/contracts/docs/architecture/YAML/package/VSIX/security/diff pass. Packaged mutation/rollback/export remains unproven, four targets are package-only on this runner, installed host is not run, and GitHub protections remain administrator action. Decision remains NOT READY. Evidence: `docs/release-evidence/v1.0-readiness-report.md`.
  - 2026-08-21: Ran v1.0 readiness validation at `a67af7ad`. Backend 1033/11 skips, extension/webview 532/68, compile/lint/contracts/architecture/YAML/hygiene passed; all five VSIX targets built, verified, and hashed. Minimal golden repeated successfully, but representative corpus, packaged workflow acceptance, mechanical cross-language compatibility, security/SBOM/provenance/docs gates, and GitHub protections are incomplete. Decision: NOT READY. Evidence: `docs/release-evidence/v1.0-readiness-report.md`; scope freeze: `docs/product/scope.md`.
 - 2026-08-21: Hosted packaged acceptance completed on commit `8d652c4c` in CI run `32511720555`. Windows x64 native acceptance passed on Windows Server 2025, including package verification, initialize/ping/score, deterministic fingerprint `9d3393ff…`, mutation, rollback, and export; evidence was uploaded as `packaged-acceptance-win32-x64`. Linux x64, macOS arm64, and all five package targets also passed. macOS Intel remained queued on `macos-13` and was canceled; local Rosetta proof remains authoritative. Updated readiness evidence to READY WITH DOCUMENTED LIMITATION; no tag or publication performed.
+- 2026-08-21: Completed final v1.0 readiness review at evidence commit `92652399`. Reconciled the report with CI run `32511720555`, per-target evidence, artifact-manifest lineage, platform acceptance, active rulesets, and frozen scope. Decision remains READY WITH DOCUMENTED LIMITATION for Windows ARM64 package-only and canceled hosted macOS Intel/local Rosetta proof. No tag, release, Marketplace publication, or ruleset change performed.
+- 2026-08-21: Controlled v1.0 release administration stopped before publication. PR #6 remains open without approval or merge commit; active main/tag rulesets have no bypass actors. Fresh PR CI run `32512437742` passed required contexts, but darwin-x64 native acceptance remained queued. Package and release docs still identify `0.7.0`, so the v1.0.0 version gate is unresolved. No tag, GitHub Release, Marketplace publication, or protection change performed.
+- 2026-08-21: Repeated live release audit found no state change: PR #6 remains open/blocked, macOS Intel acceptance remains pending, package version remains 0.7.0, and no tags/releases exist. Goal formally closed as blocked; no protection bypass or publication action taken.
+- 2026-08-21: Resolved PR #6 merge blockers without merging: ruleset 21156915 now requires the three build-test contexts and five actual package-target matrix contexts, while the stale aggregate package-targets requirement is removed. Removed unsupported queued macos-13 acceptance from CI/release workflows and documented manual Rosetta proof. Pushed commit `72e72876`; CI run `32516901572` passed and PR is CLEAN/MERGEABLE. No bypass or merge performed.
+- 2026-08-21: Reconciled the PBIR release candidate after locating the correct repository. Protected main remains `a67af7ad`; PR #6 is open at `72e72876` with no merge or approval. Current PR CI passed, but the workflow delta requires post-merge release revalidation; main ruleset approval count is `0` versus expected `1`; version remains `0.7.0`. No governance, product, tag, release, or Marketplace changes performed.
+- 2026-08-21: Restored main-production-protection approval requirement to 1 while preserving all required checks and protections. PR #6 remains REVIEW_REQUIRED/BLOCKED with CI run `32516901572` passing; main remains `a67af7ad`. Only bulova23 has push/admin access, so no independent reviewer is available. No merge, post-merge validation, version alignment, tag, release, or Marketplace action performed.
+- 2026-08-21: Completed protected PR #7 version alignment. Merge commit/protected main is `4c56eaf37f4829640051ec121d9f6f5103aa7084`; merged CI `32533118593` passed 13/13 jobs and Security `32533118569` passed. All five 1.0.0 package targets and hosted Linux x64/Windows x64/macOS arm64 acceptance passed. Updated artifact manifest and readiness report with exact CI lineage/hashes and `READY FOR TAG`; Windows ARM64/manual and macOS Intel/Rosetta limitations remain explicit. No tag or publication performed.
+- 2026-08-21: Completed authorized v1.0.0 release administration. Created protected annotated tag `v1.0.0` at `4c56eaf37f4829640051ec121d9f6f5103aa7084`; tag-triggered Release run `32534183564` passed all packaging/native acceptance jobs and published GitHub Release `374710589` with five workflow-generated VSIX assets. Marketplace publication stopped at the documented missing `VSCE_PAT` credential; publisher `bcrowell` has no 1.0.0 listing. Recorded final release asset hashes, release identity, workflow result, governance, and hosted/manual platform distinctions in `docs/release-evidence/v1.0.0-release-assets.json` and the readiness report. Exact next action is authorized manual Marketplace upload and independent version verification; immutable tag must not move.
+
+# 2026-08-21 — Post-v1.0 architecture decomposition design
+
+- Reviewed the authoritative v1.0.0 state at `4c56eaf37f4829640051ec121d9f6f5103aa7084`, requested architecture/product/release documents, composition roots, target-module dependencies, architecture tests, contract generation, protocol validation, characterization/golden infrastructure, and current target tests.
+- Classified `PbirScoringService` as a mixed domain/orchestration monolith, `App.tsx` as a presentation/application-state monolith, and `PbirScorePanel` as a lifecycle/orchestration monolith. Kept `scorePanelProtocol.ts` and `scorePanelMessageRouter.ts` cohesive; deferred adjacent Discovery/provider monoliths.
+- Created `docs/superpowers/specs/2026-08-21-post-v1-architecture-decomposition-design.md` and `docs/superpowers/plans/2026-08-21-post-v1-architecture-decomposition-plan.md`.
+- Plan contains 23 task units across baseline, pure extraction, scoring, workspace, panel, architecture-ratchet, and packaged-acceptance waves. No production code or historical v1 release evidence was changed.
+# 2026-08-21 — v1.0 Marketplace operator handoff
+
+- Verified immutable tag/release identity, five GitHub Release assets, SHA-256 values, package versions, publisher, product identity, and target metadata.
+- Public Marketplace API still reports `bcrowell.pbir-design-analyzer` at `0.7.0`; publication of `1.0.0` remains an authorized human operator action.
+- Plan closeout and final readiness evidence update intentionally deferred until independent Marketplace verification; no post-v1.0 work started.
+
+# 2026-08-21 — v1.0 Marketplace publication and consolidation plan closure
+
+- Fresh direct Marketplace metadata verified the existing `bcrowell.pbir-design-analyzer` listing is public at version `1.0.0` for all five targets: win32-x64, win32-arm64, linux-x64, darwin-x64, and darwin-arm64. No duplicate listing was found.
+- Reconciled Marketplace identity with immutable commit `4c56eaf37f4829640051ec121d9f6f5103aa7084`, tag `v1.0.0`, GitHub Release `374710589`, and its five unchanged assets.
+- Appended final Marketplace publication evidence and task reconciliation to `docs/release-evidence/v1.0-readiness-report.md`; appended formal completion to the preserved implementation plan.
+- Updated current state: v1.0.0 released, Marketplace verified, plan complete, no v1.0 blocker, deferred backlog inactive. No product behavior, artifacts, tag, or release was modified.
+# 2026-08-21 AccessibilityColorMath extraction
+
+- Blocked before production edits: current branch `92652399` is not based on required `v1.0.0` baseline `4c56eaf3`.
+- Read-only characterization invocation passed its available run; no post-extraction evidence exists.
+- Next: use a fresh branch/worktree from `4c56eaf3`, preserve unrelated dirty files, and restart approved Task 4.
