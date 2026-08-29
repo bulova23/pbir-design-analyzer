@@ -1,5 +1,15 @@
 # Current Focus
 
+## Active Session — 2026-08-27 PBIR whitespace heuristic characterization
+
+- Test-only coverage is prepared for the existing Dashboard Density whitespace-balance heuristic in `PbirScoringService`; no scoring or penalty behavior changed.
+- Focused coverage passed 2/2 and the `PbirScoringServiceTests` class passed 142/142; `git diff --check` passed. Existing nullable warnings were emitted by the backend build.
+- The required Kilo DeepSeek reviewer returned `REVIEW_UNAVAILABLE` twice. No approved bounded Codex fallback wrapper was available, so the review gate remains unresolved and no commit is authorized.
+
+## Next Recommended Step
+
+- Restore the approved bounded reviewer path, obtain a valid zero-BLOCKER review of the test-only diff, then decide whether to commit.
+
 ## Active Session — 2026-08-21 post-v1 AccessibilityColorMath extraction
 
 - Baseline recovery is complete in linked worktree `.worktrees/architecture-post-v1-decomposition` on `architecture/post-v1-decomposition`, based on immutable `v1.0.0` `4c56eaf37f4829640051ec121d9f6f5103aa7084`.
