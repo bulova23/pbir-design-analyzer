@@ -1273,6 +1273,63 @@ public sealed class PbirScoringServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ScoreAsync_DensityFeedback_FlagsLargeMidPageWhitespaceGap()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Whitespace Gap","visuals":[
+              {"id":"k1","type":"card","x":0,"y":40,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"k2","type":"card","x":200,"y":40,"width":180,"height":120,
+               "title":{"visible":true,"text":"Margin"}},
+              {"id":"v1","type":"lineChart","x":0,"y":500,"width":420,"height":140,
+               "title":{"visible":true,"text":"Revenue Trend"}},
+              {"id":"v2","type":"clusteredBarChart","x":440,"y":500,"width":420,"height":140,
+               "title":{"visible":true,"text":"Revenue by Region"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        var whitespaceFeedback = Assert.Single(result.Feedback["density"].Where(item =>
+            item.Text.StartsWith("Whitespace balance:", StringComparison.Ordinal)));
+        Assert.False(whitespaceFeedback.Ok);
+        Assert.Equal(FindingTypes.StrongHeuristic, whitespaceFeedback.FindingType);
+        Assert.Contains("340 px mid-page gap", whitespaceFeedback.Text, StringComparison.Ordinal);
+        Assert.NotNull(whitespaceFeedback.AffectedVisuals);
+        Assert.Equal(
+            ["k1", "k2", "v1", "v2"],
+            whitespaceFeedback.AffectedVisuals!.Select(visual => visual.VisualId).OrderBy(id => id));
+        Assert.Equal(65.0, result.DensityScore);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_DensityFeedback_DoesNotFlagGapBelowWhitespaceThreshold()
+    {
+        var tempDir = CreateTempPbirFolderFromPageJson(
+            """
+            {"displayName":"Balanced Spacing","visuals":[
+              {"id":"v1","type":"lineChart","x":0,"y":40,"width":420,"height":120,
+               "title":{"visible":true,"text":"Revenue Trend"}},
+              {"id":"v2","type":"clusteredBarChart","x":440,"y":40,"width":420,"height":120,
+               "title":{"visible":true,"text":"Revenue by Region"}},
+              {"id":"v3","type":"card","x":0,"y":360,"width":180,"height":120,
+               "title":{"visible":true,"text":"Revenue"}},
+              {"id":"v4","type":"card","x":200,"y":360,"width":180,"height":120,
+               "title":{"visible":true,"text":"Margin"}}
+            ]}
+            """);
+        var svc = BuildScoringService();
+
+        var result = await svc.ScoreAsync(tempDir);
+
+        Assert.DoesNotContain(result.Feedback["density"], item =>
+            item.Text.StartsWith("Whitespace balance:", StringComparison.Ordinal));
+        Assert.Equal(70.0, result.DensityScore);
+    }
+
+    [Fact]
     public async Task ScoreAsync_VisualBestPractices_FlagsMetricLabelInconsistency()
     {
         var tempDir = CreateTempPbirFolderFromPageJson(

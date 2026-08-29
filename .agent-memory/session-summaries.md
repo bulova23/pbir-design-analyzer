@@ -2523,3 +2523,9 @@ skips, and the known unrelated Phase 35E timeout flake.
 - Blocked before production edits: current branch `92652399` is not based on required `v1.0.0` baseline `4c56eaf3`.
 - Read-only characterization invocation passed its available run; no post-extraction evidence exists.
 - Next: use a fresh branch/worktree from `4c56eaf3`, preserve unrelated dirty files, and restart approved Task 4.
+
+# 2026-08-27 — PBIR whitespace heuristic characterization tests
+
+- Added two test-only characterizations for the existing Dashboard Density whitespace-balance heuristic: a 340 px dead-zone finding with its existing 5-point density penalty and a 200 px below-threshold non-finding. No scoring implementation or penalty changed.
+- Focused coverage passed 2/2; `PbirScoringServiceTests` passed 142/142; `git diff --check` passed. Existing nullable warnings were emitted during build.
+- Required Kilo DeepSeek review returned `REVIEW_UNAVAILABLE` twice; the approved bounded Codex fallback wrapper was unavailable, so no commit is authorized and review remains the next gate.
