@@ -46,11 +46,11 @@
 
 **Prerequisites:** None beyond the release commit.
 
-- [ ] **Step 1: Record exact candidates and baselines.** Include the nine target files, line counts, declarations, imports, direct test references, public/internal methods, mutable fields, side effects, and classification from the design document. Use `wc -l`, `rg`, and a deterministic script output rather than hand-entered counts.
-- [ ] **Step 2: Record runtime composition.** Trace `service-dotnet/RpcHost/Program.cs`, `AnalyzerRpcDispatcher.cs`, `vscode-extension/src/views/PbirScorePanel.ts`, `scorePanelMessageRouter.ts`, and `scorePanelProtocol.ts`. Mark shipped, advisory, mutation, provider, and deferred paths.
-- [ ] **Step 3: Record control coverage.** Link architecture tests, contract freshness, protocol tests, selected-page clamping tests, characterization/golden scripts, deterministic repeat, package acceptance, and mutation/rollback acceptance.
-- [ ] **Step 4: Add a baseline report command.** The command must fail if a named candidate disappears or if a new candidate is added without an explicit disposition entry. It must report size/complexity as advisory data only.
-- [ ] **Step 5: Verify.** Run `node scripts/report-decomposition-baseline.mjs` and confirm stable output on two consecutive runs.
+- [x] **Step 1: Record exact candidates and baselines.** Include the nine target files, line counts, declarations, imports, direct test references, public/internal methods, mutable fields, side effects, and classification from the design document. Use `wc -l`, `rg`, and a deterministic script output rather than hand-entered counts.
+- [x] **Step 2: Record runtime composition.** Trace `service-dotnet/RpcHost/Program.cs`, `AnalyzerRpcDispatcher.cs`, `vscode-extension/src/views/PbirScorePanel.ts`, `scorePanelMessageRouter.ts`, and `scorePanelProtocol.ts`. Mark shipped, advisory, mutation, provider, and deferred paths.
+- [x] **Step 3: Record control coverage.** Link architecture tests, contract freshness, protocol tests, selected-page clamping tests, characterization/golden scripts, deterministic repeat, package acceptance, and mutation/rollback acceptance.
+- [x] **Step 4: Add a baseline report command.** The command must fail if a named candidate disappears or if a new candidate is added without an explicit disposition entry. It must report size/complexity as advisory data only.
+- [x] **Step 5: Verify.** Run `node scripts/report-decomposition-baseline.mjs` and confirm stable output on two consecutive runs.
 
 **Characterization requirement:** No production behavior changes; attach the existing v1 readiness evidence references and current golden/fingerprint identifiers.
 
@@ -75,10 +75,10 @@
 
 **Prerequisites:** Task 1.
 
-- [ ] **Step 1: Define the smallest typed seam.** Use an internal interface shaped like `Analyze(ReportAnalysisContext context, ScoringStageInput input) -> ScoringStageResult`; keep the result ordered and immutable/read-only. Do not pass `ScoreResult`, VS Code messages, or provider services into the stage interface.
-- [ ] **Step 2: Define explicit ordering.** `ScoringStageRegistry` accepts a read-only ordered list and rejects duplicate IDs. It must not scan assemblies or use reflection.
-- [ ] **Step 3: Add registry tests.** Verify stable order, duplicate rejection, explicit registration, and absence of provider/authoring dependencies.
-- [ ] **Step 4: Run.** Use `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ScoringStageRegistrationTests` and the existing architecture test.
+- [x] **Step 1: Define the smallest typed seam.** Use an internal interface shaped like `Analyze(ReportAnalysisContext context, ScoringStageInput input) -> ScoringStageResult`; keep the result ordered and immutable/read-only. Do not pass `ScoreResult`, VS Code messages, or provider services into the stage interface.
+- [x] **Step 2: Define explicit ordering.** `ScoringStageRegistry` accepts a read-only ordered list and rejects duplicate IDs. It must not scan assemblies or use reflection.
+- [x] **Step 3: Add registry tests.** Verify stable order, duplicate rejection, explicit registration, and absence of provider/authoring dependencies.
+- [x] **Step 4: Run.** Use `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~ScoringStageRegistrationTests` and the existing architecture test.
 
 **Characterization requirement:** Existing `PbirScoringService` remains the only production scorer; run the representative scoring characterization unchanged.
 
@@ -102,10 +102,10 @@
 
 **Prerequisites:** Task 2.
 
-- [ ] **Step 1: Model read-only context.** Include report location, report model/pages in source order, report filters, resolved theme colors, normalized framework weights, navigation settings, and report consistency input. Use `IReadOnlyList`/read-only dictionaries at the boundary; keep the existing mutable recommendation buffer outside the context until its ownership is extracted.
-- [ ] **Step 2: Build context with existing services.** Move only the repeated loading/configuration statements from `ComputePageScore` and `ComputeReportScore`; preserve exact exception behavior and logging.
-- [ ] **Step 3: Add context tests.** Verify source page order, config defaults, theme resolution delegation, exact page lookup behavior, and no mutation of the source page list.
-- [ ] **Step 4: Re-run.** Run targeted scoring tests, `ScoringCharacterizationTests`, and the deterministic repeat command.
+- [x] **Step 1: Model read-only context.** Include report location, report model/pages in source order, report filters, resolved theme colors, normalized framework weights, navigation settings, and report consistency input. Use `IReadOnlyList`/read-only dictionaries at the boundary; keep the existing mutable recommendation buffer outside the context until its ownership is extracted.
+- [x] **Step 2: Build context with existing services.** Move only the repeated loading/configuration statements from `ComputePageScore` and `ComputeReportScore`; preserve exact exception behavior and logging.
+- [x] **Step 3: Add context tests.** Verify source page order, config defaults, theme resolution delegation, exact page lookup behavior, and no mutation of the source page list.
+- [x] **Step 4: Re-run.** Run targeted scoring tests, `ScoringCharacterizationTests`, and the deterministic repeat command.
 
 **Characterization requirement:** Compare total/category scores, feedback order, page order, scoring errors, and fingerprints before/after on every representative fixture.
 
@@ -131,10 +131,10 @@
 
 **Prerequisites:** Task 3.
 
-- [ ] **Step 1: Move these exact pure methods unchanged:** `TryNormalizeHex`, `LooksLikeRedGreenPair`, `IsRedDominant`, `IsGreenDominant`, `SimulatesToSimilarUnderDeuteranopia`, `SimulateDeuteranopia`, and `HexToRgb`.
-- [ ] **Step 2: Update the three current call sites.** Accessibility scoring and visual metadata must call the new internal helper; semantic color guardrails must call the same helper.
-- [ ] **Step 3: Add direct tests.** Cover valid/invalid hex normalization, case normalization, red/green dominance, deuteranopia similarity/difference, and malformed input behavior.
-- [ ] **Step 4: Run.** `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~AccessibilityColorMathTests|FullyQualifiedName~PbirScoringServiceTests`; then run the characterization command twice.
+- [x] **Step 1: Move these exact pure methods unchanged:** `TryNormalizeHex`, `LooksLikeRedGreenPair`, `IsRedDominant`, `IsGreenDominant`, `SimulatesToSimilarUnderDeuteranopia`, `SimulateDeuteranopia`, and `HexToRgb`.
+- [x] **Step 2: Update the three current call sites.** Accessibility scoring and visual metadata must call the new internal helper; semantic color guardrails must call the same helper.
+- [x] **Step 3: Add direct tests.** Cover valid/invalid hex normalization, case normalization, red/green dominance, deuteranopia similarity/difference, and malformed input behavior.
+- [x] **Step 4: Run.** `dotnet test service-dotnet/tests/Tests.csproj -c Release --filter FullyQualifiedName~AccessibilityColorMathTests|FullyQualifiedName~PbirScoringServiceTests`; then run the characterization command twice.
 
 **Characterization requirement:** Accessibility scores, visual metadata colors, semantic color findings, evidence, and fingerprints must match the baseline.
 
