@@ -30,3 +30,5 @@ Thumbs.db
 tmp/
 .env
 .env.*
+
+Claude outputs/
