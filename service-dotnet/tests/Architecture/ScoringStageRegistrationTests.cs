@@ -37,6 +37,26 @@ public sealed class ScoringStageRegistrationTests
         Assert.Single(registry.Stages);
     }
 
+    [Fact]
+    public void ScoringSeamDoesNotReferenceTransportProviderOrMutationInfrastructure()
+    {
+        var sourceRoot = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "Services", "Pbir", "Scoring"));
+        var source = string.Join("\n", Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .Select(File.ReadAllText));
+
+        foreach (var forbiddenDependency in new[]
+        {
+            "Microsoft.VisualStudio", "VSCode", "RpcHost", "Transport", "Provider", "Authoring", "Mutation",
+            "PbirScorePanel", "ILogger", "Reflection"
+        })
+        {
+            Assert.DoesNotContain(forbiddenDependency, source, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     private sealed class TestStage(ScoringStageId id) : IScoringStage
     {
         public ScoringStageId Id { get; } = id;

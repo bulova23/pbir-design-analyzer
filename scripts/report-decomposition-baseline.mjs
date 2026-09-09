@@ -76,7 +76,7 @@ const { rows, names } = render(args.root, entries);
 const output = [
   '# Post-v1 Decomposition Baseline',
   '',
-  `Repository root: ${args.root}`,
+  'Repository root: <repository>',
   `Candidate count: ${rows.length}`,
   '',
   'The measurements below are advisory complexity signals. Candidate presence and disposition are enforced.',

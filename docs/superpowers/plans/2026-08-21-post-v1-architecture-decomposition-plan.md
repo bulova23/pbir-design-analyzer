@@ -161,7 +161,7 @@
 - [ ] **Step 1: Move pure helpers only.** Start with `getScoreTone`, `formatPoints`, `getFeedbackCriterionLabel`, finding/severity/scope/impact labels, readiness band/effort labels, fix category/state/outcome labels, and matrix status labels. Keep JSX render functions in place.
 - [ ] **Step 2: Preserve exact strings/classes.** Copy existing switch cases and fallback values byte-for-byte; do not normalize labels as part of extraction.
 - [ ] **Step 3: Add focused table tests.** Cover every enum branch and fallback path represented in current App tests.
-- [ ] **Step 4: Run.** `cd vscode-extension && npx jest webview-src/analyzer-score/presentation/scoreLabels.test.ts webview-src/analyzer-score/App.test.tsx --runInBand` and `npm run compile:webview`.
+- [ ] **Step 4: Run.** `cd vscode-extension && npx jest webview-src/analyzer-score/presentation/scoreLabels.test.ts webview-src/analyzer-score/App.test.tsx --runInBand`, `npm run build:webview`, and `npm run compile`.
 
 **Characterization requirement:** App DOM assertions, section labels, badges, fallback text, and accessibility labels remain unchanged.
 

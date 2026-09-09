@@ -1,6 +1,6 @@
 # Post-v1 Decomposition Baseline
 
-Repository root: /Users/bcrowell/Documents/GitHub/pbir-design-analyzer/.worktrees/tasks1-4-remediation-20260909
+Repository root: <repository>
 Candidate count: 9
 
 The measurements below are advisory complexity signals. Candidate presence and disposition are enforced.
@@ -9,7 +9,7 @@ The measurements below are advisory complexity signals. Candidate presence and d
 |---|---:|---|---|---:|---:|---:|---|
 | service-dotnet/Services/Discovery/LocalPbirGenerationProviderService.cs | 1974 | deferred provider | future provider program | 385 | 8 | 2 | Directory. |
 | service-dotnet/Services/Discovery/RecommendationEngineService.cs | 2568 | deferred discovery | existing discovery domain | 368 | 1 | 0 | none |
-| service-dotnet/Services/Pbir/PbirScoringService.cs | 9917 | shipped scoring | scoring orchestrator | 1219 | 7 | 35 | Console. |
+| service-dotnet/Services/Pbir/PbirScoringService.cs | 9928 | shipped scoring | scoring orchestrator | 1219 | 8 | 38 | Console. |
 | service-dotnet/Services/Pbir/ScoreResultAssemblyService.cs | 205 | shipped score boundary | authoritative result assembly | 8 | 1 | 2 | none |
 | vscode-extension/src/views/PbirScorePanel.ts | 921 | shipped host | panel lifecycle/coordinators | 84 | 37 | 0 | window., postMessage(, sendEvent( |
 | vscode-extension/src/views/scorePanelMessageRouter.ts | 174 | shipped routing | cohesive routing boundary | 5 | 4 | 0 | window. |
