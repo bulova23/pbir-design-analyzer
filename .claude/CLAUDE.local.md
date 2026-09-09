@@ -6,7 +6,7 @@ Pilot controls:
 
 - Do not read, write, refresh, or infer facts into `~/.atomic/profile.md`.
 - Do not use Atomic or Claude auto-memory, retrospective/self-sharpening learning, inter-session bus, autopilot, reminders, persistent REPLs, or automatic capture.
-- Do not install or register hooks, MCP servers, PostgreSQL connections, AI Memory integrations, or governed-memory writes.
+- Do not install or register Claude Code lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `Stop` and similar), MCP servers, PostgreSQL connections, AI Memory integrations, or governed-memory writes. Git hooks are project tooling and are permitted — this repository already ships `.githooks/` via `core.hooksPath`.
 - Treat `docs/wiki/`, signals, and `.claude/.atomic-index/` as repository-local context only.
 - Durable cross-session memory remains governed by the separate AI Memory system; Atomic context must not be promoted into it automatically.
 - Use Atomic commands only when explicitly invoked for repository inspection, context refresh, static indexing, planning, implementation guidance, or verification.
