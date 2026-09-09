@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using PowerBIModelingService.Services.Pbir.Models;
 using PowerBIModelingService.Services.Pbir.CrossPageNarrative;
+using PowerBIModelingService.Services.Pbir.Scoring;
 
 namespace PowerBIModelingService.Services.Pbir;
 
@@ -75,6 +76,7 @@ public sealed class PbirScoringService
     private readonly ScoreCompatibilityAdapter _scoreCompatibilityAdapter;
     private readonly ScoreResultAssemblyService _scoreResultAssemblyService;
     private readonly ScoringConfigurationService _scoringConfigurationService;
+    private readonly ReportAnalysisContextFactory _reportAnalysisContextFactory;
 
     /// <summary>Initializes a new instance of <see cref="PbirScoringService"/>.</summary>
     public PbirScoringService(PbirProjectService projectService, ILogger<PbirScoringService> logger)
@@ -90,6 +92,10 @@ public sealed class PbirScoringService
         _scoreCompatibilityAdapter = new ScoreCompatibilityAdapter();
         _scoreResultAssemblyService = new ScoreResultAssemblyService(_scoreCompatibilityAdapter);
         _scoringConfigurationService = new ScoringConfigurationService(_logger);
+        _reportAnalysisContextFactory = new ReportAnalysisContextFactory(
+            _reportModelLoader,
+            _themeResolutionService,
+            _scoringConfigurationService);
     }
 
     internal PbirScoringService(
@@ -103,7 +109,8 @@ public sealed class PbirScoringService
         RecommendationAssemblyService recommendationAssemblyService,
         ScoreCompatibilityAdapter scoreCompatibilityAdapter,
         ScoreResultAssemblyService scoreResultAssemblyService,
-        ScoringConfigurationService scoringConfigurationService)
+        ScoringConfigurationService scoringConfigurationService,
+        ReportAnalysisContextFactory? reportAnalysisContextFactory = null)
     {
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -116,6 +123,10 @@ public sealed class PbirScoringService
         _scoreCompatibilityAdapter = scoreCompatibilityAdapter ?? throw new ArgumentNullException(nameof(scoreCompatibilityAdapter));
         _scoreResultAssemblyService = scoreResultAssemblyService ?? throw new ArgumentNullException(nameof(scoreResultAssemblyService));
         _scoringConfigurationService = scoringConfigurationService ?? throw new ArgumentNullException(nameof(scoringConfigurationService));
+        _reportAnalysisContextFactory = reportAnalysisContextFactory ?? new ReportAnalysisContextFactory(
+            _reportModelLoader,
+            _themeResolutionService,
+            _scoringConfigurationService);
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -224,12 +235,12 @@ public sealed class PbirScoringService
         _logger.LogInformation("[Scoring] Scoring single page '{Page}' in report: {Name}", pageName, location.ReportName);
 
         var recommendations = _recommendationAssemblyService.CreateBuffer();
-        var reportModel = _reportModelLoader.LoadReportModel(location);
-        var themeColors = _themeResolutionService.ResolveThemeColors(reportModel.ReportJson, location);
-        var allPages = reportModel.Pages;
-        var reportFilters = reportModel.ReportFilters;
-        var frameworkWeights = _scoringConfigurationService.ExtractFrameworkWeights(config);
-        var navigationScoring = _scoringConfigurationService.ExtractNavigationScoringSettings(config);
+        var context = _reportAnalysisContextFactory.Create(location, config);
+        var themeColors = context.ThemeColors.ToList();
+        var allPages = context.Pages;
+        var reportFilters = context.ReportFilters;
+        var frameworkWeights = context.FrameworkWeights.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        var navigationScoring = context.NavigationScoring;
 
         // Find the requested page
         var page = allPages.FirstOrDefault(p => p.Name == pageName);
@@ -348,7 +359,7 @@ public sealed class PbirScoringService
         // per-state averages. The per-state composites surface on result.PerStateScores so the
         // panel can break out individual state quality.
         var overlay = ComputeBookmarkAwareOverlay(
-            page, reportModel.ReportJson, themeColors, navigationScoring, config, frameworkWeights);
+            page, context.CreateReportJsonSnapshot(), themeColors, navigationScoring, config, frameworkWeights);
         if (overlay is not null)
         {
             result.GestaltScore              = overlay.AveragedFrameworks["gestalt"];
@@ -418,13 +429,13 @@ public sealed class PbirScoringService
     private ScoreResult ComputeReportScore(PbirReportLocation location, JsonElement? config = null)
     {
         var recommendations = _recommendationAssemblyService.CreateBuffer();
-        var reportModel = _reportModelLoader.LoadReportModel(location);
-        var themeColors = _themeResolutionService.ResolveThemeColors(reportModel.ReportJson, location);
-        var pages = reportModel.Pages;
-        var reportFilters = reportModel.ReportFilters;
+        var context = _reportAnalysisContextFactory.Create(location, config);
+        var themeColors = context.ThemeColors.ToList();
+        var pages = context.Pages.ToList();
+        var reportFilters = context.ReportFilters;
         var reportConsistencyContext = BuildReportConsistencyContext(pages);
-        var frameworkWeights = _scoringConfigurationService.ExtractFrameworkWeights(config);
-        var navigationScoring = _scoringConfigurationService.ExtractNavigationScoringSettings(config);
+        var frameworkWeights = context.FrameworkWeights.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        var navigationScoring = context.NavigationScoring;
         var reportComposition = BuildVisualComposition(pages.SelectMany(p => p.Visuals), navigationScoring);
         bool hasDataVisuals = reportComposition.DataVisualCount > 0;
         var topLevelStoryAssessment = pages.Count == 1
@@ -590,7 +601,7 @@ public sealed class PbirScoringService
                     // Bookmark-aware overlay: replace per-framework scores with state averages when
                     // bookmarks affect this page, and surface the per-state composite map.
                     var pageOverlay = ComputeBookmarkAwareOverlay(
-                        page, reportModel.ReportJson, themeColors, navigationScoring, config, frameworkWeights);
+                        page, context.CreateReportJsonSnapshot(), themeColors, navigationScoring, config, frameworkWeights);
 
                     var finalGestalt        = pageOverlay?.AveragedFrameworks["gestalt"]              ?? Clamp(pGestalt);
                     var finalCogLoad        = pageOverlay?.AveragedFrameworks["cognitiveLoad"]        ?? Clamp(pCogLoad);
