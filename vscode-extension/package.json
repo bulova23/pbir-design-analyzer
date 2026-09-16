@@ -301,7 +301,11 @@
     "validate:docs": "node ../scripts/validate-documentation.mjs",
     "create:artifact-manifest": "node ../scripts/create-artifact-manifest.mjs"
   },
+  "overrides": {
+    "glob": "^13.0.6"
+  },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/jest": "^30.0.0",
@@ -318,13 +322,14 @@
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.25.12",
-    "eslint": "^8.54.0",
-    "jest": "^30.4.0",
-    "jest-environment-jsdom": "^30.4.0",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "jest": "^30.5.1",
+    "jest-environment-jsdom": "^30.5.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "sinon": "^17.0.1",
-    "ts-jest": "^29.4.9",
+    "ts-jest": "^29.4.12",
     "typescript": "^5.3.0",
     "vite": "^6.4.2"
   },

@@ -7,9 +7,6 @@ import type {
   AuditState,
   BenchmarkComparisonSummary,
   FixOpportunity,
-  FixOpportunityCategory,
-  FixOpportunityState,
-  FixOutcomeStatus,
   FindingType,
   FrameworkFeedbackItem,
   IntentFeedbackConfirmation,
@@ -52,6 +49,24 @@ import {
   getProposalEnrichmentSummary,
   hasProposalEnrichmentContent,
 } from './proposalEnrichment';
+import {
+  formatPoints,
+  getFeedbackCriterionLabel,
+  getFindingTypeClassName,
+  getFindingTypeLabel,
+  getFixOpportunityCategoryLabel,
+  getFixOpportunityStateLabel,
+  getFixOutcomeStatusLabel,
+  getImpactAreaLabel,
+  getMatrixStatusClassName,
+  getMatrixStatusLabel,
+  getNormalizedFindingSeverityClassName,
+  getNormalizedFindingSeverityLabel,
+  getReadinessBandLabel,
+  getReadinessEffortLabel,
+  getScopeLabel,
+  getScoreTone,
+} from './presentation/scoreLabels';
 
 interface ScoreVsCodeApi {
   postMessage(message: unknown): void;
@@ -127,18 +142,6 @@ function isZeroScore(result: ScoreResult): boolean {
   );
 }
 
-function getScoreTone(score: number): string {
-  if (score >= 75) {
-    return 'tone-good';
-  }
-
-  if (score >= 50) {
-    return 'tone-warn';
-  }
-
-  return 'tone-bad';
-}
-
 function averageFrameworkScore(pageScores: PageScore[], normalizedKey: string): number {
   if (pageScores.length === 0) {
     return 0;
@@ -160,38 +163,6 @@ function isScoredFeedbackItem(
   item: FrameworkFeedbackItem,
 ): item is FrameworkFeedbackItem & { earnedPoints: number; possiblePoints: number } {
   return typeof item.earnedPoints === 'number' && typeof item.possiblePoints === 'number';
-}
-
-function getFeedbackCriterionLabel(text: string): string {
-  const separatorIndex = text.indexOf(':');
-  return separatorIndex > 0 ? text.slice(0, separatorIndex).trim() : text.trim();
-}
-
-function formatPoints(points: number): string {
-  const rounded = Math.round(points * 10) / 10;
-  return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
-}
-
-function getFindingTypeLabel(findingType: FindingType): string {
-  switch (findingType) {
-    case 'objective':
-      return 'Objective';
-    case 'stylePreference':
-      return 'Style';
-    default:
-      return 'Heuristic';
-  }
-}
-
-function getFindingTypeClassName(findingType: FindingType): string {
-  switch (findingType) {
-    case 'objective':
-      return 'finding-badge-objective';
-    case 'stylePreference':
-      return 'finding-badge-style';
-    default:
-      return 'finding-badge-heuristic';
-  }
 }
 
 function renderFindingBadge(findingType: FindingType): React.ReactNode {
@@ -261,53 +232,6 @@ function getNormalizedFindingSeverityOrder(severity: NormalizedFindingSeverity):
     default:
       return 3;
   }
-}
-
-function getNormalizedFindingSeverityLabel(severity: NormalizedFindingSeverity): string {
-  switch (severity) {
-    case 'high':
-      return 'High severity';
-    case 'medium':
-      return 'Medium severity';
-    case 'low':
-      return 'Low severity';
-    default:
-      return 'Informational';
-  }
-}
-
-function getNormalizedFindingSeverityClassName(severity: NormalizedFindingSeverity): string {
-  switch (severity) {
-    case 'high':
-      return 'issue-severity-high';
-    case 'medium':
-      return 'issue-severity-medium';
-    case 'low':
-      return 'issue-severity-low';
-    default:
-      return 'issue-severity-info';
-  }
-}
-
-function getReadinessBandLabel(band: NonNullable<ScoreResult['readinessAssessment']>['readinessBand']): string {
-  switch (band) {
-    case 'strongCandidate':
-      return 'Strong Candidate';
-    case 'possibleCandidate':
-      return 'Possible Candidate';
-    case 'redesignRequired':
-      return 'Redesign Required';
-    default:
-      return 'Keep As Report';
-  }
-}
-
-function getReadinessEffortLabel(effort: ReadinessAssessment['estimatedRedesignEffort'] | undefined): string {
-  if (!effort) {
-    return 'Unknown';
-  }
-
-  return effort[0].toUpperCase() + effort.slice(1);
 }
 
 function buildReadinessPageSummary(pageAssessment: ReadinessPageAssessment): string {
@@ -500,57 +424,6 @@ function renderReadinessOverviewCallout(callout: ReadinessOverviewCallout): Reac
   );
 }
 
-function getFixOpportunityCategoryLabel(category: FixOpportunityCategory): string {
-  switch (category) {
-    case 'title':
-      return 'Title';
-    case 'semanticColor':
-      return 'Semantic color';
-    case 'alignment':
-      return 'Alignment';
-    case 'spacing':
-      return 'Spacing';
-    case 'grid':
-      return 'Grid';
-    case 'navigation':
-      return 'Navigation';
-    default:
-      return 'Cross-page consistency';
-  }
-}
-
-function getFixOpportunityStateLabel(state: FixOpportunityState): string {
-  switch (state) {
-    case 'Previewed':
-      return 'Previewed';
-    case 'Approved':
-      return 'Approved';
-    case 'Applied':
-      return 'Applied';
-    case 'RolledBack':
-      return 'Rolled back';
-    case 'Stale':
-      return 'Stale';
-    case 'FailedValidation':
-      return 'Failed validation';
-    default:
-      return 'Applied with unexpected outcome';
-  }
-}
-
-function getFixOutcomeStatusLabel(status: FixOutcomeStatus): string {
-  switch (status) {
-    case 'Resolved':
-      return 'Resolved';
-    case 'Improved':
-      return 'Improved';
-    case 'Unchanged':
-      return 'Unchanged';
-    default:
-      return 'Unexpected';
-  }
-}
-
 function remediationMatchesOpportunity(
   item: ContextAwareRemediationQueue['items'][number],
   opportunity: FixOpportunity,
@@ -590,24 +463,6 @@ function getDetectionTypeLabel(detectionType: NormalizedFinding['detectionType']
       return 'Mixed';
     default:
       return 'Deterministic';
-  }
-}
-
-function getScopeLabel(scope: NormalizedFinding['scope']): string {
-  switch (scope) {
-    case 'crossPage':
-      return 'Cross-page';
-    default:
-      return scope[0].toUpperCase() + scope.slice(1);
-  }
-}
-
-function getImpactAreaLabel(impactArea: NormalizedFinding['impactArea']): string {
-  switch (impactArea) {
-    case 'kpiEffectiveness':
-      return 'KPI effectiveness';
-    default:
-      return impactArea[0].toUpperCase() + impactArea.slice(1);
   }
 }
 
@@ -655,23 +510,6 @@ function getReadinessRoleLabel(role: Exclude<IssueFilterState['readinessRole'], 
     default:
       return 'Visualization opportunity';
   }
-}
-
-function getMatrixStatusClassName(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
-  switch (status) {
-    case 'weak':
-      return 'matrix-status-weak';
-    case 'watch':
-      return 'matrix-status-watch';
-    case 'strong':
-      return 'matrix-status-strong';
-    default:
-      return 'matrix-status-unknown';
-  }
-}
-
-function getMatrixStatusLabel(status: NonNullable<ScoreResult['crossPageMatrix']>['rows'][number]['cells'][number]['status']): string {
-  return status[0].toUpperCase() + status.slice(1);
 }
 
 function mapDimensionToImpactAreas(dimension: Exclude<IssueFilterState['dimension'], 'all'>): NormalizedFinding['impactArea'][] {
